@@ -14,6 +14,7 @@ public class AnimationSettingsScreen extends Screen {
     private boolean inAnimPage = false;
     private boolean inOtherPage = false;
     private boolean inHitMarkerPage = false;
+    private boolean inTargetHudPage = false;
 
     public AnimationSettingsScreen(Screen lastScreen) {
         super(Component.literal(AnimationConfig.isChinese ? "OldAnimation 设置" : "OldAnimation Settings"));
@@ -27,6 +28,8 @@ public class AnimationSettingsScreen extends Screen {
             initAnimPage();
         } else if (inHitMarkerPage) {
             initHitMarkerPage();
+        } else if (inTargetHudPage) {
+            initTargetHudPage();
         } else if (inOtherPage) {
             initOtherPage();
         } else {
@@ -71,6 +74,11 @@ public class AnimationSettingsScreen extends Screen {
                     AnimationConfig.hitSound = true;
                     AnimationConfig.damageRecord = true;
                     AnimationConfig.lowHealthNotify = true;
+                    AnimationConfig.targetHud = false;
+                    AnimationConfig.fallDamagePredict = false;
+                    AnimationConfig.targetHudX = -300f;
+                    AnimationConfig.targetHudY = -100f;
+                    AnimationConfig.targetHudZ = 0f;
                     AnimationConfig.hitSoundType = AnimationConfig.HitSoundType.NETHERITE;
                     AnimationConfig.hitSoundCondition = AnimationConfig.HitSoundCondition.BOTH;
                     AnimationConfig.animationMode = AnimationConfig.AnimMode.MODE_1_7;
@@ -217,6 +225,24 @@ public class AnimationSettingsScreen extends Screen {
 
         currentY += 25;
         this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "目标HUD..." : "Target HUD..."),
+                (button) -> {
+                    inTargetHudPage = true;
+                    inOtherPage = false;
+                    this.init();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 25;
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "摔落伤害预测" : "Fall Damage Predict", AnimationConfig.fallDamagePredict, cn)),
+                (button) -> {
+                    AnimationConfig.fallDamagePredict = !AnimationConfig.fallDamagePredict;
+                    button.setMessage(Component.literal(getToggleText(cn ? "摔落伤害预测" : "Fall Damage Predict", AnimationConfig.fallDamagePredict, cn)));
+                    AnimationConfig.save();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 25;
+        this.addRenderableWidget(Button.builder(
                 Component.literal(getToggleText(cn ? "伤害数值记录" : "Damage Record", AnimationConfig.damageRecord, cn)),
                 (button) -> {
                     AnimationConfig.damageRecord = !AnimationConfig.damageRecord;
@@ -291,6 +317,52 @@ public class AnimationSettingsScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
             inHitMarkerPage = false;
+            inOtherPage = true;
+            this.init();
+        }).bounds(centerX - 75, centerY + 100, 150, 20).build());
+    }
+
+    private void initTargetHudPage() {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        boolean cn = AnimationConfig.isChinese;
+
+        int currentY = centerY - 85;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "目标HUD" : "Target HUD", AnimationConfig.targetHud, cn)),
+                (button) -> {
+                    AnimationConfig.targetHud = !AnimationConfig.targetHud;
+                    AnimationConfig.save();
+                    this.init();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 30;
+
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), (AnimationConfig.targetHudX + 500f) / 1000f) {
+            { updateMessage(); }
+            @Override protected void updateMessage() { this.setMessage(Component.literal("HUD X: " + String.format(Locale.ROOT, "%.0f", AnimationConfig.targetHudX))); }
+            @Override protected void applyValue() { AnimationConfig.targetHudX = (float) (this.value * 1000.0 - 500.0); AnimationConfig.save(); }
+        });
+
+        currentY += 25;
+
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), (AnimationConfig.targetHudY + 500f) / 1000f) {
+            { updateMessage(); }
+            @Override protected void updateMessage() { this.setMessage(Component.literal("HUD Y: " + String.format(Locale.ROOT, "%.0f", AnimationConfig.targetHudY))); }
+            @Override protected void applyValue() { AnimationConfig.targetHudY = (float) (this.value * 1000.0 - 500.0); AnimationConfig.save(); }
+        });
+
+        currentY += 25;
+
+        this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), (AnimationConfig.targetHudZ + 500f) / 1000f) {
+            { updateMessage(); }
+            @Override protected void updateMessage() { this.setMessage(Component.literal("HUD Z: " + String.format(Locale.ROOT, "%.0f", AnimationConfig.targetHudZ))); }
+            @Override protected void applyValue() { AnimationConfig.targetHudZ = (float) (this.value * 1000.0 - 500.0); AnimationConfig.save(); }
+        });
+
+        this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
+            inTargetHudPage = false;
             inOtherPage = true;
             this.init();
         }).bounds(centerX - 75, centerY + 100, 150, 20).build());

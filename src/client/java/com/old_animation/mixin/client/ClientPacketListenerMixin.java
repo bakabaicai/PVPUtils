@@ -2,6 +2,7 @@ package com.old_animation.mixin.client;
 
 import com.old_animation.DamageRecordHandler;
 import com.old_animation.client.gui.HitMarkerRenderer;
+import com.old_animation.client.gui.TargetHudRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
@@ -20,7 +21,7 @@ public class ClientPacketListenerMixin {
         Minecraft client = Minecraft.getInstance();
         if (client.level != null && client.player != null) {
             Entity target = client.level.getEntity(packet.entityId());
-            if (target instanceof LivingEntity && packet.sourceCauseId() == client.player.getId()) {
+            if (target instanceof LivingEntity livingTarget && packet.sourceCauseId() == client.player.getId()) {
                 Entity source = client.level.getEntity(packet.sourceDirectId());
                 boolean isRanged = source instanceof Projectile;
 
@@ -42,7 +43,8 @@ public class ClientPacketListenerMixin {
 
                 client.execute(() -> {
                     HitMarkerRenderer.getInstance().onHit(isRanged, finalColor);
-                    DamageRecordHandler.showDamage(target, finalDamage, isRanged);
+                    DamageRecordHandler.showDamage(livingTarget, finalDamage, isRanged);
+                    TargetHudRenderer.getInstance().onHit(livingTarget);
                 });
             }
         }

@@ -3,6 +3,8 @@ package com.old_animation.mixin.client;
 import com.old_animation.TitleDetector;
 import com.old_animation.client.gui.NotificationOverlay;
 import com.old_animation.client.gui.HitMarkerRenderer;
+import com.old_animation.client.gui.TargetHudRenderer;
+import com.old_animation.client.gui.FallDamagePredictor;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;
@@ -29,5 +31,7 @@ public class GuiMixin {
     private void onRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         NotificationOverlay.getInstance().render(guiGraphics);
         HitMarkerRenderer.getInstance().render(guiGraphics);
+        TargetHudRenderer.getInstance().render(guiGraphics);
+        FallDamagePredictor.getInstance().render(guiGraphics);
     }
 }
