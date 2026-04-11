@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.old_animation.mixin",
+  "package": "com.pvp_utils.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
   "injectors": {

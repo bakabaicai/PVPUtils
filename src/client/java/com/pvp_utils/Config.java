@@ -1,11 +1,11 @@
-package com.old_animation;
+package com.pvp_utils;
 
 import net.fabricmc.loader.api.FabricLoader;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.Properties;
 
-public class AnimationConfig {
+public class Config {
     public static boolean autoMode = false;
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
@@ -34,7 +34,7 @@ public class AnimationConfig {
     public static float offsetY = 0.0f;
     public static float offsetZ = 0.0f;
 
-    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("old_animation.properties");
+    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pvp_utils.properties");
 
     public static void load() {
         if (!CONFIG_FILE.toFile().exists()) return;

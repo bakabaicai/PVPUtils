@@ -1,6 +1,6 @@
-package com.old_animation.mixin.client;
+package com.pvp_utils.mixin.client;
 
-import com.old_animation.client.gui.AnimationSettingsScreen;
+import com.pvp_utils.client.gui.SettingsScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.components.Button;
@@ -16,8 +16,8 @@ public abstract class AbstractContainerScreenMixin extends Screen {
 
     @Inject(method = "init", at = @At("TAIL"))
     private void addGlobalSettingsButton(CallbackInfo ci) {
-        this.addRenderableWidget(Button.builder(Component.literal("OldAnimation"), (button) -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new AnimationSettingsScreen(this));
+        this.addRenderableWidget(Button.builder(Component.literal("PVPUtils"), (button) -> {
+            if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this));
         }).bounds(this.width - 82, 2, 80, 20).build());
     }
 }

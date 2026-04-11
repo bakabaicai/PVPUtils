@@ -1,4 +1,4 @@
-package com.old_animation;
+package com.pvp_utils;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -6,32 +6,32 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.old_animation.client.gui.NotificationOverlay;
+import com.pvp_utils.client.gui.NotificationOverlay;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-public class OldAnimationClient implements ClientModInitializer {
+public class PVPUtilsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        AnimationConfig.load();
+        Config.load();
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("oldanimation")
                     .then(ClientCommandManager.literal("auto")
                             .then(ClientCommandManager.argument("enabled", BoolArgumentType.bool())
                                     .executes(context -> {
-                                        AnimationConfig.autoMode = BoolArgumentType.getBool(context, "enabled");
-                                        AnimationConfig.save();
-                                        context.getSource().sendFeedback(Component.literal("Auto mode: " + AnimationConfig.autoMode));
+                                        Config.autoMode = BoolArgumentType.getBool(context, "enabled");
+                                        Config.save();
+                                        context.getSource().sendFeedback(Component.literal("Auto mode: " + Config.autoMode));
                                         return 1;
                                     })))
                     .then(ClientCommandManager.literal("range")
                             .then(ClientCommandManager.argument("value", DoubleArgumentType.doubleArg(0, 10))
                                     .executes(context -> {
-                                        AnimationConfig.range = DoubleArgumentType.getDouble(context, "value");
-                                        AnimationConfig.save();
-                                        context.getSource().sendFeedback(Component.literal("Range set to: " + AnimationConfig.range));
+                                        Config.range = DoubleArgumentType.getDouble(context, "value");
+                                        Config.save();
+                                        context.getSource().sendFeedback(Component.literal("Range set to: " + Config.range));
                                         return 1;
                                     })))
             );

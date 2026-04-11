@@ -1,4 +1,4 @@
-package com.old_animation;
+package com.pvp_utils;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -11,14 +11,14 @@ public class DamageRecordHandler {
     private static final long COOLDOWN = 10;
 
     public static void showDamage(Entity target, float damage, boolean isRanged) {
-        if (!AnimationConfig.damageRecord) return;
+        if (!Config.damageRecord) return;
 
         long now = System.currentTimeMillis();
         if (now - lastRecordTime < COOLDOWN) return;
         lastRecordTime = now;
 
         Minecraft client = Minecraft.getInstance();
-        boolean cn = AnimationConfig.isChinese;
+        boolean cn = Config.isChinese;
 
         MutableComponent targetText = Component.literal(target.getDisplayName().getString())
                 .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);

@@ -22,7 +22,7 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        "old-animation" {
+        "PVPUtils" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
         }

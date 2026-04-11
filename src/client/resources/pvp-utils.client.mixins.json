@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "com.old_animation.mixin.client",
+  "package": "com.pvp_utils.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ItemInHandRendererMixin",

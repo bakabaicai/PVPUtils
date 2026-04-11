@@ -1,6 +1,6 @@
-package com.old_animation.client.gui;
+package com.pvp_utils.client.gui;
 
-import com.old_animation.AnimationConfig;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.sounds.SoundEvents;
@@ -16,24 +16,24 @@ public class HitMarkerRenderer {
     }
 
     public void onHit(boolean isRanged, int color) {
-        if (AnimationConfig.hitMarker) {
+        if (Config.hitMarker) {
             this.hitTime = System.currentTimeMillis();
             this.currentColor = color;
 
-            if (AnimationConfig.hitSound) {
+            if (Config.hitSound) {
                 boolean shouldPlay = false;
-                if (AnimationConfig.hitSoundCondition == AnimationConfig.HitSoundCondition.BOTH) {
+                if (Config.hitSoundCondition == Config.HitSoundCondition.BOTH) {
                     shouldPlay = true;
-                } else if (AnimationConfig.hitSoundCondition == AnimationConfig.HitSoundCondition.MELEE && !isRanged) {
+                } else if (Config.hitSoundCondition == Config.HitSoundCondition.MELEE && !isRanged) {
                     shouldPlay = true;
-                } else if (AnimationConfig.hitSoundCondition == AnimationConfig.HitSoundCondition.RANGED && isRanged) {
+                } else if (Config.hitSoundCondition == Config.HitSoundCondition.RANGED && isRanged) {
                     shouldPlay = true;
                 }
 
                 if (shouldPlay) {
                     Minecraft client = Minecraft.getInstance();
                     if (client.player != null) {
-                        if (AnimationConfig.hitSoundType == AnimationConfig.HitSoundType.NETHERITE) {
+                        if (Config.hitSoundType == Config.HitSoundType.NETHERITE) {
                             client.player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 1.0F);
                         } else {
                             client.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F, 0.5F);
@@ -45,7 +45,7 @@ public class HitMarkerRenderer {
     }
 
     public void render(GuiGraphics graphics) {
-        if (!AnimationConfig.hitMarker || hitTime == 0) return;
+        if (!Config.hitMarker || hitTime == 0) return;
 
         long elapsed = System.currentTimeMillis() - hitTime;
         if (elapsed > DURATION) {

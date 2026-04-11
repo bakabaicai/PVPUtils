@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "old-animation",
+  "id": "pvp-utils",
   "version": "${version}",
-  "name": "Old Animation",
-  "description": "OldAnimation - 一个基于 GPL v3 协议开源的旧动画模组。注：使用代码请标注出处。",
+  "name": "PVPUtils",
+  "description": "PVPUtils - 一个基于 GPL v3 协议开源的旧动画模组。注：使用代码请标注出处。",
   "authors": [
     "Nachoneko_miao"
   ],
@@ -12,20 +12,20 @@
     "sources": "https://github.com/bakabaicai/Old-Animation"
   },
   "license": "GPL-3.0-only",
-  "icon": "assets/old-animation/icon.png",
+  "icon": "assets/pvp-utils/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.old_animation.OldAnimation"
+      "com.pvp_utils.PVPUtils"
     ],
     "client": [
-      "com.old_animation.OldAnimationClient"
+      "com.pvp_utils.PVPUtilsClient"
     ]
   },
   "mixins": [
-    "old-animation.mixins.json",
+    "pvp-utils.mixins.json",
     {
-      "config": "old-animation.client.mixins.json",
+      "config": "pvp-utils.client.mixins.json",
       "environment": "client"
     }
   ],

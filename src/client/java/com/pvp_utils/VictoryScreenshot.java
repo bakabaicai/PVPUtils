@@ -1,11 +1,10 @@
-package com.old_animation;
+package com.pvp_utils;
 
-import com.old_animation.client.gui.NotificationOverlay;
+import com.pvp_utils.client.gui.NotificationOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.multiplayer.ServerData;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -21,7 +20,7 @@ public class VictoryScreenshot {
     private static final long COOLDOWN_MS = 5000;
 
     public static void tryCapture() {
-        if (!AnimationConfig.autoScreenshot) return;
+        if (!Config.autoScreenshot) return;
 
         long now = System.currentTimeMillis();
         if (now - lastShotTime < COOLDOWN_MS) return;
@@ -67,7 +66,7 @@ public class VictoryScreenshot {
                     if (Files.exists(target)) {
                         Files.delete(source);
                         client.execute(() -> {
-                            String msg = AnimationConfig.isChinese ? "截图已保存至桌面" : "Screenshot saved to desktop";
+                            String msg = Config.isChinese ? "截图已保存至桌面" : "Screenshot saved to desktop";
                             NotificationOverlay.getInstance().show(msg, 0xFFFFFF);
                         });
                     }

@@ -1,10 +1,10 @@
-package com.old_animation.mixin.client;
+package com.pvp_utils.mixin.client;
 
-import com.old_animation.TitleDetector;
-import com.old_animation.client.gui.NotificationOverlay;
-import com.old_animation.client.gui.HitMarkerRenderer;
-import com.old_animation.client.gui.TargetHudRenderer;
-import com.old_animation.client.gui.FallDamagePredictor;
+import com.pvp_utils.TitleDetector;
+import com.pvp_utils.client.gui.NotificationOverlay;
+import com.pvp_utils.client.gui.HitMarkerRenderer;
+import com.pvp_utils.client.gui.TargetHudRenderer;
+import com.pvp_utils.client.gui.FallDamagePredictor;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;

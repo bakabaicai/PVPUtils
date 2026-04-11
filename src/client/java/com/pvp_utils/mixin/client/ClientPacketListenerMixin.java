@@ -1,8 +1,8 @@
-package com.old_animation.mixin.client;
+package com.pvp_utils.mixin.client;
 
-import com.old_animation.DamageRecordHandler;
-import com.old_animation.client.gui.HitMarkerRenderer;
-import com.old_animation.client.gui.TargetHudRenderer;
+import com.pvp_utils.DamageRecordHandler;
+import com.pvp_utils.client.gui.HitMarkerRenderer;
+import com.pvp_utils.client.gui.TargetHudRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;

@@ -1,6 +1,6 @@
-package com.old_animation.client.gui;
+package com.pvp_utils.client.gui;
 
-import com.old_animation.AnimationConfig;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
@@ -28,7 +28,7 @@ public class FallDamagePredictor {
     }
 
     public void render(GuiGraphics graphics) {
-        if (!AnimationConfig.fallDamagePredict) return;
+        if (!Config.fallDamagePredict) return;
 
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null) return;
@@ -80,7 +80,7 @@ public class FallDamagePredictor {
 
         if (afterArmor <= 0) return;
 
-        boolean cn = AnimationConfig.isChinese;
+        boolean cn = Config.isChinese;
         boolean lethal = afterArmor >= player.getHealth();
         String text = (cn ? "预测伤害: " : "Predicted Damage: ") + String.format("%.1f", afterArmor)
                 + (lethal ? (cn ? " (致死)" : " (Lethal)") : "");

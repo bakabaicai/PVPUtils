@@ -1,4 +1,4 @@
-package com.old_animation;
+package com.pvp_utils;
 
 public class TitleDetector {
     private static final String[] KEYWORDS = {"victory", "胜利", "获胜", "恭喜"};

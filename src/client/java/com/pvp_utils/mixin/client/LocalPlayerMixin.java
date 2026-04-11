@@ -1,6 +1,6 @@
-package com.old_animation.mixin.client;
+package com.pvp_utils.mixin.client;
 
-import com.old_animation.AnimationConfig;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
@@ -18,7 +18,7 @@ public class LocalPlayerMixin {
     @Inject(method = "aiStep", at = @At("HEAD"))
     private void handleUseSwingInput(CallbackInfo ci) {
         LocalPlayer player = (LocalPlayer) (Object) this;
-        if (AnimationConfig.useSwing && player.isUsingItem()) {
+        if (Config.useSwing && player.isUsingItem()) {
             if (this.minecraft.options.keyAttack.isDown()) {
                 if (player.swingTime <= 0) {
                     player.swing(InteractionHand.MAIN_HAND);

@@ -1,7 +1,7 @@
-package com.old_animation.mixin.client;
+package com.pvp_utils.mixin.client;
 
-import com.old_animation.AnimationConfig;
-import com.old_animation.LowHealthHandler;
+import com.pvp_utils.Config;
+import com.pvp_utils.LowHealthHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -29,20 +29,20 @@ public abstract class LivingEntityMixin {
     private void modifySwingDuration(CallbackInfoReturnable<Integer> cir) {
         if ((Object) this instanceof Player) {
             int original = cir.getReturnValue();
-            cir.setReturnValue((int) (original / AnimationConfig.animSpeed));
+            cir.setReturnValue((int) (original / Config.animSpeed));
         }
     }
 
     @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;Z)V", at = @At("HEAD"), cancellable = true)
     private void preventSwingReset(CallbackInfo ci) {
-        if ((Object) this instanceof Player && this.swingTime > 0 && AnimationConfig.animSpeed < 1.0f) {
+        if ((Object) this instanceof Player && this.swingTime > 0 && Config.animSpeed < 1.0f) {
             ci.cancel();
         }
     }
 
     @Inject(method = "isUsingItem", at = @At("HEAD"), cancellable = true)
     private void trickIsUsingItemForSwing(CallbackInfoReturnable<Boolean> cir) {
-        if (AnimationConfig.useSwing && (Object) this instanceof Player) {
+        if (Config.useSwing && (Object) this instanceof Player) {
             StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
             for (StackTraceElement element : stackTrace) {
                 String methodName = element.getMethodName();

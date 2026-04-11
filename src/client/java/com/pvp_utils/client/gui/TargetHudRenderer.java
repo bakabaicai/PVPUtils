@@ -1,6 +1,6 @@
-package com.old_animation.client.gui;
+package com.pvp_utils.client.gui;
 
-import com.old_animation.AnimationConfig;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
@@ -37,7 +37,7 @@ public class TargetHudRenderer {
     }
 
     public void onHit(LivingEntity entity) {
-        if (!AnimationConfig.targetHud) return;
+        if (!Config.targetHud) return;
 
         long now = System.currentTimeMillis();
 
@@ -51,9 +51,13 @@ public class TargetHudRenderer {
     }
 
     public void render(GuiGraphics graphics) {
-        if (!AnimationConfig.targetHud || target == null) return;
+        if (!Config.targetHud || target == null) return;
 
         long now = System.currentTimeMillis();
+
+        if (!target.isAlive() && now - lastHitTime < HIDE_DELAY) {
+            lastHitTime = now - HIDE_DELAY;
+        }
 
         float fadeIn = (float) (now - appearanceTime) / ANIM_DURATION;
         float fadeOut = 1.0f - (float) (now - (lastHitTime + HIDE_DELAY)) / ANIM_DURATION;
@@ -61,7 +65,7 @@ public class TargetHudRenderer {
         float alpha = Mth.clamp(Math.min(fadeIn, fadeOut), 0.0f, 1.0f);
 
         if (alpha <= 0.0f) {
-            if (now - lastHitTime > HIDE_DELAY) {
+            if (now - lastHitTime > HIDE_DELAY || !target.isAlive()) {
                 isFullyHidden = true;
                 target = null;
             }
@@ -72,8 +76,8 @@ public class TargetHudRenderer {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
 
-        int x = (int) (screenW * 0.5f + AnimationConfig.targetHudX);
-        int y = (int) (screenH * 0.5f + AnimationConfig.targetHudY);
+        int x = (int) (screenW * 0.5f + Config.targetHudX);
+        int y = (int) (screenH * 0.5f + Config.targetHudY);
         x = Math.max(0, Math.min(x, screenW - HUD_WIDTH));
         y = Math.max(0, Math.min(y, screenH - HUD_HEIGHT));
 
@@ -91,6 +95,24 @@ public class TargetHudRenderer {
         int iconX = avatarX + (AVATAR_SIZE - 16) / 2;
         int iconY = avatarY + (AVATAR_SIZE - 16) / 2;
 
+        float scale = 1.0f;
+        float flashAlphaFactor = 0.0f;
+        long damageElapsed = now - lastDamageTime;
+        if (damageElapsed < DAMAGE_FLASH_DURATION) {
+            float damageFactor = (float) damageElapsed / DAMAGE_FLASH_DURATION;
+            float scaleProgress = (float) Math.sin(damageFactor * Math.PI);
+            scale = 1.0f - scaleProgress * 0.2f;
+            flashAlphaFactor = 1.0f - damageFactor;
+        }
+
+        graphics.pose().pushMatrix();
+        float centerX = avatarX + AVATAR_SIZE * 0.5f;
+        float centerY = avatarY + AVATAR_SIZE * 0.5f;
+
+        graphics.pose().translate(centerX, centerY);
+        graphics.pose().scale(scale, scale);
+        graphics.pose().translate(-centerX, -centerY);
+
         if (target instanceof Player player) {
             try {
                 PlayerSkin skin = client.getSkinManager().createLookup(player.getGameProfile(), false).get();
@@ -107,13 +129,12 @@ public class TargetHudRenderer {
             }
         }
 
-        long damageElapsed = now - lastDamageTime;
-        if (damageElapsed < DAMAGE_FLASH_DURATION) {
-            float damageFactor = 1.0f - (float) damageElapsed / DAMAGE_FLASH_DURATION;
-            int damageAlphaInt = (int) (alphaInt * damageFactor * 0.6f);
+        if (flashAlphaFactor > 0.0f) {
+            int damageAlphaInt = (int) (alphaInt * flashAlphaFactor * 0.6f);
             int flashColor = (damageAlphaInt << 24) | 0xFF0000;
             graphics.fill(avatarX, avatarY, avatarX2, avatarY2, flashColor);
         }
+        graphics.pose().popMatrix();
 
         int infoX = avatarX + AVATAR_SIZE + PADDING;
         int infoW = HUD_WIDTH - BORDER - PADDING - AVATAR_SIZE - PADDING * 2 - BORDER;
@@ -124,6 +145,13 @@ public class TargetHudRenderer {
 
         float maxHealth = target.getMaxHealth();
         float currentHealth = target.getHealth();
+
+        int scoreboardHealth = TargetScoreboardUtil.getBelowNameHealth(target);
+        if (scoreboardHealth != -1) {
+            currentHealth = (float) scoreboardHealth;
+            if (currentHealth > maxHealth) maxHealth = currentHealth;
+        }
+
         float ratio = maxHealth > 0 ? Math.max(0, Math.min(1, currentHealth / maxHealth)) : 0;
 
         int barY = y + HUD_HEIGHT - PADDING - 6;
@@ -136,6 +164,15 @@ public class TargetHudRenderer {
             int hColor = getHealthColor(ratio);
             int hColorWithAlpha = alphaBits | (hColor & 0xFFFFFF);
             graphics.fill(infoX, barY, infoX + filledW, barY + 5, hColorWithAlpha);
+        }
+
+        if (client.player != null) {
+            float selfHealth = client.player.getHealth();
+            String statusText = selfHealth > currentHealth ? "W" : "L";
+            int statusColor = selfHealth > currentHealth ? (alphaBits | 0x55FF55) : (alphaBits | 0xFF5555);
+
+            int textWidth = client.font.width(statusText);
+            graphics.drawString(client.font, Component.literal(statusText), x + HUD_WIDTH - PADDING - textWidth, y + PADDING + 2, statusColor, false);
         }
     }
 
