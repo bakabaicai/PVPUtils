@@ -3,13 +3,13 @@
   "id": "pvp-utils",
   "version": "${version}",
   "name": "PVPUtils",
-  "description": "PVPUtils - 一个基于 GPL v3 协议开源的旧动画模组。注：使用代码请标注出处。",
+  "description": "A mod that brings many practical small features to high-version Minecraft PVP.",
   "authors": [
     "Nachoneko_miao"
   ],
   "contact": {
     "homepage": "https://space.bilibili.com/3546915648047958",
-    "sources": "https://github.com/bakabaicai/Old-Animation"
+    "sources": "https://github.com/bakabaicai/PVPUtils"
   },
   "license": "GPL-3.0-only",
   "icon": "assets/pvp-utils/icon.png",
