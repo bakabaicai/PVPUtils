@@ -11,6 +11,8 @@ public class VictorySound {
     private static final Path EXTERNAL_PATH = FabricLoader.getInstance().getGameDir().resolve("PVPUtils/sounds");
     private static final String[] BUILTIN_SOUNDS = {"ACE.wav", "Clutch.wav", "Dominating.wav", "Rampage.wav", "Flawless.wav"};
     private static String lastPlayed = "";
+    private static long lastPlayTime = 0;
+    private static final long PLAY_COOLDOWN = 5000;
 
     public static void init() {
         try {
@@ -34,7 +36,13 @@ public class VictorySound {
     }
 
     public static void play() {
-        if (!Config.hitSound) return;
+        if (!Config.victorySound) return;
+
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPlayTime < PLAY_COOLDOWN) {
+            return;
+        }
+        lastPlayTime = currentTime;
 
         File folder = EXTERNAL_PATH.toFile();
         File[] files = folder.listFiles((dir, name) ->
