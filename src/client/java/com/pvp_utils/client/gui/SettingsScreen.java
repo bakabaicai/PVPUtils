@@ -15,6 +15,7 @@ public class SettingsScreen extends Screen {
     private boolean inOtherPage = false;
     private boolean inHitMarkerPage = false;
     private boolean inTargetHudPage = false;
+    private boolean inSneakPage = false;
 
     public SettingsScreen(Screen lastScreen) {
         super(Component.literal(Config.isChinese ? "PVPUtils 设置" : "PVPUtils Settings"));
@@ -30,6 +31,8 @@ public class SettingsScreen extends Screen {
             initHitMarkerPage();
         } else if (inTargetHudPage) {
             initTargetHudPage();
+        } else if (inSneakPage) {
+            initSneakPage();
         } else if (inOtherPage) {
             initOtherPage();
         } else {
@@ -47,6 +50,7 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     inAnimPage = true;
                     inOtherPage = false;
+                    inSneakPage = false;
                     this.init();
                 }).bounds(centerX - 155, centerY - 20, 150, 40).build());
 
@@ -55,8 +59,20 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     inOtherPage = true;
                     inAnimPage = false;
+                    inSneakPage = false;
                     this.init();
                 }).bounds(centerX + 5, centerY - 20, 150, 40).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "快速潜行动画" : "Fast Sneak Animation"),
+                (button) -> {
+                    inSneakPage = true;
+                    inAnimPage = false;
+                    inOtherPage = false;
+                    inHitMarkerPage = false;
+                    inTargetHudPage = false;
+                    this.init();
+                }).bounds(centerX - 75, centerY + 28, 150, 20).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "§c重置所有设置" : "§cReset All Settings"),
@@ -69,6 +85,8 @@ public class SettingsScreen extends Screen {
                     Config.swordBlock = false;
                     Config.useSwing = false;
                     Config.autoMode = false;
+                    Config.noSneakAnimation = false;
+                    Config.sneakDropScale = 0.5f;
                     Config.autoScreenshot = false;
                     Config.hitMarker = false;
                     Config.hitSound = true;
@@ -265,6 +283,41 @@ public class SettingsScreen extends Screen {
             inAnimPage = false;
             this.init();
         }).bounds(centerX - 75, centerY + 100, 150, 20).build());
+    }
+
+    private void initSneakPage() {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        boolean cn = Config.isChinese;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)),
+                (button) -> {
+                    Config.noSneakAnimation = !Config.noSneakAnimation;
+                    button.setMessage(Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)));
+                    Config.save();
+                    this.init();
+                }).bounds(centerX - 75, centerY - 35, 150, 20).build());
+
+        String sliderName = cn ? "潜行下降高度" : "Sneak Drop";
+        if (Config.noSneakAnimation) {
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, centerY - 10, 150, 20, Component.empty(), Config.sneakDropScale) {
+                { updateMessage(); }
+                @Override protected void updateMessage() {
+                    int percent = Math.round(Config.sneakDropScale * 100.0f);
+                    this.setMessage(Component.literal(sliderName + ": " + percent + "%"));
+                }
+                @Override protected void applyValue() {
+                    Config.sneakDropScale = (float) this.value;
+                    Config.save();
+                }
+            });
+        }
+
+        this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
+            inSneakPage = false;
+            this.init();
+        }).bounds(centerX - 75, centerY + 20, 150, 20).build());
     }
 
     private void initHitMarkerPage() {
