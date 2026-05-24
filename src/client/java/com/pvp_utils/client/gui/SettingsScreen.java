@@ -391,6 +391,7 @@ public class SettingsScreen extends Screen {
             case MODE_1_7 -> "1.7";
             case MODE_PUSH -> "Push";
             case MODE_1_7_PLUS -> "1.7+";
+            case MODE_NEW -> "New";
         };
     }
 
@@ -398,7 +399,8 @@ public class SettingsScreen extends Screen {
         Config.animationMode = switch (Config.animationMode) {
             case MODE_1_7 -> Config.AnimMode.MODE_PUSH;
             case MODE_PUSH -> Config.AnimMode.MODE_1_7_PLUS;
-            case MODE_1_7_PLUS -> Config.AnimMode.MODE_1_7;
+            case MODE_1_7_PLUS -> Config.AnimMode.MODE_NEW;
+            case MODE_NEW -> Config.AnimMode.MODE_1_7;
         };
     }
 
