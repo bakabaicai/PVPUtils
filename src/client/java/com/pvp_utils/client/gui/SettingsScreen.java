@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.ResetManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -61,29 +62,7 @@ public class SettingsScreen extends Screen {
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "§c重置所有设置" : "§cReset All Settings"),
                 (button) -> {
-                    Config.offsetX = 0.0f;
-                    Config.offsetY = 0.0f;
-                    Config.offsetZ = 0.0f;
-                    Config.animSpeed = 1.0f;
-                    Config.range = 3.0;
-                    Config.swordBlock = false;
-                    Config.useSwing = false;
-                    Config.autoMode = false;
-                    Config.autoScreenshot = false;
-                    Config.hitMarker = false;
-                    Config.hitSound = true;
-                    Config.damageRecord = true;
-                    Config.lowHealthNotify = true;
-                    Config.targetHud = false;
-                    Config.fallDamagePredict = false;
-                    Config.victorySound = true;
-                    Config.targetHudX = -300f;
-                    Config.targetHudY = -100f;
-                    Config.targetHudZ = 0f;
-                    Config.hitSoundType = Config.HitSoundType.NETHERITE;
-                    Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
-                    Config.animationMode = Config.AnimMode.MODE_1_7;
-                    Config.save();
+                    ResetManager.resetAll();
                     if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this.lastScreen));
                 }).bounds(5, this.height - 75, 90, 20).build());
 
