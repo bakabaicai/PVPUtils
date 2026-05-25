@@ -91,10 +91,10 @@ public abstract class ItemInHandRendererMixin {
 
                 poseStack.pushPose();
 
-                poseStack.translate(Config.offsetX * side, Config.offsetY, Config.offsetZ);
-                this.applyItemArmTransform(poseStack, arm, 0.0F);
-
                 if (isBlocking) {
+                    poseStack.translate(Config.offsetX * side, Config.offsetY, Config.offsetZ);
+                    this.applyItemArmTransform(poseStack, arm, 0.0F);
+
                     if (Config.animationMode == Config.AnimMode.MODE_1_7) {
                         float factor = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
                         float blend = 1.0F - factor;
@@ -141,17 +141,22 @@ public abstract class ItemInHandRendererMixin {
                         poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -10.0F));
                     }
                 } else {
-                    float f1 = Mth.sin(h * (float) Math.PI);
-                    float f2 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                    poseStack.translate(side * -0.66F, -0.06F, 0.0F);
+                    this.applyItemArmTransform(poseStack, arm, 0.0F);
+
+                    float speedH = h * 1.17F;
+                    float f1 = Mth.sin(speedH * (float) Math.PI);
+                    float f2 = Mth.sin(Mth.sqrt(speedH) * (float) Math.PI);
                     poseStack.translate(side * -0.4F * f2, 0.4F * f1, -0.3F * f2);
                     poseStack.mulPose(Axis.YP.rotationDegrees(side * 180.0F));
                     poseStack.mulPose(Axis.YP.rotationDegrees(side * 45.0F));
-                    float f17 = Mth.sin(h * h * (float) Math.PI);
-                    float f22 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                    float f17 = Mth.sin(speedH * speedH * (float) Math.PI);
+                    float f22 = Mth.sin(Mth.sqrt(speedH) * (float) Math.PI);
                     poseStack.mulPose(Axis.YP.rotationDegrees(side * (f17 * -20.0F)));
                     poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
                     poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
                     poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
+                    poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
                 }
 
                 this.renderItem(abstractClientPlayer, itemStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
