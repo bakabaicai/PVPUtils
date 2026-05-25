@@ -28,4 +28,17 @@ public class ResetManager {
         Config.animationMode = Config.AnimMode.MODE_1_7;
         Config.save();
     }
+
+    public static void resetAnimPage() {
+        Config.offsetX = 0.0f;
+        Config.offsetY = 0.0f;
+        Config.offsetZ = 0.0f;
+        Config.animSpeed = 1.0f;
+        Config.range = 3.0;
+        Config.swordBlock = false;
+        Config.useSwing = false;
+        Config.autoMode = false;
+        Config.animationMode = Config.AnimMode.MODE_1_7;
+        Config.save();
+    }
 }

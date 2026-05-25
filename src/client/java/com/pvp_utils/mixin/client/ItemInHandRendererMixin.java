@@ -82,7 +82,7 @@ public abstract class ItemInHandRendererMixin {
         }
 
         if (interactionHand == InteractionHand.MAIN_HAND) {
-            boolean isUseSwinging = Config.useSwing && abstractClientPlayer.isUsingItem() && h > 0.0F;
+            boolean isUseSwinging = Config.useSwing && abstractClientPlayer.isUsingItem();
 
             if (isBlocking || isUseSwinging) {
                 ci.cancel();
@@ -94,50 +94,64 @@ public abstract class ItemInHandRendererMixin {
                 poseStack.translate(Config.offsetX * side, Config.offsetY, Config.offsetZ);
                 this.applyItemArmTransform(poseStack, arm, 0.0F);
 
-                if (Config.animationMode == Config.AnimMode.MODE_1_7) {
-                    float factor = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
-                    float blend = 1.0F - factor;
-                    poseStack.translate(side * (-0.139F * blend), 0.06F * blend, 0.20F * blend);
+                if (isBlocking) {
+                    if (Config.animationMode == Config.AnimMode.MODE_1_7) {
+                        float factor = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                        float blend = 1.0F - factor;
+                        poseStack.translate(side * (-0.139F * blend), 0.06F * blend, 0.20F * blend);
 
-                    poseStack.translate(side * 0.430F, -0.190F, 0.520F);
-                    poseStack.translate(side * -0.141F, 0.08F, -0.72F);
-                    float f17 = Mth.sin(h * h * (float) Math.PI);
-                    float f22 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * (45.0F + f17 * -20.0F)));
-                    poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
-                    poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
-                    poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
-                    renderOldSwordStance(poseStack, side);
-                } else if (Config.animationMode == Config.AnimMode.MODE_1_7_PLUS) {
-                    poseStack.translate(side * 0.15F, -0.05F, 0.0F);
-                    renderOldSwordStance(poseStack, side);
-
-                    float sqrtSwing = Mth.sqrt(h);
-                    float swingAmount = Mth.sin(sqrtSwing * (float) Math.PI);
-                    poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -45.0F));
-                    poseStack.mulPose(Axis.ZP.rotationDegrees(side * swingAmount * 20.0F));
-                } else if (Config.animationMode == Config.AnimMode.MODE_NEW) {
-                    poseStack.translate(side * 0.15F, -0.05F, 0.0F);
-                    renderOldSwordStance(poseStack, side);
-                    if (h > 0.0F) {
-                        float swingFactor = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
-                        poseStack.translate(side * 0.430F * swingFactor, -0.190F * swingFactor, 0.520F * swingFactor);
-                        poseStack.translate(side * -0.141F * swingFactor, 0.08F * swingFactor, -0.72F * swingFactor);
+                        poseStack.translate(side * 0.430F, -0.190F, 0.520F);
+                        poseStack.translate(side * -0.141F, 0.08F, -0.72F);
                         float f17 = Mth.sin(h * h * (float) Math.PI);
                         float f22 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
                         poseStack.mulPose(Axis.YP.rotationDegrees(side * (45.0F + f17 * -20.0F)));
                         poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
                         poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
                         poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
+                        renderOldSwordStance(poseStack, side);
+                    } else if (Config.animationMode == Config.AnimMode.MODE_1_7_PLUS) {
+                        poseStack.translate(side * 0.15F, -0.05F, 0.0F);
+                        renderOldSwordStance(poseStack, side);
+
+                        float sqrtSwing = Mth.sqrt(h);
+                        float swingAmount = Mth.sin(sqrtSwing * (float) Math.PI);
+                        poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -45.0F));
+                        poseStack.mulPose(Axis.ZP.rotationDegrees(side * swingAmount * 20.0F));
+                    } else if (Config.animationMode == Config.AnimMode.MODE_NEW) {
+                        poseStack.translate(side * 0.15F, -0.05F, 0.0F);
+                        renderOldSwordStance(poseStack, side);
+                        if (h > 0.0F) {
+                            float swingFactor = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                            poseStack.translate(side * 0.430F * swingFactor, -0.190F * swingFactor, 0.520F * swingFactor);
+                            poseStack.translate(side * -0.141F * swingFactor, 0.08F * swingFactor, -0.72F * swingFactor);
+                            float f17 = Mth.sin(h * h * (float) Math.PI);
+                            float f22 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                            poseStack.mulPose(Axis.YP.rotationDegrees(side * (45.0F + f17 * -20.0F)));
+                            poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
+                            poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
+                            poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
+                        }
+                    } else {
+                        poseStack.translate(side * 0.15F, -0.05F, 0.0F);
+                        renderOldSwordStance(poseStack, side);
+
+                        float sqrtSwing = Mth.sqrt(h);
+                        float swingAmount = Mth.sin(sqrtSwing * (float) Math.PI);
+                        poseStack.mulPose(Axis.ZP.rotationDegrees(-side * swingAmount * 35.0F));
+                        poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -10.0F));
                     }
                 } else {
-                    poseStack.translate(side * 0.15F, -0.05F, 0.0F);
-                    renderOldSwordStance(poseStack, side);
-
-                    float sqrtSwing = Mth.sqrt(h);
-                    float swingAmount = Mth.sin(sqrtSwing * (float) Math.PI);
-                    poseStack.mulPose(Axis.ZP.rotationDegrees(-side * swingAmount * 35.0F));
-                    poseStack.mulPose(Axis.XP.rotationDegrees(swingAmount * -10.0F));
+                    float f1 = Mth.sin(h * (float) Math.PI);
+                    float f2 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                    poseStack.translate(side * -0.4F * f2, 0.4F * f1, -0.3F * f2);
+                    poseStack.mulPose(Axis.YP.rotationDegrees(side * 180.0F));
+                    poseStack.mulPose(Axis.YP.rotationDegrees(side * 45.0F));
+                    float f17 = Mth.sin(h * h * (float) Math.PI);
+                    float f22 = Mth.sin(Mth.sqrt(h) * (float) Math.PI);
+                    poseStack.mulPose(Axis.YP.rotationDegrees(side * (f17 * -20.0F)));
+                    poseStack.mulPose(Axis.ZP.rotationDegrees(side * f22 * -20.0F));
+                    poseStack.mulPose(Axis.XP.rotationDegrees(f22 * -80.0F));
+                    poseStack.mulPose(Axis.YP.rotationDegrees(side * -45.0F));
                 }
 
                 this.renderItem(abstractClientPlayer, itemStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
