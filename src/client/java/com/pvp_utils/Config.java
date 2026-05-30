@@ -10,6 +10,7 @@ public class Config {
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
     public static boolean noSneakAnimation = false;
+    public static boolean autoSprint = false;
     public static boolean isChinese = false;
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
@@ -52,6 +53,7 @@ public class Config {
             swordBlock = Boolean.parseBoolean(prop.getProperty("swordBlock", "false"));
             useSwing = Boolean.parseBoolean(prop.getProperty("useSwing", "false"));
             noSneakAnimation = Boolean.parseBoolean(prop.getProperty("noSneakAnimation", "false"));
+            autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", "false"));
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
@@ -86,6 +88,7 @@ public class Config {
             prop.setProperty("swordBlock", String.valueOf(swordBlock));
             prop.setProperty("useSwing", String.valueOf(useSwing));
             prop.setProperty("noSneakAnimation", String.valueOf(noSneakAnimation));
+            prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("isChinese", String.valueOf(isChinese));
             prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
             prop.setProperty("hitMarker", String.valueOf(hitMarker));

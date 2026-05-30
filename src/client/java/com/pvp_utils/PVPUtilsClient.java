@@ -3,10 +3,13 @@ package com.pvp_utils;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.pvp_utils.client.gui.NotificationOverlay;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -16,6 +19,7 @@ public class PVPUtilsClient implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         VictorySound.init();
+        ClientTickEvents.END_CLIENT_TICK.register(PVPUtilsClient::handleAutoSprint);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("oldanimation")
@@ -76,5 +80,16 @@ public class PVPUtilsClient implements ClientModInitializer {
                     })
             );
         });
+    }
+
+    private static void handleAutoSprint(Minecraft client) {
+        LocalPlayer player = client.player;
+        if (!Config.autoSprint || player == null || client.options.keyShift.isDown()) {
+            return;
+        }
+
+        if (client.options.keyUp.isDown() && !player.isSprinting() && !player.isUsingItem()) {
+            player.setSprinting(true);
+        }
     }
 }

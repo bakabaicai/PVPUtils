@@ -91,6 +91,7 @@ public class SettingsScreen extends Screen {
                     Config.useSwing = false;
                     Config.autoMode = false;
                     Config.noSneakAnimation = false;
+                    Config.autoSprint = false;
                     Config.sneakDropScale = 0.5f;
                     Config.sneakAnimationSpeed = 1.0f;
                     Config.autoScreenshot = false;
@@ -231,8 +232,17 @@ public class SettingsScreen extends Screen {
         int centerY = this.height / 2;
         boolean cn = Config.isChinese;
 
-        int currentY = centerY - 85;
+        int currentY = centerY - 100;
 
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "自动疾跑" : "Auto Sprint", Config.autoSprint, cn)),
+                (button) -> {
+                    Config.autoSprint = !Config.autoSprint;
+                    button.setMessage(Component.literal(getToggleText(cn ? "自动疾跑" : "Auto Sprint", Config.autoSprint, cn)));
+                    Config.save();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 25;
         this.addRenderableWidget(Button.builder(
                 Component.literal(getToggleText(cn ? "自动截图" : "Auto Screenshot", Config.autoScreenshot, cn)),
                 (button) -> {
