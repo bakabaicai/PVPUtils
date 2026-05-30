@@ -64,7 +64,7 @@ public class SettingsScreen extends Screen {
                 }).bounds(centerX + 5, centerY - 44, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(cn ? "快速潜行动画" : "Fast Sneak Animation"),
+                Component.literal(cn ? "潜行动画" : "Sneak Animation"),
                 (button) -> {
                     inSneakPage = true;
                     inAnimPage = false;
@@ -88,6 +88,7 @@ public class SettingsScreen extends Screen {
                     Config.noSneakAnimation = false;
                     Config.autoSprint = false;
                     Config.sneakDropScale = 0.5f;
+                    Config.sneakAnimationSpeed = 1.0f;
                     Config.autoScreenshot = false;
                     Config.hitMarker = false;
                     Config.hitSound = true;
@@ -302,10 +303,10 @@ public class SettingsScreen extends Screen {
         int currentY = centerY - 60;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)),
+                Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)),
                 (button) -> {
                     Config.noSneakAnimation = !Config.noSneakAnimation;
-                    button.setMessage(Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)));
+                    button.setMessage(Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)));
                     Config.save();
                     this.init();
                 }).bounds(centerX - 75, currentY, 150, 20).build());
@@ -321,6 +322,24 @@ public class SettingsScreen extends Screen {
                 }
                 @Override protected void applyValue() {
                     Config.sneakDropScale = (float) this.value;
+                    Config.save();
+                }
+            });
+
+            currentY += 25;
+            String speedName = cn ? "动画速度" : "Animation Speed";
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), Config.sneakAnimationSpeed) {
+                { updateMessage(); }
+                @Override protected void updateMessage() {
+                    if (Config.sneakAnimationSpeed >= 1.0f) {
+                        this.setMessage(Component.literal(speedName + ": " + (cn ? "无插帧" : "Instant")));
+                    } else {
+                        int percent = Math.round(Config.sneakAnimationSpeed * 100.0f);
+                        this.setMessage(Component.literal(speedName + ": " + percent + "%"));
+                    }
+                }
+                @Override protected void applyValue() {
+                    Config.sneakAnimationSpeed = (float) this.value;
                     Config.save();
                 }
             });

@@ -26,7 +26,7 @@ public abstract class CameraMixin {
     @Shadow private EnvironmentAttributeProbe attributeProbe;
 
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
-    private void removeFirstPersonSneakSmoothing(CallbackInfo ci) {
+    private void updateFastSneakEyeHeight(CallbackInfo ci) {
         if (!Config.noSneakAnimation || this.detached || !(this.entity instanceof LocalPlayer player)) {
             return;
         }
@@ -41,20 +41,29 @@ public abstract class CameraMixin {
             return;
         }
 
-        this.eyeHeightOld = this.eyeHeight;
-        this.eyeHeight = getCustomEyeHeight(player, pose);
+        float customEyeHeight = getCustomEyeHeight(player, pose);
+        this.eyeHeightOld = Config.sneakAnimationSpeed >= 1.0f ? customEyeHeight : this.eyeHeight;
+        this.eyeHeight += (customEyeHeight - this.eyeHeight) * getSneakAnimationModifier();
         this.attributeProbe.tick(this.level, this.position);
         ci.cancel();
     }
 
     private float getCustomEyeHeight(LocalPlayer player, Pose pose) {
-        float standingEyeHeight = player.getEyeHeight(Pose.STANDING);
+        float standingEyeHeight = player.getDimensions(Pose.STANDING).eyeHeight();
         if (pose != Pose.CROUCHING) {
             return standingEyeHeight;
         }
 
-        float crouchingEyeHeight = player.getEyeHeight(Pose.CROUCHING);
+        float crouchingEyeHeight = player.getDimensions(Pose.CROUCHING).eyeHeight();
         float sneakDrop = standingEyeHeight - crouchingEyeHeight;
         return standingEyeHeight - sneakDrop * Config.sneakDropScale;
+    }
+
+    private float getSneakAnimationModifier() {
+        if (Config.sneakAnimationSpeed >= 1.0f) {
+            return 1.0f;
+        }
+
+        return 0.5f + Config.sneakAnimationSpeed * 0.5f;
     }
 }
