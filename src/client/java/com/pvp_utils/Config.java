@@ -9,6 +9,7 @@ public class Config {
     public static boolean autoMode = false;
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
+    public static boolean noSneakAnimation = false;
     public static boolean isChinese = false;
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
@@ -22,6 +23,8 @@ public class Config {
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
+    public static float sneakDropScale = 0.5f;
+    public static float sneakAnimationSpeed = 1.0f;
     public static float targetHudX = -300f;
     public static float targetHudY = -100f;
     public static float targetHudZ = 0f;
@@ -48,6 +51,7 @@ public class Config {
             autoMode = Boolean.parseBoolean(prop.getProperty("autoMode", "false"));
             swordBlock = Boolean.parseBoolean(prop.getProperty("swordBlock", "false"));
             useSwing = Boolean.parseBoolean(prop.getProperty("useSwing", "false"));
+            noSneakAnimation = Boolean.parseBoolean(prop.getProperty("noSneakAnimation", "false"));
             isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", "false"));
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
@@ -61,6 +65,8 @@ public class Config {
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
+            sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
+            sneakAnimationSpeed = Float.parseFloat(prop.getProperty("sneakAnimationSpeed", "1.0"));
             animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
             offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
             offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
@@ -79,6 +85,7 @@ public class Config {
             prop.setProperty("autoMode", String.valueOf(autoMode));
             prop.setProperty("swordBlock", String.valueOf(swordBlock));
             prop.setProperty("useSwing", String.valueOf(useSwing));
+            prop.setProperty("noSneakAnimation", String.valueOf(noSneakAnimation));
             prop.setProperty("isChinese", String.valueOf(isChinese));
             prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
             prop.setProperty("hitMarker", String.valueOf(hitMarker));
@@ -92,6 +99,8 @@ public class Config {
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
+            prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
+            prop.setProperty("sneakAnimationSpeed", String.valueOf(sneakAnimationSpeed));
             prop.setProperty("animationMode", animationMode.name());
             prop.setProperty("offsetX", String.valueOf(offsetX));
             prop.setProperty("offsetY", String.valueOf(offsetY));

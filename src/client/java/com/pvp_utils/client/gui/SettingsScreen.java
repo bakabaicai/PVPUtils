@@ -16,6 +16,7 @@ public class SettingsScreen extends Screen {
     private boolean inOtherPage = false;
     private boolean inHitMarkerPage = false;
     private boolean inTargetHudPage = false;
+    private boolean inSneakPage = false;
     private boolean inResetConfirmPage = false;
     private boolean resettingAll = true;
 
@@ -35,6 +36,8 @@ public class SettingsScreen extends Screen {
             initHitMarkerPage();
         } else if (inTargetHudPage) {
             initTargetHudPage();
+        } else if (inSneakPage) {
+            initSneakPage();
         } else if (inOtherPage) {
             initOtherPage();
         } else {
@@ -52,20 +55,60 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     inAnimPage = true;
                     inOtherPage = false;
+                    inSneakPage = false;
                     this.init();
-                }).bounds(centerX - 155, centerY - 20, 150, 40).build());
+                }).bounds(centerX - 155, centerY - 44, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "其他功能" : "Other Features"),
                 (button) -> {
                     inOtherPage = true;
                     inAnimPage = false;
+                    inSneakPage = false;
                     this.init();
-                }).bounds(centerX + 5, centerY - 20, 150, 40).build());
+                }).bounds(centerX + 5, centerY - 44, 150, 40).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "潜行动画" : "Sneak Animation"),
+                (button) -> {
+                    inSneakPage = true;
+                    inAnimPage = false;
+                    inOtherPage = false;
+                    inHitMarkerPage = false;
+                    inTargetHudPage = false;
+                    this.init();
+                }).bounds(centerX - 75, centerY + 4, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "§c重置所有设置" : "§cReset All Settings"),
                 (button) -> {
+                    Config.offsetX = 0.0f;
+                    Config.offsetY = 0.0f;
+                    Config.offsetZ = 0.0f;
+                    Config.animSpeed = 1.0f;
+                    Config.range = 3.0;
+                    Config.swordBlock = false;
+                    Config.useSwing = false;
+                    Config.autoMode = false;
+                    Config.noSneakAnimation = false;
+                    Config.sneakDropScale = 0.5f;
+                    Config.sneakAnimationSpeed = 1.0f;
+                    Config.autoScreenshot = false;
+                    Config.hitMarker = false;
+                    Config.hitSound = true;
+                    Config.damageRecord = true;
+                    Config.lowHealthNotify = true;
+                    Config.targetHud = false;
+                    Config.fallDamagePredict = false;
+                    Config.victorySound = true;
+                    Config.targetHudX = -300f;
+                    Config.targetHudY = -100f;
+                    Config.targetHudZ = 0f;
+                    Config.hitSoundType = Config.HitSoundType.NETHERITE;
+                    Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
+                    Config.animationMode = Config.AnimMode.MODE_1_7;
+                    Config.save();
+                    if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this.lastScreen));
                     inResetConfirmPage = true;
                     resettingAll = true;
                     this.init();
@@ -257,6 +300,61 @@ public class SettingsScreen extends Screen {
             inAnimPage = false;
             this.init();
         }).bounds(centerX - 75, centerY + 100, 150, 20).build());
+    }
+
+    private void initSneakPage() {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        boolean cn = Config.isChinese;
+        int currentY = centerY - 60;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)),
+                (button) -> {
+                    Config.noSneakAnimation = !Config.noSneakAnimation;
+                    button.setMessage(Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)));
+                    Config.save();
+                    this.init();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        String sliderName = cn ? "潜行下降高度" : "Sneak Drop";
+        if (Config.noSneakAnimation) {
+            currentY += 25;
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), Config.sneakDropScale) {
+                { updateMessage(); }
+                @Override protected void updateMessage() {
+                    int percent = Math.round(Config.sneakDropScale * 100.0f);
+                    this.setMessage(Component.literal(sliderName + ": " + percent + "%"));
+                }
+                @Override protected void applyValue() {
+                    Config.sneakDropScale = (float) this.value;
+                    Config.save();
+                }
+            });
+
+            currentY += 25;
+            String speedName = cn ? "动画速度" : "Animation Speed";
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), Config.sneakAnimationSpeed) {
+                { updateMessage(); }
+                @Override protected void updateMessage() {
+                    if (Config.sneakAnimationSpeed >= 1.0f) {
+                        this.setMessage(Component.literal(speedName + ": " + (cn ? "无插帧" : "Instant")));
+                    } else {
+                        int percent = Math.round(Config.sneakAnimationSpeed * 100.0f);
+                        this.setMessage(Component.literal(speedName + ": " + percent + "%"));
+                    }
+                }
+                @Override protected void applyValue() {
+                    Config.sneakAnimationSpeed = (float) this.value;
+                    Config.save();
+                }
+            });
+        }
+
+        this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
+            inSneakPage = false;
+            this.init();
+        }).bounds(centerX - 75, centerY + 65, 150, 20).build());
     }
 
     private void initHitMarkerPage() {

@@ -7,6 +7,9 @@
     "AbstractContainerScreenMixin",
     "LivingEntityMixin",
     "LocalPlayerMixin",
+    "LocalPlayerEyeHeightMixin",
+    "PlayerPoseAccessMixin",
+    "CameraMixin",
     "GuiMixin",
     "ClientPacketListenerMixin"
   ],
