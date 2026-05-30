@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.ResetManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -16,6 +17,8 @@ public class SettingsScreen extends Screen {
     private boolean inHitMarkerPage = false;
     private boolean inTargetHudPage = false;
     private boolean inSneakPage = false;
+    private boolean inResetConfirmPage = false;
+    private boolean resettingAll = true;
 
     public SettingsScreen(Screen lastScreen) {
         super(Component.literal(Config.isChinese ? "PVPUtils 设置" : "PVPUtils Settings"));
@@ -25,7 +28,9 @@ public class SettingsScreen extends Screen {
     @Override
     protected void init() {
         this.clearWidgets();
-        if (inAnimPage) {
+        if (inResetConfirmPage) {
+            initResetConfirmPage();
+        } else if (inAnimPage) {
             initAnimPage();
         } else if (inHitMarkerPage) {
             initHitMarkerPage();
@@ -104,6 +109,9 @@ public class SettingsScreen extends Screen {
                     Config.animationMode = Config.AnimMode.MODE_1_7;
                     Config.save();
                     if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this.lastScreen));
+                    inResetConfirmPage = true;
+                    resettingAll = true;
+                    this.init();
                 }).bounds(5, this.height - 75, 90, 20).build());
 
         this.addRenderableWidget(Button.builder(
@@ -203,11 +211,19 @@ public class SettingsScreen extends Screen {
                     Config.save();
                 }).bounds(sX + (btnW + 2) * 2, centerY + 40, btnW, 20).build());
 
+        this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "§c重置此页所有设置" : "§cReset This Page"),
+                (button) -> {
+                    inResetConfirmPage = true;
+                    resettingAll = false;
+                    this.init();
+                }).bounds(centerX - 75, centerY + 65, 150, 20).build());
+
         this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
             inAnimPage = false;
             inOtherPage = false;
             this.init();
-        }).bounds(centerX - 75, centerY + 65, 150, 20).build());
+        }).bounds(centerX - 75, centerY + 90, 150, 20).build());
     }
 
     private void initOtherPage() {
@@ -452,6 +468,34 @@ public class SettingsScreen extends Screen {
         }).bounds(centerX - 75, centerY + 100, 150, 20).build());
     }
 
+    private void initResetConfirmPage() {
+        int centerX = this.width / 2;
+        int centerY = this.height / 2;
+        boolean cn = Config.isChinese;
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "§c是的，现在立刻重置所有设置" : "§cYes, reset all settings now"),
+                (button) -> {
+                    if (resettingAll) {
+                        ResetManager.resetAll();
+                        inAnimPage = false;
+                        inOtherPage = false;
+                    } else {
+                        ResetManager.resetAnimPage();
+                        inAnimPage = true;
+                    }
+                    inResetConfirmPage = false;
+                    this.init();
+                }).bounds(centerX - 100, centerY - 25, 200, 20).build());
+
+        this.addRenderableWidget(Button.builder(
+                Component.literal(cn ? "§a不，我点错了" : "§aNo, I misclicked"),
+                (button) -> {
+                    inResetConfirmPage = false;
+                    this.init();
+                }).bounds(centerX - 100, centerY + 5, 200, 20).build());
+    }
+
     private String getToggleText(String prefix, boolean value, boolean isChinese) {
         if (isChinese) {
             return prefix + ": " + (value ? "开" : "关");
@@ -465,6 +509,7 @@ public class SettingsScreen extends Screen {
             case MODE_1_7 -> "1.7";
             case MODE_PUSH -> "Push";
             case MODE_1_7_PLUS -> "1.7+";
+            case MODE_NEW -> "New";
         };
     }
 
@@ -472,7 +517,8 @@ public class SettingsScreen extends Screen {
         Config.animationMode = switch (Config.animationMode) {
             case MODE_1_7 -> Config.AnimMode.MODE_PUSH;
             case MODE_PUSH -> Config.AnimMode.MODE_1_7_PLUS;
-            case MODE_1_7_PLUS -> Config.AnimMode.MODE_1_7;
+            case MODE_1_7_PLUS -> Config.AnimMode.MODE_NEW;
+            case MODE_NEW -> Config.AnimMode.MODE_1_7;
         };
     }
 

@@ -32,7 +32,7 @@ public class Config {
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
 
-    public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS }
+    public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
 
