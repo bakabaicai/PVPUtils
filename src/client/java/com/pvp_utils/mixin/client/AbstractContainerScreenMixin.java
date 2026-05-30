@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.client.gui.NewSettingsScreen;
 import com.pvp_utils.client.gui.SettingsScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -19,5 +20,9 @@ public abstract class AbstractContainerScreenMixin extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("PVPUtils"), (button) -> {
             if (this.minecraft != null) this.minecraft.setScreen(new SettingsScreen(this));
         }).bounds(this.width - 82, 2, 80, 20).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("test"), (button) -> {
+            if (this.minecraft != null) this.minecraft.setScreen(new NewSettingsScreen(this));
+        }).bounds(this.width - 82, 24, 80, 20).build());
     }
 }
