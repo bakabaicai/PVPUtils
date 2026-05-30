@@ -52,7 +52,7 @@ public class SettingsScreen extends Screen {
                     inOtherPage = false;
                     inSneakPage = false;
                     this.init();
-                }).bounds(centerX - 155, centerY - 20, 150, 40).build());
+                }).bounds(centerX - 155, centerY - 44, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "其他功能" : "Other Features"),
@@ -61,10 +61,10 @@ public class SettingsScreen extends Screen {
                     inAnimPage = false;
                     inSneakPage = false;
                     this.init();
-                }).bounds(centerX + 5, centerY - 20, 150, 40).build());
+                }).bounds(centerX + 5, centerY - 44, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(cn ? "快速潜行动画" : "Fast Sneak Animation"),
+                Component.literal(cn ? "潜行动画" : "Sneak Animation"),
                 (button) -> {
                     inSneakPage = true;
                     inAnimPage = false;
@@ -72,7 +72,7 @@ public class SettingsScreen extends Screen {
                     inHitMarkerPage = false;
                     inTargetHudPage = false;
                     this.init();
-                }).bounds(centerX - 75, centerY + 28, 150, 20).build());
+                }).bounds(centerX - 75, centerY + 4, 150, 40).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal(cn ? "§c重置所有设置" : "§cReset All Settings"),
@@ -87,6 +87,7 @@ public class SettingsScreen extends Screen {
                     Config.autoMode = false;
                     Config.noSneakAnimation = false;
                     Config.sneakDropScale = 0.5f;
+                    Config.sneakAnimationSpeed = 1.0f;
                     Config.autoScreenshot = false;
                     Config.hitMarker = false;
                     Config.hitSound = true;
@@ -289,19 +290,21 @@ public class SettingsScreen extends Screen {
         int centerX = this.width / 2;
         int centerY = this.height / 2;
         boolean cn = Config.isChinese;
+        int currentY = centerY - 60;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)),
+                Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)),
                 (button) -> {
                     Config.noSneakAnimation = !Config.noSneakAnimation;
-                    button.setMessage(Component.literal(getToggleText(cn ? "快速潜行动画" : "Fast Sneak Animation", Config.noSneakAnimation, cn)));
+                    button.setMessage(Component.literal(getToggleText(cn ? "潜行动画" : "Sneak Animation", Config.noSneakAnimation, cn)));
                     Config.save();
                     this.init();
-                }).bounds(centerX - 75, centerY - 35, 150, 20).build());
+                }).bounds(centerX - 75, currentY, 150, 20).build());
 
         String sliderName = cn ? "潜行下降高度" : "Sneak Drop";
         if (Config.noSneakAnimation) {
-            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, centerY - 10, 150, 20, Component.empty(), Config.sneakDropScale) {
+            currentY += 25;
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), Config.sneakDropScale) {
                 { updateMessage(); }
                 @Override protected void updateMessage() {
                     int percent = Math.round(Config.sneakDropScale * 100.0f);
@@ -312,12 +315,30 @@ public class SettingsScreen extends Screen {
                     Config.save();
                 }
             });
+
+            currentY += 25;
+            String speedName = cn ? "动画速度" : "Animation Speed";
+            this.addRenderableWidget(new AbstractSliderButton(centerX - 75, currentY, 150, 20, Component.empty(), Config.sneakAnimationSpeed) {
+                { updateMessage(); }
+                @Override protected void updateMessage() {
+                    if (Config.sneakAnimationSpeed >= 1.0f) {
+                        this.setMessage(Component.literal(speedName + ": " + (cn ? "无插帧" : "Instant")));
+                    } else {
+                        int percent = Math.round(Config.sneakAnimationSpeed * 100.0f);
+                        this.setMessage(Component.literal(speedName + ": " + percent + "%"));
+                    }
+                }
+                @Override protected void applyValue() {
+                    Config.sneakAnimationSpeed = (float) this.value;
+                    Config.save();
+                }
+            });
         }
 
         this.addRenderableWidget(Button.builder(Component.literal(cn ? "返回" : "Back"), (button) -> {
             inSneakPage = false;
             this.init();
-        }).bounds(centerX - 75, centerY + 20, 150, 20).build());
+        }).bounds(centerX - 75, centerY + 65, 150, 20).build());
     }
 
     private void initHitMarkerPage() {

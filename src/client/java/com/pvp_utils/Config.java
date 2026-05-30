@@ -24,6 +24,7 @@ public class Config {
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
+    public static float sneakAnimationSpeed = 1.0f;
     public static float targetHudX = -300f;
     public static float targetHudY = -100f;
     public static float targetHudZ = 0f;
@@ -65,6 +66,7 @@ public class Config {
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
+            sneakAnimationSpeed = Float.parseFloat(prop.getProperty("sneakAnimationSpeed", "1.0"));
             animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
             offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
             offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
@@ -98,6 +100,7 @@ public class Config {
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
+            prop.setProperty("sneakAnimationSpeed", String.valueOf(sneakAnimationSpeed));
             prop.setProperty("animationMode", animationMode.name());
             prop.setProperty("offsetX", String.valueOf(offsetX));
             prop.setProperty("offsetY", String.valueOf(offsetY));
