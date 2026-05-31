@@ -24,16 +24,13 @@ public abstract class SkiaScreen extends Screen {
     }
 
     @Override
-    protected void renderBlurredBackground(GuiGraphics guiGraphics) {
-    }
+    protected void renderBlurredBackground(GuiGraphics guiGraphics) {}
 
     @Override
-    protected void renderMenuBackground(GuiGraphics guiGraphics) {
-    }
+    protected void renderMenuBackground(GuiGraphics guiGraphics) {}
 
     @Override
-    public void renderBackground(GuiGraphics guiGraphics, int i, int j, float f) {
-    }
+    public void renderBackground(GuiGraphics guiGraphics, int i, int j, float f) {}
 
     protected abstract void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta);
 

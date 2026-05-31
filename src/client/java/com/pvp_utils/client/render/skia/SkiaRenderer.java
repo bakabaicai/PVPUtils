@@ -3,13 +3,7 @@ package com.pvp_utils.client.render.skia;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
-import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
+import io.github.humbleui.skija.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -21,23 +15,26 @@ import java.nio.ByteBuffer;
 public class SkiaRenderer {
 
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "skia_frame");
+    private static final SurfaceProps PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     private static Surface surface;
     private static DynamicTexture dynamicTexture;
     private static int lastGuiWidth = -1;
     private static int lastGuiHeight = -1;
+    private static float currentScale = 1f;
 
     public static Canvas begin() {
-        var mc = Minecraft.getInstance();
-        int gw = mc.getWindow().getGuiScaledWidth();
-        int gh = mc.getWindow().getGuiScaledHeight();
+        var window = Minecraft.getInstance().getWindow();
+        int gw = window.getGuiScaledWidth();
+        int gh = window.getGuiScaledHeight();
+        currentScale = (float) window.getGuiScale();
 
         if (gw != lastGuiWidth || gh != lastGuiHeight || surface == null) {
             destroySurface();
-            ImageInfo info = new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), gw, gh);
-            surface = Surface.makeRaster(info);
+            surface = Surface.makeRaster(
+                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), gw, gh), 0, PROPS);
             dynamicTexture = new DynamicTexture("pvp_utils:skia_frame", gw, gh, false);
-            mc.getTextureManager().register(TEXTURE_ID, dynamicTexture);
+            Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, dynamicTexture);
             lastGuiWidth = gw;
             lastGuiHeight = gh;
         }
@@ -45,6 +42,10 @@ public class SkiaRenderer {
         Canvas canvas = surface.getCanvas();
         canvas.clear(0x00000000);
         return canvas;
+    }
+
+    public static float getScale() {
+        return currentScale;
     }
 
     public static void end(GuiGraphics graphics, int guiWidth, int guiHeight) {

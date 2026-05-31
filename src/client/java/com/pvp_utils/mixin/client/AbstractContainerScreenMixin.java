@@ -1,6 +1,6 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.client.gui.NewSettingsScreen;
+import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.SettingsScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
