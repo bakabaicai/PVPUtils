@@ -19,56 +19,53 @@ public class SkiaRenderer {
 
     private static Surface surface;
     private static DynamicTexture dynamicTexture;
-    private static int lastGuiWidth = -1;
-    private static int lastGuiHeight = -1;
+    private static int lastPixelW = -1;
+    private static int lastPixelH = -1;
     private static float currentScale = 1f;
 
     public static Canvas begin() {
         var window = Minecraft.getInstance().getWindow();
-        int gw = window.getGuiScaledWidth();
-        int gh = window.getGuiScaledHeight();
+        int pw = window.getWidth();
+        int ph = window.getHeight();
         currentScale = (float) window.getGuiScale();
 
-        if (gw != lastGuiWidth || gh != lastGuiHeight || surface == null) {
+        if (pw != lastPixelW || ph != lastPixelH || surface == null) {
             destroySurface();
             surface = Surface.makeRaster(
-                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), gw, gh), 0, PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:skia_frame", gw, gh, false);
+                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pw, ph), 0, PROPS);
+            dynamicTexture = new DynamicTexture("pvp_utils:skia_frame", pw, ph, false);
             Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            lastGuiWidth = gw;
-            lastGuiHeight = gh;
+            lastPixelW = pw;
+            lastPixelH = ph;
         }
 
         Canvas canvas = surface.getCanvas();
         canvas.clear(0x00000000);
+        canvas.save();
+        canvas.scale(currentScale, currentScale);
         return canvas;
     }
 
-    public static float getScale() {
-        return currentScale;
-    }
+    public static float getScale() { return currentScale; }
 
     public static void end(GuiGraphics graphics, int guiWidth, int guiHeight) {
         if (surface == null || dynamicTexture == null) return;
 
+        surface.getCanvas().restore();
         surface.flush();
 
         Pixmap pixmap = new Pixmap();
-        if (!surface.peekPixels(pixmap)) {
-            pixmap.close();
-            return;
-        }
+        if (!surface.peekPixels(pixmap)) { pixmap.close(); return; }
 
         long addr = pixmap.getAddr();
-        int byteSize = lastGuiHeight * pixmap.getRowBytes();
+        int byteSize = lastPixelH * pixmap.getRowBytes();
         ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
 
         GpuTexture gpuTexture = dynamicTexture.getTexture();
         RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, lastGuiWidth, lastGuiHeight);
+                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, lastPixelW, lastPixelH);
 
         pixmap.close();
-
         graphics.blit(TEXTURE_ID, 0, 0, guiWidth, guiHeight, 0f, 1f, 0f, 1f);
     }
 
@@ -82,7 +79,7 @@ public class SkiaRenderer {
 
     public static void destroy() {
         destroySurface();
-        lastGuiWidth = -1;
-        lastGuiHeight = -1;
+        lastPixelW = -1;
+        lastPixelH = -1;
     }
 }

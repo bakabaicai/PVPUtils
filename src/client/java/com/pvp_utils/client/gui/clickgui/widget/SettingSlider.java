@@ -30,31 +30,35 @@ public class SettingSlider extends SettingWidget {
         this.setter = setter;
     }
 
-    @Override public float getWidth() { return 160f; }
+    private static final float LABEL_W = 36f;
+    private static final float TRACK_W = 120f;
+
+    @Override public float getWidth() { return LABEL_W + 8f + TRACK_W; }
     @Override public float getHeight() { return 20f; }
 
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
+        String val = String.format(format, getter.get());
+        float lw = FontRenderer.measureTextWidth(val, 11f);
+        FontRenderer.drawText(canvas, val, x + LABEL_W - lw, y + 14f, 11f, withAlpha(0x888888, alpha));
+
+        float tx = x + LABEL_W + 8f;
         float t = (float)((getter.get() - min) / (max - min));
         float trackY = y + 9f;
-        float thumbX = x + t * 160f;
+        float thumbX = tx + t * TRACK_W;
 
         try (Paint track = new Paint()) {
             track.setColor(withAlpha(0xE0E0E0, alpha));
-            canvas.drawRRect(RRect.makeXYWH(x, trackY, 160f, 4f, 2f), track);
+            canvas.drawRRect(RRect.makeXYWH(tx, trackY, TRACK_W, 4f, 2f), track);
         }
         try (Paint fill = new Paint()) {
             fill.setColor(withAlpha(0x2F54EB, alpha));
-            canvas.drawRRect(RRect.makeXYWH(x, trackY, t * 160f, 4f, 2f), fill);
+            canvas.drawRRect(RRect.makeXYWH(tx, trackY, t * TRACK_W, 4f, 2f), fill);
         }
         try (Paint thumb = new Paint()) {
             thumb.setColor(withAlpha(0xFFFFFF, alpha));
             canvas.drawRRect(RRect.makeXYWH(thumbX - 8f, y + 2f, 16f, 16f, 8f), thumb);
         }
-
-        String val = String.format(format, getter.get());
-        float tw = FontRenderer.measureTextWidth(val, 11f);
-        FontRenderer.drawText(canvas, val, x + 160f + 8f, y + 14f, 11f, withAlpha(0x888888, alpha));
     }
 
     @Override
@@ -76,7 +80,8 @@ public class SettingSlider extends SettingWidget {
     public boolean isDragging() { return dragging; }
 
     private void applyMouse(float mx, float x) {
-        float t = Math.max(0f, Math.min(1f, (mx - x) / 160f));
+        float tx = x + LABEL_W + 8f;
+        float t = Math.max(0f, Math.min(1f, (mx - tx) / TRACK_W));
         setter.accept(min + t * (max - min));
     }
 }

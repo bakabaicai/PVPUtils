@@ -1,5 +1,7 @@
 package com.pvp_utils;
 
+import com.pvp_utils.client.KeyBindings;
+import com.pvp_utils.client.KeyInputHandler;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -16,9 +18,11 @@ public class PVPUtilsClient implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         VictorySound.init();
+        KeyBindings.register();
+        KeyInputHandler.register();
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(ClientCommandManager.literal("oldanimation")
+            dispatcher.register(ClientCommandManager.literal("pvputils")
                     .then(ClientCommandManager.literal("auto")
                             .then(ClientCommandManager.argument("enabled", BoolArgumentType.bool())
                                     .executes(context -> {

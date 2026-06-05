@@ -15,31 +15,31 @@ import java.util.List;
 
 public class NewSettingsScreen extends SkiaScreen {
 
-    private static final List<BasePage> PAGES = List.of(
-            new CombatPage(),
-            new VisualPage(),
-            new ToolPage(),
-            new OptimizePage(),
-            new OtherPage()
-    );
+    private final List<BasePage> pages;
 
     private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE904", "\uE902", "\uE900"};
     private static final String[] TAB_NAMES = {"战斗", "视觉", "工具", "优化", "其他"};
 
     private int selectedTab = 0;
     private int hoveredTab = -1;
+    private boolean closeHovered = false;
     private boolean closing = false;
 
     private final float[] tabHoverAlpha = new float[TAB_NAMES.length];
+    private float closeHoverAlpha = 0f;
     private float indicatorY = -1f;
     private float openProgress = 0f;
     private long lastRenderMs = 0;
 
     private float contentScrollOffset = 0f;
+    private float targetScrollOffset = 0f;
     private boolean draggingInContent = false;
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
+        pages = List.of(
+                new CombatPage(), new VisualPage(), new ToolPage(), new OptimizePage(), new OtherPage()
+        );
     }
 
     private float[] layout(int width, int height) {
@@ -82,6 +82,13 @@ public class NewSettingsScreen extends SkiaScreen {
         return ((int)(ar+(br-ar)*t) << 16) | ((int)(ag+(bg-ag)*t) << 8) | (int)(ab+(bb-ab)*t);
     }
 
+    private float getContentTotalHeight(BasePage page) {
+        float h = 54f;
+        for (var m : page.getModules()) h += m.getTotalHeight() + 8f;
+        h += 12f;
+        return h;
+    }
+
     @Override
     protected void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta) {
         long now = System.currentTimeMillis();
@@ -97,38 +104,48 @@ public class NewSettingsScreen extends SkiaScreen {
         }
 
         float[] l = layout(width, height);
+        BasePage currentPage = pages.get(selectedTab);
+        float currentScrollAreaH = l[15] - 54f;
+        float currentMaxScroll = Math.max(0f, getContentTotalHeight(currentPage) - currentScrollAreaH);
+        targetScrollOffset = Math.min(targetScrollOffset, currentMaxScroll);
+        contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
         float cardX = l[0], cardY = l[1], cardW = l[2], cardH = l[3];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
         float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
 
         hoveredTab = -1;
+        closeHovered = false;
         for (int i = 0; i < TAB_NAMES.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mouseX >= cardX + 12f && mouseX <= cardX + 12f + tabW && mouseY >= ty && mouseY <= ty + tabH)
                 hoveredTab = i;
         }
+        if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= closeY && mouseY <= closeY + closeH)
+            closeHovered = true;
 
         for (int i = 0; i < TAB_NAMES.length; i++) {
             float target = (i == hoveredTab && i != selectedTab) ? 1f : 0f;
             tabHoverAlpha[i] = lerp(tabHoverAlpha[i], target, dt * speed);
         }
+        closeHoverAlpha = lerp(closeHoverAlpha, closeHovered ? 1f : 0f, dt * speed);
 
         float targetIndicatorY = tabStartY + selectedTab * (tabH + tabGap);
         if (indicatorY < 0f) indicatorY = targetIndicatorY;
         indicatorY = lerp(indicatorY, targetIndicatorY, dt * speed);
 
-        BasePage page = PAGES.get(selectedTab);
+        BasePage page = currentPage;
         page.update(dt);
 
+        float guiScale = com.pvp_utils.client.render.skia.SkiaRenderer.getScale();
         float cx = width / 2f, cy = height / 2f;
         float sc = 0.88f + 0.12f * openProgress;
         float alpha = openProgress;
 
         canvas.save();
-        canvas.translate(cx, cy);
+        canvas.translate(cx * guiScale, cy * guiScale);
         canvas.scale(sc, sc);
-        canvas.translate(-cx, -cy);
+        canvas.translate(-cx * guiScale, -cy * guiScale);
 
         try (Paint card = new Paint()) {
             card.setColor(withAlpha(0xF5F5F7, alpha));
@@ -171,23 +188,56 @@ public class NewSettingsScreen extends SkiaScreen {
             FontRenderer.drawText(canvas, TAB_NAMES[i], cardX + 38f, tabY + tabH / 2f + 6f, 13f, textColor);
         }
 
+        int closeBgColor = lerpColor(0xF0F0F0, 0xFFE5E5, closeHoverAlpha);
+        int closeTextColor = lerpColor(0x666666, 0xCC2222, closeHoverAlpha);
         try (Paint closeBg = new Paint()) {
-            closeBg.setColor(withAlpha(0xF0F0F0, alpha));
+            closeBg.setColor(withAlpha(closeBgColor, alpha));
             canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBg);
         }
         float ctw = FontRenderer.measureTextWidth("× 关闭", 12f);
-        FontRenderer.drawText(canvas, "× 关闭", closeX + (tabW - ctw) / 2f, closeY + 22f, 12f, withAlpha(0x666666, alpha));
+        FontRenderer.drawText(canvas, "× 关闭", closeX + (tabW - ctw) / 2f, closeY + 22f, 12f, withAlpha(closeTextColor, alpha));
 
+        float clipTop = contentY + 54f;
+        float clipBottom = contentY + contentH;
         canvas.save();
-        canvas.clipRect(Rect.makeXYWH(contentX, contentY, contentW, contentH));
+        canvas.clipRect(Rect.makeXYWH(contentX, clipTop, contentW, clipBottom - clipTop));
 
         FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
         FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
 
         float moduleStartY = contentY + 54f;
-        page.draw(canvas, contentX + 10f, moduleStartY, contentW - 20f, alpha, contentScrollOffset);
+        page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, alpha, contentScrollOffset);
 
         canvas.restore();
+
+        canvas.save();
+        canvas.clipRect(Rect.makeXYWH(contentX, contentY, contentW, 54f));
+        FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
+        FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
+        canvas.restore();
+
+        float totalH = getContentTotalHeight(page);
+        float scrollAreaH = contentH - 54f;
+        if (totalH > scrollAreaH) {
+            float trackX = contentX + contentW - 8f;
+            float trackTop = contentY + 60f;
+            float trackH = contentH - 60f - 8f;
+            float thumbH = Math.max(20f, trackH * scrollAreaH / totalH);
+            float maxScroll = Math.max(1f, totalH - scrollAreaH);
+            float progress = Math.min(1f, contentScrollOffset / maxScroll);
+            float thumbTop = trackTop + (trackH - thumbH) * progress;
+            thumbTop = Math.min(thumbTop, trackTop + trackH - thumbH);
+
+            try (Paint trackP = new Paint()) {
+                trackP.setColor(withAlpha(0xE0E0E0, alpha * 0.5f));
+                canvas.drawRRect(RRect.makeXYWH(trackX, trackTop, 4f, trackH, 2f), trackP);
+            }
+            try (Paint thumbP = new Paint()) {
+                thumbP.setColor(withAlpha(0xBBBBBB, alpha));
+                canvas.drawRRect(RRect.makeXYWH(trackX, thumbTop, 4f, thumbH, 2f), thumbP);
+            }
+        }
+
         canvas.restore();
     }
 
@@ -200,7 +250,7 @@ public class NewSettingsScreen extends SkiaScreen {
         int button = event.button();
 
         float[] l = layout(this.width, this.height);
-        float cardX = l[0], cardY = l[1], cardW = l[2], cardH = l[3];
+        float cardX = l[0];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
         float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
@@ -208,7 +258,7 @@ public class NewSettingsScreen extends SkiaScreen {
         for (int i = 0; i < TAB_NAMES.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
-                if (button == 0) { selectedTab = i; contentScrollOffset = 0f; }
+                if (button == 0) { selectedTab = i; targetScrollOffset = 0f; contentScrollOffset = 0f; }
                 return true;
             }
         }
@@ -219,9 +269,9 @@ public class NewSettingsScreen extends SkiaScreen {
         }
 
         if (mx >= contentX && mx <= contentX + contentW && my >= contentY && my <= contentY + contentH) {
-            BasePage page = PAGES.get(selectedTab);
+            BasePage page = pages.get(selectedTab);
             float moduleStartY = contentY + 54f;
-            boolean hit = page.onClick((float)mx, (float)my, contentX + 10f, moduleStartY, contentW - 20f, contentScrollOffset, button);
+            boolean hit = page.onClick((float)mx, (float)my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
             if (hit) draggingInContent = true;
             return hit;
         }
@@ -235,7 +285,7 @@ public class NewSettingsScreen extends SkiaScreen {
             float[] l = layout(this.width, this.height);
             float contentX = l[12], contentY = l[13], contentW = l[14];
             float moduleStartY = contentY + 54f;
-            PAGES.get(selectedTab).onDrag((float)event.x(), (float)event.y(), contentX + 10f, moduleStartY, contentW - 20f, contentScrollOffset);
+            pages.get(selectedTab).onDrag((float)event.x(), (float)event.y(), contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
             return true;
         }
         return false;
@@ -244,7 +294,7 @@ public class NewSettingsScreen extends SkiaScreen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         draggingInContent = false;
-        PAGES.get(selectedTab).releaseDrag();
+        pages.get(selectedTab).releaseDrag();
         return false;
     }
 
@@ -254,9 +304,10 @@ public class NewSettingsScreen extends SkiaScreen {
         float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
 
         if (mx >= contentX && mx <= contentX + contentW) {
-            BasePage page = PAGES.get(selectedTab);
-            float maxScroll = Math.max(0f, page.getTotalHeight() + 54f - contentH);
-            contentScrollOffset = Math.max(0f, Math.min(maxScroll, contentScrollOffset + (float)(-vScroll * 24f)));
+            BasePage page = pages.get(selectedTab);
+            float scrollAreaH2 = contentH - 54f;
+            float maxScroll = Math.max(0f, getContentTotalHeight(page) - scrollAreaH2);
+            targetScrollOffset = Math.max(0f, Math.min(maxScroll, targetScrollOffset + (float)(-vScroll * 16f)));
             return true;
         }
         return false;
