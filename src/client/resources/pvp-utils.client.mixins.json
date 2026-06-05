@@ -10,6 +10,7 @@
     "LocalPlayerEyeHeightMixin",
     "PlayerPoseAccessMixin",
     "CameraMixin",
+    "LightTextureMixin",
     "GuiMixin",
     "ClientPacketListenerMixin"
   ],

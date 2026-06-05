@@ -19,6 +19,7 @@ public class Config {
     public static boolean targetHud = false;
     public static boolean fallDamagePredict = false;
     public static boolean victorySound = false;
+    public static boolean gammaOverride = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -31,6 +32,7 @@ public class Config {
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
+    public static double gammaValue = 15.0;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
@@ -61,6 +63,7 @@ public class Config {
             targetHud = Boolean.parseBoolean(prop.getProperty("targetHud", "false"));
             fallDamagePredict = Boolean.parseBoolean(prop.getProperty("fallDamagePredict", "false"));
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
+            gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -74,6 +77,7 @@ public class Config {
             targetHudX = Float.parseFloat(prop.getProperty("targetHudX", "-300"));
             targetHudY = Float.parseFloat(prop.getProperty("targetHudY", "-100"));
             targetHudZ = Float.parseFloat(prop.getProperty("targetHudZ", "0"));
+            gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -95,6 +99,7 @@ public class Config {
             prop.setProperty("targetHud", String.valueOf(targetHud));
             prop.setProperty("fallDamagePredict", String.valueOf(fallDamagePredict));
             prop.setProperty("victorySound", String.valueOf(victorySound));
+            prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
@@ -108,6 +113,7 @@ public class Config {
             prop.setProperty("targetHudX", String.valueOf(targetHudX));
             prop.setProperty("targetHudY", String.valueOf(targetHudY));
             prop.setProperty("targetHudZ", String.valueOf(targetHudZ));
+            prop.setProperty("gammaValue", String.valueOf(gammaValue));
             prop.store(os, null);
         } catch (IOException e) {
             e.printStackTrace();
