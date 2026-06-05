@@ -8,6 +8,9 @@ public class OtherPage extends BasePage {
     public OtherPage() {
         modules.add(new SettingModule("胜利音效", "击杀时播放胜利音效",
                 new SettingToggle(() -> Config.victorySound, v -> { Config.victorySound = v; Config.save(); })));
+
+        modules.add(new SettingModule("自动疾跑", "前进时自动进入疾跑状态",
+                new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return "其他设置"; }
