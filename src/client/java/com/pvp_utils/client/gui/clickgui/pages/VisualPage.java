@@ -38,6 +38,11 @@ public class VisualPage extends BasePage {
                 .addSub("动画速度", "潜行动画的过渡速度",
                         new SettingSlider(0.0, 1.0, "%.0f%%", () -> (double) Config.sneakAnimationSpeed, v -> { Config.sneakAnimationSpeed = v.floatValue(); Config.save(); })));
 
+        modules.add(new SettingModule("伽马覆写", "强制使用自定义亮度值",
+                new SettingToggle(() -> Config.gammaOverride, v -> { Config.gammaOverride = v; Config.save(); }))
+                .addSub("伽马值", "调整游戏亮度上限",
+                        new SettingSlider(0.0, 15.0, "%.1f", () -> Config.gammaValue, v -> { Config.gammaValue = v; Config.save(); })));
+
         modules.add(new SettingModule("低血量提示", "血量过低时显示警告",
                 new SettingToggle(() -> Config.lowHealthNotify, v -> { Config.lowHealthNotify = v; Config.save(); })));
 
