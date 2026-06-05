@@ -3,6 +3,7 @@ package com.pvp_utils;
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -20,6 +21,12 @@ public class PVPUtilsClient implements ClientModInitializer {
         VictorySound.init();
         KeyBindings.register();
         KeyInputHandler.register();
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (Config.autoSprint && client.player != null && client.options.keyUp.isDown() && !client.options.keyShift.isDown()) {
+                client.player.setSprinting(true);
+            }
+        });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(ClientCommandManager.literal("pvputils")

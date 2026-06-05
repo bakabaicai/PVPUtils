@@ -20,6 +20,7 @@ public class Config {
     public static boolean fallDamagePredict = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
+    public static boolean autoSprint = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -64,6 +65,7 @@ public class Config {
             fallDamagePredict = Boolean.parseBoolean(prop.getProperty("fallDamagePredict", "false"));
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
+            autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -100,6 +102,7 @@ public class Config {
             prop.setProperty("fallDamagePredict", String.valueOf(fallDamagePredict));
             prop.setProperty("victorySound", String.valueOf(victorySound));
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
+            prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
