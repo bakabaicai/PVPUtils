@@ -11,6 +11,9 @@
     "PlayerPoseAccessMixin",
     "CameraMixin",
     "LightTextureMixin",
+    "ChestRendererMixin",
+    "KeyboardInputMixin",
+    "MinecraftMixin",
     "GuiMixin",
     "ClientPacketListenerMixin"
   ],

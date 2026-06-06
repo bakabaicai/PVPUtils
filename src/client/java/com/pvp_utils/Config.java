@@ -21,6 +21,7 @@ public class Config {
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
+    public static boolean autoChestDeposit = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -34,6 +35,9 @@ public class Config {
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
+    public static int autoChestDepositOpenDelay = 4;
+    public static int autoChestDepositTransferDelay = 4;
+    public static int autoChestDepositCloseDelay = 4;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
@@ -66,6 +70,7 @@ public class Config {
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
+            autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -80,6 +85,9 @@ public class Config {
             targetHudY = Float.parseFloat(prop.getProperty("targetHudY", "-100"));
             targetHudZ = Float.parseFloat(prop.getProperty("targetHudZ", "0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
+            autoChestDepositOpenDelay = Integer.parseInt(prop.getProperty("autoChestDepositOpenDelay", "4"));
+            autoChestDepositTransferDelay = Integer.parseInt(prop.getProperty("autoChestDepositTransferDelay", "4"));
+            autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -103,6 +111,7 @@ public class Config {
             prop.setProperty("victorySound", String.valueOf(victorySound));
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
+            prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
@@ -117,6 +126,9 @@ public class Config {
             prop.setProperty("targetHudY", String.valueOf(targetHudY));
             prop.setProperty("targetHudZ", String.valueOf(targetHudZ));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
+            prop.setProperty("autoChestDepositOpenDelay", String.valueOf(autoChestDepositOpenDelay));
+            prop.setProperty("autoChestDepositTransferDelay", String.valueOf(autoChestDepositTransferDelay));
+            prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
             prop.store(os, null);
         } catch (IOException e) {
             e.printStackTrace();
