@@ -13,6 +13,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.level.block.EnderChestBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -80,11 +82,16 @@ public final class AutoChestDepositManager {
     private static BlockHitResult getCurrentContainerHit(Minecraft client) {
         if (client.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             BlockPos pos = hit.getBlockPos();
-            if (client.level != null && getMenuProvider(client, pos) != null) {
+            if (client.level != null && isSupportedContainer(client, pos)) {
                 return hit;
             }
         }
         return null;
+    }
+
+    private static boolean isSupportedContainer(Minecraft client, BlockPos pos) {
+        BlockState state = client.level.getBlockState(pos);
+        return getMenuProvider(client, pos) != null || state.getBlock() instanceof EnderChestBlock;
     }
 
     private static MenuProvider getMenuProvider(Minecraft client, BlockPos pos) {

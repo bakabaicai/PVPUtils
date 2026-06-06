@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.TitleDetector;
 import com.pvp_utils.client.gui.NotificationOverlay;
 import com.pvp_utils.client.gui.HitMarkerRenderer;
+import com.pvp_utils.client.gui.KeystrokesRenderer;
 import com.pvp_utils.client.gui.TargetHudRenderer;
 import com.pvp_utils.client.gui.FallDamagePredictor;
 import net.minecraft.client.gui.Gui;
@@ -33,5 +34,6 @@ public class GuiMixin {
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
+        KeystrokesRenderer.getInstance().render(guiGraphics);
     }
 }

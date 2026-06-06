@@ -31,12 +31,12 @@ public class VisualPage extends BasePage {
         modules.add(new SettingModule("使用动画", "启用物品使用动画",
                 new SettingToggle(() -> Config.useSwing, v -> { Config.useSwing = v; Config.save(); })));
 
-        modules.add(new SettingModule("潜行动画", "自定义潜行动画效果",
+        modules.add(new SettingModule("潜行动画调整", "调整潜行视角下降效果",
                 new SettingToggle(() -> Config.noSneakAnimation, v -> { Config.noSneakAnimation = v; Config.save(); }))
-                .addSub("下降高度", "潜行时的下降幅度",
-                        new SettingSlider(0.0, 1.0, "%.0f%%", () -> (double) Config.sneakDropScale, v -> { Config.sneakDropScale = v.floatValue(); Config.save(); }))
-                .addSub("动画速度", "潜行动画的过渡速度",
-                        new SettingSlider(0.0, 1.0, "%.0f%%", () -> (double) Config.sneakAnimationSpeed, v -> { Config.sneakAnimationSpeed = v.floatValue(); Config.save(); })));
+                .addSub("下降幅度", "潜行时的下降幅度",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakDropScale * 100.0, v -> { Config.sneakDropScale = (v.floatValue() / 100.0f); Config.save(); }))
+                .addSub("过渡速度", "潜行动画的过渡速度",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakAnimationSpeed * 100.0, v -> { Config.sneakAnimationSpeed = (v.floatValue() / 100.0f); Config.save(); })));
 
         modules.add(new SettingModule("伽马覆写", "强制使用自定义亮度值",
                 new SettingToggle(() -> Config.gammaOverride, v -> { Config.gammaOverride = v; Config.save(); }))
@@ -54,6 +54,15 @@ public class VisualPage extends BasePage {
                         new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.targetHudY, v -> { Config.targetHudY = v.floatValue(); Config.save(); }))
                 .addSub("HUD Z", "深度位置",
                         new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.targetHudZ, v -> { Config.targetHudZ = v.floatValue(); Config.save(); })));
+
+        modules.add(new SettingModule("按键显示", "显示 WASD 和鼠标按键状态",
+                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); }))
+                .addSub("显示 X", "水平位置",
+                        new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.keystrokesX, v -> { Config.keystrokesX = v.floatValue(); Config.save(); }))
+                .addSub("显示 Y", "垂直位置",
+                        new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.keystrokesY, v -> { Config.keystrokesY = v.floatValue(); Config.save(); }))
+                .addSub("缩放", "调整按键显示大小",
+                        new SettingSlider(0.5, 2.0, "%.2f", () -> (double) Config.keystrokesScale, v -> { Config.keystrokesScale = v.floatValue(); Config.save(); })));
     }
 
     @Override public String getTitle() { return "视觉设置"; }
