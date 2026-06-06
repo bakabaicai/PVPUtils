@@ -44,6 +44,8 @@ dependencies {
 
     implementation "io.github.humbleui:skija-shared:0.116.4"
     runtimeOnly "io.github.humbleui:skija-windows-x64:0.116.4"
+
+    implementation include("net.java.dev.jna:jna:5.14.0")
 }
 
 processResources {

@@ -1,6 +1,7 @@
 package com.pvp_utils;
 
 import com.pvp_utils.client.AutoChestDepositManager;
+import com.pvp_utils.client.InputMethodManager;
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
 import net.fabricmc.api.ClientModInitializer;
@@ -28,6 +29,7 @@ public class PVPUtilsClient implements ClientModInitializer {
                 client.player.setSprinting(true);
             }
             AutoChestDepositManager.tick(client);
+            InputMethodManager.tick(client);
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {

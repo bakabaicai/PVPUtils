@@ -23,6 +23,7 @@ public class Config {
     public static boolean autoSprint = false;
     public static boolean autoChestDeposit = false;
     public static boolean keystrokes = false;
+    public static boolean disableImeInGame = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -76,6 +77,7 @@ public class Config {
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
+            disableImeInGame = Boolean.parseBoolean(prop.getProperty("disableImeInGame", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -121,6 +123,7 @@ public class Config {
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
+            prop.setProperty("disableImeInGame", String.valueOf(disableImeInGame));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));

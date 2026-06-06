@@ -11,6 +11,9 @@ public class OtherPage extends BasePage {
 
         modules.add(new SettingModule("自动疾跑", "前进时自动进入疾跑状态",
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
+
+        modules.add(new SettingModule("游戏内输入法修复", "游玩时禁用输入法",
+                new SettingToggle(() -> Config.disableImeInGame, v -> { Config.disableImeInGame = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return "其他设置"; }
