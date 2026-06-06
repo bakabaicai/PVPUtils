@@ -27,6 +27,7 @@ public class ResetManager {
         Config.keystrokesX = -170f;
         Config.keystrokesY = 70f;
         Config.keystrokesScale = 1.0f;
+        Config.disableImeInGame = false;
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.animationMode = Config.AnimMode.MODE_1_7;
