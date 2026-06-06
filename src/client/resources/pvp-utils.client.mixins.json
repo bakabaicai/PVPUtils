@@ -15,7 +15,8 @@
     "KeyboardInputMixin",
     "MinecraftMixin",
     "GuiMixin",
-    "ClientPacketListenerMixin"
+    "ClientPacketListenerMixin",
+    "ChatScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
