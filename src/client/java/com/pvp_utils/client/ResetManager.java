@@ -23,6 +23,10 @@ public class ResetManager {
         Config.targetHudX = -300f;
         Config.targetHudY = -100f;
         Config.targetHudZ = 0f;
+        Config.keystrokes = false;
+        Config.keystrokesX = -170f;
+        Config.keystrokesY = 70f;
+        Config.keystrokesScale = 1.0f;
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.animationMode = Config.AnimMode.MODE_1_7;

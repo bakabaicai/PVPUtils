@@ -22,6 +22,7 @@ public class Config {
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean autoChestDeposit = false;
+    public static boolean keystrokes = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -31,6 +32,9 @@ public class Config {
     public static float targetHudX = -300f;
     public static float targetHudY = -100f;
     public static float targetHudZ = 0f;
+    public static float keystrokesX = -170f;
+    public static float keystrokesY = 70f;
+    public static float keystrokesScale = 1.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -71,6 +75,7 @@ public class Config {
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
+            keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -84,6 +89,9 @@ public class Config {
             targetHudX = Float.parseFloat(prop.getProperty("targetHudX", "-300"));
             targetHudY = Float.parseFloat(prop.getProperty("targetHudY", "-100"));
             targetHudZ = Float.parseFloat(prop.getProperty("targetHudZ", "0"));
+            keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
+            keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
+            keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
             autoChestDepositOpenDelay = Integer.parseInt(prop.getProperty("autoChestDepositOpenDelay", "4"));
             autoChestDepositTransferDelay = Integer.parseInt(prop.getProperty("autoChestDepositTransferDelay", "4"));
@@ -112,6 +120,7 @@ public class Config {
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
+            prop.setProperty("keystrokes", String.valueOf(keystrokes));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
@@ -125,6 +134,9 @@ public class Config {
             prop.setProperty("targetHudX", String.valueOf(targetHudX));
             prop.setProperty("targetHudY", String.valueOf(targetHudY));
             prop.setProperty("targetHudZ", String.valueOf(targetHudZ));
+            prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
+            prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
+            prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
             prop.setProperty("autoChestDepositOpenDelay", String.valueOf(autoChestDepositOpenDelay));
             prop.setProperty("autoChestDepositTransferDelay", String.valueOf(autoChestDepositTransferDelay));
