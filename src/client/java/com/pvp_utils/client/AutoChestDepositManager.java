@@ -29,7 +29,6 @@ public final class AutoChestDepositManager {
     private AutoChestDepositManager() {}
 
     public static void onChestRendered(ChestBlockEntity chest) {
-        // Kept as the render hook requested by the feature. Target selection is done on mouse release.
     }
 
     public static void tick(Minecraft client) {
