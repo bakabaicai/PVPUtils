@@ -54,6 +54,15 @@ public class VisualPage extends BasePage {
                         new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.targetHudY, v -> { Config.targetHudY = v.floatValue(); Config.save(); }))
                 .addSub("HUD Z", "深度位置",
                         new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.targetHudZ, v -> { Config.targetHudZ = v.floatValue(); Config.save(); })));
+
+        modules.add(new SettingModule("按键显示", "显示 WASD 和鼠标按键状态",
+                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); }))
+                .addSub("显示 X", "水平位置",
+                        new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.keystrokesX, v -> { Config.keystrokesX = v.floatValue(); Config.save(); }))
+                .addSub("显示 Y", "垂直位置",
+                        new SettingSlider(-500.0, 500.0, "%.0f", () -> (double) Config.keystrokesY, v -> { Config.keystrokesY = v.floatValue(); Config.save(); }))
+                .addSub("缩放", "调整按键显示大小",
+                        new SettingSlider(0.5, 2.0, "%.2f", () -> (double) Config.keystrokesScale, v -> { Config.keystrokesScale = v.floatValue(); Config.save(); })));
     }
 
     @Override public String getTitle() { return "视觉设置"; }
