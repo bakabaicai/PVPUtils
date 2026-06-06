@@ -33,6 +33,7 @@ public class HudEditOverlay {
     private static final int HUD_HEIGHT = 44;
     private static final float DASH_SPEED = 20f;
     private static final float DASH_LEN = 12f;
+    private static final float DASH_GAP = 6f;
 
     public void render(GuiGraphics graphics) {
         Minecraft mc = Minecraft.getInstance();
@@ -44,8 +45,7 @@ public class HudEditOverlay {
         float dt = lastFrameMs == 0 ? 0.016f : Math.min((now - lastFrameMs) / 1000f, 0.05f);
         lastFrameMs = now;
 
-        dashOffset -= DASH_SPEED * dt;
-        if (dashOffset < -DASH_LEN) dashOffset += DASH_LEN;
+        dashOffset = (dashOffset + DASH_SPEED * dt) % (DASH_LEN + DASH_GAP);
 
         float guiScale = (float) mc.getWindow().getGuiScale();
         double[] rawX = new double[1], rawY = new double[1];
@@ -136,7 +136,7 @@ public class HudEditOverlay {
         try (Paint p = new Paint()) {
             p.setColor((alpha << 24) | 0xFFFFFF);
             p.setAntiAlias(true);
-            p.setPathEffect(PathEffect.makeDash(new float[]{DASH_LEN, 6f}, dashOffset));
+            p.setPathEffect(PathEffect.makeDash(new float[]{DASH_LEN, DASH_GAP}, dashOffset));
             p.setStrokeWidth(1.5f);
             p.setMode(PaintMode.STROKE);
             canvas.drawRRect(RRect.makeXYWH(rx, ry, rw, rh, 6f), p);
