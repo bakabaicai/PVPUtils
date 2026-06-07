@@ -28,14 +28,34 @@ public class HudEditOverlay {
     private float visualY = Float.NaN;
 
     private long lastFrameMs = 0;
+    private long animStartTime = 0;
+    private long animCloseTime = 0;
+
+    private boolean closing = false;
+    private boolean active = false;
 
     private static final int HUD_WIDTH  = 164;
     private static final int HUD_HEIGHT = 44;
     private static final float DASH_SPEED = 20f;
     private static final float DASH_LEN = 12f;
     private static final float DASH_GAP = 6f;
+    private static final float ANIM_DURATION = 0.2f;
+
+    public void startOpen() {
+        animStartTime = System.currentTimeMillis();
+        closing = false;
+        active = true;
+    }
+
+    public void startClose() {
+        animCloseTime = System.currentTimeMillis();
+        closing = true;
+        active = true;
+    }
 
     public void render(GuiGraphics graphics) {
+        if (!active) return;
+
         Minecraft mc = Minecraft.getInstance();
         int guiW = mc.getWindow().getGuiScaledWidth();
         int guiH = mc.getWindow().getGuiScaledHeight();
@@ -93,18 +113,30 @@ public class HudEditOverlay {
         visualX += (targetX - visualX) * Math.min(1f, dt * lerpSpeed);
         visualY += (targetY - visualY) * Math.min(1f, dt * lerpSpeed);
 
+        float progress;
+        if (closing) {
+            progress = 1f - Math.min(1f, (now - animCloseTime) / (ANIM_DURATION * 1000f));
+            if (progress <= 0f) {
+                active = false;
+                return;
+            }
+        } else {
+            progress = Math.min(1f, (now - animStartTime) / (ANIM_DURATION * 1000f));
+        }
+
         Canvas canvas = SkiaRenderer.begin();
         if (canvas == null) return;
 
-        drawGrid(canvas, guiW, guiH);
-        drawHudOutline(canvas, visualX, visualY);
+        drawGrid(canvas, guiW, guiH, progress);
+        drawHudOutline(canvas, visualX, visualY, progress);
 
         SkiaRenderer.end(graphics, guiW, guiH);
     }
 
-    private void drawGrid(Canvas canvas, int guiW, int guiH) {
+    private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
         try (Paint p = new Paint()) {
-            p.setColor(0x44FFFFFF);
+            int a = (int)(0x44 * alpha);
+            p.setColor((a << 24) | 0xFFFFFF);
             p.setAntiAlias(true);
             p.setPathEffect(PathEffect.makeDash(new float[]{8f, 8f}, 0f));
             p.setStrokeWidth(1f);
@@ -117,24 +149,24 @@ public class HudEditOverlay {
         }
     }
 
-    private void drawHudOutline(Canvas canvas, float x, float y) {
+    private void drawHudOutline(Canvas canvas, float x, float y, float alpha) {
         float pad = 4f;
         float rx = x - pad, ry = y - pad;
         float rw = HUD_WIDTH + pad * 2f, rh = HUD_HEIGHT + pad * 2f;
 
-        float a = 0.55f + hoverAlpha * 0.45f;
-        int alpha = (int)(a * 255);
+        float a = (0.55f + hoverAlpha * 0.45f) * alpha;
+        int alphaInt = (int)(a * 255);
 
-        if (hoverAlpha > 0.01f) {
+        if (alpha > 0.01f) {
             try (Paint fill = new Paint()) {
-                fill.setColor((int)(hoverAlpha * 30) << 24 | 0xFFFFFF);
+                fill.setColor((int)(alpha * 30) << 24 | 0xFFFFFF);
                 fill.setAntiAlias(true);
                 canvas.drawRRect(RRect.makeXYWH(rx, ry, rw, rh, 6f), fill);
             }
         }
 
         try (Paint p = new Paint()) {
-            p.setColor((alpha << 24) | 0xFFFFFF);
+            p.setColor((alphaInt << 24) | 0xFFFFFF);
             p.setAntiAlias(true);
             p.setPathEffect(PathEffect.makeDash(new float[]{DASH_LEN, DASH_GAP}, dashOffset));
             p.setStrokeWidth(1.5f);
@@ -142,6 +174,6 @@ public class HudEditOverlay {
             canvas.drawRRect(RRect.makeXYWH(rx, ry, rw, rh, 6f), p);
         }
 
-        FontRenderer.drawText(canvas, "Target HUD", rx, ry - 4f, 10f, (alpha << 24) | 0xFFFFFF);
+        FontRenderer.drawText(canvas, "Target HUD", rx, ry - 4f, 10f, (alphaInt << 24) | 0xFFFFFF);
     }
 }

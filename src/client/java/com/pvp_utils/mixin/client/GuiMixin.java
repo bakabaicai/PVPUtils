@@ -6,6 +6,7 @@ import com.pvp_utils.client.gui.HitMarkerRenderer;
 import com.pvp_utils.client.gui.KeystrokesRenderer;
 import com.pvp_utils.client.gui.TargetHudRenderer;
 import com.pvp_utils.client.gui.FallDamagePredictor;
+import com.pvp_utils.client.gui.HudEditOverlay;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;
@@ -35,5 +36,6 @@ public class GuiMixin {
         TargetHudRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         KeystrokesRenderer.getInstance().render(guiGraphics);
+        HudEditOverlay.getInstance().render(guiGraphics);
     }
 }
