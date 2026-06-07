@@ -17,6 +17,9 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule("左键存入容器", "松开左键后将主手物品放入准星容器",
                 new SettingToggle(() -> Config.autoChestDeposit, v -> { Config.autoChestDeposit = v; Config.save(); }))
+                .addSub("阻止移动", "自动存入期间阻止玩家移动输入",
+                        new SettingToggle(() -> Config.autoChestDepositBlockMovement,
+                                v -> { Config.autoChestDepositBlockMovement = v; Config.save(); }))
                 .addSub("开箱延迟", "松开左键后等待的 tick",
                         new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositOpenDelay,
                                 v -> { Config.autoChestDepositOpenDelay = v.intValue(); Config.save(); }))

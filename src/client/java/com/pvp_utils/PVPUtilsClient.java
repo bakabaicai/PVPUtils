@@ -25,9 +25,6 @@ public class PVPUtilsClient implements ClientModInitializer {
         KeyInputHandler.register();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (Config.autoSprint && client.player != null && client.options.keyUp.isDown() && !client.options.keyShift.isDown()) {
-                client.player.setSprinting(true);
-            }
             AutoChestDepositManager.tick(client);
             InputMethodManager.tick(client);
         });

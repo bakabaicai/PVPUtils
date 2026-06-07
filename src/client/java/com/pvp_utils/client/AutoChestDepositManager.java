@@ -60,7 +60,7 @@ public final class AutoChestDepositManager {
     }
 
     public static boolean shouldBlockMovementInput() {
-        return phase != Phase.IDLE;
+        return Config.autoChestDepositBlockMovement && phase != Phase.IDLE;
     }
 
     public static boolean shouldHideContainerScreen(Screen screen) {
