@@ -1,10 +1,12 @@
 package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaRenderer;
+import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.chat.Component;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -55,26 +57,24 @@ public class KeystrokesRenderer {
         wasLeftDown = leftDown;
         wasRightDown = rightDown;
 
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y);
-        graphics.pose().scale(scale, scale);
+        Canvas canvas = SkiaRenderer.begin();
 
-        drawKey(graphics, client, "W", KEY_SIZE + GAP, 0, KEY_SIZE, client.options.keyUp.isDown());
-        drawKey(graphics, client, "A", 0, KEY_SIZE + GAP, KEY_SIZE, client.options.keyLeft.isDown());
-        drawKey(graphics, client, "S", KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, client.options.keyDown.isDown());
-        drawKey(graphics, client, "D", (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, client.options.keyRight.isDown());
+        drawKey(graphics, canvas, "W", x + (KEY_SIZE + GAP) * scale, y, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyUp.isDown());
+        drawKey(graphics, canvas, "A", x, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyLeft.isDown());
+        drawKey(graphics, canvas, "S", x + (KEY_SIZE + GAP) * scale, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyDown.isDown());
+        drawKey(graphics, canvas, "D", x + (KEY_SIZE + GAP) * 2 * scale, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyRight.isDown());
 
         int mouseY = (KEY_SIZE + GAP) * 2;
         int leftMouseW = (totalW - GAP) / 2;
         int rightMouseW = totalW - GAP - leftMouseW;
-        drawMouseKey(graphics, client, "LMB", leftCps, 0, mouseY, leftMouseW, leftDown);
-        drawMouseKey(graphics, client, "RMB", rightCps, leftMouseW + GAP, mouseY, rightMouseW, rightDown);
+        drawMouseKey(graphics, canvas, "LMB", leftCps, x, y + mouseY * scale, leftMouseW * scale, KEY_SIZE * scale, leftDown);
+        drawMouseKey(graphics, canvas, "RMB", rightCps, x + (leftMouseW + GAP) * scale, y + mouseY * scale, rightMouseW * scale, KEY_SIZE * scale, rightDown);
 
         int bottomY = (KEY_SIZE + GAP) * 3;
-        drawKey(graphics, client, "SPACE", 0, bottomY, leftMouseW, client.options.keyJump.isDown());
-        drawKey(graphics, client, "SHIFT", leftMouseW + GAP, bottomY, rightMouseW, client.options.keyShift.isDown());
+        drawKey(graphics, canvas, "SPACE", x, y + bottomY * scale, leftMouseW * scale, KEY_SIZE * scale, client.options.keyJump.isDown());
+        drawKey(graphics, canvas, "SHIFT", x + (leftMouseW + GAP) * scale, y + bottomY * scale, rightMouseW * scale, KEY_SIZE * scale, client.options.keyShift.isDown());
 
-        graphics.pose().popMatrix();
+        SkiaRenderer.end(graphics, screenW, screenH);
     }
 
     private int updateCps(Deque<Long> clicks, boolean isDown, boolean wasDown) {
@@ -88,27 +88,37 @@ public class KeystrokesRenderer {
         return clicks.size();
     }
 
-    private void drawKey(GuiGraphics graphics, Minecraft client, String label, int x, int y, int width, boolean active) {
-        int height = KEY_SIZE;
-        graphics.fill(x, y, x + width, y + height, active ? ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(x, y, width, height, 0x99FFFFFF);
+    private void drawKey(GuiGraphics graphics, Canvas canvas, String label, float x, float y, float width, float height, boolean active) {
+        int ix = Math.round(x);
+        int iy = Math.round(y);
+        int iw = Math.round(width);
+        int ih = Math.round(height);
+        graphics.fill(ix, iy, ix + iw, iy + ih, active ? ACTIVE_COLOR : BG_COLOR);
+        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
-        int textX = x + (width - client.font.width(label)) / 2;
-        int textY = y + (height - 8) / 2;
-        graphics.drawString(client.font, Component.literal(label), textX, textY, textColor, false);
+        float size = 10.5f * (height / KEY_SIZE);
+        float textX = x + (width - FontRenderer.measureTextWidth(label, size)) / 2f;
+        float textY = y + height * 0.5f + size * 0.35f;
+        FontRenderer.drawText(canvas, label, textX, textY, size, textColor);
     }
 
-    private void drawMouseKey(GuiGraphics graphics, Minecraft client, String label, int cps, int x, int y, int width, boolean active) {
-        int height = KEY_SIZE;
-        graphics.fill(x, y, x + width, y + height, active ? ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(x, y, width, height, 0x99FFFFFF);
+    private void drawMouseKey(GuiGraphics graphics, Canvas canvas, String label, int cps, float x, float y, float width, float height, boolean active) {
+        int ix = Math.round(x);
+        int iy = Math.round(y);
+        int iw = Math.round(width);
+        int ih = Math.round(height);
+        graphics.fill(ix, iy, ix + iw, iy + ih, active ? ACTIVE_COLOR : BG_COLOR);
+        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
 
         int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
         String cpsText = cps + " CPS";
-        int labelX = x + (width - client.font.width(label)) / 2;
-        int cpsX = x + (width - client.font.width(cpsText)) / 2;
-        graphics.drawString(client.font, Component.literal(label), labelX, y + 3, textColor, false);
-        graphics.drawString(client.font, Component.literal(cpsText), cpsX, y + 13, textColor, false);
+        float scale = height / KEY_SIZE;
+        float labelSize = 8.5f * scale;
+        float cpsSize = 7.0f * scale;
+        float labelX = x + (width - FontRenderer.measureTextWidth(label, labelSize)) / 2f;
+        float cpsX = x + (width - FontRenderer.measureTextWidth(cpsText, cpsSize)) / 2f;
+        FontRenderer.drawText(canvas, label, labelX, y + 9.0f * scale, labelSize, textColor);
+        FontRenderer.drawText(canvas, cpsText, cpsX, y + 19.0f * scale, cpsSize, textColor);
     }
 }
