@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.AutoChestDepositManager;
 import net.minecraft.client.player.ClientInput;
 import net.minecraft.client.player.KeyboardInput;
@@ -17,6 +18,19 @@ public class KeyboardInputMixin extends ClientInput {
         if (AutoChestDepositManager.shouldBlockMovementInput()) {
             this.keyPresses = Input.EMPTY;
             this.moveVector = Vec2.ZERO;
+            return;
+        }
+
+        if (Config.autoSprint && this.keyPresses.forward() && !this.keyPresses.shift()) {
+            this.keyPresses = new Input(
+                    this.keyPresses.forward(),
+                    this.keyPresses.backward(),
+                    this.keyPresses.left(),
+                    this.keyPresses.right(),
+                    this.keyPresses.jump(),
+                    this.keyPresses.shift(),
+                    true
+            );
         }
     }
 }

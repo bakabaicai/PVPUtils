@@ -22,6 +22,7 @@ public class Config {
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean autoChestDeposit = false;
+    public static boolean autoChestDepositBlockMovement = true;
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
@@ -76,6 +77,7 @@ public class Config {
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
+            autoChestDepositBlockMovement = Boolean.parseBoolean(prop.getProperty("autoChestDepositBlockMovement", "true"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
             disableImeInGame = Boolean.parseBoolean(prop.getProperty("disableImeInGame", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
@@ -122,6 +124,7 @@ public class Config {
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
+            prop.setProperty("autoChestDepositBlockMovement", String.valueOf(autoChestDepositBlockMovement));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
             prop.setProperty("disableImeInGame", String.valueOf(disableImeInGame));
             prop.setProperty("hitSoundType", hitSoundType.name());
