@@ -2,7 +2,6 @@ package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PathEffect;
@@ -16,6 +15,7 @@ public class HudEditOverlay {
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     public static HudEditOverlay getInstance() { return INSTANCE; }
+    public boolean isActive() { return active; }
 
     private boolean dragging = false;
     private boolean wasMouseDown = false;
@@ -54,6 +54,10 @@ public class HudEditOverlay {
     }
 
     public void render(GuiGraphics graphics) {
+        render(graphics, null);
+    }
+
+    public void render(GuiGraphics graphics, Canvas canvas) {
         if (!active) return;
 
         Minecraft mc = Minecraft.getInstance();
@@ -124,13 +128,10 @@ public class HudEditOverlay {
             progress = Math.min(1f, (now - animStartTime) / (ANIM_DURATION * 1000f));
         }
 
-        Canvas canvas = SkiaRenderer.begin();
         if (canvas == null) return;
 
         drawGrid(canvas, guiW, guiH, progress);
         drawHudOutline(canvas, visualX, visualY, progress);
-
-        SkiaRenderer.end(graphics, guiW, guiH);
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {

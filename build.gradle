@@ -42,9 +42,14 @@ dependencies {
     implementation "io.github.llamalad7:mixinextras-fabric:0.4.1"
     annotationProcessor "io.github.llamalad7:mixinextras-common:0.4.1"
 
-    implementation "io.github.humbleui:skija-shared:0.116.4"
-    runtimeOnly "io.github.humbleui:skija-windows-x64:0.116.4"
+    implementation "io.github.humbleui:types:0.2.0"
+    include "io.github.humbleui:types:0.2.0"
 
+    implementation "io.github.humbleui:skija-shared:0.143.16"
+    include "io.github.humbleui:skija-shared:0.143.16"
+
+    implementation "io.github.humbleui:skija-windows-x64:0.143.16"
+    include "io.github.humbleui:skija-windows-x64:0.143.16"
     implementation include("net.java.dev.jna:jna:5.14.0")
 }
 

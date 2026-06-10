@@ -7,9 +7,12 @@ import com.pvp_utils.client.gui.KeystrokesRenderer;
 import com.pvp_utils.client.gui.TargetHudRenderer;
 import com.pvp_utils.client.gui.FallDamagePredictor;
 import com.pvp_utils.client.gui.HudEditOverlay;
+import com.pvp_utils.client.render.skia.SkiaRenderer;
+import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -35,7 +38,21 @@ public class GuiMixin {
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
-        KeystrokesRenderer.getInstance().render(guiGraphics);
-        HudEditOverlay.getInstance().render(guiGraphics);
+
+        Minecraft mc = Minecraft.getInstance();
+        int guiWidth = mc.getWindow().getGuiScaledWidth();
+        int guiHeight = mc.getWindow().getGuiScaledHeight();
+        Canvas canvas = null;
+
+        if (com.pvp_utils.Config.keystrokes || HudEditOverlay.getInstance().isActive()) {
+            canvas = SkiaRenderer.begin();
+        }
+
+        KeystrokesRenderer.getInstance().render(guiGraphics, canvas);
+        HudEditOverlay.getInstance().render(guiGraphics, canvas);
+
+        if (canvas != null) {
+            SkiaRenderer.end(guiGraphics, guiWidth, guiHeight);
+        }
     }
 }

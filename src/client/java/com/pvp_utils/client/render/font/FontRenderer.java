@@ -14,6 +14,7 @@ public class FontRenderer {
     public static final String ICON = "icon";
 
     private static final Map<String, Typeface> typefaces = new HashMap<>();
+    private static final FontMgr fontMgr = FontMgr.getDefault();
 
     static {
         registerFromResources(DEFAULT, "/fonts/harmony.ttf");
@@ -24,14 +25,14 @@ public class FontRenderer {
         try (InputStream is = FontRenderer.class.getResourceAsStream(resourcePath)) {
             if (is == null) throw new IOException("Font not found: " + resourcePath);
             byte[] data = is.readAllBytes();
-            typefaces.put(name, Typeface.makeFromData(Data.makeFromBytes(data)));
+            typefaces.put(name, fontMgr.makeFromData(Data.makeFromBytes(data)));
         } catch (IOException e) {
             throw new RuntimeException("Failed to load font: " + resourcePath, e);
         }
     }
 
     public static void registerFromFile(String name, Path path) {
-        typefaces.put(name, Typeface.makeFromFile(path.toAbsolutePath().toString()));
+        typefaces.put(name, fontMgr.makeFromFile(path.toAbsolutePath().toString()));
     }
 
     private static Font makeFont(String fontName, float size) {

@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaRenderer;
+import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -31,9 +31,14 @@ public class KeystrokesRenderer {
     }
 
     public void render(GuiGraphics graphics) {
+        render(graphics, null);
+    }
+
+    public void render(GuiGraphics graphics, Canvas canvas) {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
+        if (client.screen instanceof SkiaScreen) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -57,8 +62,6 @@ public class KeystrokesRenderer {
         wasLeftDown = leftDown;
         wasRightDown = rightDown;
 
-        Canvas canvas = SkiaRenderer.begin();
-
         drawKey(graphics, canvas, "W", x + (KEY_SIZE + GAP) * scale, y, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyUp.isDown());
         drawKey(graphics, canvas, "A", x, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyLeft.isDown());
         drawKey(graphics, canvas, "S", x + (KEY_SIZE + GAP) * scale, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyDown.isDown());
@@ -73,8 +76,6 @@ public class KeystrokesRenderer {
         int bottomY = (KEY_SIZE + GAP) * 3;
         drawKey(graphics, canvas, "SPACE", x, y + bottomY * scale, leftMouseW * scale, KEY_SIZE * scale, client.options.keyJump.isDown());
         drawKey(graphics, canvas, "SHIFT", x + (leftMouseW + GAP) * scale, y + bottomY * scale, rightMouseW * scale, KEY_SIZE * scale, client.options.keyShift.isDown());
-
-        SkiaRenderer.end(graphics, screenW, screenH);
     }
 
     private int updateCps(Deque<Long> clicks, boolean isDown, boolean wasDown) {
@@ -100,7 +101,7 @@ public class KeystrokesRenderer {
         float size = 10.5f * (height / KEY_SIZE);
         float textX = x + (width - FontRenderer.measureTextWidth(label, size)) / 2f;
         float textY = y + height * 0.5f + size * 0.35f;
-        FontRenderer.drawText(canvas, label, textX, textY, size, textColor);
+        if (canvas != null) FontRenderer.drawText(canvas, label, textX, textY, size, textColor);
     }
 
     private void drawMouseKey(GuiGraphics graphics, Canvas canvas, String label, int cps, float x, float y, float width, float height, boolean active) {
@@ -118,7 +119,9 @@ public class KeystrokesRenderer {
         float cpsSize = 7.0f * scale;
         float labelX = x + (width - FontRenderer.measureTextWidth(label, labelSize)) / 2f;
         float cpsX = x + (width - FontRenderer.measureTextWidth(cpsText, cpsSize)) / 2f;
-        FontRenderer.drawText(canvas, label, labelX, y + 9.0f * scale, labelSize, textColor);
-        FontRenderer.drawText(canvas, cpsText, cpsX, y + 19.0f * scale, cpsSize, textColor);
+        if (canvas != null) {
+            FontRenderer.drawText(canvas, label, labelX, y + 9.0f * scale, labelSize, textColor);
+            FontRenderer.drawText(canvas, cpsText, cpsX, y + 19.0f * scale, cpsSize, textColor);
+        }
     }
 }

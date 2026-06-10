@@ -25,11 +25,13 @@ public abstract class BasePage {
         for (SettingModule m : modules) m.update(dt);
     }
 
-    public void draw(Canvas canvas, float x, float y, float contentW, float alpha, float scrollOffset) {
+    public void draw(Canvas canvas, float x, float y, float contentW, float contentH, float alpha, float scrollOffset) {
         float cy = y - scrollOffset;
+        float viewportTop = y;
+        float viewportBottom = y + contentH;
         for (SettingModule m : modules) {
             float mh = m.getTotalHeight();
-            if (cy + mh > y && cy < y + 9999f) {
+            if (cy + mh > viewportTop && cy < viewportBottom) {
                 m.draw(canvas, x, cy, contentW, alpha);
             }
             cy += mh + 8f;
