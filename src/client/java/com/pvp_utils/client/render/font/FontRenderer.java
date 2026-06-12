@@ -15,6 +15,8 @@ public class FontRenderer {
 
     private static final Map<String, Typeface> typefaces = new HashMap<>();
     private static final FontMgr fontMgr = FontMgr.getDefault();
+    private static final Map<String, Font> fonts = new HashMap<>();
+    private static final Map<String, Float> widthCache = new HashMap<>();
 
     static {
         registerFromResources(DEFAULT, "/fonts/harmony.ttf");
@@ -26,6 +28,7 @@ public class FontRenderer {
             if (is == null) throw new IOException("Font not found: " + resourcePath);
             byte[] data = is.readAllBytes();
             typefaces.put(name, fontMgr.makeFromData(Data.makeFromBytes(data)));
+            clearCaches(name);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load font: " + resourcePath, e);
         }
@@ -33,14 +36,20 @@ public class FontRenderer {
 
     public static void registerFromFile(String name, Path path) {
         typefaces.put(name, fontMgr.makeFromFile(path.toAbsolutePath().toString()));
+        clearCaches(name);
     }
 
     private static Font makeFont(String fontName, float size) {
+        String key = fontKey(fontName, size);
+        Font font = fonts.get(key);
+        if (font != null) return font;
+
         Typeface typeface = typefaces.getOrDefault(fontName, typefaces.get(DEFAULT));
-        Font font = new Font(typeface, size);
+        font = new Font(typeface, size);
         font.setSubpixel(true);
         font.setHinting(FontHinting.SLIGHT);
         font.setEdging(FontEdging.SUBPIXEL_ANTI_ALIAS);
+        fonts.put(key, font);
         return font;
     }
 
@@ -49,7 +58,8 @@ public class FontRenderer {
     }
 
     public static void drawText(Canvas canvas, String text, float x, float y, float size, int argb, String fontName) {
-        try (Font font = makeFont(fontName, size); Paint paint = new Paint()) {
+        try (Paint paint = new Paint()) {
+            Font font = makeFont(fontName, size);
             paint.setColor(argb);
             paint.setAntiAlias(true);
             canvas.drawString(text, x, y, font, paint);
@@ -69,9 +79,15 @@ public class FontRenderer {
     }
 
     public static float measureTextWidth(String text, float size, String fontName) {
-        try (Font font = makeFont(fontName, size)) {
-            return font.measureTextWidth(text);
+        if (text.length() <= 32) {
+            String key = widthKey(fontName, size, text);
+            Float cached = widthCache.get(key);
+            if (cached != null) return cached;
+            float width = makeFont(fontName, size).measureTextWidth(text);
+            widthCache.put(key, width);
+            return width;
         }
+        return makeFont(fontName, size).measureTextWidth(text);
     }
 
     public static float getLineHeight(float size) {
@@ -79,10 +95,21 @@ public class FontRenderer {
     }
 
     public static float getLineHeight(float size, String fontName) {
-        try (Font font = makeFont(fontName, size)) {
-            FontMetrics m = font.getMetrics();
-            return -m.getAscent() + m.getDescent();
-        }
+        FontMetrics m = makeFont(fontName, size).getMetrics();
+        return -m.getAscent() + m.getDescent();
+    }
+
+    private static String fontKey(String fontName, float size) {
+        return fontName + '#' + Float.floatToIntBits(size);
+    }
+
+    private static String widthKey(String fontName, float size, String text) {
+        return fontKey(fontName, size) + '#' + text;
+    }
+
+    private static void clearCaches(String fontName) {
+        fonts.keySet().removeIf(key -> key.startsWith(fontName + '#'));
+        widthCache.keySet().removeIf(key -> key.startsWith(fontName + '#'));
     }
 
     public static class Segment {

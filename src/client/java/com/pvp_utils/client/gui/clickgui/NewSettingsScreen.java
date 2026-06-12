@@ -34,7 +34,7 @@ public class NewSettingsScreen extends SkiaScreen {
     private float contentScrollOffset = 0f;
     private float targetScrollOffset = 0f;
     private boolean draggingInContent = false;
-    private static final float OPEN_DURATION = 0.18f;
+    private static final float OPEN_DURATION = 0.16f;
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
@@ -102,12 +102,15 @@ public class NewSettingsScreen extends SkiaScreen {
     @Override
     protected void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta) {
         long now = System.currentTimeMillis();
-        float dt = lastRenderMs == 0 ? 0.016f : Math.min((now - lastRenderMs) / 1000f, 0.1f);
+        float dt = lastRenderMs == 0 ? 0.016f : Math.min((now - lastRenderMs) / 1000f, 0.033f);
         lastRenderMs = now;
 
         if (closing) {
             openProgress = clamp01(openProgress - dt / OPEN_DURATION);
-            if (openProgress < 0.005f) { super.closing(); return; }
+            if (openProgress < 0.005f) {
+                super.closing();
+                return;
+            }
         } else {
             openProgress = clamp01(openProgress + dt / OPEN_DURATION);
         }
@@ -116,13 +119,10 @@ public class NewSettingsScreen extends SkiaScreen {
 
         float[] l = layout(width, height);
         BasePage currentPage = pages.get(selectedTab);
-        boolean animateContent = openProgress > 0.985f && !closing;
         float currentScrollAreaH = l[15] - 54f;
         float currentMaxScroll = Math.max(0f, getContentTotalHeight(currentPage) - currentScrollAreaH);
         targetScrollOffset = Math.min(targetScrollOffset, currentMaxScroll);
-        if (animateContent) {
-            contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
-        }
+        contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
         float cardX = l[0], cardY = l[1], cardW = l[2], cardH = l[3];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
@@ -149,14 +149,13 @@ public class NewSettingsScreen extends SkiaScreen {
         indicatorY = lerp(indicatorY, targetIndicatorY, dt * 12f);
 
         BasePage page = currentPage;
-        if (animateContent) {
-            page.update(dt);
-        }
+        page.update(dt);
 
+        float alpha = 1f;
         float guiScale = com.pvp_utils.client.render.skia.SkiaRenderer.getScale();
-        float cx = width / 2f, cy = height / 2f;
-        float sc = 0.88f + 0.12f * animT;
-        float alpha = animT;
+        float cx = width / 2f;
+        float cy = height / 2f;
+        float sc = 0.965f + 0.035f * animT;
 
         canvas.save();
         canvas.translate(cx * guiScale, cy * guiScale);
@@ -213,50 +212,45 @@ public class NewSettingsScreen extends SkiaScreen {
         float ctw = FontRenderer.measureTextWidth("× 关闭", 12f);
         FontRenderer.drawText(canvas, "× 关闭", closeX + (tabW - ctw) / 2f, closeY + 22f, 12f, withAlpha(closeTextColor, alpha));
 
+        FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
+        FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
+
         float clipTop = contentY + 54f;
         float clipBottom = contentY + contentH;
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(contentX, clipTop, contentW, clipBottom - clipTop));
 
-        FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
-        FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
-
-        if (animateContent) {
-            float moduleStartY = contentY + 54f;
-            page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset);
-        }
+        float moduleStartY = contentY + 54f;
+        page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset);
+        drawScrollbar(canvas, page, contentX, contentY, contentW, contentH, alpha);
 
         canvas.restore();
 
-        canvas.save();
-        canvas.clipRect(Rect.makeXYWH(contentX, contentY, contentW, 54f));
-        FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
-        FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
         canvas.restore();
+    }
 
+    private void drawScrollbar(Canvas canvas, BasePage page, float contentX, float contentY, float contentW, float contentH, float alpha) {
         float totalH = getContentTotalHeight(page);
         float scrollAreaH = contentH - 54f;
-        if (animateContent && totalH > scrollAreaH) {
-            float trackX = contentX + contentW - 8f;
-            float trackTop = contentY + 60f;
-            float trackH = contentH - 60f - 8f;
-            float thumbH = Math.max(20f, trackH * scrollAreaH / totalH);
-            float maxScroll = Math.max(1f, totalH - scrollAreaH);
-            float progress = Math.min(1f, contentScrollOffset / maxScroll);
-            float thumbTop = trackTop + (trackH - thumbH) * progress;
-            thumbTop = Math.min(thumbTop, trackTop + trackH - thumbH);
+        if (totalH <= scrollAreaH) return;
 
-            try (Paint trackP = new Paint()) {
-                trackP.setColor(withAlpha(0xE0E0E0, alpha * 0.5f));
-                canvas.drawRRect(RRect.makeXYWH(trackX, trackTop, 4f, trackH, 2f), trackP);
-            }
-            try (Paint thumbP = new Paint()) {
-                thumbP.setColor(withAlpha(0xBBBBBB, alpha));
-                canvas.drawRRect(RRect.makeXYWH(trackX, thumbTop, 4f, thumbH, 2f), thumbP);
-            }
+        float trackX = contentX + contentW - 8f;
+        float trackTop = contentY + 60f;
+        float trackH = contentH - 60f - 8f;
+        float thumbH = Math.max(20f, trackH * scrollAreaH / totalH);
+        float maxScroll = Math.max(1f, totalH - scrollAreaH);
+        float progress = Math.min(1f, contentScrollOffset / maxScroll);
+        float thumbTop = trackTop + (trackH - thumbH) * progress;
+        thumbTop = Math.min(thumbTop, trackTop + trackH - thumbH);
+
+        try (Paint trackP = new Paint()) {
+            trackP.setColor(withAlpha(0xE0E0E0, alpha * 0.5f));
+            canvas.drawRRect(RRect.makeXYWH(trackX, trackTop, 4f, trackH, 2f), trackP);
         }
-
-        canvas.restore();
+        try (Paint thumbP = new Paint()) {
+            thumbP.setColor(withAlpha(0xBBBBBB, alpha));
+            canvas.drawRRect(RRect.makeXYWH(trackX, thumbTop, 4f, thumbH, 2f), thumbP);
+        }
     }
 
     @Override public void onClose() { closing = true; }
@@ -290,7 +284,9 @@ public class NewSettingsScreen extends SkiaScreen {
             BasePage page = pages.get(selectedTab);
             float moduleStartY = contentY + 54f;
             boolean hit = page.onClick((float)mx, (float)my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
-            if (hit) draggingInContent = true;
+            if (hit) {
+                draggingInContent = true;
+            }
             return hit;
         }
 

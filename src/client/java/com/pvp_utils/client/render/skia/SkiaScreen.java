@@ -40,7 +40,7 @@ public abstract class SkiaScreen extends Screen {
     }
 
     protected void closing() {
-        SkiaRenderer.destroy();
+        SkiaRenderer.resetFrameState();
         if (this.minecraft != null) {
             this.minecraft.setScreen(parent);
         }

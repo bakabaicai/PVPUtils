@@ -44,7 +44,7 @@ public class GuiMixin {
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        if (com.pvp_utils.Config.keystrokes || HudEditOverlay.getInstance().isActive()) {
+        if (HudEditOverlay.getInstance().isActive()) {
             canvas = SkiaRenderer.begin();
         }
 

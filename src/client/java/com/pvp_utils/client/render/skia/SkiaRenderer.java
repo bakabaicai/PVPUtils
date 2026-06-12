@@ -57,6 +57,8 @@ public class SkiaRenderer {
         }
 
         Canvas canvas = surface.getCanvas();
+        canvas.restoreToCount(1);
+        canvas.resetMatrix();
         canvas.clear(0x00000000);
         canvas.save();
         canvas.scale(currentScale, currentScale);
@@ -107,5 +109,14 @@ public class SkiaRenderer {
         lastPixelW = -1;
         lastPixelH = -1;
         drawing = false;
+    }
+
+    public static void resetFrameState() {
+        drawing = false;
+        if (surface != null) {
+            Canvas canvas = surface.getCanvas();
+            canvas.restoreToCount(1);
+            canvas.resetMatrix();
+        }
     }
 }
