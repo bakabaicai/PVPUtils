@@ -5,6 +5,16 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.InBedChatScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractCommandBlockEditScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
+import net.minecraft.client.gui.screens.inventory.BookEditScreen;
 import org.lwjgl.glfw.GLFWNativeWin32;
 
 import java.util.Locale;
@@ -22,12 +32,22 @@ public final class InputMethodManager {
     public static void tick(Minecraft client) {
         if (!WINDOWS) return;
 
-        if (!Config.disableImeInGame || client.player == null || client.screen != null) {
+        if (!Config.disableImeInGame || client.player == null || shouldAllowInputMethod(client.screen)) {
             restore();
             return;
         }
 
         disable(client);
+    }
+
+    private static boolean shouldAllowInputMethod(Screen screen) {
+        if (screen == null) return false;
+        if (screen instanceof ChatScreen || screen instanceof InBedChatScreen) return true;
+        if (screen instanceof AbstractSignEditScreen || screen instanceof BookEditScreen) return true;
+        if (screen instanceof AbstractCommandBlockEditScreen || screen instanceof AnvilScreen) return true;
+
+        GuiEventListener focused = screen.getFocused();
+        return focused instanceof EditBox || focused instanceof MultiLineEditBox;
     }
 
     private static void disable(Minecraft client) {
@@ -38,10 +58,10 @@ public final class InputMethodManager {
             restore();
         }
 
+        if (disabled) return;
+
         Pointer inputContext = Imm32.INSTANCE.ImmAssociateContext(hwnd, null);
-        if (!disabled) {
-            previousInputContext = inputContext;
-        }
+        previousInputContext = inputContext;
         windowHandle = hwnd;
         disabled = true;
     }

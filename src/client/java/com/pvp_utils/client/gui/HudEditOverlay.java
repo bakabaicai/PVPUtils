@@ -93,15 +93,15 @@ public class HudEditOverlay {
         float my = (float) (rawY[0] / guiScale);
         boolean mouseDown = GLFW.glfwGetMouseButton(windowHandle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 
-        RectState targetHud = getTargetHudRect(guiW, guiH);
+        RectState targetHud = Config.targetHud ? getTargetHudRect(guiW, guiH) : null;
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
 
-        if (Float.isNaN(targetVisualX)) {
+        if (targetHud != null && Float.isNaN(targetVisualX)) {
             targetVisualX = targetHud.x;
             targetVisualY = targetHud.y;
         }
 
-        boolean targetHovered = contains(targetHud, mx, my, 4f);
+        boolean targetHovered = targetHud != null && contains(targetHud, mx, my, 4f);
         boolean keystrokesHovered = keystrokes != null && contains(keystrokes, mx, my, 4f);
 
         if (mouseDown && !wasMouseDown) {
@@ -109,7 +109,7 @@ public class HudEditOverlay {
                 dragTarget = DragTarget.KEYSTROKES;
                 dragOffsetX = mx - keystrokes.x;
                 dragOffsetY = my - keystrokes.y;
-            } else if (targetHovered) {
+            } else if (targetHovered && targetHud != null) {
                 dragTarget = DragTarget.TARGET_HUD;
                 dragOffsetX = mx - targetHud.x;
                 dragOffsetY = my - targetHud.y;
@@ -124,7 +124,7 @@ public class HudEditOverlay {
         }
         wasMouseDown = mouseDown;
 
-        if (dragTarget == DragTarget.TARGET_HUD) {
+        if (dragTarget == DragTarget.TARGET_HUD && targetHud != null) {
             RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, targetHud.w, targetHud.h, guiW, guiH), guiW, guiH);
             Config.targetHudX = dragged.x - guiW * 0.5f;
             Config.targetHudY = dragged.y - guiH * 0.5f;
@@ -138,9 +138,14 @@ public class HudEditOverlay {
             keystrokes = dragged;
         }
 
-        float lerpSpeed = dragTarget == DragTarget.TARGET_HUD ? 22f : 16f;
-        targetVisualX += (targetHud.x - targetVisualX) * Math.min(1f, dt * lerpSpeed);
-        targetVisualY += (targetHud.y - targetVisualY) * Math.min(1f, dt * lerpSpeed);
+        if (targetHud != null) {
+            float lerpSpeed = dragTarget == DragTarget.TARGET_HUD ? 22f : 16f;
+            targetVisualX += (targetHud.x - targetVisualX) * Math.min(1f, dt * lerpSpeed);
+            targetVisualY += (targetHud.y - targetVisualY) * Math.min(1f, dt * lerpSpeed);
+        } else {
+            targetVisualX = Float.NaN;
+            targetVisualY = Float.NaN;
+        }
 
         targetHoverAlpha += (((targetHovered || dragTarget == DragTarget.TARGET_HUD) ? 1f : 0f) - targetHoverAlpha) * Math.min(1f, dt * 14f);
         keystrokesHoverAlpha += (((keystrokesHovered || dragTarget == DragTarget.KEYSTROKES) ? 1f : 0f) - keystrokesHoverAlpha) * Math.min(1f, dt * 14f);
@@ -164,7 +169,9 @@ public class HudEditOverlay {
         if (gridAlpha > 0.01f) {
             drawGrid(canvas, guiW, guiH, progress);
         }
-        drawOutline(canvas, targetVisualX, targetVisualY, TARGET_HUD_WIDTH, TARGET_HUD_HEIGHT, "Target HUD", targetHoverAlpha, progress);
+        if (targetHud != null) {
+            drawOutline(canvas, targetVisualX, targetVisualY, TARGET_HUD_WIDTH, TARGET_HUD_HEIGHT, "Target HUD", targetHoverAlpha, progress);
+        }
         if (keystrokes != null) {
             drawOutline(canvas, keystrokes.x, keystrokes.y, keystrokes.w, keystrokes.h, "Keystrokes", keystrokesHoverAlpha, progress);
         }

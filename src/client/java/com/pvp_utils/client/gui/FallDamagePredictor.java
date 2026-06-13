@@ -1,14 +1,21 @@
 package com.pvp_utils.client.gui;
 
 import com.pvp_utils.Config;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,6 +46,7 @@ public class FallDamagePredictor {
         if (player.onGround()) return;
         if (player.isInWater() || player.isInLava()) return;
         if (player.getAbilities().flying || player.getAbilities().invulnerable) return;
+        if (player.isFallFlying()) return;
         if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
         if (player.hasEffect(MobEffects.LEVITATION)) return;
 
@@ -46,43 +54,39 @@ public class FallDamagePredictor {
         if (fallDist <= 0.0f) return;
 
         Vec3 pos = player.position();
-        BlockPos blockPos = BlockPos.containing(pos.x, pos.y, pos.z);
+        if (isResettingFallDistance(level, player.getBoundingBox())) return;
 
-        if (isCurrentlyImmune(level, blockPos)) return;
+        LandingInfo landing = findLanding(player, level, pos);
+        if (landing == null) return;
+        if (willResetBeforeLanding(player, level, pos.y, landing.y)) return;
 
-        double groundY = findGroundY(player, level, pos);
-        if (groundY == Double.MIN_VALUE) return;
-
-        double totalFall = (pos.y - groundY) + fallDist;
+        double totalFall = fallDist + Math.max(0.0, pos.y - landing.y);
         float safeFall = (float) player.getAttributeValue(Attributes.SAFE_FALL_DISTANCE);
-        float effectiveFall = (float) totalFall - safeFall;
-
-        if (effectiveFall <= 0) return;
-
-        BlockPos landPos = BlockPos.containing(pos.x, groundY, pos.z);
-        float landingMultiplier = getLandingMultiplier(level, landPos);
+        float landingMultiplier = getLandingMultiplier(level, landing.pos);
 
         if (landingMultiplier == IMMUNE) return;
 
-        float rawDamage = effectiveFall * landingMultiplier;
+        float fallMultiplier = (float) player.getAttributeValue(Attributes.FALL_DAMAGE_MULTIPLIER);
+        int rawDamage = (int) Math.floor((totalFall + 1.0E-6 - safeFall) * landingMultiplier * fallMultiplier);
+
+        if (rawDamage <= 0) return;
 
         if (player.hasEffect(MobEffects.RESISTANCE)) {
             int amplifier = player.getEffect(MobEffects.RESISTANCE).getAmplifier();
-            rawDamage *= Math.max(0, 1.0f - (amplifier + 1) * 0.2f);
+            int resistance = (amplifier + 1) * 5;
+            rawDamage = Math.max((int) Math.floor(rawDamage * (25 - resistance) / 25.0f), 0);
         }
 
         if (rawDamage <= 0) return;
 
-        float armor = (float) player.getAttributeValue(Attributes.ARMOR);
-        float toughness = (float) player.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
-        float armorReduction = Math.min(20.0f, Math.max(armor / 5.0f, armor - (4.0f * rawDamage) / (toughness + 8.0f)));
-        float afterArmor = rawDamage * (1.0f - armorReduction / 25.0f);
+        float protection = getFallProtection(player);
+        float afterProtection = protection > 0.0f ? rawDamage * (1.0f - Math.min(protection, 20.0f) / 25.0f) : rawDamage;
 
-        if (afterArmor <= 0) return;
+        if (afterProtection <= 0) return;
 
         boolean cn = Config.isChinese;
-        boolean lethal = afterArmor >= player.getHealth();
-        String text = (cn ? "预测伤害: " : "Predicted Damage: ") + String.format("%.1f", afterArmor)
+        boolean lethal = afterProtection >= player.getHealth();
+        String text = (cn ? "预测伤害: " : "Predicted Damage: ") + String.format("%.1f", afterProtection)
                 + (lethal ? (cn ? " (致死)" : " (Lethal)") : "");
 
         int screenW = client.getWindow().getGuiScaledWidth();
@@ -91,31 +95,37 @@ public class FallDamagePredictor {
         int textX = (screenW - textW) / 2;
         int textY = screenH / 2 + 16;
 
-        int color = getDamageColor(afterArmor, player.getMaxHealth());
+        int color = getDamageColor(afterProtection, player.getMaxHealth());
         graphics.drawString(client.font, Component.literal(text), textX, textY, color, true);
     }
 
-    private boolean isCurrentlyImmune(Level level, BlockPos pos) {
-        if (!level.getFluidState(pos).isEmpty()) return true;
-        if (!level.getFluidState(pos.below()).isEmpty()) return true;
-        BlockState below = level.getBlockState(pos.below());
-        if (below.is(Blocks.COBWEB)) return true;
-        if (below.is(Blocks.SWEET_BERRY_BUSH)) return true;
+    private boolean isResettingFallDistance(Level level, AABB box) {
+        int minX = (int) Math.floor(box.minX + 1.0E-7);
+        int maxX = (int) Math.floor(box.maxX - 1.0E-7);
+        int minY = (int) Math.floor(box.minY + 1.0E-7);
+        int maxY = (int) Math.floor(box.maxY - 1.0E-7);
+        int minZ = (int) Math.floor(box.minZ + 1.0E-7);
+        int maxZ = (int) Math.floor(box.maxZ - 1.0E-7);
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockPos pos = new BlockPos(x, y, z);
+                    if (isResettingState(level, pos)) return true;
+                }
+            }
+        }
         return false;
     }
 
     private float getLandingMultiplier(Level level, BlockPos landPos) {
         BlockState state = level.getBlockState(landPos);
-        BlockState above = level.getBlockState(landPos.above());
 
         if (!level.getFluidState(landPos).isEmpty()) return IMMUNE;
-        if (!level.getFluidState(landPos.above()).isEmpty()) return IMMUNE;
+        if (isResettingBlock(state)) return IMMUNE;
 
         if (state.is(Blocks.SLIME_BLOCK)) return IMMUNE;
-        if (above.is(Blocks.SLIME_BLOCK)) return IMMUNE;
         if (state.is(Blocks.POWDER_SNOW)) return IMMUNE;
-        if (state.is(Blocks.COBWEB)) return IMMUNE;
-        if (state.is(Blocks.SWEET_BERRY_BUSH)) return IMMUNE;
 
         if (state.is(Blocks.HAY_BLOCK)) return HAY_REDUCTION;
         if (state.is(Blocks.HONEY_BLOCK)) return HONEY_REDUCTION;
@@ -124,7 +134,35 @@ public class FallDamagePredictor {
         return 1.0f;
     }
 
-    private double findGroundY(Player player, Level level, Vec3 pos) {
+    private boolean willResetBeforeLanding(Player player, Level level, double startY, double landingY) {
+        AABB box = player.getBoundingBox();
+        double width = box.getXsize() / 2.0 - 0.01;
+        double depth = box.getZsize() / 2.0 - 0.01;
+        double x = player.getX();
+        double z = player.getZ();
+
+        for (double y = startY; y >= landingY; y -= 0.25) {
+            if (isResettingState(level, BlockPos.containing(x, y, z))) return true;
+            if (isResettingState(level, BlockPos.containing(x - width, y, z - depth))) return true;
+            if (isResettingState(level, BlockPos.containing(x - width, y, z + depth))) return true;
+            if (isResettingState(level, BlockPos.containing(x + width, y, z - depth))) return true;
+            if (isResettingState(level, BlockPos.containing(x + width, y, z + depth))) return true;
+        }
+
+        return false;
+    }
+
+    private boolean isResettingState(Level level, BlockPos pos) {
+        if (level.getFluidState(pos).is(FluidTags.WATER)) return true;
+        if (level.getFluidState(pos).is(FluidTags.LAVA)) return true;
+        return isResettingBlock(level.getBlockState(pos));
+    }
+
+    private boolean isResettingBlock(BlockState state) {
+        return state.is(BlockTags.FALL_DAMAGE_RESETTING) || state.is(Blocks.POWDER_SNOW);
+    }
+
+    private LandingInfo findLanding(Player player, Level level, Vec3 pos) {
         double searchY = pos.y;
         double minY = Math.max(level.getMinY(), searchY - 256);
         AABB playerBox = player.getBoundingBox();
@@ -135,11 +173,11 @@ public class FallDamagePredictor {
             BlockPos bp = BlockPos.containing(pos.x, y - 0.01, pos.z);
             BlockState state = level.getBlockState(bp);
 
-            if (!level.getFluidState(bp).isEmpty()) return y;
+            if (!level.getFluidState(bp).isEmpty()) return new LandingInfo(y, bp);
 
             if (!state.isAir() && !state.getCollisionShape(level, bp).isEmpty()) {
                 AABB blockBox = state.getCollisionShape(level, bp).bounds().move(bp);
-                if (blockBox.maxY >= y) return blockBox.maxY;
+                if (blockBox.maxY >= y) return new LandingInfo(blockBox.maxY, bp);
             }
 
             for (BlockPos corner : new BlockPos[]{
@@ -151,12 +189,28 @@ public class FallDamagePredictor {
                 BlockState cs = level.getBlockState(corner);
                 if (!cs.isAir() && !cs.getCollisionShape(level, corner).isEmpty()) {
                     AABB cb = cs.getCollisionShape(level, corner).bounds().move(corner);
-                    if (cb.maxY >= y) return cb.maxY;
+                    if (cb.maxY >= y) return new LandingInfo(cb.maxY, corner);
                 }
             }
         }
 
-        return Double.MIN_VALUE;
+        return null;
+    }
+
+    private float getFallProtection(Player player) {
+        float protection = 0.0f;
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD}) {
+            ItemStack stack = player.getItemBySlot(slot);
+            ItemEnchantments enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+            for (Object2IntMap.Entry<net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>> entry : enchantments.entrySet()) {
+                if (entry.getKey().is(Enchantments.PROTECTION)) {
+                    protection += entry.getIntValue();
+                } else if (entry.getKey().is(Enchantments.FEATHER_FALLING)) {
+                    protection += entry.getIntValue() * 3.0f;
+                }
+            }
+        }
+        return protection;
     }
 
     private int getDamageColor(float damage, float maxHealth) {
@@ -166,4 +220,6 @@ public class FallDamagePredictor {
         if (ratio < 0.75f) return 0xFFFF5500;
         return 0xFFFF2222;
     }
+
+    private record LandingInfo(double y, BlockPos pos) {}
 }

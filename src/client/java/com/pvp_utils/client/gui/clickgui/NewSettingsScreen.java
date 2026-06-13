@@ -17,15 +17,17 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private final List<BasePage> pages;
 
-    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE904", "\uE902", "\uE900"};
-    private static final String[] TAB_NAMES = {"战斗", "视觉", "工具", "优化", "其他"};
+    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900"};
+    private static final String[] TAB_ICON_FONTS = {FontRenderer.ICON, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.ICON};
+    private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他"};
+    private static final String[] TAB_KEYS_EN = {"Combat", "Visual", "Tools", "Optimize", "Other"};
 
     private int selectedTab = 0;
     private int hoveredTab = -1;
     private boolean closeHovered = false;
     private boolean closing = false;
 
-    private final float[] tabHoverAlpha = new float[TAB_NAMES.length];
+    private final float[] tabHoverAlpha = new float[TAB_KEYS_ZH.length];
     private float closeHoverAlpha = 0f;
     private float indicatorY = -1f;
     private float openProgress = 0f;
@@ -130,7 +132,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
         hoveredTab = -1;
         closeHovered = false;
-        for (int i = 0; i < TAB_NAMES.length; i++) {
+        for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mouseX >= cardX + 12f && mouseX <= cardX + 12f + tabW && mouseY >= ty && mouseY <= ty + tabH)
                 hoveredTab = i;
@@ -138,7 +140,7 @@ public class NewSettingsScreen extends SkiaScreen {
         if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= closeY && mouseY <= closeY + closeH)
             closeHovered = true;
 
-        for (int i = 0; i < TAB_NAMES.length; i++) {
+        for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float target = (i == hoveredTab && i != selectedTab) ? 1f : 0f;
             tabHoverAlpha[i] = lerp(tabHoverAlpha[i], target, dt * 12f);
         }
@@ -181,14 +183,14 @@ public class NewSettingsScreen extends SkiaScreen {
         }
 
         FontRenderer.drawText(canvas, "PVPUtils", cardX + 18f, cardY + 38f, 16f, withAlpha(0x111111, alpha));
-        FontRenderer.drawText(canvas, "Combat enhancement mod", cardX + 18f, cardY + 54f, 10f, withAlpha(0xAAAAAA, alpha));
+        FontRenderer.drawText(canvas, UiText.t("在下方调整设置...", "Adjust the settings below..."), cardX + 18f, cardY + 54f, 10f, withAlpha(0xAAAAAA, alpha));
 
         try (Paint indicator = new Paint()) {
             indicator.setColor(withAlpha(0xE8EEFF, alpha));
             canvas.drawRRect(RRect.makeXYWH(cardX + 12f, indicatorY, tabW, tabH, 8f), indicator);
         }
 
-        for (int i = 0; i < TAB_NAMES.length; i++) {
+        for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float tabY = tabStartY + i * (tabH + tabGap);
             if (tabHoverAlpha[i] > 0.01f) {
                 try (Paint hover = new Paint()) {
@@ -199,8 +201,8 @@ public class NewSettingsScreen extends SkiaScreen {
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(0x2F54EB, alpha) : withAlpha(0x888888, alpha);
             int textColor = active ? withAlpha(0x2F54EB, alpha) : withAlpha(0x333333, alpha);
-            FontRenderer.drawText(canvas, TAB_ICONS[i], cardX + 18f, tabY + tabH / 2f + 6f, 13f, iconColor, FontRenderer.ICON);
-            FontRenderer.drawText(canvas, TAB_NAMES[i], cardX + 38f, tabY + tabH / 2f + 6f, 13f, textColor);
+            FontRenderer.drawText(canvas, TAB_ICONS[i], cardX + 18f, tabY + tabH / 2f + 6f, 13f, iconColor, TAB_ICON_FONTS[i]);
+            FontRenderer.drawText(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + tabH / 2f + 6f, 13f, textColor);
         }
 
         int closeBgColor = lerpColor(0xF0F0F0, 0xFFE5E5, closeHoverAlpha);
@@ -209,8 +211,9 @@ public class NewSettingsScreen extends SkiaScreen {
             closeBg.setColor(withAlpha(closeBgColor, alpha));
             canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBg);
         }
-        float ctw = FontRenderer.measureTextWidth("× 关闭", 12f);
-        FontRenderer.drawText(canvas, "× 关闭", closeX + (tabW - ctw) / 2f, closeY + 22f, 12f, withAlpha(closeTextColor, alpha));
+        String closeText = UiText.t("× 关闭", "× Close");
+        float ctw = FontRenderer.measureTextWidth(closeText, 12f);
+        FontRenderer.drawText(canvas, closeText, closeX + (tabW - ctw) / 2f, closeY + 22f, 12f, withAlpha(closeTextColor, alpha));
 
         FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(0x111111, alpha));
         FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(0xAAAAAA, alpha));
@@ -267,7 +270,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float closeX = l[9], closeY = l[10], closeH = l[11];
         float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
 
-        for (int i = 0; i < TAB_NAMES.length; i++) {
+        for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
                 if (button == 0) { selectedTab = i; targetScrollOffset = 0f; contentScrollOffset = 0f; }

@@ -19,6 +19,8 @@ public class TargetHudRenderer {
     private long lastHitTime = 0;
     private long appearanceTime = 0;
     private boolean isFullyHidden = true;
+    private boolean editPreview = false;
+    private boolean wasEditActive = false;
 
     private long lastDamageTime = 0;
     private static final long DAMAGE_FLASH_DURATION = 300;
@@ -51,9 +53,26 @@ public class TargetHudRenderer {
     }
 
     public void render(GuiGraphics graphics) {
-        if (!Config.targetHud || target == null) return;
-
         long now = System.currentTimeMillis();
+        Minecraft client = Minecraft.getInstance();
+        boolean editActive = HudEditOverlay.getInstance().isActive() && Config.targetHud;
+
+        if (editActive && client.player != null) {
+            if (!editPreview || target != client.player || isFullyHidden) {
+                appearanceTime = now;
+                isFullyHidden = false;
+            }
+            target = client.player;
+            lastHitTime = now;
+            lastDamageTime = 0;
+            editPreview = true;
+        } else if (editPreview && wasEditActive) {
+            lastHitTime = now - HIDE_DELAY;
+            editPreview = false;
+        }
+        wasEditActive = editActive;
+
+        if ((!Config.targetHud && !editPreview) || target == null) return;
 
         if (!target.isAlive() && now - lastHitTime < HIDE_DELAY) {
             lastHitTime = now - HIDE_DELAY;
@@ -72,7 +91,6 @@ public class TargetHudRenderer {
             return;
         }
 
-        Minecraft client = Minecraft.getInstance();
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
 

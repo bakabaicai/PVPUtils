@@ -12,6 +12,7 @@ public class FontRenderer {
 
     public static final String DEFAULT = "harmony";
     public static final String ICON = "icon";
+    public static final String MATERIAL_SYMBOLS = "material_symbols";
 
     private static final Map<String, Typeface> typefaces = new HashMap<>();
     private static final FontMgr fontMgr = FontMgr.getDefault();
@@ -21,6 +22,7 @@ public class FontRenderer {
     static {
         registerFromResources(DEFAULT, "/fonts/harmony.ttf");
         registerFromResources(ICON, "/fonts/icon.ttf");
+        registerFromResources(MATERIAL_SYMBOLS, "/fonts/MaterialSymbolsRounded.ttf");
     }
 
     public static void registerFromResources(String name, String resourcePath) {

@@ -10,7 +10,7 @@ public class Config {
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
     public static boolean noSneakAnimation = false;
-    public static boolean isChinese = false;
+    public static boolean isChinese = true;
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = true;
@@ -65,7 +65,7 @@ public class Config {
             swordBlock = Boolean.parseBoolean(prop.getProperty("swordBlock", "false"));
             useSwing = Boolean.parseBoolean(prop.getProperty("useSwing", "false"));
             noSneakAnimation = Boolean.parseBoolean(prop.getProperty("noSneakAnimation", "false"));
-            isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", "false"));
+            isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", "true"));
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
             hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "true"));
