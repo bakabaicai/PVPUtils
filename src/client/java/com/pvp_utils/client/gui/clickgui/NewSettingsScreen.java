@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui;
 
 import com.pvp_utils.client.gui.clickgui.pages.*;
+import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
@@ -11,6 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class NewSettingsScreen extends SkiaScreen {
@@ -20,15 +22,18 @@ public class NewSettingsScreen extends SkiaScreen {
     private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900"};
     private static final String[] TAB_ICON_FONTS = {FontRenderer.ICON, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.ICON};
     private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他"};
-    private static final String[] TAB_KEYS_EN = {"Combat", "Visual", "Tools", "Optimize", "Other"};
+    private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc"};
 
     private int selectedTab = 0;
     private int hoveredTab = -1;
     private boolean closeHovered = false;
+    private boolean resetHovered = false;
+    private boolean resetConfirm = false;
     private boolean closing = false;
 
     private final float[] tabHoverAlpha = new float[TAB_KEYS_ZH.length];
     private float closeHoverAlpha = 0f;
+    private float resetHoverAlpha = 0f;
     private float indicatorY = -1f;
     private float openProgress = 0f;
     private long lastRenderMs = 0;
@@ -40,9 +45,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
-        pages = List.of(
-                new CombatPage(), new VisualPage(), new ToolPage(), new OptimizePage(), new OtherPage()
-        );
+        pages = new ArrayList<>(List.of(new CombatPage(), new VisualPage(), new ToolPage(), new OptimizePage(), new OtherPage()));
     }
 
     private float[] layout(int width, int height) {
@@ -56,7 +59,9 @@ public class NewSettingsScreen extends SkiaScreen {
         float tabGap = 2f;
         float tabW = sidebarW - 24f;
         float closeH = 34f;
+        float resetH = 34f;
         float closeY = cardY + cardH - 48f;
+        float resetY = closeY - resetH - 8f;
         float closeX = cardX + 12f;
         float contentX = cardX + sidebarW + 1f;
         float contentW = cardW - sidebarW - 1f;
@@ -65,7 +70,7 @@ public class NewSettingsScreen extends SkiaScreen {
         return new float[]{
                 cardX, cardY, cardW, cardH,
                 sidebarW, tabStartY, tabH, tabGap, tabW,
-                closeX, closeY, closeH,
+                closeX, closeY, closeH, resetY, resetH,
                 contentX, contentY, contentW, contentH
         };
     }
@@ -121,17 +126,18 @@ public class NewSettingsScreen extends SkiaScreen {
 
         float[] l = layout(width, height);
         BasePage currentPage = pages.get(selectedTab);
-        float currentScrollAreaH = l[15] - 54f;
+        float currentScrollAreaH = l[17] - 54f;
         float currentMaxScroll = Math.max(0f, getContentTotalHeight(currentPage) - currentScrollAreaH);
         targetScrollOffset = Math.min(targetScrollOffset, currentMaxScroll);
         contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
         float cardX = l[0], cardY = l[1], cardW = l[2], cardH = l[3];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
-        float closeX = l[9], closeY = l[10], closeH = l[11];
-        float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
+        float closeX = l[9], closeY = l[10], closeH = l[11], resetY = l[12], resetH = l[13];
+        float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
         hoveredTab = -1;
         closeHovered = false;
+        resetHovered = false;
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mouseX >= cardX + 12f && mouseX <= cardX + 12f + tabW && mouseY >= ty && mouseY <= ty + tabH)
@@ -139,12 +145,15 @@ public class NewSettingsScreen extends SkiaScreen {
         }
         if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= closeY && mouseY <= closeY + closeH)
             closeHovered = true;
+        if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= resetY && mouseY <= resetY + resetH)
+            resetHovered = true;
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float target = (i == hoveredTab && i != selectedTab) ? 1f : 0f;
             tabHoverAlpha[i] = lerp(tabHoverAlpha[i], target, dt * 12f);
         }
         closeHoverAlpha = lerp(closeHoverAlpha, closeHovered ? 1f : 0f, dt * 12f);
+        resetHoverAlpha = lerp(resetHoverAlpha, resetHovered ? 1f : 0f, dt * 12f);
 
         float targetIndicatorY = tabStartY + selectedTab * (tabH + tabGap);
         if (indicatorY < 0f) indicatorY = targetIndicatorY;
@@ -207,6 +216,21 @@ public class NewSettingsScreen extends SkiaScreen {
 
         int closeBgColor = lerpColor(0xF0F0F0, 0xFFE5E5, closeHoverAlpha);
         int closeTextColor = lerpColor(0x666666, 0xCC2222, closeHoverAlpha);
+        int resetBgColor = lerpColor(0xF0F0F0, 0xFFE0E0, resetHoverAlpha);
+        int resetTextColor = lerpColor(0x666666, 0xCC1111, resetHoverAlpha);
+        try (Paint resetBg = new Paint()) {
+            resetBg.setColor(withAlpha(resetBgColor, alpha));
+            canvas.drawRRect(RRect.makeXYWH(closeX, resetY, tabW, resetH, 8f), resetBg);
+        }
+        String resetText = resetConfirm ? UiText.t("再次点击以确认", "Click Again to Confirm") : UiText.t("重置所有设置", "Reset All Settings");
+        String resetIcon = "\uE042";
+        float riw = FontRenderer.measureTextWidth(resetIcon, 13f, FontRenderer.MATERIAL_SYMBOLS);
+        float rtw = FontRenderer.measureTextWidth(resetText, 12f);
+        float resetTotalW = riw + 6f + rtw;
+        float resetStartX = closeX + (tabW - resetTotalW) / 2f;
+        FontRenderer.drawText(canvas, resetIcon, resetStartX, resetY + 22f, 13f, withAlpha(resetTextColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        FontRenderer.drawText(canvas, resetText, resetStartX + riw + 6f, resetY + 22f, 12f, withAlpha(resetTextColor, alpha));
+
         try (Paint closeBg = new Paint()) {
             closeBg.setColor(withAlpha(closeBgColor, alpha));
             canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBg);
@@ -268,7 +292,8 @@ public class NewSettingsScreen extends SkiaScreen {
         float cardX = l[0];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
-        float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
+        float resetY = l[12], resetH = l[13];
+        float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
@@ -282,6 +307,25 @@ public class NewSettingsScreen extends SkiaScreen {
             closing = true;
             return true;
         }
+
+        if (button == 0 && mx >= closeX && mx <= closeX + tabW && my >= resetY && my <= resetY + resetH) {
+            if (resetConfirm) {
+                ResetManager.resetAll();
+                resetConfirm = false;
+                pages.set(selectedTab, switch (selectedTab) {
+                    case 0 -> new CombatPage();
+                    case 1 -> new VisualPage();
+                    case 2 -> new ToolPage();
+                    case 3 -> new OptimizePage();
+                    default -> new OtherPage();
+                });
+            } else {
+                resetConfirm = true;
+            }
+            return true;
+        }
+
+        resetConfirm = false;
 
         if (mx >= contentX && mx <= contentX + contentW && my >= contentY && my <= contentY + contentH) {
             BasePage page = pages.get(selectedTab);
@@ -300,7 +344,7 @@ public class NewSettingsScreen extends SkiaScreen {
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (draggingInContent) {
             float[] l = layout(this.width, this.height);
-            float contentX = l[12], contentY = l[13], contentW = l[14];
+            float contentX = l[14], contentY = l[15], contentW = l[16];
             float moduleStartY = contentY + 54f;
             pages.get(selectedTab).onDrag((float)event.x(), (float)event.y(), contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
             return true;
@@ -318,7 +362,7 @@ public class NewSettingsScreen extends SkiaScreen {
     @Override
     public boolean mouseScrolled(double mx, double my, double hScroll, double vScroll) {
         float[] l = layout(this.width, this.height);
-        float contentX = l[12], contentY = l[13], contentW = l[14], contentH = l[15];
+        float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
         if (mx >= contentX && mx <= contentX + contentW) {
             BasePage page = pages.get(selectedTab);

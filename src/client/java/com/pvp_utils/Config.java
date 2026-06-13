@@ -1,6 +1,7 @@
 package com.pvp_utils;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -10,21 +11,25 @@ public class Config {
     public static boolean swordBlock = false;
     public static boolean useSwing = false;
     public static boolean noSneakAnimation = false;
-    public static boolean isChinese = true;
+    public static boolean isChinese = defaultChinese();
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = true;
-    public static boolean damageRecord = false;
     public static boolean lowHealthNotify = false;
     public static boolean targetHud = false;
+    public static boolean diggingStatus = false;
     public static boolean fallDamagePredict = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean autoChestDeposit = false;
-    public static boolean autoChestDepositBlockMovement = true;
+    public static boolean autoChestDepositResourcesOnly = true;
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
+    public static boolean hideSignText = false;
+    public static boolean hideEnchantTableBook = false;
+    public static boolean hideFireOverlay = false;
+    public static boolean hideHurtShake = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static double range = 3.0;
@@ -37,12 +42,13 @@ public class Config {
     public static float keystrokesX = -170f;
     public static float keystrokesY = 70f;
     public static float keystrokesScale = 1.0f;
+    public static float notificationX = Float.NaN;
+    public static float notificationY = Float.NaN;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
-    public static int autoChestDepositOpenDelay = 4;
-    public static int autoChestDepositTransferDelay = 4;
+    public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
@@ -55,6 +61,7 @@ public class Config {
 
     public static void load() {
         if (!CONFIG_FILE.toFile().exists()) {
+            isChinese = defaultChinese();
             save();
             return;
         }
@@ -65,21 +72,25 @@ public class Config {
             swordBlock = Boolean.parseBoolean(prop.getProperty("swordBlock", "false"));
             useSwing = Boolean.parseBoolean(prop.getProperty("useSwing", "false"));
             noSneakAnimation = Boolean.parseBoolean(prop.getProperty("noSneakAnimation", "false"));
-            isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", "true"));
+            isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", String.valueOf(defaultChinese())));
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
             hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "true"));
-            damageRecord = Boolean.parseBoolean(prop.getProperty("damageRecord", "false"));
             lowHealthNotify = Boolean.parseBoolean(prop.getProperty("lowHealthNotify", "false"));
             targetHud = Boolean.parseBoolean(prop.getProperty("targetHud", "false"));
+            diggingStatus = Boolean.parseBoolean(prop.getProperty("diggingStatus", "false"));
             fallDamagePredict = Boolean.parseBoolean(prop.getProperty("fallDamagePredict", "false"));
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
-            autoChestDepositBlockMovement = Boolean.parseBoolean(prop.getProperty("autoChestDepositBlockMovement", "true"));
+            autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
             disableImeInGame = Boolean.parseBoolean(prop.getProperty("disableImeInGame", "false"));
+            hideSignText = Boolean.parseBoolean(prop.getProperty("hideSignText", "false"));
+            hideEnchantTableBook = Boolean.parseBoolean(prop.getProperty("hideEnchantTableBook", "false"));
+            hideFireOverlay = Boolean.parseBoolean(prop.getProperty("hideFireOverlay", "false"));
+            hideHurtShake = Boolean.parseBoolean(prop.getProperty("hideHurtShake", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
@@ -96,9 +107,10 @@ public class Config {
             keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
             keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
             keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
+            notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
+            notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
-            autoChestDepositOpenDelay = Integer.parseInt(prop.getProperty("autoChestDepositOpenDelay", "4"));
-            autoChestDepositTransferDelay = Integer.parseInt(prop.getProperty("autoChestDepositTransferDelay", "4"));
+            autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
         } catch (IOException e) {
             e.printStackTrace();
@@ -116,17 +128,21 @@ public class Config {
             prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
             prop.setProperty("hitMarker", String.valueOf(hitMarker));
             prop.setProperty("hitSound", String.valueOf(hitSound));
-            prop.setProperty("damageRecord", String.valueOf(damageRecord));
             prop.setProperty("lowHealthNotify", String.valueOf(lowHealthNotify));
             prop.setProperty("targetHud", String.valueOf(targetHud));
+            prop.setProperty("diggingStatus", String.valueOf(diggingStatus));
             prop.setProperty("fallDamagePredict", String.valueOf(fallDamagePredict));
             prop.setProperty("victorySound", String.valueOf(victorySound));
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
-            prop.setProperty("autoChestDepositBlockMovement", String.valueOf(autoChestDepositBlockMovement));
+            prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
             prop.setProperty("disableImeInGame", String.valueOf(disableImeInGame));
+            prop.setProperty("hideSignText", String.valueOf(hideSignText));
+            prop.setProperty("hideEnchantTableBook", String.valueOf(hideEnchantTableBook));
+            prop.setProperty("hideFireOverlay", String.valueOf(hideFireOverlay));
+            prop.setProperty("hideHurtShake", String.valueOf(hideHurtShake));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("range", String.valueOf(range));
@@ -143,13 +159,25 @@ public class Config {
             prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
             prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
             prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
+            prop.setProperty("notificationX", String.valueOf(notificationX));
+            prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
-            prop.setProperty("autoChestDepositOpenDelay", String.valueOf(autoChestDepositOpenDelay));
-            prop.setProperty("autoChestDepositTransferDelay", String.valueOf(autoChestDepositTransferDelay));
+            prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
             prop.store(os, null);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private static boolean defaultChinese() {
+        try {
+            Minecraft client = Minecraft.getInstance();
+            if (client != null && client.getLanguageManager() != null) {
+                String selected = client.getLanguageManager().getSelected();
+                return selected != null && selected.toLowerCase().startsWith("zh_");
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 }

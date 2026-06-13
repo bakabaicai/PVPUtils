@@ -1,4 +1,4 @@
-package com.pvp_utils.client;
+package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
@@ -13,6 +13,8 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.EnderChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -20,13 +22,16 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 public final class AutoChestDepositManager {
-    private enum Phase { IDLE, WAIT_OPEN, WAIT_TRANSFER, WAIT_CLOSE }
+    private enum Phase { IDLE, WAIT_TRANSFER, WAIT_CLOSE }
 
     private static Phase phase = Phase.IDLE;
     private static BlockHitResult targetHit;
     private static int ticksRemaining;
     private static int transferWaitTimeout;
     private static boolean wasAttackDown;
+    private static boolean rotationLocked;
+    private static float lockedYaw;
+    private static float lockedPitch;
 
     private AutoChestDepositManager() {}
 
@@ -35,7 +40,7 @@ public final class AutoChestDepositManager {
 
     public static void tick(Minecraft client) {
         boolean attackDown = client.options.keyAttack.isDown();
-        if (!attackDown && wasAttackDown) {
+        if (attackDown && !wasAttackDown) {
             tryStart(client);
         }
         wasAttackDown = attackDown;
@@ -52,7 +57,6 @@ public final class AutoChestDepositManager {
         }
 
         switch (phase) {
-            case WAIT_OPEN -> openChest(client);
             case WAIT_TRANSFER -> transferHeldItem(client);
             case WAIT_CLOSE -> closeChest(client.player);
             default -> {}
@@ -60,7 +64,7 @@ public final class AutoChestDepositManager {
     }
 
     public static boolean shouldBlockMovementInput() {
-        return Config.autoChestDepositBlockMovement && phase != Phase.IDLE;
+        return phase != Phase.IDLE;
     }
 
     public static boolean shouldHideContainerScreen(Screen screen) {
@@ -70,13 +74,14 @@ public final class AutoChestDepositManager {
     private static void tryStart(Minecraft client) {
         if (!Config.autoChestDeposit || phase != Phase.IDLE || client.player == null || client.level == null || client.screen != null) return;
         if (client.player.getMainHandItem().isEmpty()) return;
+        if (!canDepositItem(client.player.getMainHandItem())) return;
 
         BlockHitResult hit = getCurrentContainerHit(client);
         if (hit == null) return;
 
         targetHit = hit;
-        ticksRemaining = Math.max(0, Config.autoChestDepositOpenDelay);
-        phase = Phase.WAIT_OPEN;
+        lockRotation(client.player);
+        openChest(client);
     }
 
     private static BlockHitResult getCurrentContainerHit(Minecraft client) {
@@ -113,7 +118,7 @@ public final class AutoChestDepositManager {
         }
 
         gameMode.useItemOn(player, InteractionHand.MAIN_HAND, targetHit);
-        ticksRemaining = Math.max(0, Config.autoChestDepositTransferDelay);
+        ticksRemaining = Math.max(0, Config.autoChestDepositDepositDelay);
         transferWaitTimeout = Math.max(40, ticksRemaining + 40);
         phase = Phase.WAIT_TRANSFER;
     }
@@ -129,6 +134,10 @@ public final class AutoChestDepositManager {
         LocalPlayer player = client.player;
         MultiPlayerGameMode gameMode = client.gameMode;
         if (gameMode == null || player.getMainHandItem().isEmpty()) {
+            reset();
+            return;
+        }
+        if (!canDepositItem(player.getMainHandItem())) {
             reset();
             return;
         }
@@ -154,6 +163,11 @@ public final class AutoChestDepositManager {
         return -1;
     }
 
+    private static boolean canDepositItem(ItemStack stack) {
+        if (!Config.autoChestDepositResourcesOnly) return true;
+        return stack.is(Items.IRON_INGOT) || stack.is(Items.GOLD_INGOT) || stack.is(Items.EMERALD) || stack.is(Items.DIAMOND);
+    }
+
     private static void closeChest(LocalPlayer player) {
         if (player.containerMenu != player.inventoryMenu) {
             player.closeContainer();
@@ -161,10 +175,26 @@ public final class AutoChestDepositManager {
         reset();
     }
 
+    public static void applyRotationLock(LocalPlayer player) {
+        if (!rotationLocked || phase == Phase.IDLE || player == null) return;
+        player.setYRot(lockedYaw);
+        player.setXRot(lockedPitch);
+        player.yRotO = lockedYaw;
+        player.xRotO = lockedPitch;
+    }
+
+    private static void lockRotation(LocalPlayer player) {
+        if (player == null) return;
+        lockedYaw = player.getYRot();
+        lockedPitch = player.getXRot();
+        rotationLocked = true;
+    }
+
     private static void reset() {
         phase = Phase.IDLE;
         targetHit = null;
         ticksRemaining = 0;
         transferWaitTimeout = 0;
+        rotationLocked = false;
     }
 }

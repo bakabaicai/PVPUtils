@@ -1,6 +1,7 @@
-package com.pvp_utils;
+package com.pvp_utils.client.modules.impl.Tool;
 
-import com.pvp_utils.client.gui.NotificationOverlay;
+import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.multiplayer.ServerData;

@@ -1,6 +1,6 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.client.AutoChestDepositManager;
+import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import net.minecraft.client.renderer.blockentity.ChestRenderer;
 import net.minecraft.client.renderer.blockentity.state.ChestRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;

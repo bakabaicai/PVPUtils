@@ -1,6 +1,8 @@
-package com.pvp_utils;
+package com.pvp_utils.client.modules.impl.Misc;
 
+import com.pvp_utils.Config;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.util.Util;
 import javax.sound.sampled.*;
 import java.io.*;
 import java.nio.file.*;
@@ -33,6 +35,11 @@ public class VictorySound {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void openSoundsFolder() {
+        init();
+        Util.getPlatform().openPath(EXTERNAL_PATH);
     }
 
     public static void play() {

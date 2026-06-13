@@ -8,6 +8,7 @@
     "LivingEntityMixin",
     "LocalPlayerMixin",
     "LocalPlayerEyeHeightMixin",
+    "MultiPlayerGameModeAccessor",
     "PlayerPoseAccessMixin",
     "CameraMixin",
     "LightTextureMixin",
@@ -16,7 +17,11 @@
     "MinecraftMixin",
     "GuiMixin",
     "ClientPacketListenerMixin",
-    "ChatScreenMixin"
+    "ChatScreenMixin",
+    "AbstractSignRendererMixin",
+    "EnchantTableRendererMixin",
+    "ScreenEffectRendererMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

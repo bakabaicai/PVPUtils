@@ -7,27 +7,24 @@ import com.pvp_utils.client.gui.clickgui.widget.*;
 public class ToolPage extends BasePage {
 
     public ToolPage() {
-        modules.add(new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("击杀时自动截图保存", "Automatically save a screenshot after a kill"),
+        modules.add(new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("在你胜利时自动截图并保存至桌面", "Automatically take a screenshot when you win and save it to the desktop"),
                 new SettingToggle(() -> Config.autoScreenshot, v -> { Config.autoScreenshot = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("伤害数值记录", "Damage Record"), UiText.t("记录每次造成的伤害", "Record each damage value dealt"),
-                new SettingToggle(() -> Config.damageRecord, v -> { Config.damageRecord = v; Config.save(); })));
+        modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
+                new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("左键存入容器", "Left-Click Deposit"), UiText.t("松开左键后将主手物品放入准星容器", "Put the held item into the targeted container after releasing left click"),
+        modules.add(new SettingModule(UiText.t("快捷存入", "Quick Deposit"), UiText.t("手持物品并左键点击容器时快捷存入手中的物品", "Quickly deposit the held item when left-clicking a container while holding an item"),
                 new SettingToggle(() -> Config.autoChestDeposit, v -> { Config.autoChestDeposit = v; Config.save(); }))
-                .addSub(UiText.t("阻止移动", "Block Movement"), UiText.t("自动存入期间阻止玩家移动输入", "Block player movement input during auto deposit"),
-                        new SettingToggle(() -> Config.autoChestDepositBlockMovement,
-                                v -> { Config.autoChestDepositBlockMovement = v; Config.save(); }))
-                .addSub(UiText.t("开箱延迟", "Open Delay"), UiText.t("松开左键后等待的 tick", "Ticks to wait after releasing left click"),
-                        new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositOpenDelay,
-                                v -> { Config.autoChestDepositOpenDelay = v.intValue(); Config.save(); }))
-                .addSub(UiText.t("放入延迟", "Transfer Delay"), UiText.t("打开容器后等待的 tick", "Ticks to wait after opening the container"),
-                        new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositTransferDelay,
-                                v -> { Config.autoChestDepositTransferDelay = v.intValue(); Config.save(); }))
-                .addSub(UiText.t("关闭延迟", "Close Delay"), UiText.t("放入物品后等待的 tick", "Ticks to wait after depositing the item"),
+                .addSub(UiText.t("仅限资源", "Resources Only"), UiText.t("只存入资源", "Only deposit resources"),
+                        new SettingToggle(() -> Config.autoChestDepositResourcesOnly,
+                                v -> { Config.autoChestDepositResourcesOnly = v; Config.save(); }))
+                .addSub(UiText.t("存入延迟", "Deposit Delay"), UiText.t("打开容器后存入物品的时间(tick)", "Ticks to wait after opening the container before depositing the item"),
+                        new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositDepositDelay,
+                                v -> { Config.autoChestDepositDepositDelay = v.intValue(); Config.save(); }))
+                .addSub(UiText.t("关闭容器延迟", "Close Container Delay"), UiText.t("存入物品后关闭容器所等待的时间(tick)", "Ticks to wait after depositing the item before closing the container"),
                         new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositCloseDelay,
                                 v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); })));
     }

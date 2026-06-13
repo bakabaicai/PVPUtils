@@ -1,7 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.LowHealthHandler;
+import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;

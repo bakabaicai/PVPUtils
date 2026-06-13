@@ -1,9 +1,11 @@
 package com.pvp_utils;
 
-import com.pvp_utils.client.AutoChestDepositManager;
-import com.pvp_utils.client.InputMethodManager;
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
+import com.pvp_utils.client.modules.impl.Misc.VictorySound;
+import com.pvp_utils.client.modules.impl.Optimize.InputMethodManager;
+import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
+import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -11,7 +13,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.pvp_utils.client.gui.NotificationOverlay;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;

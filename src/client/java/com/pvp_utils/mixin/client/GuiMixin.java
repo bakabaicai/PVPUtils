@@ -1,12 +1,13 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.TitleDetector;
-import com.pvp_utils.client.gui.NotificationOverlay;
-import com.pvp_utils.client.gui.HitMarkerRenderer;
-import com.pvp_utils.client.gui.KeystrokesRenderer;
-import com.pvp_utils.client.gui.TargetHudRenderer;
-import com.pvp_utils.client.gui.FallDamagePredictor;
-import com.pvp_utils.client.gui.HudEditOverlay;
+import com.pvp_utils.client.modules.impl.Tool.TitleDetector;
+import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
+import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
+import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
+import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
+import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
+import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
@@ -34,20 +35,20 @@ public class GuiMixin {
 
     @Inject(method = "render", at = @At("TAIL"))
     private void onRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        NotificationOverlay.getInstance().render(guiGraphics);
-        HitMarkerRenderer.getInstance().render(guiGraphics);
-        TargetHudRenderer.getInstance().render(guiGraphics);
-        FallDamagePredictor.getInstance().render(guiGraphics);
-
         Minecraft mc = Minecraft.getInstance();
         int guiWidth = mc.getWindow().getGuiScaledWidth();
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        if (HudEditOverlay.getInstance().isActive()) {
+        if (HudEditOverlay.getInstance().isActive() || NotificationOverlay.getInstance().needsCanvas()) {
             canvas = SkiaRenderer.begin();
         }
 
+        NotificationOverlay.getInstance().render(guiGraphics, canvas);
+        HitMarkerRenderer.getInstance().render(guiGraphics);
+        TargetHudRenderer.getInstance().render(guiGraphics);
+        FallDamagePredictor.getInstance().render(guiGraphics);
+        DiggingStatusRenderer.getInstance().render(guiGraphics);
         KeystrokesRenderer.getInstance().render(guiGraphics, canvas);
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 

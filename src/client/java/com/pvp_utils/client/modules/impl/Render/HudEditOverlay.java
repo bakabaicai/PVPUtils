@@ -1,4 +1,4 @@
-package com.pvp_utils.client.gui;
+package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
@@ -13,7 +13,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, NOTIFICATION }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -31,6 +31,7 @@ public class HudEditOverlay {
     private float dragOffsetY;
     private float targetHoverAlpha = 0f;
     private float keystrokesHoverAlpha = 0f;
+    private float notificationHoverAlpha = 0f;
     private float dashOffset = 0f;
     private float targetVisualX = Float.NaN;
     private float targetVisualY = Float.NaN;
@@ -58,12 +59,14 @@ public class HudEditOverlay {
         animStartTime = System.currentTimeMillis();
         closing = false;
         active = true;
+        NotificationOverlay.getInstance().startEditPreview();
     }
 
     public void startClose() {
         animCloseTime = System.currentTimeMillis();
         closing = true;
         active = true;
+        NotificationOverlay.getInstance().stopEditPreview();
     }
 
     public void render(GuiGraphics graphics) {
@@ -95,6 +98,7 @@ public class HudEditOverlay {
 
         RectState targetHud = Config.targetHud ? getTargetHudRect(guiW, guiH) : null;
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
+        RectState notification = getNotificationRect(guiW, guiH);
 
         if (targetHud != null && Float.isNaN(targetVisualX)) {
             targetVisualX = targetHud.x;
@@ -103,9 +107,14 @@ public class HudEditOverlay {
 
         boolean targetHovered = targetHud != null && contains(targetHud, mx, my, 4f);
         boolean keystrokesHovered = keystrokes != null && contains(keystrokes, mx, my, 4f);
+        boolean notificationHovered = contains(notification, mx, my, 4f);
 
         if (mouseDown && !wasMouseDown) {
-            if (keystrokesHovered) {
+            if (notificationHovered) {
+                dragTarget = DragTarget.NOTIFICATION;
+                dragOffsetX = mx - notification.x;
+                dragOffsetY = my - notification.y;
+            } else if (keystrokesHovered) {
                 dragTarget = DragTarget.KEYSTROKES;
                 dragOffsetX = mx - keystrokes.x;
                 dragOffsetY = my - keystrokes.y;
@@ -136,6 +145,12 @@ public class HudEditOverlay {
             Config.keystrokesY = dragged.y - guiH * 0.5f;
             configDirty = true;
             keystrokes = dragged;
+        } else if (dragTarget == DragTarget.NOTIFICATION) {
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, notification.w, notification.h, guiW, guiH), guiW, guiH);
+            Config.notificationX = dragged.x + dragged.w - guiW * 0.5f;
+            Config.notificationY = dragged.y - guiH * 0.5f;
+            configDirty = true;
+            notification = dragged;
         }
 
         if (targetHud != null) {
@@ -149,6 +164,7 @@ public class HudEditOverlay {
 
         targetHoverAlpha += (((targetHovered || dragTarget == DragTarget.TARGET_HUD) ? 1f : 0f) - targetHoverAlpha) * Math.min(1f, dt * 14f);
         keystrokesHoverAlpha += (((keystrokesHovered || dragTarget == DragTarget.KEYSTROKES) ? 1f : 0f) - keystrokesHoverAlpha) * Math.min(1f, dt * 14f);
+        notificationHoverAlpha += (((notificationHovered || dragTarget == DragTarget.NOTIFICATION) ? 1f : 0f) - notificationHoverAlpha) * Math.min(1f, dt * 14f);
         gridAlpha += (((dragTarget != DragTarget.NONE) ? 1f : 0f) - gridAlpha) * Math.min(1f, dt * 12f);
         snapXAlpha += (((snapXLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapXAlpha) * Math.min(1f, dt * 18f);
         snapYAlpha += (((snapYLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapYAlpha) * Math.min(1f, dt * 18f);
@@ -175,6 +191,7 @@ public class HudEditOverlay {
         if (keystrokes != null) {
             drawOutline(canvas, keystrokes.x, keystrokes.y, keystrokes.w, keystrokes.h, "Keystrokes", keystrokesHoverAlpha, progress);
         }
+        drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
@@ -247,6 +264,13 @@ public class HudEditOverlay {
     private RectState getKeystrokesRect(int guiW, int guiH) {
         KeystrokesRenderer renderer = KeystrokesRenderer.getInstance();
         return new RectState(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getScaledWidth(), renderer.getScaledHeight());
+    }
+
+    private RectState getNotificationRect(int guiW, int guiH) {
+        NotificationOverlay renderer = NotificationOverlay.getInstance();
+        int w = renderer.getEditWidth();
+        int h = renderer.getEditHeight();
+        return clampRect(renderer.getRenderX(guiW, w), renderer.getRenderY(guiH), w, h, guiW, guiH);
     }
 
     private RectState clampRect(float x, float y, float w, float h, int guiW, int guiH) {

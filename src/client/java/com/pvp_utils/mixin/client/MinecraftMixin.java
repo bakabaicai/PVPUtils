@@ -1,6 +1,6 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.client.AutoChestDepositManager;
+import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;

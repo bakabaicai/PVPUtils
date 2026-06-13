@@ -1,4 +1,4 @@
-package com.pvp_utils.client.gui;
+package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;

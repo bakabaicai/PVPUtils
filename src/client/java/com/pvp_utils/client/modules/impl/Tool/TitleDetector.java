@@ -1,5 +1,7 @@
-package com.pvp_utils;
+package com.pvp_utils.client.modules.impl.Tool;
 
+import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 public class TitleDetector {
     private static final String[] KEYWORDS = {"victory", "胜利", "获胜", "恭喜"};
 

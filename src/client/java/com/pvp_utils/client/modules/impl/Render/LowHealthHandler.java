@@ -1,11 +1,9 @@
-package com.pvp_utils;
+package com.pvp_utils.client.modules.impl.Render;
 
-import com.pvp_utils.client.gui.NotificationOverlay;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
 public class LowHealthHandler {
     private static int lastStage = 0;
@@ -28,11 +26,11 @@ public class LowHealthHandler {
                 reset(1000);
             } else if (currentStage == 1) {
                 String msg = Config.isChinese ? "低血量警告，请及时补充血量" : "Low health warning, please replenish health";
-                NotificationOverlay.getInstance().showPersistent(msg, 0xFFFF55, new ItemStack(Items.TOTEM_OF_UNDYING));
+                NotificationOverlay.getInstance().showPersistentSymbol(msg, 0xFFFF55, "\uE001", 0xFFFF55);
                 playAnvil(client, 1);
             } else if (currentStage == 2) {
                 String msg = Config.isChinese ? "极低生命值警告，请及时补充血量！！！" : "CRITICAL health warning, replenish health NOW!!!";
-                NotificationOverlay.getInstance().showPersistent(msg, 0xFF5555, new ItemStack(Items.TOTEM_OF_UNDYING));
+                NotificationOverlay.getInstance().showPersistentSymbol(msg, 0xFF5555, "\uE002", 0xFF5555);
                 playAnvil(client, 3);
             }
             lastStage = currentStage;

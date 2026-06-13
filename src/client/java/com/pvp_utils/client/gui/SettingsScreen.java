@@ -96,14 +96,27 @@ public class SettingsScreen extends Screen {
                     Config.autoScreenshot = false;
                     Config.hitMarker = false;
                     Config.hitSound = true;
-                    Config.damageRecord = true;
                     Config.lowHealthNotify = true;
                     Config.targetHud = false;
+                    Config.diggingStatus = false;
                     Config.fallDamagePredict = false;
-                    Config.victorySound = true;
+                    Config.victorySound = false;
+                    Config.gammaOverride = false;
+                    Config.gammaValue = 15.0;
+                    Config.autoSprint = false;
+                    Config.autoChestDeposit = false;
+                    Config.autoChestDepositResourcesOnly = true;
+                    Config.autoChestDepositDepositDelay = 4;
+                    Config.autoChestDepositCloseDelay = 4;
                     Config.targetHudX = -300f;
                     Config.targetHudY = -100f;
                     Config.targetHudZ = 0f;
+                    Config.notificationX = Float.NaN;
+                    Config.notificationY = Float.NaN;
+                    Config.hideSignText = false;
+                    Config.hideEnchantTableBook = false;
+                    Config.hideFireOverlay = false;
+                    Config.hideHurtShake = false;
                     Config.hitSoundType = Config.HitSoundType.NETHERITE;
                     Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
                     Config.animationMode = Config.AnimMode.MODE_1_7;
@@ -274,15 +287,6 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     Config.fallDamagePredict = !Config.fallDamagePredict;
                     button.setMessage(Component.literal(getToggleText(cn ? "摔落伤害预测" : "Fall Damage Predict", Config.fallDamagePredict, cn)));
-                    Config.save();
-                }).bounds(centerX - 75, currentY, 150, 20).build());
-
-        currentY += 25;
-        this.addRenderableWidget(Button.builder(
-                Component.literal(getToggleText(cn ? "伤害数值记录" : "Damage Record", Config.damageRecord, cn)),
-                (button) -> {
-                    Config.damageRecord = !Config.damageRecord;
-                    button.setMessage(Component.literal(getToggleText(cn ? "伤害数值记录" : "Damage Record", Config.damageRecord, cn)));
                     Config.save();
                 }).bounds(centerX - 75, currentY, 150, 20).build());
 

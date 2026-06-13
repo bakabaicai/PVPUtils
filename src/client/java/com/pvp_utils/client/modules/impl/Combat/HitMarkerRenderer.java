@@ -1,4 +1,4 @@
-package com.pvp_utils.client.gui;
+package com.pvp_utils.client.modules.impl.Combat;
 
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;

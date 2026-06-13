@@ -1,4 +1,4 @@
-package com.pvp_utils.client;
+package com.pvp_utils.client.modules.impl.Optimize;
 
 import com.pvp_utils.Config;
 import com.sun.jna.Library;

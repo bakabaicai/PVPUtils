@@ -70,8 +70,12 @@ public class SettingModule {
                     subBg.setColor(withAlpha(0xF8F8FF, subAlpha));
                     canvas.drawRRect(RRect.makeXYWH(x + 8f, sy, contentW - 8f, SUB_H - 6f, 8f), subBg);
                 }
-                FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + 16f, 12f, withAlpha(0x333333, subAlpha));
-                FontRenderer.drawText(canvas, sub.subtitle, x + PAD_X + 8f, sy + 30f, 10f, withAlpha(0xAAAAAA, subAlpha));
+                if (sub.subtitle == null || sub.subtitle.isEmpty()) {
+                    FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + (SUB_H - 6f) / 2f + 4.5f, 12f, withAlpha(0x333333, subAlpha));
+                } else {
+                    FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + 16f, 12f, withAlpha(0x333333, subAlpha));
+                    FontRenderer.drawText(canvas, sub.subtitle, x + PAD_X + 8f, sy + 30f, 10f, withAlpha(0xAAAAAA, subAlpha));
+                }
                 if (sub.widget != null) {
                     float wx = x + contentW - PAD_X - sub.widget.getWidth();
                     float wy = sy + (SUB_H - 6f - sub.widget.getHeight()) / 2f;

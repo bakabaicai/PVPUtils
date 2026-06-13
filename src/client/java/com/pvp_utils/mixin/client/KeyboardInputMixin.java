@@ -1,7 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.AutoChestDepositManager;
+import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import net.minecraft.client.player.ClientInput;
 import net.minecraft.client.player.KeyboardInput;
 import net.minecraft.world.entity.player.Input;

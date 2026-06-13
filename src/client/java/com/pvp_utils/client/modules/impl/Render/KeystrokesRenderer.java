@@ -1,4 +1,4 @@
-package com.pvp_utils.client.gui;
+package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.skia.SkiaScreen;
