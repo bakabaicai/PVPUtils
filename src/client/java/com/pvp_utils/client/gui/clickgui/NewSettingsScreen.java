@@ -3,11 +3,13 @@ package com.pvp_utils.client.gui.clickgui;
 import com.pvp_utils.client.gui.clickgui.pages.*;
 import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -88,6 +90,29 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private float getVisualScale(int width, int height) {
         return getUiScale(width, height) * (0.965f + 0.035f * easeOutCubic(openProgress));
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        float visualScale = getVisualScale(this.width, this.height);
+        float[] l = layout(this.width, this.height);
+        float cx = this.width / 2f;
+        float cy = this.height / 2f;
+        float pad = 28f;
+        int regionX = (int) Math.floor(cx + (l[0] - cx) * visualScale - pad);
+        int regionY = (int) Math.floor(cy + (l[1] - cy) * visualScale - pad);
+        int regionW = (int) Math.ceil(l[2] * visualScale + pad * 2f);
+        int regionH = (int) Math.ceil(l[3] * visualScale + pad * 2f);
+        regionX = Math.max(0, regionX);
+        regionY = Math.max(0, regionY);
+        regionW = Math.min(this.width - regionX, Math.max(1, regionW));
+        regionH = Math.min(this.height - regionY, Math.max(1, regionH));
+
+        Canvas canvas = SkiaRenderer.beginRegion(regionX, regionY, regionW, regionH);
+        if (canvas != null) {
+            drawSkia(canvas, this.width, this.height, mouseX, mouseY, delta);
+        }
+        SkiaRenderer.endRegion(graphics);
     }
 
     private float toLayoutX(double x, int width, float scale) {
