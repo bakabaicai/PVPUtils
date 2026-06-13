@@ -41,7 +41,12 @@ public class NewSettingsScreen extends SkiaScreen {
     private float contentScrollOffset = 0f;
     private float targetScrollOffset = 0f;
     private boolean draggingInContent = false;
+    private boolean draggingScrollbar = false;
+    private float scrollbarDragOffset = 0f;
     private static final float OPEN_DURATION = 0.16f;
+    private static final float BASE_CARD_W = 740f;
+    private static final float BASE_CARD_H = 500f;
+    private static final float SCREEN_MARGIN = 24f;
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
@@ -49,8 +54,8 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private float[] layout(int width, int height) {
-        float cardW = Math.min(width * 0.70f, 740f);
-        float cardH = Math.min(height * 0.76f, 500f);
+        float cardW = BASE_CARD_W;
+        float cardH = BASE_CARD_H;
         float cardX = (width - cardW) / 2f;
         float cardY = (height - cardH) / 2f;
         float sidebarW = 190f;
@@ -73,6 +78,26 @@ public class NewSettingsScreen extends SkiaScreen {
                 closeX, closeY, closeH, resetY, resetH,
                 contentX, contentY, contentW, contentH
         };
+    }
+
+    private float getUiScale(int width, int height) {
+        float scaleX = Math.max(0.1f, (width - SCREEN_MARGIN) / BASE_CARD_W);
+        float scaleY = Math.max(0.1f, (height - SCREEN_MARGIN) / BASE_CARD_H);
+        return Math.min(1f, Math.min(scaleX, scaleY));
+    }
+
+    private float getVisualScale(int width, int height) {
+        return getUiScale(width, height) * (0.965f + 0.035f * easeOutCubic(openProgress));
+    }
+
+    private float toLayoutX(double x, int width, float scale) {
+        float cx = width / 2f;
+        return cx + ((float) x - cx) / scale;
+    }
+
+    private float toLayoutY(double y, int height, float scale) {
+        float cy = height / 2f;
+        return cy + ((float) y - cy) / scale;
     }
 
     private static float lerp(float a, float b, float t) {
@@ -124,6 +149,9 @@ public class NewSettingsScreen extends SkiaScreen {
 
         float animT = easeOutCubic(openProgress);
 
+        float visualScale = getUiScale(width, height) * (0.965f + 0.035f * animT);
+        float layoutMouseX = toLayoutX(mouseX, width, visualScale);
+        float layoutMouseY = toLayoutY(mouseY, height, visualScale);
         float[] l = layout(width, height);
         BasePage currentPage = pages.get(selectedTab);
         float currentScrollAreaH = l[17] - 54f;
@@ -140,12 +168,12 @@ public class NewSettingsScreen extends SkiaScreen {
         resetHovered = false;
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
-            if (mouseX >= cardX + 12f && mouseX <= cardX + 12f + tabW && mouseY >= ty && mouseY <= ty + tabH)
+            if (layoutMouseX >= cardX + 12f && layoutMouseX <= cardX + 12f + tabW && layoutMouseY >= ty && layoutMouseY <= ty + tabH)
                 hoveredTab = i;
         }
-        if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= closeY && mouseY <= closeY + closeH)
+        if (layoutMouseX >= closeX && layoutMouseX <= closeX + tabW && layoutMouseY >= closeY && layoutMouseY <= closeY + closeH)
             closeHovered = true;
-        if (mouseX >= closeX && mouseX <= closeX + tabW && mouseY >= resetY && mouseY <= resetY + resetH)
+        if (layoutMouseX >= closeX && layoutMouseX <= closeX + tabW && layoutMouseY >= resetY && layoutMouseY <= resetY + resetH)
             resetHovered = true;
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
@@ -163,15 +191,13 @@ public class NewSettingsScreen extends SkiaScreen {
         page.update(dt);
 
         float alpha = 1f;
-        float guiScale = com.pvp_utils.client.render.skia.SkiaRenderer.getScale();
         float cx = width / 2f;
         float cy = height / 2f;
-        float sc = 0.965f + 0.035f * animT;
 
         canvas.save();
-        canvas.translate(cx * guiScale, cy * guiScale);
-        canvas.scale(sc, sc);
-        canvas.translate(-cx * guiScale, -cy * guiScale);
+        canvas.translate(cx, cy);
+        canvas.scale(visualScale, visualScale);
+        canvas.translate(-cx, -cy);
 
         try (Paint card = new Paint()) {
             card.setColor(withAlpha(0xF5F5F7, alpha));
@@ -280,20 +306,75 @@ public class NewSettingsScreen extends SkiaScreen {
         }
     }
 
+    private boolean hasScrollbar(BasePage page, float contentH) {
+        return getContentTotalHeight(page) > contentH - 54f;
+    }
+
+    private float scrollbarTrackX(float contentX, float contentW) {
+        return contentX + contentW - 8f;
+    }
+
+    private float scrollbarTrackTop(float contentY) {
+        return contentY + 60f;
+    }
+
+    private float scrollbarTrackH(float contentH) {
+        return contentH - 60f - 8f;
+    }
+
+    private float scrollbarThumbH(BasePage page, float contentH) {
+        float totalH = getContentTotalHeight(page);
+        float scrollAreaH = contentH - 54f;
+        return Math.max(20f, scrollbarTrackH(contentH) * scrollAreaH / totalH);
+    }
+
+    private float scrollbarThumbTop(BasePage page, float contentY, float contentH) {
+        float totalH = getContentTotalHeight(page);
+        float scrollAreaH = contentH - 54f;
+        float trackTop = scrollbarTrackTop(contentY);
+        float trackH = scrollbarTrackH(contentH);
+        float thumbH = scrollbarThumbH(page, contentH);
+        float maxScroll = Math.max(1f, totalH - scrollAreaH);
+        float progress = Math.min(1f, targetScrollOffset / maxScroll);
+        return Math.min(trackTop + (trackH - thumbH) * progress, trackTop + trackH - thumbH);
+    }
+
+    private boolean isInScrollbar(float mx, float my, float contentX, float contentY, float contentW, float contentH) {
+        float x = scrollbarTrackX(contentX, contentW) - 6f;
+        float top = scrollbarTrackTop(contentY);
+        float h = scrollbarTrackH(contentH);
+        return mx >= x && mx <= x + 16f && my >= top && my <= top + h;
+    }
+
+    private void setScrollFromScrollbar(BasePage page, float my, float contentY, float contentH) {
+        float totalH = getContentTotalHeight(page);
+        float scrollAreaH = contentH - 54f;
+        float maxScroll = Math.max(0f, totalH - scrollAreaH);
+        float trackTop = scrollbarTrackTop(contentY);
+        float trackH = scrollbarTrackH(contentH);
+        float thumbH = scrollbarThumbH(page, contentH);
+        float available = Math.max(1f, trackH - thumbH);
+        float thumbTop = Math.max(trackTop, Math.min(my - scrollbarDragOffset, trackTop + available));
+        targetScrollOffset = maxScroll * ((thumbTop - trackTop) / available);
+    }
+
     @Override public void onClose() { closing = true; }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
         if (closing) return false;
-        double mx = event.x(), my = event.y();
         int button = event.button();
 
+        float visualScale = getVisualScale(this.width, this.height);
+        float mx = toLayoutX(event.x(), this.width, visualScale);
+        float my = toLayoutY(event.y(), this.height, visualScale);
         float[] l = layout(this.width, this.height);
         float cardX = l[0];
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11];
         float resetY = l[12], resetH = l[13];
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
+        BasePage page = pages.get(selectedTab);
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
@@ -328,9 +409,17 @@ public class NewSettingsScreen extends SkiaScreen {
         resetConfirm = false;
 
         if (mx >= contentX && mx <= contentX + contentW && my >= contentY && my <= contentY + contentH) {
-            BasePage page = pages.get(selectedTab);
+            if (hasScrollbar(page, contentH) && isInScrollbar(mx, my, contentX, contentY, contentW, contentH)) {
+                draggingScrollbar = true;
+                float thumbTop = scrollbarThumbTop(page, contentY, contentH);
+                float thumbH = scrollbarThumbH(page, contentH);
+                scrollbarDragOffset = my >= thumbTop && my <= thumbTop + thumbH ? my - thumbTop : thumbH * 0.5f;
+                setScrollFromScrollbar(page, my, contentY, contentH);
+                contentScrollOffset = targetScrollOffset;
+                return true;
+            }
             float moduleStartY = contentY + 54f;
-            boolean hit = page.onClick((float)mx, (float)my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
+            boolean hit = page.onClick(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
             if (hit) {
                 draggingInContent = true;
             }
@@ -342,11 +431,23 @@ public class NewSettingsScreen extends SkiaScreen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (draggingScrollbar) {
+            float visualScale = getVisualScale(this.width, this.height);
+            float my = toLayoutY(event.y(), this.height, visualScale);
+            float[] l = layout(this.width, this.height);
+            BasePage page = pages.get(selectedTab);
+            setScrollFromScrollbar(page, my, l[15], l[17]);
+            contentScrollOffset = targetScrollOffset;
+            return true;
+        }
         if (draggingInContent) {
+            float visualScale = getVisualScale(this.width, this.height);
+            float mx = toLayoutX(event.x(), this.width, visualScale);
+            float my = toLayoutY(event.y(), this.height, visualScale);
             float[] l = layout(this.width, this.height);
             float contentX = l[14], contentY = l[15], contentW = l[16];
             float moduleStartY = contentY + 54f;
-            pages.get(selectedTab).onDrag((float)event.x(), (float)event.y(), contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
+            pages.get(selectedTab).onDrag(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
             return true;
         }
         return false;
@@ -355,16 +456,20 @@ public class NewSettingsScreen extends SkiaScreen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         draggingInContent = false;
+        draggingScrollbar = false;
         pages.get(selectedTab).releaseDrag();
         return false;
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hScroll, double vScroll) {
+        float visualScale = getVisualScale(this.width, this.height);
+        float layoutMx = toLayoutX(mx, this.width, visualScale);
+        float layoutMy = toLayoutY(my, this.height, visualScale);
         float[] l = layout(this.width, this.height);
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
-        if (mx >= contentX && mx <= contentX + contentW) {
+        if (layoutMx >= contentX && layoutMx <= contentX + contentW && layoutMy >= contentY && layoutMy <= contentY + contentH) {
             BasePage page = pages.get(selectedTab);
             float scrollAreaH2 = contentH - 54f;
             float maxScroll = Math.max(0f, getContentTotalHeight(page) - scrollAreaH2);
