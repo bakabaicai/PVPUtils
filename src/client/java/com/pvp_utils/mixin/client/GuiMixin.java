@@ -8,6 +8,7 @@ import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
 import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
+import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
@@ -55,5 +56,7 @@ public class GuiMixin {
         if (canvas != null) {
             SkiaRenderer.end(guiGraphics, guiWidth, guiHeight);
         }
+
+        BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
     }
 }

@@ -22,6 +22,7 @@ public class Config {
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
+    public static boolean blockCountDisplay = false;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
     public static boolean keystrokes = false;
@@ -42,6 +43,8 @@ public class Config {
     public static float keystrokesX = -170f;
     public static float keystrokesY = 70f;
     public static float keystrokesScale = 1.0f;
+    public static float blockCountDisplayX = 0f;
+    public static float blockCountDisplayY = 0f;
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
     public static float offsetX = 0f;
@@ -83,6 +86,7 @@ public class Config {
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
+            blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
@@ -107,6 +111,8 @@ public class Config {
             keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
             keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
             keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
+            blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
+            blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
@@ -135,6 +141,7 @@ public class Config {
             prop.setProperty("victorySound", String.valueOf(victorySound));
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
+            prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
@@ -159,6 +166,8 @@ public class Config {
             prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
             prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
             prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
+            prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
+            prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));

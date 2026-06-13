@@ -104,6 +104,7 @@ public class SettingsScreen extends Screen {
                     Config.gammaOverride = false;
                     Config.gammaValue = 15.0;
                     Config.autoSprint = false;
+                    Config.blockCountDisplay = false;
                     Config.autoChestDeposit = false;
                     Config.autoChestDepositResourcesOnly = true;
                     Config.autoChestDepositDepositDelay = 4;
@@ -111,6 +112,8 @@ public class SettingsScreen extends Screen {
                     Config.targetHudX = -300f;
                     Config.targetHudY = -100f;
                     Config.targetHudZ = 0f;
+                    Config.blockCountDisplayX = 0f;
+                    Config.blockCountDisplayY = 0f;
                     Config.notificationX = Float.NaN;
                     Config.notificationY = Float.NaN;
                     Config.hideSignText = false;

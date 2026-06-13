@@ -26,6 +26,7 @@ public class ResetManager {
         Config.gammaOverride = false;
         Config.gammaValue = 15.0;
         Config.autoSprint = false;
+        Config.blockCountDisplay = false;
         Config.autoChestDeposit = false;
         Config.autoChestDepositResourcesOnly = true;
         Config.autoChestDepositDepositDelay = 4;
@@ -37,6 +38,8 @@ public class ResetManager {
         Config.keystrokesX = -170f;
         Config.keystrokesY = 70f;
         Config.keystrokesScale = 1.0f;
+        Config.blockCountDisplayX = 0f;
+        Config.blockCountDisplayY = 0f;
         Config.notificationX = Float.NaN;
         Config.notificationY = Float.NaN;
         Config.disableImeInGame = false;

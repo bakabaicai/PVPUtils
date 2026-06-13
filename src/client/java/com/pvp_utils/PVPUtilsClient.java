@@ -6,6 +6,7 @@ import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodManager;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
+import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -28,6 +29,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);
             InputMethodManager.tick(client);
+            BlockCountDisplayRenderer.getInstance().tick(client);
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
