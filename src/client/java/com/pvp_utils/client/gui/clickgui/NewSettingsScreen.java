@@ -50,7 +50,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
-        pages = new ArrayList<>(List.of(new CombatPage(), new VisualPage(), new ToolPage(), new OptimizePage(), new OtherPage()));
+        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage()));
     }
 
     private float[] layout(int width, int height) {
@@ -395,10 +395,10 @@ public class NewSettingsScreen extends SkiaScreen {
                 resetConfirm = false;
                 pages.set(selectedTab, switch (selectedTab) {
                     case 0 -> new CombatPage();
-                    case 1 -> new VisualPage();
+                    case 1 -> new RenderPage();
                     case 2 -> new ToolPage();
                     case 3 -> new OptimizePage();
-                    default -> new OtherPage();
+                    default -> new MiscPage();
                 });
             } else {
                 resetConfirm = true;

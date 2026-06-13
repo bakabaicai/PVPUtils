@@ -7,9 +7,9 @@ import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 
 import java.util.List;
 
-public class OtherPage extends BasePage {
+public class MiscPage extends BasePage {
 
-    public OtherPage() {
+    public MiscPage() {
         modules.add(new SettingModule(UiText.t("胜利音效", "Victory Sound"), UiText.t("在你胜利时播放自定义音效", "Play a custom sound when you win"),
                 new SettingToggle(() -> Config.victorySound, v -> { Config.victorySound = v; Config.save(); }))
                 .addSub(UiText.t("打开自定义音效文件夹", "Open custom sound folder"), "", new SettingButton(UiText.t("打开", "Open"), VictorySound::openSoundsFolder)));

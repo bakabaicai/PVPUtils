@@ -8,9 +8,9 @@ import net.minecraft.client.gui.screens.ChatScreen;
 
 import java.util.List;
 
-public class VisualPage extends BasePage {
+public class RenderPage extends BasePage {
 
-    public VisualPage() {
+    public RenderPage() {
         modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器", "Open the HUD position editor"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false)))));
 
