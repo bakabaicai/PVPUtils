@@ -9,6 +9,7 @@
     "LocalPlayerMixin",
     "LocalPlayerEyeHeightMixin",
     "MultiPlayerGameModeAccessor",
+    "BlockItemMixin",
     "PlayerPoseAccessMixin",
     "CameraMixin",
     "LightTextureMixin",

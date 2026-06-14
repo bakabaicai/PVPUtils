@@ -2,13 +2,11 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 public class KeystrokesRenderer {
     private static final KeystrokesRenderer INSTANCE = new KeystrokesRenderer();
@@ -18,12 +16,8 @@ public class KeystrokesRenderer {
     private static final int ACTIVE_COLOR = 0xCCFFFFFF;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int ACTIVE_TEXT_COLOR = 0xFF111111;
-    private static final long CPS_WINDOW_MS = 1000;
-
-    private final Deque<Long> leftClicks = new ArrayDeque<>();
-    private final Deque<Long> rightClicks = new ArrayDeque<>();
-    private boolean wasLeftDown = false;
-    private boolean wasRightDown = false;
+    private final RateCounter leftClicks = new RateCounter();
+    private final RateCounter rightClicks = new RateCounter();
 
     public static KeystrokesRenderer getInstance() {
         return INSTANCE;
@@ -56,10 +50,8 @@ public class KeystrokesRenderer {
 
         boolean leftDown = client.options.keyAttack.isDown();
         boolean rightDown = client.options.keyUse.isDown();
-        int leftCps = updateCps(leftClicks, leftDown, wasLeftDown);
-        int rightCps = updateCps(rightClicks, rightDown, wasRightDown);
-        wasLeftDown = leftDown;
-        wasRightDown = rightDown;
+        int leftCps = leftClicks.updatePressed(leftDown);
+        int rightCps = rightClicks.updatePressed(rightDown);
 
         drawKey(graphics, "W", x + (KEY_SIZE + GAP) * scale, y, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyUp.isDown());
         drawKey(graphics, "A", x, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, client.options.keyLeft.isDown());
@@ -75,17 +67,6 @@ public class KeystrokesRenderer {
         int bottomY = (KEY_SIZE + GAP) * 3;
         drawKey(graphics, "SPACE", x, y + bottomY * scale, leftMouseW * scale, KEY_SIZE * scale, client.options.keyJump.isDown());
         drawKey(graphics, "SHIFT", x + (leftMouseW + GAP) * scale, y + bottomY * scale, rightMouseW * scale, KEY_SIZE * scale, client.options.keyShift.isDown());
-    }
-
-    private int updateCps(Deque<Long> clicks, boolean isDown, boolean wasDown) {
-        long now = System.currentTimeMillis();
-        if (isDown && !wasDown) {
-            clicks.addLast(now);
-        }
-        while (!clicks.isEmpty() && now - clicks.peekFirst() > CPS_WINDOW_MS) {
-            clicks.removeFirst();
-        }
-        return clicks.size();
     }
 
     private void drawKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
