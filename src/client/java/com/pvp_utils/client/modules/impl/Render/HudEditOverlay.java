@@ -19,6 +19,8 @@ public class HudEditOverlay {
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
     private static final int TARGET_HUD_HEIGHT = 44;
+    private static final int TARGET_HUD_NEW_WIDTH = 190;
+    private static final int TARGET_HUD_NEW_HEIGHT = 58;
     private static final float DASH_SPEED = 20f;
     private static final float DASH_LEN = 12f;
     private static final float DASH_GAP = 6f;
@@ -202,7 +204,7 @@ public class HudEditOverlay {
             drawGrid(canvas, guiW, guiH, progress);
         }
         if (targetHud != null) {
-            drawOutline(canvas, targetVisualX, targetVisualY, TARGET_HUD_WIDTH, TARGET_HUD_HEIGHT, "Target HUD", targetHoverAlpha, progress);
+            drawOutline(canvas, targetVisualX, targetVisualY, targetHud.w, targetHud.h, "Target HUD", targetHoverAlpha, progress);
         }
         if (keystrokes != null) {
             drawOutline(canvas, keystrokes.x, keystrokes.y, keystrokes.w, keystrokes.h, "Keystrokes", keystrokesHoverAlpha, progress);
@@ -211,6 +213,44 @@ public class HudEditOverlay {
             drawOutline(canvas, blockCount.x, blockCount.y, blockCount.w, blockCount.h, "Block Count", blockCountHoverAlpha, progress);
         }
         drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (!active || Math.abs(amount) <= 0.001) return false;
+        Minecraft mc = Minecraft.getInstance();
+        int guiW = mc.getWindow().getGuiScaledWidth();
+        int guiH = mc.getWindow().getGuiScaledHeight();
+
+        RectState targetHud = Config.targetHud ? getTargetHudRect(guiW, guiH) : null;
+        RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
+        RectState blockCount = Config.blockCountDisplay ? getBlockCountRect(guiW, guiH) : null;
+        RectState notification = getNotificationRect(guiW, guiH);
+
+        float mx = (float) mouseX;
+        float my = (float) mouseY;
+        float delta = amount > 0 ? 0.05f : -0.05f;
+
+        if (contains(notification, mx, my, 4f)) {
+            Config.notificationScale = clampScale(Config.notificationScale + delta);
+            Config.save();
+            return true;
+        }
+        if (blockCount != null && contains(blockCount, mx, my, 4f)) {
+            Config.blockCountDisplayScale = clampScale(Config.blockCountDisplayScale + delta);
+            Config.save();
+            return true;
+        }
+        if (keystrokes != null && contains(keystrokes, mx, my, 4f)) {
+            Config.keystrokesScale = clampScale(Config.keystrokesScale + delta);
+            Config.save();
+            return true;
+        }
+        if (targetHud != null && contains(targetHud, mx, my, 4f)) {
+            Config.targetHudScale = clampScale(Config.targetHudScale + delta);
+            Config.save();
+            return true;
+        }
+        return false;
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
@@ -275,9 +315,14 @@ public class HudEditOverlay {
     }
 
     private RectState getTargetHudRect(int guiW, int guiH) {
+        float scale = Math.max(0.5f, Config.targetHudScale);
+        float baseW = Config.targetHudMode == Config.TargetHudMode.NEW ? TARGET_HUD_NEW_WIDTH : TARGET_HUD_WIDTH;
+        float baseH = Config.targetHudMode == Config.TargetHudMode.NEW ? TARGET_HUD_NEW_HEIGHT : TARGET_HUD_HEIGHT;
+        float w = baseW * scale;
+        float h = baseH * scale;
         float x = guiW * 0.5f + Config.targetHudX;
         float y = guiH * 0.5f + Config.targetHudY;
-        return clampRect(x, y, TARGET_HUD_WIDTH, TARGET_HUD_HEIGHT, guiW, guiH);
+        return clampRect(x, y, w, h, guiW, guiH);
     }
 
     private RectState getKeystrokesRect(int guiW, int guiH) {
@@ -344,6 +389,10 @@ public class HudEditOverlay {
 
     private boolean contains(RectState rect, float mx, float my, float pad) {
         return mx >= rect.x - pad && mx <= rect.x + rect.w + pad && my >= rect.y - pad && my <= rect.y + rect.h + pad;
+    }
+
+    private float clampScale(float scale) {
+        return Math.max(0.5f, Math.min(2.0f, scale));
     }
 
     private record RectState(float x, float y, float w, float h) {}

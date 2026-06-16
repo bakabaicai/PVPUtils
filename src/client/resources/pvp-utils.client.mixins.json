@@ -6,6 +6,7 @@
     "ItemInHandRendererMixin",
     "AbstractContainerScreenMixin",
     "LivingEntityMixin",
+    "LivingEntityTotemMixin",
     "LocalPlayerMixin",
     "LocalPlayerEyeHeightMixin",
     "MultiPlayerGameModeAccessor",
@@ -22,7 +23,8 @@
     "AbstractSignRendererMixin",
     "EnchantTableRendererMixin",
     "ScreenEffectRendererMixin",
-    "GameRendererMixin"
+    "GameRendererMixin",
+    "LevelParticleMixin"
   ],
   "injectors": {
     "defaultRequire": 1

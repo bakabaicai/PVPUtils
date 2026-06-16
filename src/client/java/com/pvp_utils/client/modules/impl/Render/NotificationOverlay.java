@@ -134,8 +134,24 @@ public class NotificationOverlay {
         int iconMargin = 8;
 
         int dynamicWidth = active ? textWidth + PADDING + GREEN_BAR_WIDTH : PREVIEW_WIDTH;
-        int finalX = getRenderX(screenWidth, dynamicWidth);
+        float scale = Math.max(0.5f, Config.notificationScale);
+        int scaledWidth = Math.round(dynamicWidth * scale);
+        int scaledHeight = Math.round(HEIGHT * scale);
+        int finalX = getRenderX(screenWidth, scaledWidth);
         int y = getRenderY(screenHeight);
+        finalX = Math.max(0, Math.min(finalX, screenWidth - scaledWidth));
+        y = Math.max(0, Math.min(y, screenHeight - scaledHeight));
+
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(finalX, y);
+        graphics.pose().scale(scale, scale);
+        graphics.pose().translate(-finalX, -y);
+        if (canvas != null) {
+            canvas.save();
+            canvas.translate(finalX, y);
+            canvas.scale(scale, scale);
+            canvas.translate(-finalX, -y);
+        }
 
         float greenProgress = 0f;
         float blackProgress = 0f;
@@ -229,14 +245,18 @@ public class NotificationOverlay {
                 FontRenderer.drawText(canvas, renderMessage, currentX, textY, TEXT_SIZE, textColor | 0xFF000000);
             }
         }
+        if (canvas != null) {
+            canvas.restore();
+        }
+        graphics.pose().popMatrix();
     }
 
     public int getEditWidth() {
-        return PREVIEW_WIDTH;
+        return Math.round(PREVIEW_WIDTH * Math.max(0.5f, Config.notificationScale));
     }
 
     public int getEditHeight() {
-        return HEIGHT;
+        return Math.round(HEIGHT * Math.max(0.5f, Config.notificationScale));
     }
 
     public int getRenderX(int screenWidth, int width) {

@@ -31,8 +31,12 @@ public class Config {
     public static boolean hideEnchantTableBook = false;
     public static boolean hideFireOverlay = false;
     public static boolean hideHurtShake = false;
+    public static boolean hideTotemAnimation = false;
+    public static boolean hideExplosionParticles = false;
+    public static boolean noAttackCooldownAnimation = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
+    public static TargetHudMode targetHudMode = TargetHudMode.NEW;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
@@ -40,13 +44,16 @@ public class Config {
     public static float targetHudX = -300f;
     public static float targetHudY = -100f;
     public static float targetHudZ = 0f;
+    public static float targetHudScale = 1.0f;
     public static float keystrokesX = -170f;
     public static float keystrokesY = 70f;
     public static float keystrokesScale = 1.0f;
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
+    public static float blockCountDisplayScale = 1.0f;
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
+    public static float notificationScale = 1.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -57,6 +64,7 @@ public class Config {
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
+    public enum TargetHudMode { LITE, NEW }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
 
@@ -95,8 +103,12 @@ public class Config {
             hideEnchantTableBook = Boolean.parseBoolean(prop.getProperty("hideEnchantTableBook", "false"));
             hideFireOverlay = Boolean.parseBoolean(prop.getProperty("hideFireOverlay", "false"));
             hideHurtShake = Boolean.parseBoolean(prop.getProperty("hideHurtShake", "false"));
+            hideTotemAnimation = Boolean.parseBoolean(prop.getProperty("hideTotemAnimation", "false"));
+            hideExplosionParticles = Boolean.parseBoolean(prop.getProperty("hideExplosionParticles", "false"));
+            noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
+            targetHudMode = TargetHudMode.valueOf(prop.getProperty("targetHudMode", "NEW"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
@@ -108,13 +120,16 @@ public class Config {
             targetHudX = Float.parseFloat(prop.getProperty("targetHudX", "-300"));
             targetHudY = Float.parseFloat(prop.getProperty("targetHudY", "-100"));
             targetHudZ = Float.parseFloat(prop.getProperty("targetHudZ", "0"));
+            targetHudScale = Float.parseFloat(prop.getProperty("targetHudScale", "1.0"));
             keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
             keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
             keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
             blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
             blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
+            blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
+            notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
@@ -150,8 +165,12 @@ public class Config {
             prop.setProperty("hideEnchantTableBook", String.valueOf(hideEnchantTableBook));
             prop.setProperty("hideFireOverlay", String.valueOf(hideFireOverlay));
             prop.setProperty("hideHurtShake", String.valueOf(hideHurtShake));
+            prop.setProperty("hideTotemAnimation", String.valueOf(hideTotemAnimation));
+            prop.setProperty("hideExplosionParticles", String.valueOf(hideExplosionParticles));
+            prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
+            prop.setProperty("targetHudMode", targetHudMode.name());
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
@@ -163,13 +182,16 @@ public class Config {
             prop.setProperty("targetHudX", String.valueOf(targetHudX));
             prop.setProperty("targetHudY", String.valueOf(targetHudY));
             prop.setProperty("targetHudZ", String.valueOf(targetHudZ));
+            prop.setProperty("targetHudScale", String.valueOf(targetHudScale));
             prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
             prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
             prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
             prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
             prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
+            prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
+            prop.setProperty("notificationScale", String.valueOf(notificationScale));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));

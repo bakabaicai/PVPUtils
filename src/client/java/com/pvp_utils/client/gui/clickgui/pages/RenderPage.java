@@ -11,7 +11,7 @@ import java.util.List;
 public class RenderPage extends BasePage {
 
     public RenderPage() {
-        modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器", "Open the HUD position editor"),
+        modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false)))));
 
         modules.add(new SettingModule(UiText.t("防砍动画", "Sword Blocking Animation"), UiText.t("模拟旧版格挡动画效果", "Simulate the old blocking animation"),
@@ -28,6 +28,9 @@ public class RenderPage extends BasePage {
                         new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.offsetZ, v -> { Config.offsetZ = v.floatValue(); Config.save(); }))
                 .addSub(UiText.t("动画速度", "Animation Speed"), UiText.t("调整动画播放速度", "Adjust animation playback speed"),
                         new SettingSlider(0.0, 4.0, "%.2f", () -> (double) Config.animSpeed, v -> { Config.animSpeed = v.floatValue(); Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("去除攻击冷却动画", "Remove Attack Cooldown Animation"), UiText.t("去除武器挥动后高版本额外的抬手动画", "Remove the extra hand raise after weapon swings"),
+                new SettingToggle(() -> Config.noAttackCooldownAnimation, v -> { Config.noAttackCooldownAnimation = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("自动格挡", "Auto Block"), UiText.t("自动触发格挡动作", "Automatically trigger blocking"),
                 new SettingToggle(() -> Config.autoMode, v -> { Config.autoMode = v; Config.save(); }))
@@ -59,6 +62,10 @@ public class RenderPage extends BasePage {
                         new SettingToggle(() -> Config.hideEnchantTableBook, v -> { Config.hideEnchantTableBook = v; Config.save(); }))
                 .addSub(UiText.t("火焰效果", "Fire Overlay"), UiText.t("隐藏第一人称着火遮挡效果", "Hide the first-person fire overlay"),
                         new SettingToggle(() -> Config.hideFireOverlay, v -> { Config.hideFireOverlay = v; Config.save(); }))
+                .addSub(UiText.t("图腾动画", "Totem Animation"), UiText.t("隐藏图腾触发时的全屏动画效果", "Hide the full-screen animation when a totem triggers"),
+                        new SettingToggle(() -> Config.hideTotemAnimation, v -> { Config.hideTotemAnimation = v; Config.save(); }))
+                .addSub(UiText.t("爆炸粒子", "Explosion Particles"), UiText.t("隐藏爆炸产生的粒子效果", "Hide particles produced by explosions"),
+                        new SettingToggle(() -> Config.hideExplosionParticles, v -> { Config.hideExplosionParticles = v; Config.save(); }))
                 .addSub(UiText.t("受伤抖动", "Hurt Shake"), UiText.t("隐藏受到伤害时的视角抖动", "Disable camera shake when hurt"),
                         new SettingToggle(() -> Config.hideHurtShake, v -> { Config.hideHurtShake = v; Config.save(); })));
 
@@ -66,7 +73,11 @@ public class RenderPage extends BasePage {
                 new SettingToggle(() -> Config.lowHealthNotify, v -> { Config.lowHealthNotify = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
-                new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); })));
+                new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
+                .addSub(UiText.t("模式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
+                        new SettingCycle(List.of("New", "Lite"),
+                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : 1,
+                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : Config.TargetHudMode.LITE; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
                 new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));

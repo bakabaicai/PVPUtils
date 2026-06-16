@@ -61,11 +61,11 @@ public class BlockCountDisplayRenderer {
     }
 
     public float getEditWidth() {
-        return WIDTH;
+        return WIDTH * Math.max(0.5f, Config.blockCountDisplayScale);
     }
 
     public float getEditHeight() {
-        return HEIGHT;
+        return HEIGHT * Math.max(0.5f, Config.blockCountDisplayScale);
     }
 
     public float getDefaultY(int screenH) {
@@ -73,11 +73,13 @@ public class BlockCountDisplayRenderer {
     }
 
     public float getRenderX(int screenW) {
-        return clamp((screenW - WIDTH) * 0.5f + Config.blockCountDisplayX, 0f, Math.max(0f, screenW - WIDTH));
+        float scaledW = getEditWidth();
+        return clamp((screenW - scaledW) * 0.5f + Config.blockCountDisplayX, 0f, Math.max(0f, screenW - scaledW));
     }
 
     public float getRenderY(int screenH) {
-        return clamp(getDefaultY(screenH) + Config.blockCountDisplayY, 0f, Math.max(0f, screenH - HEIGHT));
+        float scaledH = getEditHeight();
+        return clamp(getDefaultY(screenH) + Config.blockCountDisplayY, 0f, Math.max(0f, screenH - scaledH));
     }
 
     public void tick(Minecraft client) {
@@ -203,8 +205,11 @@ public class BlockCountDisplayRenderer {
         int screenH = client.getWindow().getGuiScaledHeight();
         float x = getRenderX(screenW);
         float y = getRenderY(screenH);
-        float cx = x + WIDTH * 0.5f;
-        float cy = y + HEIGHT * 0.5f;
+        float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
+        float scaledW = WIDTH * userScale;
+        float scaledH = HEIGHT * userScale;
+        float cx = x + scaledW * 0.5f;
+        float cy = y + scaledH * 0.5f;
         float drawScale = easeOutBack(scale);
 
         String name = displayStack.getHoverName().getString();
@@ -216,8 +221,8 @@ public class BlockCountDisplayRenderer {
         }
         String speed = String.format(Locale.ROOT, "%dBPS\\%dCPS", placements.count(now), rightClicks.count(now));
 
-        float ringCx = x + WIDTH - 32f;
-        float ringCy = y + HEIGHT * 0.5f;
+        float ringCx = x + (WIDTH - 32f) * userScale;
+        float ringCy = y + HEIGHT * 0.5f * userScale;
         float radius = 19f;
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         ringProgress += (ratio - ringProgress) * 0.18f;
@@ -228,7 +233,7 @@ public class BlockCountDisplayRenderer {
         graphics.pose().translate(cx, cy);
         graphics.pose().scale(drawScale, drawScale);
         graphics.pose().translate(-cx, -cy);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(WIDTH), Math.round(HEIGHT), textureW, textureH, textureW, textureH);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(scaledW), Math.round(scaledH), textureW, textureH, textureW, textureH);
 
         int itemX = Math.round(ringCx - 8f);
         int itemY = Math.round(ringCy - 8f);
@@ -281,10 +286,11 @@ public class BlockCountDisplayRenderer {
 
     private void renderTexture(Minecraft client, String name, String speed, float progress) {
         ensureNativeLoaded();
-        float targetScale = Math.max(2f, (float) client.getWindow().getGuiScale());
+        float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
+        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        int progressKey = Math.round(progress * 120f);
+        int progressKey = Math.round(progress * 48f);
         if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {

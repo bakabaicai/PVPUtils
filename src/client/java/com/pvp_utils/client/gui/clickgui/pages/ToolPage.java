@@ -3,6 +3,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
+import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 
 public class ToolPage extends BasePage {
 
@@ -18,6 +19,15 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、移动速度和点击速度", "Show block count, movement speed, and click speed while right-clicking blocks"),
                 new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); })));
+
+        if (FakePlayerManager.debug) {
+            modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),
+                    new SettingToggle(FakePlayerManager::isEnabled, FakePlayerManager::setEnabled))
+                    .addSub(UiText.t("盔甲", "Armor"), UiText.t("控制假玩家是否穿着下界合金甲", "Control whether the fake player wears netherite armor"),
+                            new SettingToggle(FakePlayerManager::hasArmor, FakePlayerManager::setArmor))
+                    .addSub(UiText.t("不死图腾", "Totem"), UiText.t("控制假玩家手上是否持有不死图腾", "Control whether the fake player holds a Totem of Undying"),
+                            new SettingToggle(FakePlayerManager::hasTotem, FakePlayerManager::setTotem)));
+        }
 
         modules.add(new SettingModule(UiText.t("快捷存入", "Quick Deposit"), UiText.t("手持物品并左键点击容器时快捷存入手中的物品", "Quickly deposit the held item when left-clicking a container while holding an item"),
                 new SettingToggle(() -> Config.autoChestDeposit, v -> { Config.autoChestDeposit = v; Config.save(); }))

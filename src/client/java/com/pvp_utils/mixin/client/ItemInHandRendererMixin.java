@@ -30,10 +30,14 @@ import java.util.List;
 
 @Mixin(ItemInHandRenderer.class)
 public abstract class ItemInHandRendererMixin {
+    @Shadow private ItemStack mainHandItem;
     @Shadow private float mainHandHeight;
     @Shadow private float oMainHandHeight;
     @Shadow private void applyItemArmTransform(PoseStack poseStack, HumanoidArm humanoidArm, float f) {}
     @Shadow public abstract void renderItem(LivingEntity livingEntity, ItemStack itemStack, ItemDisplayContext itemDisplayContext, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int i);
+    private int lastSelectedSlot = -1;
+    private ItemStack lastSelectedStack = ItemStack.EMPTY;
+    private boolean waitingForWeaponCooldown = false;
 
     private boolean isEntityInRange() {
         Minecraft client = Minecraft.getInstance();
@@ -54,11 +58,25 @@ public abstract class ItemInHandRendererMixin {
     private void updateHandPosition(CallbackInfo ci) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
-        boolean isSword = client.player.getMainHandItem().is(ItemTags.SWORDS);
+        ItemStack currentStack = client.player.getMainHandItem();
+        int selectedSlot = client.player.getInventory().getSelectedSlot();
+        if (lastSelectedSlot != -1 && (selectedSlot != lastSelectedSlot || !ItemStack.matches(currentStack, lastSelectedStack))) {
+            waitingForWeaponCooldown = isWeapon(currentStack);
+        } else if (client.options.keyAttack.isDown()) {
+            waitingForWeaponCooldown = false;
+        } else if (waitingForWeaponCooldown && client.player.getAttackStrengthScale(1.0F) >= 0.999F) {
+            waitingForWeaponCooldown = false;
+        }
+        lastSelectedSlot = selectedSlot;
+        lastSelectedStack = currentStack.copy();
+        boolean isSword = currentStack.is(ItemTags.SWORDS);
+        boolean isWeapon = isWeapon(currentStack);
+        boolean visibleItemMatches = ItemStack.matches(currentStack, this.mainHandItem);
         boolean hasTarget = Config.autoMode && isEntityInRange();
         boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget);
         boolean isEatingSwing = Config.useSwing && client.player.isUsingItem();
-        if (isBlocking || isEatingSwing || client.screen instanceof SettingsScreen) {
+        boolean shouldSuppressCooldownRaise = Config.noAttackCooldownAnimation && isWeapon && visibleItemMatches && !waitingForWeaponCooldown && !client.player.isUsingItem();
+        if (shouldSuppressCooldownRaise || isBlocking || isEatingSwing || client.screen instanceof SettingsScreen) {
             this.mainHandHeight = 1.0F;
             this.oMainHandHeight = 1.0F;
         }
@@ -170,5 +188,9 @@ public abstract class ItemInHandRendererMixin {
         poseStack.mulPose(Axis.XP.rotationDegrees(-102.25F));
         poseStack.mulPose(Axis.YP.rotationDegrees(i * 15.0F));
         poseStack.mulPose(Axis.ZP.rotationDegrees(i * 80.0F));
+    }
+
+    private boolean isWeapon(ItemStack stack) {
+        return stack.is(ItemTags.SWORDS) || stack.is(ItemTags.AXES) || stack.is(ItemTags.SPEARS) || stack.is(ItemTags.MELEE_WEAPON_ENCHANTABLE);
     }
 }
