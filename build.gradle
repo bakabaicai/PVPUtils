@@ -3,11 +3,42 @@ plugins {
     id 'maven-publish'
 }
 
-version = project.mod_version
+def readVersionNumber = { String name ->
+    def file = file("src/client/java/com/pvp_utils/client/Version.java")
+    def matcher = (file.text =~ /public\s+static\s+final\s+int\s+${name}\s*=\s*(\d+)\s*;/)
+    if (!matcher.find()) {
+        throw new GradleException("Missing Version.${name}")
+    }
+    matcher.group(1).toInteger()
+}
+
+def readVersionString = { String name ->
+    def file = file("src/client/java/com/pvp_utils/client/Version.java")
+    def matcher = (file.text =~ /public\s+static\s+final\s+String\s+${name}\s*=\s*"([^"]+)"\s*;/)
+    if (!matcher.find()) {
+        throw new GradleException("Missing Version.${name}")
+    }
+    matcher.group(1)
+}
+
+def versionName = readVersionString("NAME")
+def versionBase = readVersionString("VERSION")
+def versionType = readVersionNumber("TYPE")
+def versionRevision = readVersionNumber("REVISION")
+def revisionSuffix = versionRevision > 0 ? ".${versionRevision}" : ""
+def versionSuffix = switch (versionType) {
+    case 0 -> ""
+    case 1 -> "-alpha${revisionSuffix}"
+    case 2 -> "-beta${revisionSuffix}"
+    default -> throw new GradleException("Invalid Version.TYPE: ${versionType}")
+}
+def pvpUtilsVersion = "${versionBase}${versionSuffix}"
+
+version = pvpUtilsVersion
 group = project.maven_group
 
 base {
-    archivesName = project.archives_base_name
+    archivesName = "${versionName}-v${pvpUtilsVersion}"
 }
 
 repositories {
@@ -76,4 +107,8 @@ jar {
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    archiveVersion.set("")
 }

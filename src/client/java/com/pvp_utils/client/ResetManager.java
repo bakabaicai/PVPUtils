@@ -26,6 +26,8 @@ public class ResetManager {
         Config.gammaOverride = false;
         Config.gammaValue = 15.0;
         Config.autoSprint = false;
+        Config.fishingRodAssist = false;
+        Config.fishingRodAssistUseDelay = 4;
         Config.blockCountDisplay = false;
         Config.autoChestDeposit = false;
         Config.autoChestDepositResourcesOnly = true;

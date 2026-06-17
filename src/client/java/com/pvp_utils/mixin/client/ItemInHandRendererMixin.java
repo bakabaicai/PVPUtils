@@ -74,7 +74,7 @@ public abstract class ItemInHandRendererMixin {
         boolean visibleItemMatches = ItemStack.matches(currentStack, this.mainHandItem);
         boolean hasTarget = Config.autoMode && isEntityInRange();
         boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget);
-        boolean isEatingSwing = Config.useSwing && client.player.isUsingItem();
+        boolean isEatingSwing = Config.useSwing && client.player.isUsingItem() && !currentStack.is(ItemTags.SPEARS);
         boolean shouldSuppressCooldownRaise = Config.noAttackCooldownAnimation && isWeapon && visibleItemMatches && !waitingForWeaponCooldown && !client.player.isUsingItem();
         if (shouldSuppressCooldownRaise || isBlocking || isEatingSwing || client.screen instanceof SettingsScreen) {
             this.mainHandHeight = 1.0F;
@@ -100,7 +100,7 @@ public abstract class ItemInHandRendererMixin {
         }
 
         if (interactionHand == InteractionHand.MAIN_HAND) {
-            boolean isUseSwinging = Config.useSwing && abstractClientPlayer.isUsingItem();
+            boolean isUseSwinging = Config.useSwing && abstractClientPlayer.isUsingItem() && !mainHandStack.is(ItemTags.SPEARS);
 
             if (isBlocking || isUseSwinging) {
                 ci.cancel();

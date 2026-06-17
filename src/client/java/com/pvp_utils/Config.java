@@ -22,6 +22,7 @@ public class Config {
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
+    public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
@@ -34,6 +35,7 @@ public class Config {
     public static boolean hideTotemAnimation = false;
     public static boolean hideExplosionParticles = false;
     public static boolean noAttackCooldownAnimation = false;
+    public static boolean useMainUI = false;
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static TargetHudMode targetHudMode = TargetHudMode.NEW;
@@ -58,6 +60,7 @@ public class Config {
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
+    public static int fishingRodAssistUseDelay = 0;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
 
@@ -94,6 +97,7 @@ public class Config {
             victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
             gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
+            fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
@@ -106,6 +110,7 @@ public class Config {
             hideTotemAnimation = Boolean.parseBoolean(prop.getProperty("hideTotemAnimation", "false"));
             hideExplosionParticles = Boolean.parseBoolean(prop.getProperty("hideExplosionParticles", "false"));
             noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
+            useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             targetHudMode = TargetHudMode.valueOf(prop.getProperty("targetHudMode", "NEW"));
@@ -131,6 +136,7 @@ public class Config {
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
+            fishingRodAssistUseDelay = Integer.parseInt(prop.getProperty("fishingRodAssistUseDelay", "0"));
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
         } catch (IOException e) {
@@ -156,6 +162,7 @@ public class Config {
             prop.setProperty("victorySound", String.valueOf(victorySound));
             prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
+            prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
@@ -168,6 +175,7 @@ public class Config {
             prop.setProperty("hideTotemAnimation", String.valueOf(hideTotemAnimation));
             prop.setProperty("hideExplosionParticles", String.valueOf(hideExplosionParticles));
             prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
+            prop.setProperty("useMainUI", String.valueOf(useMainUI));
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("targetHudMode", targetHudMode.name());
@@ -193,6 +201,7 @@ public class Config {
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("notificationScale", String.valueOf(notificationScale));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
+            prop.setProperty("fishingRodAssistUseDelay", String.valueOf(fishingRodAssistUseDelay));
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
             prop.store(os, null);

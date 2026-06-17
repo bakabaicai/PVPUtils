@@ -1,7 +1,6 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
-import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -18,11 +17,6 @@ public class MinecraftMixin {
         if (AutoChestDepositManager.shouldHideContainerScreen(screen)) {
             ci.cancel();
         }
-    }
-
-    @Inject(method = "startUseItem", at = @At("HEAD"))
-    private void triggerBlockCountDisplay(CallbackInfo ci) {
-        BlockCountDisplayRenderer.getInstance().triggerUse((Minecraft) (Object) this);
     }
 
     @Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)

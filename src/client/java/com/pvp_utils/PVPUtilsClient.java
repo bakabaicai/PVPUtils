@@ -2,12 +2,15 @@ package com.pvp_utils;
 
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
+import com.pvp_utils.client.VersionWarningManager;
+import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodManager;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
+import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -26,12 +29,15 @@ public class PVPUtilsClient implements ClientModInitializer {
         VictorySound.init();
         KeyBindings.register();
         KeyInputHandler.register();
+        MainUIScreenManager.init();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);
             InputMethodManager.tick(client);
+            FishingRodAssistManager.tick(client);
             BlockCountDisplayRenderer.getInstance().tick(client);
             FakePlayerManager.tick(client);
+            VersionWarningManager.tick(client);
         });
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {

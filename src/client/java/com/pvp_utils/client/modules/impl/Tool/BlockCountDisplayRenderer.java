@@ -19,7 +19,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
@@ -28,6 +27,7 @@ import java.util.Locale;
 public class BlockCountDisplayRenderer {
     private static final BlockCountDisplayRenderer INSTANCE = new BlockCountDisplayRenderer();
     private static final long STAY_MS = 900L;
+    private static final long ANIM_DURATION = 200L;
     private static final float WIDTH = 190f;
     private static final float HEIGHT = 58f;
     private static final float PURPLE = 0xFF8F5CFF;
@@ -38,6 +38,7 @@ public class BlockCountDisplayRenderer {
     private Surface surface;
     private DynamicTexture dynamicTexture;
     private boolean visible = false;
+    private boolean closing = false;
     private boolean nativeLoaded = false;
     private float scale = 0f;
     private float ringProgress = 0f;
@@ -48,6 +49,8 @@ public class BlockCountDisplayRenderer {
     private int textureH = -1;
     private float textureScale = -1f;
     private long lastInteractionMs = 0L;
+    private long appearanceTime = 0L;
+    private long closeTime = 0L;
     private int lastSlot = -1;
     private int lastCount = -1;
     private ItemStack displayStack = ItemStack.EMPTY;
@@ -98,16 +101,8 @@ public class BlockCountDisplayRenderer {
 
         ItemStack stack = player.getMainHandItem();
         boolean block = stack.getItem() instanceof BlockItem;
-        boolean useDown = client.options.keyUse.isDown() || GLFW.glfwGetMouseButton(client.getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         long now = System.currentTimeMillis();
-        rightClicks.updatePressed(block && useDown);
         placements.count(now);
-
-        if (block && useDown) {
-            visible = true;
-            lastInteractionMs = now;
-            if (scale <= 0.01f) ringProgress = 0f;
-        }
 
         if (!block) {
             close();
@@ -135,7 +130,7 @@ public class BlockCountDisplayRenderer {
         if (!(stack.getItem() instanceof BlockItem)) return;
 
         long now = System.currentTimeMillis();
-        visible = true;
+        open(now);
         lastInteractionMs = now;
         if (scale <= 0.01f) ringProgress = 0f;
         lastSlot = player.getInventory().getSelectedSlot();
@@ -154,7 +149,7 @@ public class BlockCountDisplayRenderer {
 
         long now = System.currentTimeMillis();
         placements.record();
-        visible = true;
+        open(now);
         lastInteractionMs = now;
         if (scale <= 0.01f) ringProgress = 0f;
         lastSlot = player.getInventory().getSelectedSlot();
@@ -174,7 +169,7 @@ public class BlockCountDisplayRenderer {
         boolean editActive = HudEditOverlay.getInstance().isActive();
         if (player == null || client.level == null || (client.screen != null && !editActive)) {
             close();
-            updateScale();
+            updateScale(System.currentTimeMillis());
             return;
         }
 
@@ -184,6 +179,7 @@ public class BlockCountDisplayRenderer {
 
         if (editActive) {
             visible = true;
+            closing = false;
             scale = Math.max(scale, 1f);
             lastInteractionMs = now;
             if (!block) {
@@ -198,7 +194,7 @@ public class BlockCountDisplayRenderer {
 
         rightClicks.count(now);
         placements.count(now);
-        updateScale();
+        updateScale(now);
         if (scale <= 0.01f || displayStack.isEmpty()) return;
 
         int screenW = client.getWindow().getGuiScaledWidth();
@@ -246,11 +242,20 @@ public class BlockCountDisplayRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void updateScale() {
-        float target = visible ? 1f : 0f;
-        scale += (target - scale) * 0.12f;
-        if (!visible && scale < 0.01f) {
+    private void updateScale(long now) {
+        if (visible) {
+            scale = clamp((now - appearanceTime) / (float) ANIM_DURATION, 0f, 1f);
+            return;
+        }
+
+        if (closing) {
+            scale = 1f - clamp((now - closeTime) / (float) ANIM_DURATION, 0f, 1f);
+        } else {
             scale = 0f;
+        }
+
+        if (!visible && scale <= 0f) {
+            closing = false;
             if (displayStack.isEmpty()) return;
             displayStack = ItemStack.EMPTY;
         }
@@ -266,16 +271,31 @@ public class BlockCountDisplayRenderer {
         return 1f - t * t * t;
     }
 
+    private void open(long now) {
+        if (!visible) {
+            appearanceTime = now - Math.round(scale * ANIM_DURATION);
+        }
+        visible = true;
+        closing = false;
+    }
+
     private void close() {
+        if (visible) {
+            closeTime = System.currentTimeMillis() - Math.round((1f - scale) * ANIM_DURATION);
+        }
         visible = false;
+        closing = true;
         lastSlot = -1;
         lastCount = -1;
     }
 
     private void reset() {
         visible = false;
+        closing = false;
         scale = 0f;
         lastInteractionMs = 0L;
+        appearanceTime = 0L;
+        closeTime = 0L;
         ringProgress = 0f;
         lastSlot = -1;
         lastCount = -1;
