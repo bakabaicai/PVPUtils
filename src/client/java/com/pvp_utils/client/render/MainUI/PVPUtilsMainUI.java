@@ -48,6 +48,7 @@ public class PVPUtilsMainUI extends Screen {
 
     private MainUIShader shader;
     private final boolean showEntryHint;
+    private final String fixedShaderPath;
     private final List<MenuButton> buttons = new ArrayList<>();
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
     private Surface textSurface;
@@ -84,29 +85,34 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     public PVPUtilsMainUI(Screen parent, boolean showEntryHint) {
+        this(parent, showEntryHint, null);
+    }
+
+    private PVPUtilsMainUI(Screen parent, boolean showEntryHint, String fixedShaderPath) {
         super(Component.literal("Minecraft"));
         this.showEntryHint = showEntryHint;
+        this.fixedShaderPath = fixedShaderPath;
     }
 
     @Override
     protected void init() {
         if (shader != null) shader.close();
-        shader = MainUIShader.random();
+        shader = fixedShaderPath == null ? MainUIShader.random() : MainUIShader.named(fixedShaderPath);
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         invalidateTextTexture();
         refreshThemeFromBackground();
         buttons.clear();
         buttons.add(new MenuButton("Singleplayer", () -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new SelectWorldScreen(new PVPUtilsMainUI(null)));
+            if (this.minecraft != null) this.minecraft.setScreen(new SelectWorldScreen(returnParent()));
         }));
         buttons.add(new MenuButton("Multiplayer", () -> {
             if (this.minecraft == null) return;
-            Screen parent = new PVPUtilsMainUI(null);
+            Screen parent = returnParent();
             Screen screen = this.minecraft.options.skipMultiplayerWarning ? new JoinMultiplayerScreen(parent) : new SafetyScreen(parent);
             this.minecraft.setScreen(screen);
         }));
         buttons.add(new MenuButton("Options", () -> {
-            if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(new PVPUtilsMainUI(null), this.minecraft.options));
+            if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
         }));
         buttons.add(new MenuButton("Exit", () -> {
             if (this.minecraft != null) this.minecraft.stop();
@@ -462,6 +468,10 @@ public class PVPUtilsMainUI extends Screen {
     private void refreshShader() {
         if (shader != null) shader.close();
         shader = MainUIShader.random();
+    }
+
+    private PVPUtilsMainUI returnParent() {
+        return new PVPUtilsMainUI(null, false, shader == null ? null : shader.fragmentPath());
     }
 
     private void cycleBackgroundImage() {

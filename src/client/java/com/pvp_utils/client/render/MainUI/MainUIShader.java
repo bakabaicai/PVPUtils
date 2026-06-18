@@ -84,6 +84,15 @@ public final class MainUIShader {
         return new MainUIShader(shader);
     }
 
+    public static MainUIShader named(String fragmentPath) {
+        if (fragmentPath == null || fragmentPath.isBlank() || !SHADERS.contains(fragmentPath)) return random();
+        return new MainUIShader(fragmentPath);
+    }
+
+    public String fragmentPath() {
+        return fragmentPath;
+    }
+
     public void render(GuiGraphics graphics, double mouseX, double mouseY) {
         ensureCompiled();
         if (failed || program == 0) {

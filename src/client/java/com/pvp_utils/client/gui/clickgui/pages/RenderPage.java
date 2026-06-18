@@ -44,7 +44,7 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("强制覆盖玩家披风为自定义披风", "Force player capes to use your custom cape"),
+        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("加载本地的自定义皮肤文件", "Load a local custom skin file"),
                 new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))
                 .addSub(UiText.t("打开目录", "Open Folder"), UiText.t("打开自定义披风文件夹", "Open the custom cape folder"),
                         new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
