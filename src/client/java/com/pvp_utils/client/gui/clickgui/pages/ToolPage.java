@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
@@ -21,12 +22,13 @@ public class ToolPage extends BasePage {
                 new SettingToggle(() -> Config.fishingRodAssist, v -> { Config.fishingRodAssist = v; Config.save(); }))
                 .addSub(UiText.t("使用间隔(tick)", "Use Delay (tick)"), UiText.t("切换到钓鱼竿格子后等待多久再使用", "Ticks to wait after switching to a fishing rod slot before using it"),
                         new SettingSlider(0, 20, "%.0f", () -> (double) Config.fishingRodAssistUseDelay,
-                                v -> { Config.fishingRodAssistUseDelay = v.intValue(); Config.save(); })));
+                                v -> { Config.fishingRodAssistUseDelay = v.intValue(); Config.save(); }))
+                .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、移动速度和点击速度", "Show block count, movement speed, and click speed while right-clicking blocks"),
                 new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); })));
 
-        if (FakePlayerManager.debug) {
+        if (Version.DEBUG) {
             modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),
                     new SettingToggle(FakePlayerManager::isEnabled, FakePlayerManager::setEnabled))
                     .addSub(UiText.t("盔甲", "Armor"), UiText.t("控制假玩家是否穿着下界合金甲", "Control whether the fake player wears netherite armor"),
@@ -45,7 +47,8 @@ public class ToolPage extends BasePage {
                                 v -> { Config.autoChestDepositDepositDelay = v.intValue(); Config.save(); }))
                 .addSub(UiText.t("关闭容器延迟", "Close Container Delay"), UiText.t("存入物品后关闭容器所等待的时间(tick)", "Ticks to wait after depositing the item before closing the container"),
                         new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositCloseDelay,
-                                v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); })));
+                                v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); }))
+                .visibleWhen(() -> Config.fullMode));
     }
 
     @Override public String getTitle() { return UiText.t("工具设置", "Tool Settings"); }

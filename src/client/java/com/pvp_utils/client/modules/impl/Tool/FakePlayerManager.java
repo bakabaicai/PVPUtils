@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.mojang.authlib.GameProfile;
+import com.pvp_utils.client.Version;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -20,8 +21,6 @@ import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 public class FakePlayerManager {
-    public static final boolean debug = true;
-
     private static RemotePlayer fakePlayer;
     private static boolean enabled = false;
     private static boolean armor = true;
@@ -63,7 +62,7 @@ public class FakePlayerManager {
     }
 
     public static void tick(Minecraft client) {
-        if (!debug || !enabled) {
+        if (!Version.DEBUG || !enabled) {
             remove();
             return;
         }
@@ -101,7 +100,7 @@ public class FakePlayerManager {
     }
 
     public static boolean tryAttack(Minecraft client) {
-        if (!debug || !enabled || fakePlayer == null || client.player == null || client.level == null) return false;
+        if (!Version.DEBUG || !enabled || fakePlayer == null || client.player == null || client.level == null) return false;
         if (fakePlayer.isRemoved() || !fakePlayer.isAlive()) return false;
         if (!(client.hitResult instanceof EntityHitResult hitResult) || hitResult.getEntity() != fakePlayer) return false;
 

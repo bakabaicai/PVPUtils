@@ -7,6 +7,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
+import io.github.humbleui.types.RRect;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,12 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import org.lwjgl.system.MemoryUtil;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +42,9 @@ public class PVPUtilsMainUI extends Screen {
     private static final long HINT_DURATION_MS = 5000L;
     private static final long HINT_FADE_IN_MS = 400L;
     private static final long HINT_FADE_OUT_MS = 800L;
+    private static final float SETTINGS_SIZE = 36f;
+    private static final float SETTINGS_MARGIN = 24f;
+    private static final Identifier BACKGROUND_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_custom_background");
 
     private MainUIShader shader;
     private final boolean showEntryHint;
@@ -42,6 +52,7 @@ public class PVPUtilsMainUI extends Screen {
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
     private Surface textSurface;
     private DynamicTexture textTexture;
+    private DynamicTexture backgroundTexture;
     private int textX;
     private int textY;
     private int textW;
@@ -54,6 +65,19 @@ public class PVPUtilsMainUI extends Screen {
     private int pressedIndex = -1;
     private boolean titlePressed;
     private long hintStartMs;
+    private boolean settingsOpen;
+    private boolean settingsHover;
+    private float settingsPanelProgress;
+    private float settingsHoverProgress;
+    private float backgroundOffsetX;
+    private float backgroundOffsetY;
+    private int backgroundTextureW = -1;
+    private int backgroundTextureH = -1;
+    private int lastWindowPixelW = -1;
+    private int lastWindowPixelH = -1;
+    private String loadedBackground = "";
+    private boolean lightSettingsTheme;
+    private long lastRenderMs;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -70,6 +94,7 @@ public class PVPUtilsMainUI extends Screen {
         shader = MainUIShader.random();
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         invalidateTextTexture();
+        refreshThemeFromBackground();
         buttons.clear();
         buttons.add(new MenuButton("Singleplayer", () -> {
             if (this.minecraft != null) this.minecraft.setScreen(new SelectWorldScreen(new PVPUtilsMainUI(null)));
@@ -96,7 +121,8 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        shader.render(graphics, mouseX, mouseY);
+        updateSettingsPanel(mouseX, mouseY);
+        renderMainBackground(graphics, mouseX, mouseY);
         for (int i = 0; i < buttons.size(); i++) {
             buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex);
         }
@@ -110,6 +136,51 @@ public class PVPUtilsMainUI extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
+        if (isInsideSettings((float) event.x(), (float) event.y())) {
+            if (event.button() == 0) {
+                settingsOpen = true;
+                playClickSound();
+                invalidateTextTexture();
+            }
+            return true;
+        }
+        if (settingsOpen && event.button() == 0) {
+            if (isInsideBackgroundModeCustom((float) event.x(), (float) event.y())) {
+                Config.mainUICustomBackground = true;
+                Config.save();
+                refreshThemeFromBackground();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (isInsideBackgroundModeBuiltin((float) event.x(), (float) event.y())) {
+                Config.mainUICustomBackground = false;
+                Config.save();
+                lightSettingsTheme = true;
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (Config.mainUICustomBackground && isInsideOpenBackgroundFolder((float) event.x(), (float) event.y())) {
+                MainUIBackgrounds.openFolder();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (Config.mainUICustomBackground && isInsideBackgroundImageSelect((float) event.x(), (float) event.y())) {
+                cycleBackgroundImage();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (Config.mainUICustomBackground && isInsideMouseEffectToggle((float) event.x(), (float) event.y())) {
+                Config.mainUIMouseEffect = !Config.mainUIMouseEffect;
+                Config.save();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+        }
         if (titleHitBox.contains((float) event.x(), (float) event.y())) {
             if (event.button() == 0) {
                 titlePressed = true;
@@ -182,6 +253,110 @@ public class PVPUtilsMainUI extends Screen {
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXT_TEXTURE_ID, textX, textY, 0f, 0f, textW, textH, textPixelW, textPixelH, textPixelW, textPixelH);
     }
 
+    private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!Config.mainUICustomBackground) {
+            shader.render(graphics, mouseX, mouseY);
+            return;
+        }
+        ensureBackgroundTexture();
+        if (backgroundTexture == null || backgroundTextureW <= 0 || backgroundTextureH <= 0) {
+            shader.render(graphics, mouseX, mouseY);
+            return;
+        }
+
+        float coverScale = Math.max(this.width / (float) backgroundTextureW, this.height / (float) backgroundTextureH);
+        if (Config.mainUIMouseEffect) {
+            coverScale *= 1.18f;
+            float minW = this.width * 1.16f;
+            float minH = this.height * 1.16f;
+            coverScale = Math.max(coverScale, minW / backgroundTextureW);
+            coverScale = Math.max(coverScale, minH / backgroundTextureH);
+        } else {
+            coverScale *= 1.08f;
+        }
+        float drawW = backgroundTextureW * coverScale;
+        float drawH = backgroundTextureH * coverScale;
+        float targetOffsetX = 0f;
+        float targetOffsetY = 0f;
+        float maxOffsetX = Math.max(0f, (drawW - this.width) * 0.5f);
+        float maxOffsetY = Math.max(0f, (drawH - this.height) * 0.5f);
+        if (Config.mainUIMouseEffect) {
+            float overflowX = Math.max(0f, drawW - this.width);
+            float overflowY = Math.max(0f, drawH - this.height);
+            float dragX = Math.max(overflowX * 0.62f, this.width * 0.06f);
+            float dragY = Math.max(overflowY * 0.62f, this.height * 0.06f);
+            targetOffsetX = ((mouseX / Math.max(1f, (float) this.width)) - 0.5f) * -dragX;
+            targetOffsetY = ((mouseY / Math.max(1f, (float) this.height)) - 0.5f) * -dragY;
+        }
+        targetOffsetX = clamp(targetOffsetX, -maxOffsetX, maxOffsetX);
+        targetOffsetY = clamp(targetOffsetY, -maxOffsetY, maxOffsetY);
+        backgroundOffsetX += (targetOffsetX - backgroundOffsetX) * 0.08f;
+        backgroundOffsetY += (targetOffsetY - backgroundOffsetY) * 0.08f;
+        backgroundOffsetX = clamp(backgroundOffsetX, -maxOffsetX, maxOffsetX);
+        backgroundOffsetY = clamp(backgroundOffsetY, -maxOffsetY, maxOffsetY);
+
+        int x = Math.round((this.width - drawW) * 0.5f + backgroundOffsetX);
+        int y = Math.round((this.height - drawH) * 0.5f + backgroundOffsetY);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND_TEXTURE_ID, x, y, 0f, 0f, Math.round(drawW), Math.round(drawH), backgroundTextureW, backgroundTextureH, backgroundTextureW, backgroundTextureH);
+    }
+
+    private void ensureBackgroundTexture() {
+        Minecraft client = Minecraft.getInstance();
+        int windowPixelW = client.getWindow().getWidth();
+        int windowPixelH = client.getWindow().getHeight();
+        if (windowPixelW <= 0 || windowPixelH <= 0) return;
+        if (lastWindowPixelW != -1 && (lastWindowPixelW != windowPixelW || lastWindowPixelH != windowPixelH)) {
+            destroyBackgroundTexture();
+            backgroundOffsetX = 0f;
+            backgroundOffsetY = 0f;
+        }
+        lastWindowPixelW = windowPixelW;
+        lastWindowPixelH = windowPixelH;
+
+        String selected = Config.mainUIBackgroundImage == null || Config.mainUIBackgroundImage.isBlank() ? "1.png" : Config.mainUIBackgroundImage;
+        if (backgroundTexture != null && selected.equals(loadedBackground)) return;
+        destroyBackgroundTexture();
+
+        Path path = MainUIBackgrounds.resolve(selected);
+        if (!Files.exists(path)) {
+            List<String> files = MainUIBackgrounds.listPngs();
+            selected = files.isEmpty() ? "1.png" : files.get(0);
+            Config.mainUIBackgroundImage = selected;
+            Config.save();
+            path = MainUIBackgrounds.resolve(selected);
+        }
+
+        try {
+            BufferedImage image = ImageIO.read(path.toFile());
+            if (image == null) return;
+            int width = image.getWidth();
+            int height = image.getHeight();
+            ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
+            for (int py = 0; py < height; py++) {
+                for (int px = 0; px < width; px++) {
+                    int argb = image.getRGB(px, py);
+                    buffer.put((byte) ((argb >> 16) & 255));
+                    buffer.put((byte) ((argb >> 8) & 255));
+                    buffer.put((byte) (argb & 255));
+                    buffer.put((byte) ((argb >>> 24) & 255));
+                }
+            }
+            buffer.flip();
+            backgroundTexture = new DynamicTexture("pvp_utils:mainui_custom_background", width, height, false);
+            client.getTextureManager().register(BACKGROUND_TEXTURE_ID, backgroundTexture);
+            GpuTexture gpuTexture = backgroundTexture.getTexture();
+            RenderSystem.getDevice().createCommandEncoder()
+                    .writeToTexture(gpuTexture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+            MemoryUtil.memFree(buffer);
+            backgroundTextureW = width;
+            backgroundTextureH = height;
+            loadedBackground = selected;
+            refreshThemeFromImage(image);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void renderEntryHint(GuiGraphics graphics) {
         if (hintStartMs <= 0L) return;
         long elapsed = System.currentTimeMillis() - hintStartMs;
@@ -238,7 +413,9 @@ public class PVPUtilsMainUI extends Screen {
         c.save();
         c.scale(scale, scale);
         c.translate(-textX, -textY);
-        FontRenderer.drawText(c, "Minecraft", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f, titleSize(), 0xFFFFFFFF);
+        FontRenderer.drawText(c, "Minecraft", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f, titleSize(), mainTextColor(255));
+        renderSettingsPlaceholder(c);
+        renderSettingsPanel(c);
         for (MenuButton button : buttons) {
             button.renderText(c);
         }
@@ -271,6 +448,9 @@ public class PVPUtilsMainUI extends Screen {
             shader = null;
         }
         destroyTextTexture();
+        destroyBackgroundTexture();
+        lastWindowPixelW = -1;
+        lastWindowPixelH = -1;
     }
 
     private void playClickSound() {
@@ -282,6 +462,51 @@ public class PVPUtilsMainUI extends Screen {
     private void refreshShader() {
         if (shader != null) shader.close();
         shader = MainUIShader.random();
+    }
+
+    private void cycleBackgroundImage() {
+        List<String> files = MainUIBackgrounds.listPngs();
+        if (files.isEmpty()) return;
+        int index = files.indexOf(Config.mainUIBackgroundImage);
+        Config.mainUIBackgroundImage = files.get((index + 1 + files.size()) % files.size());
+        Config.save();
+        destroyBackgroundTexture();
+        refreshThemeFromBackground();
+    }
+
+    private void refreshThemeFromBackground() {
+        lightSettingsTheme = true;
+        if (!Config.mainUICustomBackground) return;
+        String selected = Config.mainUIBackgroundImage == null || Config.mainUIBackgroundImage.isBlank() ? "1.png" : Config.mainUIBackgroundImage;
+        Path path = MainUIBackgrounds.resolve(selected);
+        if (!Files.exists(path)) return;
+        try {
+            BufferedImage image = ImageIO.read(path.toFile());
+            if (image != null) refreshThemeFromImage(image);
+        } catch (IOException ignored) {
+        }
+    }
+
+    private void refreshThemeFromImage(BufferedImage image) {
+        long total = 0L;
+        int samples = 0;
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int stepX = Math.max(1, width / 96);
+        int stepY = Math.max(1, height / 96);
+        for (int y = 0; y < height; y += stepY) {
+            for (int x = 0; x < width; x += stepX) {
+                int argb = image.getRGB(x, y);
+                int r = (argb >> 16) & 255;
+                int g = (argb >> 8) & 255;
+                int b = argb & 255;
+                total += (r * 299L + g * 587L + b * 114L) / 1000L;
+                samples++;
+            }
+        }
+        if (samples > 0) {
+            lightSettingsTheme = total / (float) samples >= 140f;
+        }
     }
 
     private void ensureNativeLoaded() {
@@ -300,6 +525,17 @@ public class PVPUtilsMainUI extends Screen {
         float minY = titleHitBox.y;
         float maxX = titleHitBox.x + titleHitBox.w;
         float maxY = titleHitBox.y + titleHitBox.h;
+        float settingsX = getSettingsX();
+        float settingsY = getSettingsY();
+        float panelW = getSettingsPanelWidth();
+        float panelH = getSettingsPanelMaxHeight();
+        minX = Math.min(minX, settingsX);
+        minY = Math.min(minY, settingsY);
+        maxX = Math.max(maxX, settingsX + SETTINGS_SIZE);
+        maxY = Math.max(maxY, settingsY + SETTINGS_SIZE);
+        minX = Math.min(minX, settingsX + SETTINGS_SIZE - panelW);
+        maxX = Math.max(maxX, settingsX + SETTINGS_SIZE);
+        maxY = Math.max(maxY, settingsY + SETTINGS_SIZE + panelH);
         for (MenuButton button : buttons) {
             minX = Math.min(minX, button.x - 4f);
             minY = Math.min(minY, button.y);
@@ -314,6 +550,213 @@ public class PVPUtilsMainUI extends Screen {
         textH = Math.max(1, bottom - textY);
     }
 
+    private float getSettingsX() {
+        return this.width - SETTINGS_MARGIN - SETTINGS_SIZE;
+    }
+
+    private float getSettingsY() {
+        return SETTINGS_MARGIN;
+    }
+
+    private void renderSettingsPlaceholder(Canvas canvas) {
+        float x = getSettingsX();
+        float y = getSettingsY();
+        float fade = 1f - easeOutCubic(settingsPanelProgress);
+        if (fade <= 0.01f) return;
+        int alpha = Math.round((Config.mainUICustomBackground ? 47f : 190f) + 40f * settingsHoverProgress);
+        boolean lightTheme = isLightTheme();
+        int baseColor = lightTheme ? 0x111111 : 0xFFFFFF;
+        int accentColor = lightTheme ? 0xD17600 : 0xFFD176;
+        int bgColor = (Math.round(alpha * fade) << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF);
+        int iconColor = (Math.round((230f + 25f * settingsHoverProgress) * fade) << 24) | lerpRgb(baseColor, accentColor, settingsHoverProgress);
+        try (Paint bg = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor(bgColor);
+            canvas.drawRRect(RRect.makeXYWH(x, y, SETTINGS_SIZE, SETTINGS_SIZE, 10f), bg);
+        }
+        String icon = "\uE8B8";
+        float size = 22f;
+        float iconW = FontRenderer.measureTextWidth(icon, size, FontRenderer.MATERIAL_SYMBOLS);
+        float iconH = FontRenderer.getLineHeight(size, FontRenderer.MATERIAL_SYMBOLS);
+        FontRenderer.drawText(canvas, icon, x + (SETTINGS_SIZE - iconW) * 0.5f, y + (SETTINGS_SIZE + iconH) * 0.5f - 2f, size, iconColor, FontRenderer.MATERIAL_SYMBOLS);
+    }
+
+    private void renderSettingsPanel(Canvas canvas) {
+        if (settingsPanelProgress <= 0.001f) return;
+        float t = easeOutCubic(settingsPanelProgress);
+        float fullW = getSettingsPanelWidth();
+        float fullH = getSettingsPanelHeight();
+        float w = fullW * t;
+        float h = fullH * t;
+        float x = getSettingsX() + SETTINGS_SIZE - w;
+        float y = getSettingsY();
+        boolean lightTheme = isLightTheme();
+        int alpha = Math.round((!Config.mainUICustomBackground ? 196f : (lightTheme ? 118f : 70f)) * t);
+        try (Paint bg = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor((alpha << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF));
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 16f), bg);
+        }
+        if (t <= 0.45f) return;
+
+        int textAlpha = Math.round(255f * Math.min(1f, (t - 0.45f) / 0.55f));
+        int primary = (textAlpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF);
+        int secondary = (Math.round(textAlpha * 0.72f) << 24) | (lightTheme ? 0x444444 : 0xFFFFFF);
+        float contentX = x + 22f;
+        float contentY = y + 34f;
+        FontRenderer.drawText(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, contentY, 18f, primary);
+
+        float rowY = y + 72f;
+        FontRenderer.drawText(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, rowY, 12f, secondary);
+        renderChoice(canvas, contentX, rowY + 18f, 112f, Config.isChinese ? "\u5185\u7f6eGLSL" : "Built-in GLSL", !Config.mainUICustomBackground, textAlpha);
+        renderChoice(canvas, contentX + 122f, rowY + 18f, 148f, Config.isChinese ? "\u81ea\u5b9a\u4e49\u80cc\u666f\u56fe" : "Custom Image", Config.mainUICustomBackground, textAlpha);
+
+        if (Config.mainUICustomBackground) {
+            float folderY = y + 148f;
+            FontRenderer.drawText(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, folderY, 12f, secondary);
+            renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
+
+            float imageY = y + 184f;
+            FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, imageY, 12f, secondary);
+            renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
+
+            float effectY = y + 220f;
+            FontRenderer.drawText(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, effectY, 12f, secondary);
+            renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
+        }
+    }
+
+    private void renderChoice(Canvas canvas, float x, float y, float w, String text, boolean selected, int alpha) {
+        boolean lightTheme = isLightTheme();
+        try (Paint bg = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor(((selected ? Math.round(alpha * 0.28f) : Math.round(alpha * 0.12f)) << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
+        }
+        int color = (alpha << 24) | (selected ? 0xFFD176 : (lightTheme ? 0x111111 : 0xFFFFFF));
+        float tw = FontRenderer.measureTextWidth(text, 11f);
+        FontRenderer.drawText(canvas, text, x + (w - tw) * 0.5f, y + 18f, 11f, color);
+    }
+
+    private void renderButton(Canvas canvas, float x, float y, float w, String text, int alpha) {
+        boolean lightTheme = isLightTheme();
+        try (Paint bg = new Paint()) {
+            bg.setAntiAlias(true);
+            bg.setColor((Math.round(alpha * 0.14f) << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+            canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
+        }
+        String label = text == null ? "" : text;
+        if (FontRenderer.measureTextWidth(label, 11f) > w - 16f) {
+            while (label.length() > 1 && FontRenderer.measureTextWidth(label + "...", 11f) > w - 16f) {
+                label = label.substring(0, label.length() - 1);
+            }
+            label += "...";
+        }
+        float tw = FontRenderer.measureTextWidth(label, 11f);
+        FontRenderer.drawText(canvas, label, x + (w - tw) * 0.5f, y + 18f, 11f, (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+    }
+
+    private void renderToggle(Canvas canvas, float x, float y, String text, boolean selected, int alpha) {
+        boolean lightTheme = isLightTheme();
+        FontRenderer.drawText(canvas, text, x, y + 18f, 12f, (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+        float tx = x + 218f;
+        try (Paint track = new Paint()) {
+            track.setAntiAlias(true);
+            track.setColor((Math.round(alpha * 0.22f) << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+            canvas.drawRRect(RRect.makeXYWH(tx, y + 3f, 44f, 24f, 12f), track);
+        }
+        try (Paint knob = new Paint()) {
+            knob.setAntiAlias(true);
+            knob.setColor((alpha << 24) | (selected ? 0xFFD176 : (lightTheme ? 0x111111 : 0xFFFFFF)));
+            canvas.drawCircle(tx + (selected ? 32f : 12f), y + 15f, 8f, knob);
+        }
+    }
+
+    private void updateSettingsPanel(int mouseX, int mouseY) {
+        long now = System.currentTimeMillis();
+        if (lastRenderMs <= 0L) lastRenderMs = now;
+        float dt = Math.min(0.05f, (now - lastRenderMs) / 1000f);
+        lastRenderMs = now;
+
+        boolean oldHover = settingsHover;
+        settingsHover = isInsideSettings(mouseX, mouseY);
+        if (settingsOpen && !isInsideSettingsArea(mouseX, mouseY)) {
+            settingsOpen = false;
+        }
+
+        float target = settingsOpen ? 1f : 0f;
+        float hoverTarget = settingsHover ? 1f : 0f;
+        float oldProgress = settingsPanelProgress;
+        float oldHoverProgress = settingsHoverProgress;
+        settingsPanelProgress += (target - settingsPanelProgress) * Math.min(1f, dt * 10f);
+        settingsHoverProgress += (hoverTarget - settingsHoverProgress) * Math.min(1f, dt * 12f);
+        if (Math.abs(settingsPanelProgress - target) < 0.002f) settingsPanelProgress = target;
+        if (Math.abs(settingsHoverProgress - hoverTarget) < 0.002f) settingsHoverProgress = hoverTarget;
+        if (oldHover != settingsHover || Math.abs(oldProgress - settingsPanelProgress) > 0.0005f || Math.abs(oldHoverProgress - settingsHoverProgress) > 0.0005f) {
+            invalidateTextTexture();
+        }
+    }
+
+    private boolean isInsideSettings(float mx, float my) {
+        float x = getSettingsX();
+        float y = getSettingsY();
+        return mx >= x && mx <= x + SETTINGS_SIZE && my >= y && my <= y + SETTINGS_SIZE;
+    }
+
+    private boolean isInsideSettingsArea(float mx, float my) {
+        if (isInsideSettings(mx, my)) return true;
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth();
+        float y = getSettingsY();
+        return mx >= x && mx <= x + getSettingsPanelWidth() && my >= y && my <= y + getSettingsPanelHeight();
+    }
+
+    private boolean isInsideBackgroundModeBuiltin(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
+        float y = getSettingsY() + 90f;
+        return mx >= x && mx <= x + 112f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideBackgroundModeCustom(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 144f;
+        float y = getSettingsY() + 90f;
+        return mx >= x && mx <= x + 148f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideOpenBackgroundFolder(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 198f;
+        float y = getSettingsY() + 132f;
+        return mx >= x && mx <= x + 72f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideBackgroundImageSelect(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 112f;
+        float y = getSettingsY() + 168f;
+        return mx >= x && mx <= x + 158f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideMouseEffectToggle(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
+        float y = getSettingsY() + 238f;
+        return mx >= x && mx <= x + 270f && my >= y && my <= y + 30f;
+    }
+
+    private float getSettingsPanelWidth() {
+        return 340f;
+    }
+
+    private float getSettingsPanelHeight() {
+        return Config.mainUICustomBackground ? 276f : 146f;
+    }
+
+    private float getSettingsPanelMaxHeight() {
+        return 276f;
+    }
+
+    private float easeOutCubic(float value) {
+        float t = 1f - Math.max(0f, Math.min(1f, value));
+        return 1f - t * t * t;
+    }
+
     private void destroyTextTexture() {
         if (textSurface != null) {
             textSurface.close();
@@ -325,6 +768,16 @@ public class PVPUtilsMainUI extends Screen {
         }
         textPixelW = -1;
         textPixelH = -1;
+    }
+
+    private void destroyBackgroundTexture() {
+        if (backgroundTexture != null) {
+            Minecraft.getInstance().getTextureManager().release(BACKGROUND_TEXTURE_ID);
+            backgroundTexture = null;
+        }
+        backgroundTextureW = -1;
+        backgroundTextureH = -1;
+        loadedBackground = "";
     }
 
     private class MenuButton {
@@ -366,7 +819,7 @@ public class PVPUtilsMainUI extends Screen {
             float size = 10f * textScale;
             float textY = y + 20f;
             FontRenderer.drawText(canvas, first, x, textY, size, 0xFFE69E2A);
-            FontRenderer.drawText(canvas, rest, x + FontRenderer.measureTextWidth(first, size), textY, size, 0xFFFFFFFF);
+            FontRenderer.drawText(canvas, rest, x + FontRenderer.measureTextWidth(first, size), textY, size, mainTextColor(255));
         }
     }
 
@@ -390,5 +843,26 @@ public class PVPUtilsMainUI extends Screen {
                 | ((int) (rr + (rt - rr) * t) << 16)
                 | ((int) (gr + (gt - gr) * t) << 8)
                 | (int) (br + (bt - br) * t);
+    }
+
+    private static int lerpRgb(int from, int to, float t) {
+        return lerpColor(0xFF000000 | from, 0xFF000000 | to, t) & 0xFFFFFF;
+    }
+
+    private int themedTextColor(int alpha) {
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (isLightTheme() ? 0x111111 : 0xFFFFFF);
+    }
+
+    private int mainTextColor(int alpha) {
+        boolean darkText = Config.mainUICustomBackground && lightSettingsTheme;
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (darkText ? 0x111111 : 0xFFFFFF);
+    }
+
+    private boolean isLightTheme() {
+        return !Config.mainUICustomBackground || lightSettingsTheme;
+    }
+
+    private float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(value, max));
     }
 }

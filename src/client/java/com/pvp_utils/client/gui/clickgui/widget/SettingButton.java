@@ -5,17 +5,23 @@ import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.types.RRect;
 
+import java.util.function.Supplier;
+
 public class SettingButton extends SettingWidget {
-    private final String label;
+    private final Supplier<String> label;
     private final Runnable action;
     private float pressT = 0f;
 
     public SettingButton(String label, Runnable action) {
+        this(() -> label, action);
+    }
+
+    public SettingButton(Supplier<String> label, Runnable action) {
         this.label = label;
         this.action = action;
     }
 
-    @Override public float getWidth() { return 58f; }
+    @Override public float getWidth() { return 100f; }
     @Override public float getHeight() { return 24f; }
 
     @Override
@@ -26,8 +32,9 @@ public class SettingButton extends SettingWidget {
             bg.setColor(withAlpha(bgColor, alpha));
             canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 8f), bg);
         }
-        float textW = FontRenderer.measureTextWidth(label, 11f);
-        FontRenderer.drawText(canvas, label, x + (getWidth() - textW) * 0.5f, y + 15.5f, 11f, withAlpha(0xFFFFFF, alpha));
+        String text = label.get();
+        float textW = FontRenderer.measureTextWidth(text, 11f);
+        FontRenderer.drawText(canvas, text, x + (getWidth() - textW) * 0.5f, y + 15.5f, 11f, withAlpha(0xFFFFFF, alpha));
     }
 
     @Override

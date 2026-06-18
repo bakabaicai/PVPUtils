@@ -2,10 +2,13 @@ package com.pvp_utils;
 
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
+import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
+import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodManager;
+import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
@@ -27,6 +30,9 @@ public class PVPUtilsClient implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         VictorySound.init();
+        MainUIBackgrounds.init();
+        TermsManager.ensure();
+        CustomCapeManager.init();
         KeyBindings.register();
         KeyInputHandler.register();
         MainUIScreenManager.init();

@@ -19,6 +19,12 @@ public class MiscPage extends BasePage {
                         new SettingCycle(List.of(UiText.t("中文", "Chinese"), UiText.t("英文", "English")),
                                 () -> Config.isChinese ? 0 : 1,
                                 i -> { Config.isChinese = i == 0; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("完整性设置", "Integrity Settings"), UiText.t("在此处控制客户端功能的完整性", "Control client feature integrity here"), null)
+                .addSub(UiText.t("完整性切换", "Integrity Switch"), UiText.t("如果你阅读且同意了告知书，则会切换到完整模式，反之则为受限模式", "Switches to full mode if you have read and agreed to the notice, otherwise restricted mode is used"),
+                        new SettingCycle(List.of(UiText.t("受限模式", "Restricted Mode"), UiText.t("完整模式", "Full Mode")),
+                                () -> Config.fullMode ? 1 : 0,
+                                i -> { Config.termsRead = true; Config.fullMode = i == 1; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("其他设置", "Misc Settings"); }

@@ -8,6 +8,7 @@ import io.github.humbleui.types.Rect;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 public class SettingModule {
 
@@ -15,6 +16,7 @@ public class SettingModule {
     public final String subtitle;
     public final SettingWidget mainWidget;
     private final List<SubEntry> subEntries = new ArrayList<>();
+    private BooleanSupplier visibleSupplier = () -> true;
 
     private boolean expanded = false;
     private float expandProgress = 0f;
@@ -32,6 +34,15 @@ public class SettingModule {
     public SettingModule addSub(String title, String subtitle, SettingWidget widget) {
         subEntries.add(new SubEntry(title, subtitle, widget));
         return this;
+    }
+
+    public SettingModule visibleWhen(BooleanSupplier supplier) {
+        this.visibleSupplier = supplier;
+        return this;
+    }
+
+    public boolean isVisible() {
+        return visibleSupplier.getAsBoolean();
     }
 
     public float getTotalHeight() {

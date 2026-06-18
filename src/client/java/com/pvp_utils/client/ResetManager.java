@@ -55,6 +55,9 @@ public class ResetManager {
         Config.hideTotemAnimation = false;
         Config.hideExplosionParticles = false;
         Config.noAttackCooldownAnimation = false;
+        Config.customCape = false;
+        Config.termsRead = false;
+        Config.fullMode = false;
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.NEW;

@@ -3,6 +3,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
+import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 
@@ -43,6 +44,13 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("强制覆盖玩家披风为自定义披风", "Force player capes to use your custom cape"),
+                new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))
+                .addSub(UiText.t("打开目录", "Open Folder"), UiText.t("打开自定义披风文件夹", "Open the custom cape folder"),
+                        new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
+                .addSub(UiText.t("切换披风", "Switch Cape"), UiText.t("切换当前使用的披风文件", "Switch the selected cape file"),
+                        new SettingButton(() -> Config.customCapeImage, CustomCapeManager::cycleCape)));
+
         modules.add(new SettingModule(UiText.t("潜行动画调整", "Sneak Animation Adjustment"), UiText.t("调整潜行视角下降效果", "Adjust sneak camera drop effect"),
                 new SettingToggle(() -> Config.noSneakAnimation, v -> { Config.noSneakAnimation = v; Config.save(); }))
                 .addSub(UiText.t("下降幅度", "Drop Amount"), UiText.t("潜行时的下降幅度", "Sneak camera drop amount"),
@@ -77,7 +85,8 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("模式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
                         new SettingCycle(List.of("New", "Lite"),
                                 () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : 1,
-                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : Config.TargetHudMode.LITE; Config.save(); })));
+                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : Config.TargetHudMode.LITE; Config.save(); }))
+                .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
                 new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));

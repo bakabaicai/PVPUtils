@@ -17,12 +17,12 @@ public abstract class BasePage {
 
     public float getTotalHeight() {
         float h = 0;
-        for (SettingModule m : modules) h += m.getTotalHeight();
+        for (SettingModule m : modules) if (m.isVisible()) h += m.getTotalHeight();
         return h;
     }
 
     public void update(float dt) {
-        for (SettingModule m : modules) m.update(dt);
+        for (SettingModule m : modules) if (m.isVisible()) m.update(dt);
     }
 
     public void draw(Canvas canvas, float x, float y, float contentW, float contentH, float alpha, float scrollOffset) {
@@ -30,6 +30,7 @@ public abstract class BasePage {
         float viewportTop = y;
         float viewportBottom = y + contentH;
         for (SettingModule m : modules) {
+            if (!m.isVisible()) continue;
             float mh = m.getTotalHeight();
             if (cy + mh > viewportTop && cy < viewportBottom) {
                 m.draw(canvas, x, cy, contentW, alpha);
@@ -41,6 +42,7 @@ public abstract class BasePage {
     public boolean onClick(float mx, float my, float contentX, float contentY, float contentW, float scrollOffset, int button) {
         float cy = contentY - scrollOffset;
         for (SettingModule m : modules) {
+            if (!m.isVisible()) continue;
             float mh = m.getTotalHeight();
             if (my >= cy && my <= cy + mh) {
                 return m.onClick(mx, my, contentX, cy, contentW, button);
@@ -53,6 +55,7 @@ public abstract class BasePage {
     public boolean onDrag(float mx, float my, float contentX, float contentY, float contentW, float scrollOffset) {
         float cy = contentY - scrollOffset;
         for (SettingModule m : modules) {
+            if (!m.isVisible()) continue;
             float mh = m.getTotalHeight();
             if (m.onDrag(mx, my, contentX, cy, contentW)) return true;
             cy += mh + 8f;
@@ -61,6 +64,6 @@ public abstract class BasePage {
     }
 
     public void releaseDrag() {
-        for (SettingModule m : modules) m.releaseDrag();
+        for (SettingModule m : modules) if (m.isVisible()) m.releaseDrag();
     }
 }
