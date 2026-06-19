@@ -25,7 +25,7 @@ public class ToolPage extends BasePage {
                                 v -> { Config.fishingRodAssistUseDelay = v.intValue(); Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
-        modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、移动速度和点击速度", "Show block count, movement speed, and click speed while right-clicking blocks"),
+        modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、放置速度和点击速度", "Show block count, placement speed, and click speed while right-clicking blocks"),
                 new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); })));
 
         if (Version.DEBUG) {
