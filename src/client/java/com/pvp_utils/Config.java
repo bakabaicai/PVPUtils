@@ -51,6 +51,7 @@ public class Config {
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static TargetHudMode targetHudMode = TargetHudMode.NEW;
+    public static KeystrokesMode keystrokesMode = KeystrokesMode.NEW;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
@@ -80,6 +81,7 @@ public class Config {
     public enum HitSoundType { NETHERITE, EXPERIENCE }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
     public enum TargetHudMode { LITE, NEW }
+    public enum KeystrokesMode { LITE, NEW }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
 
@@ -138,6 +140,7 @@ public class Config {
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             targetHudMode = TargetHudMode.valueOf(prop.getProperty("targetHudMode", "NEW"));
+            keystrokesMode = KeystrokesMode.valueOf(prop.getProperty("keystrokesMode", "NEW"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
@@ -215,6 +218,7 @@ public class Config {
             prop.setProperty("hitSoundType", hitSoundType.name());
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("targetHudMode", targetHudMode.name());
+            prop.setProperty("keystrokesMode", keystrokesMode.name());
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));

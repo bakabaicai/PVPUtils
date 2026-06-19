@@ -31,6 +31,10 @@ public class KeystrokesRenderer {
     private static final int TEXT_COLOR = 0xEFFFFFFF;
     private static final int ACTIVE_TEXT_COLOR = 0xFF171724;
     private static final int ACCENT_COLOR = 0xFFFFFFFF;
+    private static final int LITE_BG_COLOR = 0x66000000;
+    private static final int LITE_ACTIVE_COLOR = 0xCCFFFFFF;
+    private static final int LITE_TEXT_COLOR = 0xFFFFFFFF;
+    private static final int LITE_ACTIVE_TEXT_COLOR = 0xFF111111;
     private static final int TOTAL_W = KEY_SIZE * 3 + GAP * 2;
     private static final int TOTAL_H = KEY_SIZE * 4 + GAP * 3;
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_display");
@@ -62,14 +66,6 @@ public class KeystrokesRenderer {
     }
 
     public void render(GuiGraphics graphics) {
-        render(graphics, null);
-    }
-
-    public boolean needsCanvas() {
-        return false;
-    }
-
-    public void render(GuiGraphics graphics, Canvas canvas) {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
@@ -92,6 +88,46 @@ public class KeystrokesRenderer {
         boolean rightDown = client.options.keyUse.isDown();
         int leftCps = leftClicks.updatePressed(leftDown);
         int rightCps = rightClicks.updatePressed(rightDown);
+
+        if (Config.keystrokesMode == Config.KeystrokesMode.LITE) {
+            if (dynamicTexture != null) destroyTexture(client);
+            lastFrameMs = 0L;
+            renderLite(graphics, client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
+            return;
+        }
+
+        renderNew(graphics, client, x, y, scale, scaledW, scaledH, leftCps, rightCps, leftDown, rightDown);
+    }
+
+    public boolean needsCanvas() {
+        return false;
+    }
+
+    private void renderLite(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().scale(scale, scale);
+        graphics.pose().translate(-x, -y);
+
+        drawLiteKey(graphics, "W", x + KEY_SIZE + GAP, y, KEY_SIZE, KEY_SIZE, client.options.keyUp.isDown());
+        drawLiteKey(graphics, "A", x, y + KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, client.options.keyLeft.isDown());
+        drawLiteKey(graphics, "S", x + KEY_SIZE + GAP, y + KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, client.options.keyDown.isDown());
+        drawLiteKey(graphics, "D", x + (KEY_SIZE + GAP) * 2, y + KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, client.options.keyRight.isDown());
+
+        int mouseY = (KEY_SIZE + GAP) * 2;
+        int leftMouseW = (TOTAL_W - GAP) / 2;
+        int rightMouseW = TOTAL_W - GAP - leftMouseW;
+        drawLiteMouseKey(graphics, client, "LMB", leftCps, x, y + mouseY, leftMouseW, KEY_SIZE, leftDown);
+        drawLiteMouseKey(graphics, client, "RMB", rightCps, x + leftMouseW + GAP, y + mouseY, rightMouseW, KEY_SIZE, rightDown);
+
+        int bottomY = (KEY_SIZE + GAP) * 3;
+        drawLiteKey(graphics, "SPACE", x, y + bottomY, leftMouseW, KEY_SIZE, client.options.keyJump.isDown());
+        drawLiteKey(graphics, "SHIFT", x + leftMouseW + GAP, y + bottomY, rightMouseW, KEY_SIZE, client.options.keyShift.isDown());
+
+        graphics.pose().popMatrix();
+    }
+
+    private void renderNew(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int scaledW, int scaledH, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
 
         long now = System.currentTimeMillis();
         float dt = lastFrameMs == 0L ? 0.016f : Math.min((now - lastFrameMs) / 1000f, 0.05f);
@@ -119,6 +155,38 @@ public class KeystrokesRenderer {
         }
 
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, scaledW, scaledH, textureW, textureH, textureW, textureH);
+    }
+
+    private void drawLiteKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
+        int ix = Math.round(x);
+        int iy = Math.round(y);
+        int iw = Math.round(width);
+        int ih = Math.round(height);
+        graphics.fill(ix, iy, ix + iw, iy + ih, active ? LITE_ACTIVE_COLOR : LITE_BG_COLOR);
+        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+
+        int textColor = active ? LITE_ACTIVE_TEXT_COLOR : LITE_TEXT_COLOR;
+        Minecraft client = Minecraft.getInstance();
+        int textW = client.font.width(label);
+        int textX = Math.round(x + (width - textW) * 0.5f);
+        int textY = Math.round(y + (height - 8f) * 0.5f);
+        graphics.drawString(client.font, label, textX, textY, textColor, false);
+    }
+
+    private void drawLiteMouseKey(GuiGraphics graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
+        int ix = Math.round(x);
+        int iy = Math.round(y);
+        int iw = Math.round(width);
+        int ih = Math.round(height);
+        graphics.fill(ix, iy, ix + iw, iy + ih, active ? LITE_ACTIVE_COLOR : LITE_BG_COLOR);
+        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
+
+        int textColor = active ? LITE_ACTIVE_TEXT_COLOR : LITE_TEXT_COLOR;
+        String cpsText = cps + " CPS";
+        int labelX = Math.round(x + (width - client.font.width(label)) * 0.5f);
+        int cpsX = Math.round(x + (width - client.font.width(cpsText)) * 0.5f);
+        graphics.drawString(client.font, label, labelX, Math.round(y + 4f), textColor, false);
+        graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
     private boolean renderTexture(Minecraft client, float scale, int leftCps, int rightCps) {
