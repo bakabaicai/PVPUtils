@@ -63,7 +63,7 @@ loom {
     }
 }
 
-def skijaVersion = "0.143.16"
+apply from: "skija.gradle"
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -78,33 +78,7 @@ dependencies {
     implementation "io.github.humbleui:types:0.2.0"
     include "io.github.humbleui:types:0.2.0"
 
-    implementation "io.github.humbleui:skija-shared:${skijaVersion}"
-    include "io.github.humbleui:skija-shared:${skijaVersion}"
-
-    // Include all platform native libraries for cross-platform support
-    // Windows
-    implementation "io.github.humbleui:skija-windows-x64:${skijaVersion}"
-    include "io.github.humbleui:skija-windows-x64:${skijaVersion}"
-    implementation "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
-    include "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
-
-    // Linux
-    implementation "io.github.humbleui:skija-linux-x64:${skijaVersion}"
-    include "io.github.humbleui:skija-linux-x64:${skijaVersion}"
-    implementation "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
-    include "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
-
-    // macOS
-    implementation "io.github.humbleui:skija-macos-x64:${skijaVersion}"
-    include "io.github.humbleui:skija-macos-x64:${skijaVersion}"
-    implementation "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
-    include "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
-
-    // Android (PojavLauncher)
-    implementation "io.github.humbleui:skija-android-x64:${skijaVersion}"
-    include "io.github.humbleui:skija-android-x64:${skijaVersion}"
-    implementation "io.github.humbleui:skija-android-arm64:${skijaVersion}"
-    include "io.github.humbleui:skija-android-arm64:${skijaVersion}"
+    skijaDependencies.call()
 
     implementation include("net.java.dev.jna:jna:5.14.0")
 }

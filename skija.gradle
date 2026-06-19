@@ -1,0 +1,30 @@
+def skijaVersion = "0.143.16"
+
+ext.skijaDependencies = {
+    implementation "io.github.humbleui:skija-shared:${skijaVersion}"
+    include "io.github.humbleui:skija-shared:${skijaVersion}"
+
+    // Windows
+    implementation "io.github.humbleui:skija-windows-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-windows-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
+
+    // Linux
+    implementation "io.github.humbleui:skija-linux-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-linux-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
+
+    // macOS
+    implementation "io.github.humbleui:skija-macos-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-macos-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
+
+    // Android (PojavLauncher)
+    implementation "io.github.humbleui:skija-android-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-android-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-android-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-android-arm64:${skijaVersion}"
+}
