@@ -1,4 +1,11 @@
 
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 mouse;
+
+#define iTime time
+#define iResolution resolution
+#define iMouse vec4(mouse, 0.0, 0.0)
 
 vec3 hash3( vec2 p )
 {
@@ -44,4 +51,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 	float f = voronoise( 24.0*uv, p.x, p.y );
 	
 	fragColor = vec4( f, f, f, 1.0 );
+}
+
+void main(void) {
+    mainImage(gl_FragColor, gl_FragCoord.xy);
 }

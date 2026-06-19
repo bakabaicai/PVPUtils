@@ -9,6 +9,17 @@ import java.util.List;
 public class CombatPage extends BasePage {
 
     public CombatPage() {
+        modules.add(new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("让鞘翅的使用更加便捷", "Make elytra usage more convenient"),
+                new SettingToggle(() -> Config.elytraAssist, v -> { Config.elytraAssist = v; Config.save(); }))
+                .addSub(UiText.t("自动展开鞘翅", "Auto Deploy Elytra"), UiText.t("跳起时自动展开身上的鞘翅", "Automatically deploy equipped elytra when jumping"),
+                        new SettingToggle(() -> Config.elytraAutoDeploy, v -> { Config.elytraAutoDeploy = v; Config.save(); }))
+                .addSub(UiText.t("自动烟花推进", "Auto Firework Boost"), UiText.t("手持烟花且没有烟花动能时自动使用", "Automatically use held fireworks when no boost is active"),
+                        new SettingToggle(() -> Config.elytraAutoFirework, v -> { Config.elytraAutoFirework = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("暴击辅助", "Critical Assist"), UiText.t("提升暴击的成功率（会使”击退攻击“失效）", "Improve critical hit success rate (will disable sprint knockback hits)"),
+                new SettingToggle(() -> Config.criticalAssist, v -> { Config.criticalAssist = v; Config.save(); }))
+                .visibleWhen(() -> Config.fullMode));
+
         modules.add(new SettingModule(UiText.t("击中标记", "Hit Marker"), UiText.t("在命中时显示标记", "Show a marker when you hit a target"),
                 new SettingToggle(() -> Config.hitMarker, v -> { Config.hitMarker = v; Config.save(); })));
 

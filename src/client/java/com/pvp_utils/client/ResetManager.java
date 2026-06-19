@@ -18,6 +18,10 @@ public class ResetManager {
         Config.autoScreenshot = false;
         Config.hitMarker = false;
         Config.hitSound = false;
+        Config.criticalAssist = false;
+        Config.elytraAssist = false;
+        Config.elytraAutoDeploy = true;
+        Config.elytraAutoFirework = true;
         Config.lowHealthNotify = false;
         Config.targetHud = false;
         Config.diggingStatus = false;

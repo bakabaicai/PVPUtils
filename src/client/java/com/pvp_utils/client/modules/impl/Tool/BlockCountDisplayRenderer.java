@@ -136,7 +136,6 @@ public class BlockCountDisplayRenderer {
         lastSlot = player.getInventory().getSelectedSlot();
         lastCount = stack.getCount();
         displayStack = stack.copy();
-        rightClicks.count(now);
         placements.count(now);
     }
 
@@ -192,7 +191,7 @@ public class BlockCountDisplayRenderer {
             if (ringProgress <= 0.01f) ringProgress = 1f;
         }
 
-        rightClicks.count(now);
+        int rightCps = editActive ? rightClicks.count(now) : rightClicks.updatePressed(client.options.keyUse.isDown());
         placements.count(now);
         updateScale(now);
         if (scale <= 0.01f || displayStack.isEmpty()) return;
@@ -215,7 +214,7 @@ public class BlockCountDisplayRenderer {
             }
             name += "...";
         }
-        String speed = String.format(Locale.ROOT, "%dBPS\\%dCPS", placements.count(now), rightClicks.count(now));
+        String speed = String.format(Locale.ROOT, "%dBPS\\%dCPS", placements.count(now), rightCps);
 
         float ringCx = x + (WIDTH - 32f) * userScale;
         float ringCy = y + HEIGHT * 0.5f * userScale;

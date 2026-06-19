@@ -27,19 +27,26 @@ import java.util.stream.Collectors;
 public final class MainUIShader {
     private static final List<String> SHADERS = List.of(
             "Galaxy.frag.glsl",
+            "BasewarpFBM.frag.glsl",
             "Planet.frag.glsl",
             "BlackHole.frag.glsl",
             "BlueGrid.frag.glsl",
             "BlueLandscape.frag.glsl",
             "Circuits.frag.glsl",
             "CubeCave.frag.glsl",
+            "CyberFuji2020.frag.glsl",
             "GreenNebula.frag.glsl",
             "GridCave.frag.glsl",
             "Matrix.frag.glsl",
             "Minecraft.frag.glsl",
+            "NeonwaveSunrise.frag.glsl",
             "PurpleGrid.frag.glsl",
             "RectWaves.frag.glsl",
             "RedLandscape.frag.glsl",
+            "Seascape.frag.glsl",
+            "Shadertoy.frag.glsl",
+            "SquaresBackground.frag.glsl",
+            "TheSea2d.frag.glsl",
             "Space.frag.glsl",
             "Tube.frag.glsl"
     );

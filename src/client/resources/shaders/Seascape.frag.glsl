@@ -1,4 +1,11 @@
 
+uniform float time;
+uniform vec2 resolution;
+uniform vec2 mouse;
+
+#define iTime time
+#define iResolution resolution
+#define iMouse vec4(mouse, 0.0, 0.0)
 
 const int NUM_STEPS = 32;
 const float PI	 	= 3.141592;
@@ -180,7 +187,7 @@ vec3 getPixel(in vec2 coord, float time) {
 
 // main
 void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-    float time = iTime * 0.3 + iMouse.x*0.01;
+    float time = iTime * 0.3 + iMouse.x * 0.0015;
 	
 #ifdef AA
     vec3 color = vec3(0.0);
@@ -197,4 +204,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
     
     // post
 	fragColor = vec4(pow(color,vec3(0.65)), 1.0);
+}
+
+void main(void) {
+    mainImage(gl_FragColor, gl_FragCoord.xy);
 }

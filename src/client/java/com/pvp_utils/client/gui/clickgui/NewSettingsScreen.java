@@ -89,7 +89,7 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private float getVisualScale(int width, int height) {
-        return getUiScale(width, height) * (0.965f + 0.035f * easeOutCubic(openProgress));
+        return getUiScale(width, height) * (0.9f + 0.1f * easeOutCubic(openProgress));
     }
 
     @Override
@@ -151,7 +151,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private float getContentTotalHeight(BasePage page) {
         float h = 54f;
-        for (var m : page.getModules()) h += m.getTotalHeight() + 8f;
+        for (var m : page.getModules()) if (m.isVisible()) h += m.getTotalHeight() + 8f;
         h += 12f;
         return h;
     }
@@ -174,7 +174,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
         float animT = easeOutCubic(openProgress);
 
-        float visualScale = getUiScale(width, height) * (0.965f + 0.035f * animT);
+        float visualScale = getUiScale(width, height) * (0.9f + 0.1f * animT);
         float layoutMouseX = toLayoutX(mouseX, width, visualScale);
         float layoutMouseY = toLayoutY(mouseY, height, visualScale);
         float[] l = layout(width, height);

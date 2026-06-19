@@ -40,6 +40,10 @@ public class LevelParticleMixin {
     }
 
     private boolean isExplosionParticle(ParticleOptions particleOptions) {
-        return particleOptions == ParticleTypes.EXPLOSION || particleOptions == ParticleTypes.EXPLOSION_EMITTER;
+        return particleOptions == ParticleTypes.EXPLOSION
+                || particleOptions == ParticleTypes.EXPLOSION_EMITTER
+                || particleOptions == ParticleTypes.POOF
+                || particleOptions == ParticleTypes.SMOKE
+                || particleOptions == ParticleTypes.LARGE_SMOKE;
     }
 }
