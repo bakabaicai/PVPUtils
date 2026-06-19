@@ -63,6 +63,8 @@ loom {
     }
 }
 
+def skijaVersion = "0.143.16"
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
@@ -76,11 +78,28 @@ dependencies {
     implementation "io.github.humbleui:types:0.2.0"
     include "io.github.humbleui:types:0.2.0"
 
-    implementation "io.github.humbleui:skija-shared:0.143.16"
-    include "io.github.humbleui:skija-shared:0.143.16"
+    implementation "io.github.humbleui:skija-shared:${skijaVersion}"
+    include "io.github.humbleui:skija-shared:${skijaVersion}"
 
-    implementation "io.github.humbleui:skija-windows-x64:0.143.16"
-    include "io.github.humbleui:skija-windows-x64:0.143.16"
+    def currentOS = System.getProperty("os.name").toLowerCase()
+    def currentArch = System.getProperty("os.arch").toLowerCase()
+    def isArm64 = currentArch.contains("aarch64") || currentArch.contains("arm64")
+    def isX64 = currentArch.contains("amd64") || currentArch.contains("x86_64") || currentArch.contains("x64")
+
+    if (currentOS.contains("win")) {
+        def arch = isArm64 ? "windows-arm64" : "windows-x64"
+        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
+        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
+    } else if (currentOS.contains("linux")) {
+        def arch = isArm64 ? "linux-arm64" : "linux-x64"
+        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
+        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
+    } else if (currentOS.contains("mac")) {
+        def arch = isArm64 ? "macos-arm64" : "macos-x64"
+        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
+        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
+    }
+
     implementation include("net.java.dev.jna:jna:5.14.0")
 }
 
