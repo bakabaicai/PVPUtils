@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import net.minecraft.client.gui.screens.ChatScreen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,21 +14,25 @@ public class ChatScreenMixin {
 
     @Inject(method = "<init>(Ljava/lang/String;Z)V", at = @At("RETURN"))
     private void constructorHook(String string, boolean bl, CallbackInfo ci) {
+        if (!Config.chatHudEditQuickEnable) return;
         HudEditOverlay.getInstance().startOpen();
     }
 
     @Inject(method = "onClose", at = @At("HEAD"))
     private void onCloseHook(CallbackInfo ci) {
+        if (!Config.chatHudEditQuickEnable) return;
         HudEditOverlay.getInstance().startClose();
     }
 
     @Inject(method = "removed", at = @At("HEAD"))
     private void removedHook(CallbackInfo ci) {
+        if (!Config.chatHudEditQuickEnable) return;
         HudEditOverlay.getInstance().startClose();
     }
 
     @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
     private void onMouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount, CallbackInfoReturnable<Boolean> cir) {
+        if (!Config.chatHudEditQuickEnable) return;
         if (HudEditOverlay.getInstance().mouseScrolled(mouseX, mouseY, verticalAmount)) {
             cir.setReturnValue(true);
         }

@@ -56,6 +56,7 @@ public class ResetManager {
         Config.hideExplosionParticles = false;
         Config.noAttackCooldownAnimation = false;
         Config.customCape = false;
+        Config.chatHudEditQuickEnable = true;
         Config.termsRead = false;
         Config.fullMode = false;
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
