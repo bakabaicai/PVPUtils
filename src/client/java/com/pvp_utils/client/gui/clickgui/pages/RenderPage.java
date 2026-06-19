@@ -91,7 +91,11 @@ public class RenderPage extends BasePage {
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
-                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));
+                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); }))
+                .addSub(UiText.t("模式", "Mode"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
+                        new SettingCycle(List.of("New", "Lite"),
+                                () -> Config.keystrokesMode == Config.KeystrokesMode.NEW ? 0 : 1,
+                                i -> { Config.keystrokesMode = i == 0 ? Config.KeystrokesMode.NEW : Config.KeystrokesMode.LITE; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }

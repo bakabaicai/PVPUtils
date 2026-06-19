@@ -66,6 +66,7 @@ public class ResetManager {
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.NEW;
+        Config.keystrokesMode = Config.KeystrokesMode.NEW;
         Config.animationMode = Config.AnimMode.MODE_1_7;
         Config.save();
     }

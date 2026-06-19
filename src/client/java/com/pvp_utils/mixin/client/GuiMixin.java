@@ -50,7 +50,7 @@ public class GuiMixin {
         TargetHudRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
-        KeystrokesRenderer.getInstance().render(guiGraphics, canvas);
+        KeystrokesRenderer.getInstance().render(guiGraphics);
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {
