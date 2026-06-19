@@ -81,34 +81,30 @@ dependencies {
     implementation "io.github.humbleui:skija-shared:${skijaVersion}"
     include "io.github.humbleui:skija-shared:${skijaVersion}"
 
-    def currentOS = System.getProperty("os.name").toLowerCase()
-    def currentArch = System.getProperty("os.arch").toLowerCase()
-    def isArm64 = currentArch.contains("aarch64") || currentArch.contains("arm64")
-    def isX64 = currentArch.contains("amd64") || currentArch.contains("x86_64") || currentArch.contains("x64")
+    // Include all platform native libraries for cross-platform support
+    // Windows
+    implementation "io.github.humbleui:skija-windows-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-windows-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-windows-arm64:${skijaVersion}"
 
-    // Check if running on Android (PojavLauncher sets android.os.build.version)
-    def isAndroid = System.getProperty("java.vm.name")?.toLowerCase()?.contains("dalvik") ||
-                    System.getProperty("java.vendor")?.toLowerCase()?.contains("android") ||
-                    new File("/system/build.prop").exists()
+    // Linux
+    implementation "io.github.humbleui:skija-linux-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-linux-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-linux-arm64:${skijaVersion}"
 
-    if (isAndroid) {
-        // Android platform (PojavLauncher)
-        def arch = isArm64 ? "android-arm64" : "android-x64"
-        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
-        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
-    } else if (currentOS.contains("win")) {
-        def arch = isArm64 ? "windows-arm64" : "windows-x64"
-        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
-        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
-    } else if (currentOS.contains("linux")) {
-        def arch = isArm64 ? "linux-arm64" : "linux-x64"
-        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
-        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
-    } else if (currentOS.contains("mac")) {
-        def arch = isArm64 ? "macos-arm64" : "macos-x64"
-        implementation "io.github.humbleui:skija-${arch}:${skijaVersion}"
-        include "io.github.humbleui:skija-${arch}:${skijaVersion}"
-    }
+    // macOS
+    implementation "io.github.humbleui:skija-macos-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-macos-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-macos-arm64:${skijaVersion}"
+
+    // Android (PojavLauncher)
+    implementation "io.github.humbleui:skija-android-x64:${skijaVersion}"
+    include "io.github.humbleui:skija-android-x64:${skijaVersion}"
+    implementation "io.github.humbleui:skija-android-arm64:${skijaVersion}"
+    include "io.github.humbleui:skija-android-arm64:${skijaVersion}"
 
     implementation include("net.java.dev.jna:jna:5.14.0")
 }
