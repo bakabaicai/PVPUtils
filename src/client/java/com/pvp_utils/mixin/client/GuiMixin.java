@@ -41,7 +41,7 @@ public class GuiMixin {
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        if (HudEditOverlay.getInstance().isActive() || NotificationOverlay.getInstance().needsCanvas() || KeystrokesRenderer.getInstance().needsCanvas()) {
+        if (HudEditOverlay.getInstance().isActive() || NotificationOverlay.getInstance().needsCanvas()) {
             canvas = SkiaRenderer.begin();
         }
 
