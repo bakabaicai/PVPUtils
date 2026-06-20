@@ -41,8 +41,14 @@ public class GuiMixin {
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        if (HudEditOverlay.getInstance().isActive() || NotificationOverlay.getInstance().needsCanvas()) {
+        boolean hudEditActive = HudEditOverlay.getInstance().isActive();
+        if (hudEditActive) {
             canvas = SkiaRenderer.begin();
+        } else if (NotificationOverlay.getInstance().needsStandaloneCanvas()) {
+            int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
+            if (bounds != null) {
+                canvas = SkiaRenderer.beginRegion(bounds[0], bounds[1], bounds[2], bounds[3]);
+            }
         }
 
         NotificationOverlay.getInstance().render(guiGraphics, canvas);
@@ -54,7 +60,11 @@ public class GuiMixin {
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {
-            SkiaRenderer.end(guiGraphics, guiWidth, guiHeight);
+            if (hudEditActive) {
+                SkiaRenderer.end(guiGraphics, guiWidth, guiHeight);
+            } else {
+                SkiaRenderer.endRegion(guiGraphics);
+            }
         }
 
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);

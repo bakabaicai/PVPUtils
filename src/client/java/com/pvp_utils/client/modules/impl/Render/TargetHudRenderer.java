@@ -51,6 +51,8 @@ public class TargetHudRenderer {
     private int lastTextureHealth = -1;
     private int lastTextureAbsorption = -1;
     private int lastTextureHealthTextAnim = -1;
+    private String lastRawName = "";
+    private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
     private float animatedAbsorptionRatio = 0f;
     private long lastRenderTime = 0L;
@@ -296,13 +298,7 @@ public class TargetHudRenderer {
         animatedHealthRatio += (ratio - animatedHealthRatio) * Math.min(1f, dt * 10f);
         animatedAbsorptionRatio += (absorptionRatio - animatedAbsorptionRatio) * Math.min(1f, dt * 10f);
 
-        String name = target.getDisplayName().getString();
-        if (FontRenderer.measureTextWidth(name, 13f) > 95f) {
-            while (name.length() > 1 && FontRenderer.measureTextWidth(name + "...", 13f) > 95f) {
-                name = name.substring(0, name.length() - 1);
-            }
-            name += "...";
-        }
+        String name = truncateName(target.getDisplayName().getString());
         float cx = x + scaledW * 0.5f;
         float cy = y + scaledH * 0.5f;
         float drawScale = easeOutBack(alpha);
@@ -529,6 +525,29 @@ public class TargetHudRenderer {
         long elapsed = now - startTime;
         if (elapsed < 0L || elapsed >= DAMAGE_FLASH_DURATION) return 0.0f;
         return 1.0f - (float) elapsed / DAMAGE_FLASH_DURATION;
+    }
+
+    private String truncateName(String rawName) {
+        if (rawName.equals(lastRawName)) return lastTruncatedName;
+
+        lastRawName = rawName;
+        if (FontRenderer.measureTextWidth(rawName, 13f) <= 95f) {
+            lastTruncatedName = rawName;
+            return lastTruncatedName;
+        }
+
+        int low = 1;
+        int high = rawName.length();
+        while (low < high) {
+            int mid = (low + high + 1) >>> 1;
+            if (FontRenderer.measureTextWidth(rawName.substring(0, mid) + "...", 13f) <= 95f) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        lastTruncatedName = rawName.substring(0, low) + "...";
+        return lastTruncatedName;
     }
 
     private void renderAvatarMaskTexture(Minecraft client) {

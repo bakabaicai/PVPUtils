@@ -18,6 +18,7 @@ public class SkiaRenderer {
 
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "skia_frame");
     private static final Identifier REGION_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "skia_region");
+    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     private static Surface surface;
     private static Surface regionSurface;
@@ -50,7 +51,6 @@ public class SkiaRenderer {
     public static Canvas begin() {
         if (drawing) return surface != null ? surface.getCanvas() : null;
         ensureNativeLoaded();
-        SurfaceProps props = new SurfaceProps(false, PixelGeometry.RGB_H);
 
         var window = Minecraft.getInstance().getWindow();
         int pw = window.getWidth();
@@ -60,7 +60,7 @@ public class SkiaRenderer {
         if (pw != lastPixelW || ph != lastPixelH || surface == null) {
             destroySurface();
             surface = Surface.makeRaster(
-                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pw, ph), 0, props);
+                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pw, ph), 0, SURFACE_PROPS);
             dynamicTexture = new DynamicTexture("pvp_utils:skia_frame", pw, ph, false);
             Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, dynamicTexture);
             lastPixelW = pw;
@@ -80,7 +80,6 @@ public class SkiaRenderer {
     public static Canvas beginRegion(int x, int y, int w, int h) {
         if (regionDrawing) return regionSurface != null ? regionSurface.getCanvas() : null;
         ensureNativeLoaded();
-        SurfaceProps props = new SurfaceProps(false, PixelGeometry.RGB_H);
 
         var window = Minecraft.getInstance().getWindow();
         currentScale = (float) window.getGuiScale();
@@ -94,7 +93,7 @@ public class SkiaRenderer {
         if (pixelW != lastRegionPixelW || pixelH != lastRegionPixelH || regionSurface == null) {
             destroyRegionSurface();
             regionSurface = Surface.makeRaster(
-                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pixelW, pixelH), 0, props);
+                    new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pixelW, pixelH), 0, SURFACE_PROPS);
             regionTexture = new DynamicTexture("pvp_utils:skia_region", pixelW, pixelH, false);
             Minecraft.getInstance().getTextureManager().register(REGION_TEXTURE_ID, regionTexture);
             lastRegionPixelW = pixelW;
