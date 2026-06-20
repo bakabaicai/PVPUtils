@@ -45,6 +45,9 @@ public class ResetManager {
         Config.keystrokesX = -170f;
         Config.keystrokesY = 70f;
         Config.keystrokesScale = 1.0f;
+        Config.nameTag = false;
+        Config.nameTagScale = 1.0f;
+        Config.nameTagDynamicScale = false;
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;

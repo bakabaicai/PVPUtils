@@ -113,6 +113,9 @@ public class SettingsScreen extends Screen {
                     Config.targetHudY = -100f;
                     Config.targetHudZ = 0f;
                     Config.targetHudScale = 1.0f;
+                    Config.nameTag = false;
+                    Config.nameTagScale = 1.0f;
+                    Config.nameTagDynamicScale = false;
                     Config.blockCountDisplayX = 0f;
                     Config.blockCountDisplayY = 0f;
                     Config.blockCountDisplayScale = 1.0f;

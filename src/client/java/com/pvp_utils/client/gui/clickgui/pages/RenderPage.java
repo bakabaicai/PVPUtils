@@ -96,6 +96,13 @@ public class RenderPage extends BasePage {
                         new SettingCycle(List.of("New", "Lite"),
                                 () -> Config.keystrokesMode == Config.KeystrokesMode.NEW ? 0 : 1,
                                 i -> { Config.keystrokesMode = i == 0 ? Config.KeystrokesMode.NEW : Config.KeystrokesMode.LITE; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("名称标签", "Name Tags"), UiText.t("调整原版实体名称标签显示效果", "Adjust vanilla entity name tag rendering"),
+                new SettingToggle(() -> Config.nameTag, v -> { Config.nameTag = v; Config.save(); }))
+                .addSub(UiText.t("缩放", "Scale"), UiText.t("调整名称标签整体大小", "Adjust name tag size"),
+                        new SettingSlider(50.0, 300.0, "%.0f%%", () -> (double) Config.nameTagScale * 100.0, v -> { Config.nameTagScale = v.floatValue() / 100.0f; Config.save(); }))
+                .addSub(UiText.t("动态缩放", "Dynamic Scale"), UiText.t("根据距离自动缩放名称标签，让远近大小更接近", "Scale name tags by distance so their screen size stays closer"),
+                        new SettingToggle(() -> Config.nameTagDynamicScale, v -> { Config.nameTagDynamicScale = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }
