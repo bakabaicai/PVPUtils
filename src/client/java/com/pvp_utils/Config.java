@@ -15,7 +15,6 @@ public class Config {
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = true;
-    public static boolean criticalAssist = false;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
     public static boolean elytraAutoFirework = true;
@@ -104,7 +103,6 @@ public class Config {
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
             hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "true"));
-            criticalAssist = Boolean.parseBoolean(prop.getProperty("criticalAssist", "false"));
             elytraAssist = Boolean.parseBoolean(prop.getProperty("elytraAssist", "false"));
             elytraAutoDeploy = Boolean.parseBoolean(prop.getProperty("elytraAutoDeploy", "true"));
             elytraAutoFirework = Boolean.parseBoolean(prop.getProperty("elytraAutoFirework", "true"));
@@ -182,7 +180,6 @@ public class Config {
             prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
             prop.setProperty("hitMarker", String.valueOf(hitMarker));
             prop.setProperty("hitSound", String.valueOf(hitSound));
-            prop.setProperty("criticalAssist", String.valueOf(criticalAssist));
             prop.setProperty("elytraAssist", String.valueOf(elytraAssist));
             prop.setProperty("elytraAutoDeploy", String.valueOf(elytraAutoDeploy));
             prop.setProperty("elytraAutoFirework", String.valueOf(elytraAutoFirework));
