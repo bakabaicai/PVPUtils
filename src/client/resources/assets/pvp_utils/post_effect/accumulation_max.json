@@ -1,0 +1,22 @@
+{
+  "targets": {},
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "pvp_utils:post/accumulation_max",
+      "inputs": [
+        {"sampler_name": "Main", "target": "minecraft:main"},
+        {"sampler_name": "Prev", "target": "minecraft:main"}
+      ],
+      "output": "minecraft:main",
+      "uniforms": {
+        "AccumulationUniforms": [
+          {"name": "blendFactor", "type": "float", "value": 1},
+          {"name": "padding0", "type": "int", "value": 0},
+          {"name": "padding1", "type": "int", "value": 0},
+          {"name": "padding2", "type": "int", "value": 0}
+        ]
+      }
+    }
+  ]
+}

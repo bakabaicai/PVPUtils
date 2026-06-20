@@ -65,6 +65,9 @@ public class Config {
     public static boolean nameTag = false;
     public static float nameTagScale = 1.0f;
     public static boolean nameTagDynamicScale = false;
+    public static boolean dynamicMotionBlur = false;
+    public static float dynamicMotionBlurStrength = 1.0f;
+    public static boolean dynamicMotionBlurRefreshRateScaling = true;
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
     public static float blockCountDisplayScale = 1.0f;
@@ -84,8 +87,10 @@ public class Config {
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
     public enum TargetHudMode { LITE, NEW }
     public enum KeystrokesMode { LITE, NEW }
+    public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
+    public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
 
     private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pvp_utils.properties");
 
@@ -147,6 +152,7 @@ public class Config {
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
             sneakAnimationSpeed = Float.parseFloat(prop.getProperty("sneakAnimationSpeed", "1.0"));
             animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
+            motionBlurAlgorithm = MotionBlurAlgorithm.valueOf(prop.getProperty("motionBlurAlgorithm", "VELOCITY_BASED"));
             offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
             offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
             offsetZ = Float.parseFloat(prop.getProperty("offsetZ", "0"));
@@ -160,6 +166,9 @@ public class Config {
             nameTag = Boolean.parseBoolean(prop.getProperty("nameTag", "false"));
             nameTagScale = Float.parseFloat(prop.getProperty("nameTagScale", "1.0"));
             nameTagDynamicScale = Boolean.parseBoolean(prop.getProperty("nameTagDynamicScale", "false"));
+            dynamicMotionBlur = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlur", "false"));
+            dynamicMotionBlurStrength = Float.parseFloat(prop.getProperty("dynamicMotionBlurStrength", "1.0"));
+            dynamicMotionBlurRefreshRateScaling = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlurRefreshRateScaling", "true"));
             blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
             blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
             blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
@@ -227,6 +236,7 @@ public class Config {
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
             prop.setProperty("sneakAnimationSpeed", String.valueOf(sneakAnimationSpeed));
             prop.setProperty("animationMode", animationMode.name());
+            prop.setProperty("motionBlurAlgorithm", motionBlurAlgorithm.name());
             prop.setProperty("offsetX", String.valueOf(offsetX));
             prop.setProperty("offsetY", String.valueOf(offsetY));
             prop.setProperty("offsetZ", String.valueOf(offsetZ));
@@ -240,6 +250,9 @@ public class Config {
             prop.setProperty("nameTag", String.valueOf(nameTag));
             prop.setProperty("nameTagScale", String.valueOf(nameTagScale));
             prop.setProperty("nameTagDynamicScale", String.valueOf(nameTagDynamicScale));
+            prop.setProperty("dynamicMotionBlur", String.valueOf(dynamicMotionBlur));
+            prop.setProperty("dynamicMotionBlurStrength", String.valueOf(dynamicMotionBlurStrength));
+            prop.setProperty("dynamicMotionBlurRefreshRateScaling", String.valueOf(dynamicMotionBlurRefreshRateScaling));
             prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
             prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
             prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
