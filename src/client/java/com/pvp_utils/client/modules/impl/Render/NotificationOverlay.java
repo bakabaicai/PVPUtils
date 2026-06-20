@@ -272,6 +272,32 @@ public class NotificationOverlay {
         return active || previewActive || HudEditOverlay.getInstance().isActive();
     }
 
+    public boolean needsStandaloneCanvas() {
+        return active || previewActive;
+    }
+
+    public int[] getCanvasBounds(int screenWidth, int screenHeight) {
+        boolean editPreview = previewActive && !active;
+        if (!active && !editPreview) return null;
+
+        String renderMessage = active ? message : "Notification";
+        int textWidth = Math.round(FontRenderer.measureTextWidth(renderMessage, TEXT_SIZE));
+        int dynamicWidth = active ? textWidth + PADDING + GREEN_BAR_WIDTH : PREVIEW_WIDTH;
+        float scale = Math.max(0.5f, Config.notificationScale);
+        int scaledWidth = Math.round(dynamicWidth * scale);
+        int scaledHeight = Math.round(HEIGHT * scale);
+        int finalX = getRenderX(screenWidth, scaledWidth);
+        int y = getRenderY(screenHeight);
+        finalX = Math.max(0, Math.min(finalX, screenWidth - scaledWidth));
+        y = Math.max(0, Math.min(y, screenHeight - scaledHeight));
+
+        int x = Math.max(0, finalX - 2);
+        int right = Math.min(screenWidth, finalX + scaledWidth + 2);
+        int top = Math.max(0, y - 2);
+        int bottom = Math.min(screenHeight, y + scaledHeight + 2);
+        return new int[]{x, top, Math.max(1, right - x), Math.max(1, bottom - top)};
+    }
+
     public int getRenderRight(int screenWidth) {
         if (Float.isNaN(Config.notificationX)) return screenWidth;
         return Math.round(screenWidth * 0.5f + Config.notificationX);

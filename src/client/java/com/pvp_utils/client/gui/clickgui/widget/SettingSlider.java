@@ -16,6 +16,9 @@ public class SettingSlider extends SettingWidget {
     private final double min, max;
     private final String format;
     private boolean dragging = false;
+    private double cachedValue = Double.NaN;
+    private String cachedText = "";
+    private float cachedTextWidth = 0f;
 
     private static final int COLOR_TRACK    = 0xFFE0E0E0;
     private static final int COLOR_FILL     = 0xFF2F54EB;
@@ -38,12 +41,18 @@ public class SettingSlider extends SettingWidget {
 
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
-        String val = String.format(format, getter.get());
-        float lw = FontRenderer.measureTextWidth(val, 11f);
+        double value = getter.get();
+        if (Double.compare(value, cachedValue) != 0) {
+            cachedValue = value;
+            cachedText = String.format(format, value);
+            cachedTextWidth = FontRenderer.measureTextWidth(cachedText, 11f);
+        }
+        String val = cachedText;
+        float lw = cachedTextWidth;
         FontRenderer.drawText(canvas, val, x + LABEL_W - lw, y + 14f, 11f, withAlpha(0x888888, alpha));
 
         float tx = x + LABEL_W + 8f;
-        float t = (float)((getter.get() - min) / (max - min));
+        float t = (float)((value - min) / (max - min));
         float trackY = y + 9f;
         float thumbX = tx + t * TRACK_W;
 

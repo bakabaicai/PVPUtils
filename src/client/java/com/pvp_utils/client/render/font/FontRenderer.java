@@ -18,6 +18,7 @@ public class FontRenderer {
     private static final FontMgr fontMgr = FontMgr.getDefault();
     private static final Map<String, Font> fonts = new HashMap<>();
     private static final Map<String, Float> widthCache = new HashMap<>();
+    private static final Paint textPaint = new Paint().setAntiAlias(true);
 
     static {
         registerFromResources(DEFAULT, "/fonts/harmony.ttf");
@@ -60,12 +61,9 @@ public class FontRenderer {
     }
 
     public static void drawText(Canvas canvas, String text, float x, float y, float size, int argb, String fontName) {
-        try (Paint paint = new Paint()) {
-            Font font = makeFont(fontName, size);
-            paint.setColor(argb);
-            paint.setAntiAlias(true);
-            canvas.drawString(text, x, y, font, paint);
-        }
+        Font font = makeFont(fontName, size);
+        textPaint.setColor(argb);
+        canvas.drawString(text, x, y, font, textPaint);
     }
 
     public static void drawSegmented(Canvas canvas, Segment[] segments, float x, float y) {
