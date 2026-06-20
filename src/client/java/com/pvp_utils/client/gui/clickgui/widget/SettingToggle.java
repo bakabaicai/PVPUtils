@@ -13,6 +13,9 @@ public class SettingToggle extends SettingWidget {
     private final Consumer<Boolean> setter;
     private float thumbX = -1f;
     private float colorT = -1f;
+    private float lastDrawX = 0f;
+    private final Paint trackPaint = new Paint();
+    private final Paint thumbPaint = new Paint();
 
     private static final int COLOR_TRACK_ON  = 0xFF2F54EB;
     private static final int COLOR_TRACK_OFF = 0xFFCCCCCC;
@@ -29,6 +32,7 @@ public class SettingToggle extends SettingWidget {
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
         boolean on = getter.get();
+        lastDrawX = x;
 
         if (colorT < 0f) colorT = on ? 1f : 0f;
         if (thumbX < 0f) thumbX = on ? x + 22f : x + 2f;
@@ -41,14 +45,19 @@ public class SettingToggle extends SettingWidget {
 
         int trackColor = lerpColor(COLOR_TRACK_OFF, COLOR_TRACK_ON, colorT);
 
-        try (Paint track = new Paint()) {
-            track.setColor(withAlpha(trackColor, alpha));
-            canvas.drawRRect(RRect.makeXYWH(x, y, 44f, 24f, 12f), track);
-        }
-        try (Paint thumb = new Paint()) {
-            thumb.setColor(withAlpha(COLOR_THUMB, alpha));
-            canvas.drawRRect(RRect.makeXYWH(thumbX, y + 2f, 20f, 20f, 10f), thumb);
-        }
+        trackPaint.setColor(withAlpha(trackColor, alpha));
+        thumbPaint.setColor(withAlpha(COLOR_THUMB, alpha));
+        canvas.drawRRect(RRect.makeXYWH(x, y, 44f, 24f, 12f), trackPaint);
+        canvas.drawRRect(RRect.makeXYWH(thumbX, y + 2f, 20f, 20f, 10f), thumbPaint);
+    }
+
+    @Override
+    public boolean isAnimating() {
+        boolean on = getter.get();
+        if (colorT < 0f || thumbX < 0f) return false;
+        float targetColorT = on ? 1f : 0f;
+        float targetThumbX = on ? lastDrawX + 22f : lastDrawX + 2f;
+        return Math.abs(colorT - targetColorT) > 0.01f || Math.abs(thumbX - targetThumbX) > 0.01f;
     }
 
     @Override

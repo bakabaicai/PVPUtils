@@ -11,6 +11,9 @@ public class SettingButton extends SettingWidget {
     private final Supplier<String> label;
     private final Runnable action;
     private float pressT = 0f;
+    private final Paint bgPaint = new Paint();
+    private String cachedText = "";
+    private float cachedTextWidth = 0f;
 
     public SettingButton(String label, Runnable action) {
         this(() -> label, action);
@@ -28,13 +31,19 @@ public class SettingButton extends SettingWidget {
     public void draw(Canvas canvas, float x, float y, float alpha) {
         pressT += (0f - pressT) * 0.18f;
         int bgColor = lerpColor(0xFF2F54EB, 0xFF1D39C4, pressT);
-        try (Paint bg = new Paint()) {
-            bg.setColor(withAlpha(bgColor, alpha));
-            canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 8f), bg);
-        }
+        bgPaint.setColor(withAlpha(bgColor, alpha));
+        canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 8f), bgPaint);
         String text = label.get();
-        float textW = FontRenderer.measureTextWidth(text, 11f);
-        FontRenderer.drawText(canvas, text, x + (getWidth() - textW) * 0.5f, y + 15.5f, 11f, withAlpha(0xFFFFFF, alpha));
+        if (!text.equals(cachedText)) {
+            cachedText = text;
+            cachedTextWidth = FontRenderer.measureTextWidth(text, 11f);
+        }
+        FontRenderer.drawText(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, y + 15.5f, 11f, withAlpha(0xFFFFFF, alpha));
+    }
+
+    @Override
+    public boolean isAnimating() {
+        return pressT > 0.01f;
     }
 
     @Override

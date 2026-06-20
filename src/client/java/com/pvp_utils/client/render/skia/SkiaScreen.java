@@ -8,6 +8,9 @@ import net.minecraft.network.chat.Component;
 public abstract class SkiaScreen extends Screen {
 
     protected final Screen parent;
+    private boolean redrawRequested = true;
+    private int lastFrameWidth = -1;
+    private int lastFrameHeight = -1;
 
     protected SkiaScreen(Component title, Screen parent) {
         super(title);
@@ -16,11 +19,47 @@ public abstract class SkiaScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        Canvas canvas = SkiaRenderer.begin();
-        if (canvas != null) {
-            drawSkia(canvas, this.width, this.height, mouseX, mouseY, delta);
+        if (shouldRedraw()) {
+            Canvas canvas = SkiaRenderer.begin();
+            if (canvas != null) {
+                drawSkia(canvas, this.width, this.height, mouseX, mouseY, delta);
+            }
+            SkiaRenderer.end(graphics, this.width, this.height);
+            redrawRequested = false;
+            lastFrameWidth = this.width;
+            lastFrameHeight = this.height;
+            return;
         }
-        SkiaRenderer.end(graphics, this.width, this.height);
+        SkiaRenderer.drawCached(graphics, this.width, this.height);
+    }
+
+    protected boolean shouldRedraw() {
+        return redrawRequested
+                || needsContinuousRedraw()
+                || this.width != lastFrameWidth
+                || this.height != lastFrameHeight
+                || !SkiaRenderer.hasFrameCache();
+    }
+
+    protected void requestRedraw() {
+        redrawRequested = true;
+        SkiaRenderer.markFrameDirty();
+    }
+
+    protected boolean needsContinuousRedraw() {
+        return false;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        requestRedraw();
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        super.resize(width, height);
+        requestRedraw();
     }
 
     @Override

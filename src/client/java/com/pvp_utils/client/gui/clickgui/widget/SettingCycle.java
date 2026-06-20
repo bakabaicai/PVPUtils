@@ -14,6 +14,10 @@ public class SettingCycle extends SettingWidget {
     private final List<String> options;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
+    private final Paint bgPaint = new Paint();
+    private int cachedIndex = Integer.MIN_VALUE;
+    private String cachedLabel = "";
+    private float cachedTextWidth = 0f;
 
     private static final int COLOR_BG   = 0xFFF0F0F0;
     private static final int COLOR_TEXT = 0xFF333333;
@@ -29,13 +33,15 @@ public class SettingCycle extends SettingWidget {
 
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
-        try (Paint bg = new Paint()) {
-            bg.setColor(withAlpha(0xF0F0F0, alpha));
-            canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bg);
+        int index = getter.get() % options.size();
+        if (index != cachedIndex) {
+            cachedIndex = index;
+            cachedLabel = options.get(index);
+            cachedTextWidth = FontRenderer.measureTextWidth(cachedLabel, 12f);
         }
-        String label = options.get(getter.get() % options.size());
-        float tw = FontRenderer.measureTextWidth(label, 12f);
-        FontRenderer.drawText(canvas, label, x + (getWidth() - tw) / 2f, y + 16f, 12f, withAlpha(0x333333, alpha));
+        bgPaint.setColor(withAlpha(0xF0F0F0, alpha));
+        canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
+        FontRenderer.drawText(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y + 16f, 12f, withAlpha(0x333333, alpha));
     }
 
     @Override

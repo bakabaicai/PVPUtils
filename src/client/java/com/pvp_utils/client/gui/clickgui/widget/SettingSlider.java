@@ -19,6 +19,9 @@ public class SettingSlider extends SettingWidget {
     private double cachedValue = Double.NaN;
     private String cachedText = "";
     private float cachedTextWidth = 0f;
+    private final Paint trackPaint = new Paint();
+    private final Paint fillPaint = new Paint();
+    private final Paint thumbPaint = new Paint();
 
     private static final int COLOR_TRACK    = 0xFFE0E0E0;
     private static final int COLOR_FILL     = 0xFF2F54EB;
@@ -56,18 +59,12 @@ public class SettingSlider extends SettingWidget {
         float trackY = y + 9f;
         float thumbX = tx + t * TRACK_W;
 
-        try (Paint track = new Paint()) {
-            track.setColor(withAlpha(0xE0E0E0, alpha));
-            canvas.drawRRect(RRect.makeXYWH(tx, trackY, TRACK_W, 4f, 2f), track);
-        }
-        try (Paint fill = new Paint()) {
-            fill.setColor(withAlpha(0x2F54EB, alpha));
-            canvas.drawRRect(RRect.makeXYWH(tx, trackY, t * TRACK_W, 4f, 2f), fill);
-        }
-        try (Paint thumb = new Paint()) {
-            thumb.setColor(withAlpha(0xFFFFFF, alpha));
-            canvas.drawRRect(RRect.makeXYWH(thumbX - 8f, y + 2f, 16f, 16f, 8f), thumb);
-        }
+        trackPaint.setColor(withAlpha(0xE0E0E0, alpha));
+        canvas.drawRRect(RRect.makeXYWH(tx, trackY, TRACK_W, 4f, 2f), trackPaint);
+        fillPaint.setColor(withAlpha(0x2F54EB, alpha));
+        canvas.drawRRect(RRect.makeXYWH(tx, trackY, t * TRACK_W, 4f, 2f), fillPaint);
+        thumbPaint.setColor(withAlpha(0xFFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(thumbX - 8f, y + 2f, 16f, 16f, 8f), thumbPaint);
     }
 
     @Override
