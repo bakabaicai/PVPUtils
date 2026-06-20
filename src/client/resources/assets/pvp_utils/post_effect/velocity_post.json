@@ -1,0 +1,43 @@
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "pvp_utils:post/velocity_post",
+      "inputs": [
+        {"sampler_name": "Main",      "target": "minecraft:main"},
+        {"sampler_name": "MainDepth", "target": "minecraft:main", "use_depth_buffer": true}
+      ],
+      "output": "swap",
+      "uniforms": {
+        "PostRenderBlurUniforms": [
+          {"name": "mvInverse",         "type": "matrix4x4", "value": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+          {"name": "projInverse",       "type": "matrix4x4", "value": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+          {"name": "prevModelView",     "type": "matrix4x4", "value": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+          {"name": "prevProjection",    "type": "matrix4x4", "value": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+          {"name": "cameraDelta",       "type": "vec3",      "value": [0, 0, 0]},
+          {"name": "view_res",          "type": "vec2",      "value": [1, 1]},
+          {"name": "BlendFactor",       "type": "float",     "value": 0.5},
+          {"name": "motionBlurSamples", "type": "int",       "value": 100},
+          {"name": "blurAlgorithm",     "type": "int",       "value": 0},
+          {"name": "useDepth",          "type": "int",       "value": 1}
+        ]
+      }
+    },
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "minecraft:post/blit",
+      "inputs": [
+        {"sampler_name": "In", "target": "swap"}
+      ],
+      "output": "minecraft:main",
+      "uniforms": {
+        "BlitConfig": [
+          {"name": "ColorModulate", "type": "vec4", "value": [1, 1, 1, 1]}
+        ]
+      }
+    }
+  ]
+}

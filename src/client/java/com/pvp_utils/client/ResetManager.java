@@ -47,6 +47,9 @@ public class ResetManager {
         Config.nameTag = false;
         Config.nameTagScale = 1.0f;
         Config.nameTagDynamicScale = false;
+        Config.dynamicMotionBlur = false;
+        Config.dynamicMotionBlurStrength = 1.0f;
+        Config.dynamicMotionBlurRefreshRateScaling = true;
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;
@@ -70,6 +73,7 @@ public class ResetManager {
         Config.targetHudMode = Config.TargetHudMode.NEW;
         Config.keystrokesMode = Config.KeystrokesMode.NEW;
         Config.animationMode = Config.AnimMode.MODE_1_7;
+        Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
         Config.save();
     }
 

@@ -29,6 +29,11 @@
     "ScreenEffectRendererMixin",
     "GameRendererMixin",
     "GameRendererTotemMixin",
+    "MotionBlurGameRendererMixin",
+    "MotionBlurLevelRendererMixin",
+    "PostChainAccessor",
+    "PostPassAccessor",
+    "ShaderManagerAccessor",
     "LevelParticleMixin",
     "ParticleEngineMixin"
   ],

@@ -50,6 +50,7 @@ repositories {
 
 loom {
     splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/pvp-utils.accesswidener")
 
     mods {
         "PVPUtils" {

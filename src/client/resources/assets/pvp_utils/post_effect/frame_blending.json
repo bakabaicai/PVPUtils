@@ -1,0 +1,59 @@
+{
+  "targets": {
+    "swap": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "pvp_utils:post/frame_blending",
+      "inputs": [
+        {"sampler_name": "Sample0", "target": "minecraft:main"},
+        {"sampler_name": "Sample1", "target": "minecraft:main"},
+        {"sampler_name": "Sample2", "target": "minecraft:main"},
+        {"sampler_name": "Sample3", "target": "minecraft:main"},
+        {"sampler_name": "Sample4", "target": "minecraft:main"},
+        {"sampler_name": "Sample5", "target": "minecraft:main"},
+        {"sampler_name": "Sample6", "target": "minecraft:main"},
+        {"sampler_name": "Sample7", "target": "minecraft:main"},
+        {"sampler_name": "Sample8", "target": "minecraft:main"},
+        {"sampler_name": "Sample9", "target": "minecraft:main"},
+        {"sampler_name": "Sample10", "target": "minecraft:main"},
+        {"sampler_name": "Sample11", "target": "minecraft:main"}
+      ],
+      "output": "swap",
+      "uniforms": {
+        "FrameBlendParamsUniforms": [
+          {"name": "invTotalWeight", "type": "float", "value": 1.0},
+          {"name": "activeCount", "type": "int", "value": 1},
+          {"name": "Sample0Weight", "type": "float", "value": 1.0},
+          {"name": "Sample1Weight", "type": "float", "value": 0.0},
+          {"name": "Sample2Weight", "type": "float", "value": 0.0},
+          {"name": "Sample3Weight", "type": "float", "value": 0.0},
+          {"name": "Sample4Weight", "type": "float", "value": 0.0},
+          {"name": "Sample5Weight", "type": "float", "value": 0.0},
+          {"name": "Sample6Weight", "type": "float", "value": 0.0},
+          {"name": "Sample7Weight", "type": "float", "value": 0.0},
+          {"name": "Sample8Weight", "type": "float", "value": 0.0},
+          {"name": "Sample9Weight", "type": "float", "value": 0.0},
+          {"name": "Sample10Weight", "type": "float", "value": 0.0},
+          {"name": "Sample11Weight", "type": "float", "value": 0.0},
+          {"name": "padding0", "type": "float", "value": 0.0},
+          {"name": "padding1", "type": "float", "value": 0.0}
+        ]
+      }
+    },
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "minecraft:post/blit",
+      "inputs": [
+        {"sampler_name": "In", "target": "swap"}
+      ],
+      "output": "minecraft:main",
+      "uniforms": {
+        "BlitConfig": [
+          {"name": "ColorModulate", "type": "vec4", "value": [1, 1, 1, 1]}
+        ]
+      }
+    }
+  ]
+}
