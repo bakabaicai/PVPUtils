@@ -36,7 +36,9 @@ public class BlockCountDisplayRenderer {
     private final RateCounter rightClicks = new RateCounter();
     private final RateCounter placements = new RateCounter();
     private Surface surface;
+    private Surface overlaySurface;
     private DynamicTexture dynamicTexture;
+    private DynamicTexture overlayTexture;
     private boolean visible = false;
     private boolean closing = false;
     private boolean nativeLoaded = false;
@@ -47,6 +49,8 @@ public class BlockCountDisplayRenderer {
     private int lastTextureProgress = -1;
     private int textureW = -1;
     private int textureH = -1;
+    private int overlayTextureW = -1;
+    private int overlayTextureH = -1;
     private float textureScale = -1f;
     private long lastInteractionMs = 0L;
     private long appearanceTime = 0L;
@@ -54,9 +58,26 @@ public class BlockCountDisplayRenderer {
     private int lastSlot = -1;
     private int lastCount = -1;
     private ItemStack displayStack = ItemStack.EMPTY;
+    private final Paint bgPaint = new Paint();
+    private final Paint ringFillPaint = new Paint();
+    private final Paint ringTrackPaint = new Paint();
+    private final Paint ringArcPaint = new Paint();
+    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display_overlay");
+    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     public static BlockCountDisplayRenderer getInstance() {
         return INSTANCE;
+    }
+
+    private BlockCountDisplayRenderer() {
+        bgPaint.setAntiAlias(true);
+        ringFillPaint.setAntiAlias(true);
+        ringTrackPaint.setAntiAlias(true);
+        ringTrackPaint.setMode(PaintMode.STROKE);
+        ringTrackPaint.setStrokeWidth(4f);
+        ringArcPaint.setAntiAlias(true);
+        ringArcPaint.setMode(PaintMode.STROKE);
+        ringArcPaint.setStrokeWidth(4f);
     }
 
     public boolean needsCanvas() {
@@ -222,13 +243,15 @@ public class BlockCountDisplayRenderer {
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         ringProgress += (ratio - ringProgress) * 0.18f;
 
-        renderTexture(client, name, speed, ringProgress);
+        renderBaseTexture(client, name);
+        renderOverlayTexture(client, speed, ringProgress);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
         graphics.pose().scale(drawScale, drawScale);
         graphics.pose().translate(-cx, -cy);
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(scaledW), Math.round(scaledH), textureW, textureH, textureW, textureH);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(scaledW), Math.round(scaledH), overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
 
         int itemX = Math.round(ringCx - 8f);
         int itemY = Math.round(ringCy - 8f);
@@ -303,27 +326,23 @@ public class BlockCountDisplayRenderer {
         placements.clear();
     }
 
-    private void renderTexture(Minecraft client, String name, String speed, float progress) {
+    private void renderBaseTexture(Minecraft client, String name) {
         ensureNativeLoaded();
         float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        int progressKey = Math.round(progress * 48f);
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress) return;
+        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName)) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyTexture(client);
-            SurfaceProps props = new SurfaceProps(false, PixelGeometry.RGB_H);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, props);
+            destroyBaseTexture(client);
+            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
             dynamicTexture = new DynamicTexture("pvp_utils:block_count_display", targetW, targetH, false);
             client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
             textureW = targetW;
             textureH = targetH;
             textureScale = targetScale;
             lastTextureName = "";
-            lastTextureSpeed = "";
-            lastTextureProgress = -1;
         }
 
         Canvas c = surface.getCanvas();
@@ -333,52 +352,53 @@ public class BlockCountDisplayRenderer {
         c.save();
         c.scale(textureScale, textureScale);
 
-        try (Paint bg = new Paint()) {
-            bg.setColor(0xF2FFFFFF);
-            bg.setAntiAlias(true);
-            c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bg);
-        }
+        bgPaint.setColor(0xF2FFFFFF);
+        c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
 
         FontRenderer.drawText(c, name, 16f, 22f, 12f, 0xFF202027);
-        FontRenderer.drawText(c, speed, 16f, 40f, 11f, 0xFF5C5870);
+        c.restore();
+        uploadSurface(surface, dynamicTexture, textureW, textureH);
+        lastTextureName = name;
+    }
 
+    private void renderOverlayTexture(Minecraft client, String speed, float progress) {
+        ensureNativeLoaded();
+        float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
+        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
+        int targetW = Math.max(1, Math.round(WIDTH * targetScale));
+        int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
+        int progressKey = Math.round(progress * 48f);
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress) return;
+
+        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
+            destroyOverlayTexture(client);
+            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
+            overlayTexture = new DynamicTexture("pvp_utils:block_count_display_overlay", targetW, targetH, false);
+            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
+            overlayTextureW = targetW;
+            overlayTextureH = targetH;
+        }
+
+        Canvas c = overlaySurface.getCanvas();
+        c.restoreToCount(1);
+        c.resetMatrix();
+        c.clear(0x00000000);
+        c.save();
+        c.scale(targetScale, targetScale);
+
+        FontRenderer.drawText(c, speed, 16f, 40f, 11f, 0xFF5C5870);
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;
-        try (Paint fill = new Paint()) {
-            fill.setColor(0x1F8F5CFF);
-            fill.setAntiAlias(true);
-            c.drawCircle(ringCx, ringCy, radius + 5f, fill);
-        }
-        try (Paint track = new Paint()) {
-            track.setColor(0x338F5CFF);
-            track.setAntiAlias(true);
-            track.setMode(PaintMode.STROKE);
-            track.setStrokeWidth(4f);
-            c.drawCircle(ringCx, ringCy, radius, track);
-        }
-        try (Paint arc = new Paint()) {
-            arc.setColor((int) PURPLE);
-            arc.setAntiAlias(true);
-            arc.setMode(PaintMode.STROKE);
-            arc.setStrokeWidth(4f);
-            c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, arc);
-        }
+        ringFillPaint.setColor(0x1F8F5CFF);
+        c.drawCircle(ringCx, ringCy, radius + 5f, ringFillPaint);
+        ringTrackPaint.setColor(0x338F5CFF);
+        c.drawCircle(ringCx, ringCy, radius, ringTrackPaint);
+        ringArcPaint.setColor((int) PURPLE);
+        c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, ringArcPaint);
 
         c.restore();
-        Pixmap pixmap = new Pixmap();
-        if (!surface.peekPixels(pixmap)) {
-            pixmap.close();
-            return;
-        }
-        long addr = pixmap.getAddr();
-        int byteSize = textureH * pixmap.getRowBytes();
-        ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-        GpuTexture gpuTexture = dynamicTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, textureW, textureH);
-        pixmap.close();
-        lastTextureName = name;
+        uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
         lastTextureSpeed = speed;
         lastTextureProgress = progressKey;
     }
@@ -389,7 +409,22 @@ public class BlockCountDisplayRenderer {
         nativeLoaded = true;
     }
 
-    private void destroyTexture(Minecraft client) {
+    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
+        Pixmap pixmap = new Pixmap();
+        if (!sourceSurface.peekPixels(pixmap)) {
+            pixmap.close();
+            return;
+        }
+        long addr = pixmap.getAddr();
+        int byteSize = height * pixmap.getRowBytes();
+        ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
+        GpuTexture gpuTexture = targetTexture.getTexture();
+        RenderSystem.getDevice().createCommandEncoder()
+                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+        pixmap.close();
+    }
+
+    private void destroyBaseTexture(Minecraft client) {
         if (surface != null) {
             surface.close();
             surface = null;
@@ -398,12 +433,30 @@ public class BlockCountDisplayRenderer {
             client.getTextureManager().release(TEXTURE_ID);
             dynamicTexture = null;
         }
-        lastTextureName = "";
-        lastTextureSpeed = "";
-        lastTextureProgress = -1;
         textureW = -1;
         textureH = -1;
         textureScale = -1f;
+        lastTextureName = "";
+    }
+
+    private void destroyOverlayTexture(Minecraft client) {
+        if (overlaySurface != null) {
+            overlaySurface.close();
+            overlaySurface = null;
+        }
+        if (overlayTexture != null) {
+            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
+            overlayTexture = null;
+        }
+        overlayTextureW = -1;
+        overlayTextureH = -1;
+        lastTextureSpeed = "";
+        lastTextureProgress = -1;
+    }
+
+    private void destroyTexture(Minecraft client) {
+        destroyBaseTexture(client);
+        destroyOverlayTexture(client);
     }
 
     private float clamp(float value, float min, float max) {

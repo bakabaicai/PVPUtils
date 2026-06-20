@@ -38,6 +38,8 @@ public class KeystrokesRenderer {
     private static final int TOTAL_W = KEY_SIZE * 3 + GAP * 2;
     private static final int TOTAL_H = KEY_SIZE * 4 + GAP * 3;
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_display");
+    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_display_overlay");
+    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private final RateCounter leftClicks = new RateCounter();
     private final RateCounter rightClicks = new RateCounter();
     private final KeyVisual wKey = new KeyVisual();
@@ -53,13 +55,26 @@ public class KeystrokesRenderer {
     private final Paint ripplePaint = new Paint().setAntiAlias(true);
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE);
     private Surface surface;
+    private Surface overlaySurface;
     private DynamicTexture dynamicTexture;
+    private DynamicTexture overlayTexture;
     private boolean nativeLoaded = false;
     private int textureW = -1;
     private int textureH = -1;
+    private int overlayTextureW = -1;
+    private int overlayTextureH = -1;
     private float textureScale = -1f;
-    private int lastTextureKey = 0;
+    private String lastBaseSignature = "";
+    private int lastOverlayKey = 0;
     private long lastFrameMs = 0L;
+    private final float keyLabelW = FontRenderer.measureTextWidth("W", 11f);
+    private final float aLabelW = FontRenderer.measureTextWidth("A", 11f);
+    private final float sLabelW = FontRenderer.measureTextWidth("S", 11f);
+    private final float dLabelW = FontRenderer.measureTextWidth("D", 11f);
+    private final float spaceLabelW = FontRenderer.measureTextWidth("SPACE", 11f);
+    private final float shiftLabelW = FontRenderer.measureTextWidth("SHIFT", 11f);
+    private final float lmbLabelW = FontRenderer.measureTextWidth("LMB", 8.5f);
+    private final float rmbLabelW = FontRenderer.measureTextWidth("RMB", 8.5f);
 
     public static KeystrokesRenderer getInstance() {
         return INSTANCE;
@@ -155,6 +170,7 @@ public class KeystrokesRenderer {
         }
 
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, scaledW, scaledH, textureW, textureH, textureW, textureH);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, x, y, 0f, 0f, scaledW, scaledH, overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
     }
 
     private void drawLiteKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
@@ -194,59 +210,99 @@ public class KeystrokesRenderer {
         float targetScale = (float) client.getWindow().getGuiScale() * scale;
         int targetW = Math.max(1, Math.round(TOTAL_W * targetScale));
         int targetH = Math.max(1, Math.round(TOTAL_H * targetScale));
-        int textureKey = makeTextureKey(leftCps, rightCps);
-
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && textureKey == lastTextureKey) return true;
+        int overlayKey = makeTextureKey(leftCps, rightCps);
+        boolean overlayAnimating = isOverlayAnimating();
+        String baseSignature = targetW + "x" + targetH + "@" + Float.floatToIntBits(targetScale);
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyTexture(client);
-            SurfaceProps props = new SurfaceProps(false, PixelGeometry.RGB_H);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, props);
+            destroyBaseTexture(client);
+            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
             dynamicTexture = new DynamicTexture("pvp_utils:keystrokes_display", targetW, targetH, false);
             client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
             textureW = targetW;
             textureH = targetH;
             textureScale = targetScale;
-            lastTextureKey = 0;
+            lastBaseSignature = "";
         }
 
-        Canvas canvas = surface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(textureScale, textureScale);
+        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
+            destroyOverlayTexture(client);
+            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
+            overlayTexture = new DynamicTexture("pvp_utils:keystrokes_display_overlay", targetW, targetH, false);
+            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
+            overlayTextureW = targetW;
+            overlayTextureH = targetH;
+            lastOverlayKey = 0;
+        }
 
-        drawKey(canvas, "W", KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
-        drawKey(canvas, "A", 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
-        drawKey(canvas, "S", KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
-        drawKey(canvas, "D", (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+        if (!baseSignature.equals(lastBaseSignature)) {
+            Canvas canvas = surface.getCanvas();
+            canvas.restoreToCount(1);
+            canvas.resetMatrix();
+            canvas.clear(0x00000000);
+            canvas.save();
+            canvas.scale(textureScale, textureScale);
+            drawStaticKey(canvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE);
+            drawStaticKey(canvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
+            drawStaticKey(canvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
+            drawStaticKey(canvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
+
+            int mouseY = (KEY_SIZE + GAP) * 2;
+            int leftMouseW = (TOTAL_W - GAP) / 2;
+            int rightMouseW = TOTAL_W - GAP - leftMouseW;
+            drawStaticMouseKey(canvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, KEY_SIZE);
+            drawStaticMouseKey(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE);
+
+            int bottomY = (KEY_SIZE + GAP) * 3;
+            drawStaticKey(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE);
+            drawStaticKey(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE);
+            canvas.restore();
+            if (!uploadSurface(surface, dynamicTexture, textureW, textureH)) {
+                return false;
+            }
+            lastBaseSignature = baseSignature;
+        }
+
+        if (!overlayAnimating && overlayKey == lastOverlayKey && overlayTexture != null) {
+            return true;
+        }
+
+        Canvas overlayCanvas = overlaySurface.getCanvas();
+        overlayCanvas.restoreToCount(1);
+        overlayCanvas.resetMatrix();
+        overlayCanvas.clear(0x00000000);
+        overlayCanvas.save();
+        overlayCanvas.scale(textureScale, textureScale);
+
+        drawDynamicKey(overlayCanvas, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+        drawDynamicKey(overlayCanvas, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+        drawDynamicKey(overlayCanvas, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+        drawDynamicKey(overlayCanvas, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+        drawDynamicKeyLabel(overlayCanvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+        drawDynamicKeyLabel(overlayCanvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+        drawDynamicKeyLabel(overlayCanvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+        drawDynamicKeyLabel(overlayCanvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
 
         int mouseY = (KEY_SIZE + GAP) * 2;
         int leftMouseW = (TOTAL_W - GAP) / 2;
         int rightMouseW = TOTAL_W - GAP - leftMouseW;
-        drawMouseKey(canvas, "LMB", leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
-        drawMouseKey(canvas, "RMB", rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
+        drawDynamicMouseKey(overlayCanvas, leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
+        drawDynamicMouseKey(overlayCanvas, rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
+        drawDynamicMouseLabel(overlayCanvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, leftMouse);
+        drawDynamicMouseLabel(overlayCanvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
 
         int bottomY = (KEY_SIZE + GAP) * 3;
-        drawKey(canvas, "SPACE", 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
-        drawKey(canvas, "SHIFT", leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-        canvas.restore();
+        drawDynamicKey(overlayCanvas, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+        drawDynamicKey(overlayCanvas, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
+        drawDynamicKeyLabel(overlayCanvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+        drawDynamicKeyLabel(overlayCanvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
+        overlayCanvas.restore();
 
-        Pixmap pixmap = new Pixmap();
-        if (!surface.peekPixels(pixmap)) {
-            pixmap.close();
+        if (!uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH)) {
             return false;
         }
 
-        long addr = pixmap.getAddr();
-        int byteSize = textureH * pixmap.getRowBytes();
-        ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-        GpuTexture gpuTexture = dynamicTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, textureW, textureH);
-        pixmap.close();
-        lastTextureKey = textureKey;
+        lastOverlayKey = overlayKey;
         return true;
     }
 
@@ -281,18 +337,33 @@ public class KeystrokesRenderer {
         graphics.drawString(client.font, label, textX, textY, textColor, false);
     }
 
-    private void drawKey(Canvas canvas, String label, float x, float y, float width, float height, KeyVisual visual) {
-        drawKeyShell(canvas, x, y, width, height, visual);
-        int textColor = visual.press > 0.55f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
-        drawCenteredText(canvas, label, x, y, width, height, 11f, textColor);
+    private void drawStaticKey(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height) {
+        drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, TEXT_COLOR);
     }
 
-    private void drawMouseKey(Canvas canvas, String label, int cps, float x, float y, float width, float height, KeyVisual visual) {
+    private void drawStaticMouseKey(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height) {
+        drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, TEXT_COLOR);
+    }
+
+    private void drawDynamicKey(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
+        drawKeyShell(canvas, x, y, width, height, visual);
+    }
+
+    private void drawDynamicMouseKey(Canvas canvas, int cps, float x, float y, float width, float height, KeyVisual visual) {
         drawKeyShell(canvas, x, y, width, height, visual);
         int textColor = visual.press > 0.55f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
         String cpsText = cps + " CPS";
-        drawCenteredText(canvas, label, x, y + 3f, width, 9f, 8.5f, textColor);
         drawCenteredText(canvas, cpsText, x, y + 13f, width, 8f, 7.5f, withAlpha(textColor, 0.82f));
+    }
+
+    private void drawDynamicKeyLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height, KeyVisual visual) {
+        if (visual.press <= 0.55f) return;
+        drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, ACTIVE_TEXT_COLOR);
+    }
+
+    private void drawDynamicMouseLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, KeyVisual visual) {
+        if (visual.press <= 0.55f) return;
+        drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, ACTIVE_TEXT_COLOR);
     }
 
     private void drawKeyShell(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
@@ -328,7 +399,10 @@ public class KeystrokesRenderer {
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float height, float size, int color) {
-        float textW = FontRenderer.measureTextWidth(text, size);
+        drawCenteredText(canvas, text, FontRenderer.measureTextWidth(text, size), x, y, width, height, size, color);
+    }
+
+    private void drawCenteredText(Canvas canvas, String text, float textW, float x, float y, float width, float height, float size, int color) {
         float textX = x + (width - textW) * 0.5f;
         float textY = y + (height + FontRenderer.getLineHeight(size)) * 0.5f - 2.2f;
         FontRenderer.drawText(canvas, text, textX, textY, size, color);
@@ -407,13 +481,42 @@ public class KeystrokesRenderer {
         return key;
     }
 
+    private boolean isOverlayAnimating() {
+        return wKey.isAnimating()
+                || aKey.isAnimating()
+                || sKey.isAnimating()
+                || dKey.isAnimating()
+                || leftMouse.isAnimating()
+                || rightMouse.isAnimating()
+                || spaceKey.isAnimating()
+                || shiftKey.isAnimating();
+    }
+
     private void ensureNativeLoaded() {
         if (nativeLoaded) return;
         Library.load();
         nativeLoaded = true;
     }
 
-    private void destroyTexture(Minecraft client) {
+    private boolean uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
+        Pixmap pixmap = new Pixmap();
+        try {
+            if (!sourceSurface.peekPixels(pixmap)) {
+                return false;
+            }
+            long addr = pixmap.getAddr();
+            int byteSize = height * pixmap.getRowBytes();
+            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
+            GpuTexture gpuTexture = targetTexture.getTexture();
+            RenderSystem.getDevice().createCommandEncoder()
+                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+            return true;
+        } finally {
+            pixmap.close();
+        }
+    }
+
+    private void destroyBaseTexture(Minecraft client) {
         if (surface != null) {
             surface.close();
             surface = null;
@@ -425,7 +528,26 @@ public class KeystrokesRenderer {
         textureW = -1;
         textureH = -1;
         textureScale = -1f;
-        lastTextureKey = 0;
+        lastBaseSignature = "";
+    }
+
+    private void destroyOverlayTexture(Minecraft client) {
+        if (overlaySurface != null) {
+            overlaySurface.close();
+            overlaySurface = null;
+        }
+        if (overlayTexture != null) {
+            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
+            overlayTexture = null;
+        }
+        overlayTextureW = -1;
+        overlayTextureH = -1;
+        lastOverlayKey = 0;
+    }
+
+    private void destroyTexture(Minecraft client) {
+        destroyBaseTexture(client);
+        destroyOverlayTexture(client);
     }
 
     private static class KeyVisual {
@@ -445,6 +567,10 @@ public class KeystrokesRenderer {
 
         private int key() {
             return Math.round(press * 32f) << 6 | Math.round(pulse * 32f);
+        }
+
+        private boolean isAnimating() {
+            return press > 0.002f || pulse > 0.002f;
         }
     }
 }

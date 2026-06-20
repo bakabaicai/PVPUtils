@@ -29,7 +29,6 @@ public class FakePlayerManager {
     private static long respawnAt = 0L;
     private static int regenerationTicks = 0;
     private static int particleTicks = 0;
-    private static boolean totemConsumed = false;
 
     public static boolean isEnabled() {
         return enabled;
@@ -57,7 +56,6 @@ public class FakePlayerManager {
 
     public static void setTotem(boolean value) {
         totem = value;
-        totemConsumed = false;
         applyEquipment();
     }
 
@@ -112,7 +110,7 @@ public class FakePlayerManager {
         fakePlayer.hurtDuration = 10;
         fakePlayer.animateHurt((float) client.player.getYRot());
         fakePlayer.knockback(0.45, -look.x, -look.z);
-        if (fakePlayer.getHealth() - damage <= 0.0f && totem && !totemConsumed && fakePlayer.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
+        if (fakePlayer.getHealth() - damage <= 0.0f && totem && fakePlayer.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) {
             triggerTotem(client);
             return true;
         }
@@ -151,15 +149,13 @@ public class FakePlayerManager {
         fakePlayer.setItemSlot(EquipmentSlot.CHEST, armor ? new ItemStack(Items.NETHERITE_CHESTPLATE) : ItemStack.EMPTY);
         fakePlayer.setItemSlot(EquipmentSlot.LEGS, armor ? new ItemStack(Items.NETHERITE_LEGGINGS) : ItemStack.EMPTY);
         fakePlayer.setItemSlot(EquipmentSlot.FEET, armor ? new ItemStack(Items.NETHERITE_BOOTS) : ItemStack.EMPTY);
-        fakePlayer.setItemSlot(EquipmentSlot.OFFHAND, totem && !totemConsumed ? new ItemStack(Items.TOTEM_OF_UNDYING) : ItemStack.EMPTY);
+        fakePlayer.setItemSlot(EquipmentSlot.OFFHAND, totem ? new ItemStack(Items.TOTEM_OF_UNDYING) : ItemStack.EMPTY);
     }
 
     private static void triggerTotem(Minecraft client) {
         if (fakePlayer == null) return;
-        totemConsumed = true;
         fakePlayer.setHealth(1.0f);
         fakePlayer.setAbsorptionAmount(4.0f);
-        fakePlayer.setItemSlot(EquipmentSlot.OFFHAND, ItemStack.EMPTY);
         fakePlayer.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
         fakePlayer.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
         fakePlayer.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
@@ -212,7 +208,6 @@ public class FakePlayerManager {
         respawnAt = 0L;
         regenerationTicks = 0;
         particleTicks = 0;
-        totemConsumed = false;
     }
 
     private static void clearFakePlayerOnly() {
@@ -236,6 +231,5 @@ public class FakePlayerManager {
         respawnAt = System.currentTimeMillis() + 3000L;
         regenerationTicks = 0;
         particleTicks = 0;
-        totemConsumed = false;
     }
 }
