@@ -62,6 +62,9 @@ public class Config {
     public static float keystrokesX = -170f;
     public static float keystrokesY = 70f;
     public static float keystrokesScale = 1.0f;
+    public static boolean nameTag = false;
+    public static float nameTagScale = 1.0f;
+    public static boolean nameTagDynamicScale = false;
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
     public static float blockCountDisplayScale = 1.0f;
@@ -154,6 +157,9 @@ public class Config {
             keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
             keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
             keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
+            nameTag = Boolean.parseBoolean(prop.getProperty("nameTag", "false"));
+            nameTagScale = Float.parseFloat(prop.getProperty("nameTagScale", "1.0"));
+            nameTagDynamicScale = Boolean.parseBoolean(prop.getProperty("nameTagDynamicScale", "false"));
             blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
             blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
             blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
@@ -231,6 +237,9 @@ public class Config {
             prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
             prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
             prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
+            prop.setProperty("nameTag", String.valueOf(nameTag));
+            prop.setProperty("nameTagScale", String.valueOf(nameTagScale));
+            prop.setProperty("nameTagDynamicScale", String.valueOf(nameTagDynamicScale));
             prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
             prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
             prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
