@@ -73,4 +73,11 @@ public class GuiMixin {
 
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
     }
+
+    @Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$hideVanillaPotionEffects(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        if (PotionStatusRenderer.getInstance().shouldHideVanillaEffects()) {
+            ci.cancel();
+        }
+    }
 }

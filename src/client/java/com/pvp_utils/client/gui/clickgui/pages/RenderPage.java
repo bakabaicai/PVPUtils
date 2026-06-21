@@ -49,8 +49,14 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("盔甲 HUD", "Armor HUD"), UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
                 new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示当前药水效果和剩余时间，可在 UI 编辑器拖动", "Show active potion effects and remaining time. Drag it in the UI editor"),
-                new SettingToggle(() -> Config.potionStatus, v -> { Config.potionStatus = v; Config.save(); })));
+        modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示当前药水效果和剩余时间。", "Show active potion effects and remaining time."),
+                new SettingToggle(() -> Config.potionStatus, v -> { Config.potionStatus = v; Config.save(); }))
+                .addSub(UiText.t("灰色遮罩", "Gray Background"), UiText.t("控制外层灰色背景是否显示", "Control whether the outer gray background is visible"),
+                        new SettingToggle(() -> Config.potionStatusBackground, v -> { Config.potionStatusBackground = v; Config.save(); }))
+                .addSub(UiText.t("倒计时数字", "Countdown Text"), UiText.t("关闭后只显示效果名称", "When disabled, only the effect name is shown"),
+                        new SettingToggle(() -> Config.potionStatusCountdown, v -> { Config.potionStatusCountdown = v; Config.save(); }))
+                .addSub(UiText.t("屏蔽原版显示", "Hide Vanilla Effects"), UiText.t("启用后会屏蔽右上角原版药水效果显示", "Hide the vanilla potion effect UI in the top-right while this widget is active"),
+                        new SettingToggle(() -> Config.potionStatusHideVanilla, v -> { Config.potionStatusHideVanilla = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("加载本地的自定义皮肤文件", "Load a local custom skin file"),
                 new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))

@@ -34,6 +34,9 @@ public class ResetManager {
         Config.blockCountDisplay = false;
         Config.armorHud = false;
         Config.potionStatus = false;
+        Config.potionStatusBackground = true;
+        Config.potionStatusCountdown = true;
+        Config.potionStatusHideVanilla = true;
         Config.autoChestDeposit = false;
         Config.autoChestDepositResourcesOnly = true;
         Config.autoChestDepositDepositDelay = 4;

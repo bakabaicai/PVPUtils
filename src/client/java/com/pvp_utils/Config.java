@@ -29,6 +29,9 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static boolean armorHud = false;
     public static boolean potionStatus = false;
+    public static boolean potionStatusBackground = true;
+    public static boolean potionStatusCountdown = true;
+    public static boolean potionStatusHideVanilla = true;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
     public static boolean keystrokes = false;
@@ -130,6 +133,9 @@ public class Config {
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             potionStatus = Boolean.parseBoolean(prop.getProperty("potionStatus", "false"));
+            potionStatusBackground = Boolean.parseBoolean(prop.getProperty("potionStatusBackground", "true"));
+            potionStatusCountdown = Boolean.parseBoolean(prop.getProperty("potionStatusCountdown", "true"));
+            potionStatusHideVanilla = Boolean.parseBoolean(prop.getProperty("potionStatusHideVanilla", "true"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
@@ -219,6 +225,9 @@ public class Config {
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("potionStatus", String.valueOf(potionStatus));
+            prop.setProperty("potionStatusBackground", String.valueOf(potionStatusBackground));
+            prop.setProperty("potionStatusCountdown", String.valueOf(potionStatusCountdown));
+            prop.setProperty("potionStatusHideVanilla", String.valueOf(potionStatusHideVanilla));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
