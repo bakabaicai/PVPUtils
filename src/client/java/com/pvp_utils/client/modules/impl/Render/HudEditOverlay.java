@@ -14,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, NOTIFICATION }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, NOTIFICATION, POTION_STATUS }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -36,6 +36,7 @@ public class HudEditOverlay {
     private float keystrokesHoverAlpha = 0f;
     private float blockCountHoverAlpha = 0f;
     private float notificationHoverAlpha = 0f;
+    private float potionStatusHoverAlpha = 0f;
     private float dashOffset = 0f;
     private float targetVisualX = Float.NaN;
     private float targetVisualY = Float.NaN;
@@ -104,6 +105,7 @@ public class HudEditOverlay {
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
         RectState blockCount = Config.blockCountDisplay ? getBlockCountRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
+        RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
 
         if (targetHud != null && Float.isNaN(targetVisualX)) {
             targetVisualX = targetHud.x;
@@ -114,9 +116,14 @@ public class HudEditOverlay {
         boolean keystrokesHovered = keystrokes != null && contains(keystrokes, mx, my, 4f);
         boolean blockCountHovered = blockCount != null && contains(blockCount, mx, my, 4f);
         boolean notificationHovered = contains(notification, mx, my, 4f);
+        boolean potionStatusHovered = potionStatus != null && contains(potionStatus, mx, my, 4f);
 
         if (mouseDown && !wasMouseDown) {
-            if (notificationHovered) {
+            if (potionStatusHovered) {
+                dragTarget = DragTarget.POTION_STATUS;
+                dragOffsetX = mx - potionStatus.x;
+                dragOffsetY = my - potionStatus.y;
+            } else if (notificationHovered) {
                 dragTarget = DragTarget.NOTIFICATION;
                 dragOffsetX = mx - notification.x;
                 dragOffsetY = my - notification.y;
@@ -168,6 +175,13 @@ public class HudEditOverlay {
             Config.notificationY = dragged.y - guiH * 0.5f;
             configDirty = true;
             notification = dragged;
+        } else if (dragTarget == DragTarget.POTION_STATUS && potionStatus != null) {
+            PotionStatusRenderer renderer = PotionStatusRenderer.getInstance();
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, potionStatus.w, potionStatus.h, guiW, guiH), guiW, guiH);
+            Config.potionStatusX = dragged.x - renderer.getDefaultX();
+            Config.potionStatusY = dragged.y - (guiH - dragged.h) * 0.5f;
+            configDirty = true;
+            potionStatus = dragged;
         }
 
         if (targetHud != null) {
@@ -183,6 +197,7 @@ public class HudEditOverlay {
         keystrokesHoverAlpha += (((keystrokesHovered || dragTarget == DragTarget.KEYSTROKES) ? 1f : 0f) - keystrokesHoverAlpha) * Math.min(1f, dt * 14f);
         blockCountHoverAlpha += (((blockCountHovered || dragTarget == DragTarget.BLOCK_COUNT) ? 1f : 0f) - blockCountHoverAlpha) * Math.min(1f, dt * 14f);
         notificationHoverAlpha += (((notificationHovered || dragTarget == DragTarget.NOTIFICATION) ? 1f : 0f) - notificationHoverAlpha) * Math.min(1f, dt * 14f);
+        potionStatusHoverAlpha += (((potionStatusHovered || dragTarget == DragTarget.POTION_STATUS) ? 1f : 0f) - potionStatusHoverAlpha) * Math.min(1f, dt * 14f);
         gridAlpha += (((dragTarget != DragTarget.NONE) ? 1f : 0f) - gridAlpha) * Math.min(1f, dt * 12f);
         snapXAlpha += (((snapXLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapXAlpha) * Math.min(1f, dt * 18f);
         snapYAlpha += (((snapYLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapYAlpha) * Math.min(1f, dt * 18f);
@@ -212,6 +227,9 @@ public class HudEditOverlay {
         if (blockCount != null) {
             drawOutline(canvas, blockCount.x, blockCount.y, blockCount.w, blockCount.h, "Block Count", blockCountHoverAlpha, progress);
         }
+        if (potionStatus != null) {
+            drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
+        }
         drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
     }
 
@@ -225,6 +243,7 @@ public class HudEditOverlay {
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
         RectState blockCount = Config.blockCountDisplay ? getBlockCountRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
+        RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
 
         float mx = (float) mouseX;
         float my = (float) mouseY;
@@ -232,6 +251,11 @@ public class HudEditOverlay {
 
         if (contains(notification, mx, my, 4f)) {
             Config.notificationScale = clampScale(Config.notificationScale + delta);
+            Config.save();
+            return true;
+        }
+        if (potionStatus != null && contains(potionStatus, mx, my, 4f)) {
+            Config.potionStatusScale = clampScale(Config.potionStatusScale + delta);
             Config.save();
             return true;
         }
@@ -339,6 +363,13 @@ public class HudEditOverlay {
 
     private RectState getBlockCountRect(int guiW, int guiH) {
         BlockCountDisplayRenderer renderer = BlockCountDisplayRenderer.getInstance();
+        float w = renderer.getEditWidth();
+        float h = renderer.getEditHeight();
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);
+    }
+
+    private RectState getPotionStatusRect(int guiW, int guiH) {
+        PotionStatusRenderer renderer = PotionStatusRenderer.getInstance();
         float w = renderer.getEditWidth();
         float h = renderer.getEditHeight();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);

@@ -32,6 +32,8 @@ public class ResetManager {
         Config.fishingRodAssist = false;
         Config.fishingRodAssistUseDelay = 4;
         Config.blockCountDisplay = false;
+        Config.armorHud = false;
+        Config.potionStatus = false;
         Config.autoChestDeposit = false;
         Config.autoChestDepositResourcesOnly = true;
         Config.autoChestDepositDepositDelay = 4;
@@ -56,6 +58,9 @@ public class ResetManager {
         Config.notificationX = Float.NaN;
         Config.notificationY = Float.NaN;
         Config.notificationScale = 1.0f;
+        Config.potionStatusX = 0f;
+        Config.potionStatusY = 0f;
+        Config.potionStatusScale = 1.0f;
         Config.disableImeInGame = false;
         Config.hideSignText = false;
         Config.hideEnchantTableBook = false;
