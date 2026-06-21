@@ -59,6 +59,27 @@ public final class AntiCheat {
                             "liquidbounce.net",
                             "@ccbluex/liquidbounce-script-api"
                     )
+            ),
+            new ClientSignature(
+                    "Wurst",
+                    List.of("wurst"),
+                    List.of(
+                            "net.wurstclient.WurstInitializer",
+                            "net.wurstclient.WurstClient",
+                            "net.wurstclient.WurstMixinPlugin"
+                    ),
+                    List.of(
+                            "wurst.mixins.json",
+                            "wurst.accesswidener",
+                            "assets/wurst/icon.png"
+                    ),
+                    List.of(
+                            "net.wurstclient",
+                            "assets/wurst",
+                            "wurstclient.net",
+                            "wurst.wiki",
+                            "wurstforum.net"
+                    )
             )
     );
 
