@@ -95,7 +95,7 @@ public final class AntiCheat {
         System.err.println("[PVPUtils] Matched client: " + result.clientName);
         System.err.println("If you have to cheat at a game like this, you must be a total fucking loser in real life too.");
 
-        throw new IllegalStateException("PVPUtils aborted startup due to incompatible client signatures: " + result.clientName);
+        throw new IllegalStateException("Detected third-party cheat client " + result.clientName + "; client startup has been refused.");
     }
 
     private static DetectionResult scan() {
