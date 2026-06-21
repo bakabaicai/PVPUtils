@@ -119,12 +119,17 @@ public class SettingsScreen extends Screen {
                     Config.dynamicMotionBlur = false;
                     Config.dynamicMotionBlurStrength = 1.0f;
                     Config.dynamicMotionBlurRefreshRateScaling = true;
+                    Config.armorHud = false;
+                    Config.potionStatus = false;
                     Config.blockCountDisplayX = 0f;
                     Config.blockCountDisplayY = 0f;
                     Config.blockCountDisplayScale = 1.0f;
                     Config.notificationX = Float.NaN;
                     Config.notificationY = Float.NaN;
                     Config.notificationScale = 1.0f;
+                    Config.potionStatusX = 0f;
+                    Config.potionStatusY = 0f;
+                    Config.potionStatusScale = 1.0f;
                     Config.hideSignText = false;
                     Config.hideEnchantTableBook = false;
                     Config.hideFireOverlay = false;
@@ -302,6 +307,24 @@ public class SettingsScreen extends Screen {
                 (button) -> {
                     Config.fallDamagePredict = !Config.fallDamagePredict;
                     button.setMessage(Component.literal(getToggleText(cn ? "摔落伤害预测" : "Fall Damage Predict", Config.fallDamagePredict, cn)));
+                    Config.save();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 25;
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "盔甲 HUD" : "Armor HUD", Config.armorHud, cn)),
+                (button) -> {
+                    Config.armorHud = !Config.armorHud;
+                    button.setMessage(Component.literal(getToggleText(cn ? "盔甲 HUD" : "Armor HUD", Config.armorHud, cn)));
+                    Config.save();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
+        currentY += 25;
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "药水状态" : "Potion Status", Config.potionStatus, cn)),
+                (button) -> {
+                    Config.potionStatus = !Config.potionStatus;
+                    button.setMessage(Component.literal(getToggleText(cn ? "药水状态" : "Potion Status", Config.potionStatus, cn)));
                     Config.save();
                 }).bounds(centerX - 75, currentY, 150, 20).build());
 

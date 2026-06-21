@@ -27,6 +27,8 @@ public class Config {
     public static boolean autoSprint = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
+    public static boolean armorHud = false;
+    public static boolean potionStatus = false;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
     public static boolean keystrokes = false;
@@ -74,6 +76,9 @@ public class Config {
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
     public static float notificationScale = 1.0f;
+    public static float potionStatusX = 0f;
+    public static float potionStatusY = 0f;
+    public static float potionStatusScale = 1.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -123,6 +128,8 @@ public class Config {
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
+            armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
+            potionStatus = Boolean.parseBoolean(prop.getProperty("potionStatus", "false"));
             autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
             autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
             keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
@@ -175,6 +182,9 @@ public class Config {
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
+            potionStatusX = Float.parseFloat(prop.getProperty("potionStatusX", "0"));
+            potionStatusY = Float.parseFloat(prop.getProperty("potionStatusY", "0"));
+            potionStatusScale = Float.parseFloat(prop.getProperty("potionStatusScale", "1.0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
             fishingRodAssistUseDelay = Integer.parseInt(prop.getProperty("fishingRodAssistUseDelay", "0"));
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
@@ -207,6 +217,8 @@ public class Config {
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
+            prop.setProperty("armorHud", String.valueOf(armorHud));
+            prop.setProperty("potionStatus", String.valueOf(potionStatus));
             prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
             prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
             prop.setProperty("keystrokes", String.valueOf(keystrokes));
@@ -259,6 +271,9 @@ public class Config {
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("notificationScale", String.valueOf(notificationScale));
+            prop.setProperty("potionStatusX", String.valueOf(potionStatusX));
+            prop.setProperty("potionStatusY", String.valueOf(potionStatusY));
+            prop.setProperty("potionStatusScale", String.valueOf(potionStatusScale));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
             prop.setProperty("fishingRodAssistUseDelay", String.valueOf(fishingRodAssistUseDelay));
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));

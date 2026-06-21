@@ -4,6 +4,8 @@ import com.pvp_utils.client.modules.impl.Tool.TitleDetector;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
+import com.pvp_utils.client.modules.impl.Render.ArmorHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
 import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
@@ -57,6 +59,8 @@ public class GuiMixin {
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
         KeystrokesRenderer.getInstance().render(guiGraphics);
+        ArmorHudRenderer.getInstance().render(guiGraphics);
+        PotionStatusRenderer.getInstance().render(guiGraphics);
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {
