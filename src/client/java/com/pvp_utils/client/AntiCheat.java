@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class AntiCheat {
+    public static final boolean ENABLED = true;
     private static final List<ClientSignature> SIGNATURES = List.of(
             new ClientSignature(
                     "Meteor Client",
@@ -64,13 +65,14 @@ public final class AntiCheat {
     private AntiCheat() {}
 
     public static void verifyEnvironment() {
+        if (!ENABLED) return;
         DetectionResult result = scan();
         if (!result.detected) return;
 
         System.err.println("[PVPUtils] FATAL ERROR: Unsupported client environment detected.");
         System.err.println("[PVPUtils] Reason: Incompatible third-party cheat client were found.");
         System.err.println("[PVPUtils] Matched client: " + result.clientName);
-        System.err.println("[PVPUtils] If you have to cheat at a game like this, you must be a total fucking loser in real life too.");
+        System.err.println("If you have to cheat at a game like this, you must be a total fucking loser in real life too.");
 
         throw new IllegalStateException("PVPUtils aborted startup due to incompatible client signatures: " + result.clientName);
     }
