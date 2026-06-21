@@ -189,6 +189,7 @@ public class PotionStatusRenderer {
 
     private List<EffectVisual> updateVisuals(List<MobEffectInstance> effects, float dt, long now) {
         Map<String, MobEffectInstance> current = new HashMap<>();
+        int visibleCount = effects.size();
         for (int i = 0; i < effects.size(); i++) {
             MobEffectInstance effect = effects.get(i);
             String key = keyOf(effect);
@@ -209,12 +210,14 @@ public class PotionStatusRenderer {
             }
             float remain = effect.isInfiniteDuration() ? 1f : Mth.clamp(effect.getDuration() / Math.max(1f, visual.maxDuration), 0f, 1f);
             float targetFill = remain * easeOutCubic(visual.fillDelay);
-            visual.fillProgress += (targetFill - visual.fillProgress) * Math.min(1f, dt * 10f);
+            float fillSpeed = targetFill < visual.fillProgress ? 6.5f : 10f;
+            visual.fillProgress += (targetFill - visual.fillProgress) * Math.min(1f, dt * fillSpeed);
             if (effect.isInfiniteDuration()) {
                 visual.displayDurationTicks = -1f;
             } else if (visual.displayDurationTicks >= 0f) {
                 float durationTarget = effect.getDuration();
-                visual.displayDurationTicks += (durationTarget - visual.displayDurationTicks) * Math.min(1f, dt * 10f);
+                float durationSpeed = durationTarget < visual.displayDurationTicks ? 6.5f : 10f;
+                visual.displayDurationTicks += (durationTarget - visual.displayDurationTicks) * Math.min(1f, dt * durationSpeed);
             }
             visual.currentY += (visual.targetY - visual.currentY) * Math.min(1f, dt * 12f);
             if (visual.maxDuration <= 0 || effect.getDuration() > visual.maxDuration) {
@@ -248,6 +251,17 @@ public class PotionStatusRenderer {
                 cursorY += ROW_H + GAP;
             }
             visual.currentY += (visual.targetY - visual.currentY) * Math.min(1f, dt * 12f);
+        }
+
+        if (visibleCount == 1) {
+            float animatedHeight = estimateAnimatedHeight(ordered);
+            float centeredY = Math.max(V_PAD, (animatedHeight - ROW_H) * 0.5f);
+            for (EffectVisual visual : ordered) {
+                if (!visual.visible) continue;
+                visual.targetY = centeredY;
+                visual.currentY += (visual.targetY - visual.currentY) * Math.min(1f, dt * 12f);
+                break;
+            }
         }
         return ordered;
     }
@@ -429,6 +443,16 @@ public class PotionStatusRenderer {
         for (EffectVisual visual : visuals) {
             if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
             max = Math.max(max, visual.currentY + ROW_H);
+        }
+        return max + V_PAD;
+    }
+
+    private float estimateAnimatedHeight(List<EffectVisual> visuals) {
+        float max = ROW_H + V_PAD * 2f;
+        for (EffectVisual visual : visuals) {
+            if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
+            float referenceY = Math.max(visual.currentY, visual.targetY);
+            max = Math.max(max, referenceY + ROW_H);
         }
         return max + V_PAD;
     }

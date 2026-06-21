@@ -2,6 +2,7 @@ package com.pvp_utils;
 
 import com.pvp_utils.client.KeyBindings;
 import com.pvp_utils.client.KeyInputHandler;
+import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
@@ -30,6 +31,7 @@ public class PVPUtilsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Config.load();
+        AntiCheat.verifyEnvironment();
         VictorySound.init();
         MainUIBackgrounds.init();
         TermsManager.ensure();
