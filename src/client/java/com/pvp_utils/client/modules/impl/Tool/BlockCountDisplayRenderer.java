@@ -32,9 +32,16 @@ public class BlockCountDisplayRenderer {
     private static final float HEIGHT = 58f;
     private static final float PURPLE = 0xFF8F5CFF;
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display");
+    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display_overlay");
+    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     private final RateCounter rightClicks = new RateCounter();
     private final RateCounter placements = new RateCounter();
+    private final Paint bgPaint = new Paint().setAntiAlias(true);
+    private final Paint ringFillPaint = new Paint().setAntiAlias(true);
+    private final Paint ringTrackPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
+    private final Paint ringArcPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
+
     private Surface surface;
     private Surface overlaySurface;
     private DynamicTexture dynamicTexture;
@@ -58,26 +65,9 @@ public class BlockCountDisplayRenderer {
     private int lastSlot = -1;
     private int lastCount = -1;
     private ItemStack displayStack = ItemStack.EMPTY;
-    private final Paint bgPaint = new Paint();
-    private final Paint ringFillPaint = new Paint();
-    private final Paint ringTrackPaint = new Paint();
-    private final Paint ringArcPaint = new Paint();
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display_overlay");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     public static BlockCountDisplayRenderer getInstance() {
         return INSTANCE;
-    }
-
-    private BlockCountDisplayRenderer() {
-        bgPaint.setAntiAlias(true);
-        ringFillPaint.setAntiAlias(true);
-        ringTrackPaint.setAntiAlias(true);
-        ringTrackPaint.setMode(PaintMode.STROKE);
-        ringTrackPaint.setStrokeWidth(4f);
-        ringArcPaint.setAntiAlias(true);
-        ringArcPaint.setMode(PaintMode.STROKE);
-        ringArcPaint.setStrokeWidth(4f);
     }
 
     public boolean needsCanvas() {
@@ -239,7 +229,6 @@ public class BlockCountDisplayRenderer {
 
         float ringCx = x + (WIDTH - 32f) * userScale;
         float ringCy = y + HEIGHT * 0.5f * userScale;
-        float radius = 19f;
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         ringProgress += (ratio - ringProgress) * 0.18f;
 
@@ -261,7 +250,12 @@ public class BlockCountDisplayRenderer {
         graphics.pose().translate(-ringCx, -ringCy);
         graphics.renderFakeItem(displayStack, itemX, itemY);
         graphics.renderItemDecorations(client.font, displayStack, itemX, itemY);
+        graphics.renderDeferredElements();
         graphics.pose().popMatrix();
+    }
+
+    public void renderFrameEnd() {
+        // Kept for the shared frame-end hook. BlockCount renders through GuiGraphics to keep item layering correct.
     }
 
     private void updateScale(long now) {
@@ -351,10 +345,8 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(textureScale, textureScale);
-
         bgPaint.setColor(0xF2FFFFFF);
         c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
-
         FontRenderer.drawText(c, name, 16f, 22f, 12f, 0xFF202027);
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
@@ -385,7 +377,6 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-
         FontRenderer.drawText(c, speed, 16f, 40f, 11f, 0xFF5C5870);
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
@@ -396,7 +387,6 @@ public class BlockCountDisplayRenderer {
         c.drawCircle(ringCx, ringCy, radius, ringTrackPaint);
         ringArcPaint.setColor((int) PURPLE);
         c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, ringArcPaint);
-
         c.restore();
         uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
         lastTextureSpeed = speed;
@@ -411,17 +401,17 @@ public class BlockCountDisplayRenderer {
 
     private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
         Pixmap pixmap = new Pixmap();
-        if (!sourceSurface.peekPixels(pixmap)) {
+        try {
+            if (!sourceSurface.peekPixels(pixmap)) return;
+            long addr = pixmap.getAddr();
+            int byteSize = height * pixmap.getRowBytes();
+            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
+            GpuTexture gpuTexture = targetTexture.getTexture();
+            RenderSystem.getDevice().createCommandEncoder()
+                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+        } finally {
             pixmap.close();
-            return;
         }
-        long addr = pixmap.getAddr();
-        int byteSize = height * pixmap.getRowBytes();
-        ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-        GpuTexture gpuTexture = targetTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        pixmap.close();
     }
 
     private void destroyBaseTexture(Minecraft client) {

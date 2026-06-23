@@ -29,6 +29,8 @@ public class SkiaRenderer {
     private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private static final long FRAME_IDLE_TIMEOUT_MS = 10000L;
     private static final long REGION_IDLE_TIMEOUT_MS = 5000L;
+    private static final SkiaGlBackend GL_BACKEND = new SkiaGlBackend();
+    private static final boolean USE_GL_BACKEND_FOR_FRAME = false;
 
     private static Surface surface;
     private static Surface regionSurface;
@@ -65,6 +67,11 @@ public class SkiaRenderer {
     }
 
     public static Canvas begin() {
+        if (USE_GL_BACKEND_FOR_FRAME) {
+            ensureNativeLoaded();
+            drawing = true;
+            return GL_BACKEND.begin();
+        }
         if (drawing) return surface != null ? surface.getCanvas() : null;
         ensureNativeLoaded();
         pruneIdleSurfaces();
@@ -142,6 +149,14 @@ public class SkiaRenderer {
     }
 
     public static void end(GuiGraphics graphics, int guiWidth, int guiHeight) {
+        if (USE_GL_BACKEND_FOR_FRAME) {
+            try {
+                GL_BACKEND.end();
+            } finally {
+                drawing = false;
+            }
+            return;
+        }
         if (!drawing || surface == null || dynamicTexture == null) return;
         drawing = false;
         try {
@@ -174,6 +189,7 @@ public class SkiaRenderer {
     }
 
     public static void drawCached(GuiGraphics graphics, int guiWidth, int guiHeight) {
+        if (USE_GL_BACKEND_FOR_FRAME) return;
         pruneIdleSurfaces();
         if (dynamicTexture == null) return;
         graphics.blit(TEXTURE_ID, 0, 0, guiWidth, guiHeight, 0f, 1f, 0f, 1f);
@@ -188,11 +204,16 @@ public class SkiaRenderer {
     }
 
     public static boolean isDrawing() {
-        return drawing;
+        return drawing || GL_BACKEND.isDrawing();
     }
 
     public static boolean hasFrameCache() {
+        if (USE_GL_BACKEND_FOR_FRAME) return GL_BACKEND.hasSurface();
         return surface != null && dynamicTexture != null;
+    }
+
+    public static boolean supportsFrameCache() {
+        return !USE_GL_BACKEND_FOR_FRAME;
     }
 
     public static boolean hasRegionCache() {
@@ -268,6 +289,7 @@ public class SkiaRenderer {
     }
 
     public static void destroy() {
+        GL_BACKEND.destroy();
         destroySurface();
         destroyRegionSurface();
         lastPixelW = -1;
@@ -287,6 +309,7 @@ public class SkiaRenderer {
     public static void resetFrameState() {
         drawing = false;
         regionDrawing = false;
+        GL_BACKEND.resetCanvasState();
         if (surface != null) {
             Canvas canvas = surface.getCanvas();
             canvas.restoreToCount(1);

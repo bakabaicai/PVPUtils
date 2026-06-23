@@ -1,37 +1,28 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
+import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
-import io.github.humbleui.skija.PixelGeometry;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
-import io.github.humbleui.skija.SurfaceProps;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
+import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -52,10 +43,6 @@ public class PotionStatusRenderer {
     private static final float ITEM_RADIUS = 8f;
     private static final int MAX_EFFECTS = 64;
     private static final long HIDE_DELAY_MS = 260L;
-    private static final long SIGNATURE_TIME_STEP_TICKS = 5L;
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "potion_status");
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "potion_status_overlay");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint itemPaint = new Paint().setAntiAlias(true);
@@ -63,19 +50,17 @@ public class PotionStatusRenderer {
     private final Paint itemOverlayPaint = new Paint().setAntiAlias(true);
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1f);
     private final Map<String, EffectVisual> visuals = new HashMap<>();
-    private Surface surface;
-    private Surface overlaySurface;
-    private DynamicTexture dynamicTexture;
-    private DynamicTexture overlayTexture;
+    private final Map<String, Image> iconCache = new HashMap<>();
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
-    private int textureW = -1;
-    private int textureH = -1;
-    private int overlayTextureW = -1;
-    private int overlayTextureH = -1;
-    private float textureScale = -1f;
-    private String lastBaseSignature = "";
-    private String lastOverlaySignature = "";
     private long lastFrameMs = 0L;
+    private List<EffectVisual> pendingVisuals = List.of();
+    private boolean pendingFrame = false;
+    private float pendingX = 0f;
+    private float pendingY = 0f;
+    private float pendingScale = 1f;
+    private float pendingBgProgress = 0f;
+    private float pendingBaseH = 0f;
 
     public static PotionStatusRenderer getInstance() {
         return INSTANCE;
@@ -87,9 +72,13 @@ public class PotionStatusRenderer {
             destroyTexture(client);
             visuals.clear();
             lastFrameMs = 0L;
+            clearPendingFrame();
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen) return;
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen) {
+            clearPendingFrame();
+            return;
+        }
 
         List<MobEffectInstance> effects = HudEditOverlay.getInstance().isActive() ? previewEffects() : visibleEffects(client);
         long now = System.currentTimeMillis();
@@ -98,6 +87,7 @@ public class PotionStatusRenderer {
         List<EffectVisual> renderVisuals = updateVisuals(effects, dt, now);
         if (renderVisuals.isEmpty()) {
             destroyTexture(client);
+            clearPendingFrame();
             return;
         }
 
@@ -111,20 +101,24 @@ public class PotionStatusRenderer {
         float x = getRenderX(screenW, WIDTH * scale);
         float y = getRenderY(screenH, Math.max(h, ROW_H * scale));
 
-        if (!renderTexture(client, renderVisuals, scale, bgProgress, baseH)) return;
-        float easedBg = easeOutCubic(bgProgress);
-        float drawW = WIDTH * scale * easedBg;
-        float drawH = baseH * scale * easedBg;
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y);
-        graphics.pose().scale(easedBg, easedBg);
-        graphics.pose().translate(-x, -y);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f,
-                Math.round(WIDTH * scale), Math.round(baseH * scale), textureW, textureH, textureW, textureH);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f,
-                Math.round(WIDTH * scale), Math.round(baseH * scale), overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
-        renderIcons(graphics, client, renderVisuals, x, y, scale, easedBg);
-        graphics.pose().popMatrix();
+        pendingVisuals = List.copyOf(renderVisuals);
+        pendingFrame = true;
+        pendingX = x;
+        pendingY = y;
+        pendingScale = scale;
+        pendingBgProgress = bgProgress;
+        pendingBaseH = baseH;
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingFrame) return;
+        Minecraft client = Minecraft.getInstance();
+        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkiaScreen) {
+            clearPendingFrame();
+            return;
+        }
+        renderGl(client, pendingVisuals, pendingX, pendingY, pendingScale, pendingBgProgress, pendingBaseH);
+        clearPendingFrame();
     }
 
     public float getEditWidth() {
@@ -266,65 +260,33 @@ public class PotionStatusRenderer {
         return ordered;
     }
 
-    private boolean renderTexture(Minecraft client, List<EffectVisual> visuals, float userScale, float bgProgress, float baseH) {
+    private void renderGl(Minecraft client, List<EffectVisual> visuals, float x, float y, float userScale, float bgProgress, float baseH) {
         ensureNativeLoaded();
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
-        int targetW = Math.max(1, Math.round(WIDTH * targetScale));
-        int targetH = Math.max(1, Math.round(baseH * targetScale));
-        boolean animating = isAnimating(visuals, bgProgress);
-        String baseSignature = targetW + "x" + targetH + "@" + Float.floatToIntBits(targetScale) + ":" + Math.round(bgProgress * 100f);
-        String overlaySignature = makeSignature(visuals, targetW, targetH, targetScale, bgProgress);
-        if (!animating && dynamicTexture != null && overlayTexture != null && targetW == textureW && targetH == textureH && overlaySignature.equals(lastOverlaySignature)) return true;
-
-        if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyBaseTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:potion_status", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            textureW = targetW;
-            textureH = targetH;
-            textureScale = targetScale;
-            lastBaseSignature = "";
-        }
-
-        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
-            destroyOverlayTexture(client);
-            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            overlayTexture = new DynamicTexture("pvp_utils:potion_status_overlay", targetW, targetH, false);
-            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
-            overlayTextureW = targetW;
-            overlayTextureH = targetH;
-            lastOverlaySignature = "";
-        }
-
-        if (!baseSignature.equals(lastBaseSignature)) {
-            Canvas canvas = surface.getCanvas();
-            canvas.restoreToCount(1);
-            canvas.resetMatrix();
-            canvas.clear(0x00000000);
+        Canvas canvas = glBackend.begin(mainFramebufferId(client));
+        if (canvas == null) return;
+        try {
+            float easedBg = easeOutCubic(bgProgress);
             canvas.save();
-            canvas.scale(textureScale, textureScale);
+            canvas.translate(x, y);
+            canvas.scale(userScale * easedBg, userScale * easedBg);
             drawBackground(canvas, baseH, bgProgress);
+            for (EffectVisual visual : visuals) {
+                if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
+                drawEffect(canvas, visual);
+            }
+            drawIcons(client, canvas, visuals);
             canvas.restore();
-            if (!uploadSurface(surface, dynamicTexture, textureW, textureH)) return false;
-            lastBaseSignature = baseSignature;
+        } finally {
+            glBackend.end();
         }
+    }
 
-        Canvas overlayCanvas = overlaySurface.getCanvas();
-        overlayCanvas.restoreToCount(1);
-        overlayCanvas.resetMatrix();
-        overlayCanvas.clear(0x00000000);
-        overlayCanvas.save();
-        overlayCanvas.scale(textureScale, textureScale);
-        for (EffectVisual visual : visuals) {
-            if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
-            drawEffect(overlayCanvas, visual);
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-        overlayCanvas.restore();
-
-        if (!uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH)) return false;
-        lastOverlaySignature = overlaySignature;
-        return true;
+        return 0;
     }
 
     private void drawBackground(Canvas canvas, float baseH, float bgProgress) {
@@ -373,39 +335,44 @@ public class PotionStatusRenderer {
         }
     }
 
-    private void renderIcons(GuiGraphics graphics, Minecraft client, List<EffectVisual> visuals, float baseX, float baseY, float scale, float bgProgress) {
-        if (bgProgress <= 0.01f) return;
+    private void drawIcons(Minecraft client, Canvas canvas, List<EffectVisual> visuals) {
         for (EffectVisual visual : visuals) {
             if (visual.slide <= 0.01f || visual.rowAlpha <= 0.01f || visual.effect == null) continue;
             float slide = easeOutCubic(visual.slide);
-            float drawX = baseX + (PAD + (1f - slide) * -24f + 5f) * scale;
-            float drawY = baseY + (visual.currentY + 5f) * scale;
+            float drawX = PAD + (1f - slide) * -24f + 5f;
+            float drawY = visual.currentY + 5f;
             try {
-                Identifier texture = Identifier.fromNamespaceAndPath("minecraft", "textures/mob_effect/" + effectPath(visual.effect) + ".png");
-                int size = Math.round(ICON * scale);
-                graphics.blit(RenderPipelines.GUI_TEXTURED, texture, Math.round(drawX), Math.round(drawY), 0f, 0f, size, size, 18, 18, 18, 18);
+                Image image = iconImage(client, visual.effect);
+                if (image != null) {
+                    try (Paint iconPaint = new Paint().setAntiAlias(true)) {
+                        Rect src = Rect.makeXYWH(0f, 0f, image.getWidth(), image.getHeight());
+                        Rect dst = Rect.makeXYWH(drawX, drawY, ICON, ICON);
+                        canvas.drawImageRect(image, src, dst, iconPaint, true);
+                    }
+                }
             } catch (Exception ignored) {
             }
         }
     }
 
-    private String makeSignature(List<EffectVisual> visuals, int targetW, int targetH, float targetScale, float bgProgress) {
-        StringBuilder builder = new StringBuilder(160);
-        builder.append(targetW).append('x').append(targetH).append('@').append(Float.floatToIntBits(targetScale)).append(':').append(Math.round(bgProgress * 100f));
-        for (EffectVisual visual : visuals) {
-            MobEffectInstance effect = visual.effect;
-            if (effect == null) continue;
-            builder.append('|').append(effect.getDescriptionId())
-                    .append(':').append(effect.getAmplifier())
-                    .append(':').append((effect.getDuration() / 20) / SIGNATURE_TIME_STEP_TICKS)
-                    .append(':').append(effect.getEffect().value().getColor())
-                    .append(':').append(Math.round(visual.currentY * 6f))
-                    .append(':').append(Math.round(visual.slide * 60f))
-                    .append(':').append(Math.round(visual.rowAlpha * 60f))
-                    .append(':').append(Math.round(visual.fillProgress * 60f))
-                    .append(':').append(Math.round(visual.fillDelay * 60f));
+    private Image iconImage(Minecraft client, MobEffectInstance effect) {
+        String path = "textures/mob_effect/" + effectPath(effect) + ".png";
+        Image cached = iconCache.get(path);
+        if (cached != null) return cached;
+        try {
+            Identifier id = Identifier.fromNamespaceAndPath("minecraft", path);
+            Resource resource = client.getResourceManager().getResource(id).orElse(null);
+            if (resource == null) return null;
+            byte[] bytes;
+            try (var stream = resource.open()) {
+                bytes = stream.readAllBytes();
+            }
+            Image image = Image.makeFromEncoded(bytes);
+            if (image != null) iconCache.put(path, image);
+            return image;
+        } catch (Exception ignored) {
+            return null;
         }
-        return builder.toString();
     }
 
     private String formatDuration(EffectVisual visual) {
@@ -502,95 +469,24 @@ public class PotionStatusRenderer {
         return 1f - t * t * t;
     }
 
-    private boolean isAnimating(List<EffectVisual> visuals, float bgProgress) {
-        if (bgProgress < 0.995f) return true;
-        for (EffectVisual visual : visuals) {
-            if (Math.abs(visual.currentY - visual.targetY) > 0.12f) return true;
-            if (visual.slide < 0.995f || visual.rowAlpha < 0.995f || visual.progress < 0.995f) return true;
-            if (visual.effect != null) {
-                float remain = visual.effect.isInfiniteDuration() ? 1f : Mth.clamp(visual.effect.getDuration() / Math.max(1f, visual.maxDuration), 0f, 1f);
-                float targetFill = remain * easeOutCubic(visual.fillDelay);
-                if (visual.fillDelay < 0.995f || Math.abs(targetFill - visual.fillProgress) > 0.04f) return true;
-            }
-        }
-        return false;
-    }
-
     private void ensureNativeLoaded() {
         if (nativeLoaded) return;
         Library.load();
         nativeLoaded = true;
     }
 
-    private boolean uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) return false;
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-            return true;
-        } finally {
-            pixmap.close();
-        }
-    }
-
     private void destroyTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
+        glBackend.destroy();
+        for (Image image : iconCache.values()) {
+            image.close();
         }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        textureScale = -1f;
-        lastBaseSignature = "";
-        lastOverlaySignature = "";
+        iconCache.clear();
+        clearPendingFrame();
     }
 
-    private void destroyBaseTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        textureScale = -1f;
-        lastBaseSignature = "";
-    }
-
-    private void destroyOverlayTexture(Minecraft client) {
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        lastOverlaySignature = "";
+    private void clearPendingFrame() {
+        pendingVisuals = List.of();
+        pendingFrame = false;
     }
 
     private float clamp(float value, float min, float max) {

@@ -1,12 +1,15 @@
 package com.pvp_utils.client.modules.impl.Render;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.Rect;
@@ -73,6 +76,7 @@ public class TargetHudRenderer {
     private final Paint newHudAbsorbPaint = new Paint();
     private final Paint avatarMaskCoverPaint = new Paint();
     private final Paint avatarMaskHolePaint = new Paint();
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private PlayerSkin cachedPlayerSkin = null;
     private int cachedPlayerSkinEntityId = Integer.MIN_VALUE;
     private final float[] healthCharWidthCache = new float[128];
@@ -81,6 +85,16 @@ public class TargetHudRenderer {
     private long lastDamageTime = 0;
     private long lastHealTime = 0;
     private float lastObservedHealth = -1f;
+    private boolean pendingNewFrame = false;
+    private int pendingNewX = 0;
+    private int pendingNewY = 0;
+    private float pendingNewHudScale = 1f;
+    private float pendingNewDrawScale = 1f;
+    private String pendingNewName = "";
+    private String pendingNewHealthText = "";
+    private float pendingNewHealthRatio = 1f;
+    private float pendingNewAbsorptionRatio = 0f;
+    private long pendingNewNow = 0L;
     private static final long DAMAGE_FLASH_DURATION = 300;
 
     private static final long HIDE_DELAY = 3000;
@@ -194,7 +208,13 @@ public class TargetHudRenderer {
         }
         wasEditActive = editActive;
 
-        if ((!Config.targetHud && !editPreview) || target == null) return;
+        if ((!Config.targetHud && !editPreview) || target == null) {
+            if (!Config.targetHud) {
+                destroyTexture(client);
+                resetNewHudRuntimeState();
+            }
+            return;
+        }
 
         if (!target.isAlive() && now - lastHitTime < HIDE_DELAY) {
             lastHitTime = now - HIDE_DELAY;
@@ -211,7 +231,9 @@ public class TargetHudRenderer {
                 invalidatePlayerSkinCache(target);
                 target = null;
                 resetHealthTextAnimation();
+                resetNewHudRuntimeState();
                 lastObservedHealth = -1f;
+                destroyTexture(client);
             }
             return;
         }
@@ -221,6 +243,7 @@ public class TargetHudRenderer {
             return;
         }
 
+        destroyTexture(client);
         renderLite(graphics, client, alpha, now);
     }
 
@@ -371,8 +394,16 @@ public class TargetHudRenderer {
         float cy = y + scaledH * 0.5f;
         float drawScale = easeOutBack(alpha);
 
-        renderNewBaseTexture(client, name);
-        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now);
+        pendingNewFrame = true;
+        pendingNewX = x;
+        pendingNewY = y;
+        pendingNewHudScale = hudScale;
+        pendingNewDrawScale = drawScale;
+        pendingNewName = name;
+        pendingNewHealthText = currentHealthText;
+        pendingNewHealthRatio = animatedHealthRatio;
+        pendingNewAbsorptionRatio = animatedAbsorptionRatio;
+        pendingNewNow = now;
         renderAvatarMaskTexture(client);
 
         graphics.pose().pushMatrix();
@@ -382,8 +413,6 @@ public class TargetHudRenderer {
         graphics.pose().translate(x, y);
         graphics.pose().scale(hudScale, hudScale);
         graphics.pose().translate(-x, -y);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, textureW, textureH, textureW, textureH);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, x + NEW_OVERLAY_X, y + NEW_OVERLAY_Y, 0f, 0f, NEW_OVERLAY_WIDTH, NEW_OVERLAY_HEIGHT, overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
 
         int avatarX = x + 12;
         int avatarY = y + 10;
@@ -430,6 +459,81 @@ public class TargetHudRenderer {
         graphics.blit(RenderPipelines.GUI_TEXTURED, AVATAR_MASK_TEXTURE_ID, avatarX, avatarY, 0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, avatarMaskW, avatarMaskH, avatarMaskW, avatarMaskH);
         graphics.pose().popMatrix();
         graphics.pose().popMatrix();
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingNewFrame) return;
+        Minecraft client = Minecraft.getInstance();
+        if (!Config.targetHud || Config.targetHudMode != Config.TargetHudMode.NEW || client.options.hideGui) {
+            clearPendingNewFrame();
+            return;
+        }
+        renderNewGl(client);
+        clearPendingNewFrame();
+    }
+
+    private void renderNewGl(Minecraft client) {
+        ensureNativeLoaded();
+        Canvas c = glBackend.begin(mainFramebufferId(client));
+        if (c == null) return;
+        try {
+            float scaledW = NEW_HUD_WIDTH * pendingNewHudScale;
+            float scaledH = NEW_HUD_HEIGHT * pendingNewHudScale;
+            float cx = pendingNewX + scaledW * 0.5f;
+            float cy = pendingNewY + scaledH * 0.5f;
+
+            c.save();
+            c.translate(cx, cy);
+            c.scale(pendingNewDrawScale, pendingNewDrawScale);
+            c.translate(-cx, -cy);
+            c.translate(pendingNewX, pendingNewY);
+            c.scale(pendingNewHudScale, pendingNewHudScale);
+            drawNewHudSkia(c, pendingNewName, pendingNewHealthText, pendingNewHealthRatio, pendingNewAbsorptionRatio, pendingNewNow);
+            c.restore();
+        } finally {
+            glBackend.end();
+        }
+    }
+
+    private void drawNewHudSkia(Canvas c, String name, String healthText, float healthRatio, float absorptionRatio, long now) {
+        newHudBgPaint.setColor(0xFFFFFFFF);
+        c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
+
+        // Keep a white avatar backing but leave the actual face to GuiGraphics.
+        newHudAvatarPaint.setColor(0xFFFFFFFF);
+        c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, 9f), newHudAvatarPaint);
+
+        FontRenderer.drawText(c, name, 60f, 24f, 13f, 0xFF202027);
+        drawAnimatedHealthText(c, healthText, now);
+
+        float barX = 60f;
+        float barY = 45f;
+        float barW = 112f;
+        float barH = 7f;
+        newHudTrackPaint.setColor(0x2D000000);
+        c.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), newHudTrackPaint);
+        float fillW = Math.max(barH, barW * Mth.clamp(healthRatio, 0f, 1f));
+        newHudFillPaint.setColor(0xFF000000 | (getHealthColor(Mth.clamp(healthRatio, 0f, 1f)) & 0xFFFFFF));
+        c.drawRRect(RRect.makeXYWH(barX, barY, fillW, barH, barH * 0.5f), newHudFillPaint);
+        if (absorptionRatio > 0.01f) {
+            float absorbW = Math.min(barW, barW * Mth.clamp(absorptionRatio, 0f, 1f));
+            newHudAbsorbPaint.setColor(0xFFF5B83D);
+            c.drawRRect(RRect.makeXYWH(barX + barW - absorbW, barY, absorbW, barH, barH * 0.5f), newHudAbsorbPaint);
+        }
+    }
+
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
+        }
+        return 0;
+    }
+
+    private void clearPendingNewFrame() {
+        pendingNewFrame = false;
+        pendingNewName = "";
+        pendingNewHealthText = "";
     }
 
     private void renderNewBaseTexture(Minecraft client, String name) {
@@ -577,6 +681,17 @@ public class TargetHudRenderer {
         lastHealthTextValue = -1f;
     }
 
+    private void resetNewHudRuntimeState() {
+        lastRenderTime = 0L;
+        animatedHealthRatio = 1f;
+        animatedAbsorptionRatio = 0f;
+        lastTextureName = "";
+        lastTextureHealthText = "";
+        lastTextureHealth = -1;
+        lastTextureAbsorption = -1;
+        lastTextureHealthTextAnim = -1;
+    }
+
     private void updateHealthTransition(float currentHealth, long now) {
         if (lastObservedHealth < 0f) {
             lastObservedHealth = currentHealth;
@@ -668,17 +783,19 @@ public class TargetHudRenderer {
 
     private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
         Pixmap pixmap = new Pixmap();
-        if (!sourceSurface.peekPixels(pixmap)) {
+        try {
+            if (!sourceSurface.peekPixels(pixmap)) {
+                return;
+            }
+            long addr = pixmap.getAddr();
+            int byteSize = height * pixmap.getRowBytes();
+            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
+            GpuTexture gpuTexture = targetTexture.getTexture();
+            RenderSystem.getDevice().createCommandEncoder()
+                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+        } finally {
             pixmap.close();
-            return;
         }
-        long addr = pixmap.getAddr();
-        int byteSize = height * pixmap.getRowBytes();
-        ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-        GpuTexture gpuTexture = targetTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        pixmap.close();
     }
 
     private void destroyBaseTexture(Minecraft client) {
@@ -713,6 +830,8 @@ public class TargetHudRenderer {
     }
 
     private void destroyTexture(Minecraft client) {
+        glBackend.destroy();
+        clearPendingNewFrame();
         destroyBaseTexture(client);
         destroyOverlayTexture(client);
         if (avatarMaskSurface != null) {

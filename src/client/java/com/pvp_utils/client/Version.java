@@ -14,7 +14,7 @@ public final class Version {
     public static final int REVISION = 2;
 
     //显示debug功能，正式版记得关闭
-    public static final boolean DEBUG = true;
+    public static final boolean DEBUG = false;
 
     private Version() {}
 }

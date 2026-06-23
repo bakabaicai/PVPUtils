@@ -35,6 +35,7 @@ public abstract class SkiaScreen extends Screen {
 
     protected boolean shouldRedraw() {
         return redrawRequested
+                || !SkiaRenderer.supportsFrameCache()
                 || needsContinuousRedraw()
                 || this.width != lastFrameWidth
                 || this.height != lastFrameHeight

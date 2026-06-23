@@ -1,10 +1,11 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
@@ -13,12 +14,6 @@ import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.ByteBuffer;
 
 public class KeystrokesRenderer {
     private static final KeystrokesRenderer INSTANCE = new KeystrokesRenderer();
@@ -37,9 +32,6 @@ public class KeystrokesRenderer {
     private static final int LITE_ACTIVE_TEXT_COLOR = 0xFF111111;
     private static final int TOTAL_W = KEY_SIZE * 3 + GAP * 2;
     private static final int TOTAL_H = KEY_SIZE * 4 + GAP * 3;
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_display");
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_display_overlay");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private final RateCounter leftClicks = new RateCounter();
     private final RateCounter rightClicks = new RateCounter();
     private final KeyVisual wKey = new KeyVisual();
@@ -54,19 +46,15 @@ public class KeystrokesRenderer {
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ripplePaint = new Paint().setAntiAlias(true);
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE);
-    private Surface surface;
-    private Surface overlaySurface;
-    private DynamicTexture dynamicTexture;
-    private DynamicTexture overlayTexture;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
-    private int textureW = -1;
-    private int textureH = -1;
-    private int overlayTextureW = -1;
-    private int overlayTextureH = -1;
-    private float textureScale = -1f;
-    private String lastBaseSignature = "";
-    private int lastOverlayKey = 0;
     private long lastFrameMs = 0L;
+    private boolean pendingFrame = false;
+    private int pendingX = 0;
+    private int pendingY = 0;
+    private float pendingScale = 1f;
+    private int pendingLeftCps = 0;
+    private int pendingRightCps = 0;
     private final float keyLabelW = FontRenderer.measureTextWidth("W", 11f);
     private final float aLabelW = FontRenderer.measureTextWidth("A", 11f);
     private final float sLabelW = FontRenderer.measureTextWidth("S", 11f);
@@ -105,13 +93,13 @@ public class KeystrokesRenderer {
         int rightCps = rightClicks.updatePressed(rightDown);
 
         if (Config.keystrokesMode == Config.KeystrokesMode.LITE) {
-            if (dynamicTexture != null) destroyTexture(client);
+            destroyTexture(client);
             lastFrameMs = 0L;
             renderLite(graphics, client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
             return;
         }
 
-        renderNew(graphics, client, x, y, scale, scaledW, scaledH, leftCps, rightCps, leftDown, rightDown);
+        renderNew(client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
     }
 
     public boolean needsCanvas() {
@@ -142,7 +130,7 @@ public class KeystrokesRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int scaledW, int scaledH, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
+    private void renderNew(Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
 
         long now = System.currentTimeMillis();
         float dt = lastFrameMs == 0L ? 0.016f : Math.min((now - lastFrameMs) / 1000f, 0.05f);
@@ -164,13 +152,23 @@ public class KeystrokesRenderer {
         spaceKey.update(jumpDown, dt);
         shiftKey.update(shiftDown, dt);
 
-        if (!renderTexture(client, scale, leftCps, rightCps)) {
-            drawFallback(graphics, client, x, y, scale, leftCps, rightCps, leftDown, rightDown, upDown, keyLeftDown, downDown, keyRightDown, jumpDown, shiftDown);
+        pendingFrame = true;
+        pendingX = x;
+        pendingY = y;
+        pendingScale = scale;
+        pendingLeftCps = leftCps;
+        pendingRightCps = rightCps;
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingFrame) return;
+        Minecraft client = Minecraft.getInstance();
+        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen) {
+            clearPendingFrame();
             return;
         }
-
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, scaledW, scaledH, textureW, textureH, textureW, textureH);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, x, y, 0f, 0f, scaledW, scaledH, overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
+        renderGl(client, pendingX, pendingY, pendingScale, pendingLeftCps, pendingRightCps);
+        clearPendingFrame();
     }
 
     private void drawLiteKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
@@ -205,105 +203,49 @@ public class KeystrokesRenderer {
         graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
-    private boolean renderTexture(Minecraft client, float scale, int leftCps, int rightCps) {
+    private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
         ensureNativeLoaded();
-        float targetScale = (float) client.getWindow().getGuiScale() * scale;
-        int targetW = Math.max(1, Math.round(TOTAL_W * targetScale));
-        int targetH = Math.max(1, Math.round(TOTAL_H * targetScale));
-        int overlayKey = makeTextureKey(leftCps, rightCps);
-        boolean overlayAnimating = isOverlayAnimating();
-        String baseSignature = targetW + "x" + targetH + "@" + Float.floatToIntBits(targetScale);
-
-        if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyBaseTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:keystrokes_display", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            textureW = targetW;
-            textureH = targetH;
-            textureScale = targetScale;
-            lastBaseSignature = "";
-        }
-
-        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
-            destroyOverlayTexture(client);
-            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            overlayTexture = new DynamicTexture("pvp_utils:keystrokes_display_overlay", targetW, targetH, false);
-            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
-            overlayTextureW = targetW;
-            overlayTextureH = targetH;
-            lastOverlayKey = 0;
-        }
-
-        if (!baseSignature.equals(lastBaseSignature)) {
-            Canvas canvas = surface.getCanvas();
-            canvas.restoreToCount(1);
-            canvas.resetMatrix();
-            canvas.clear(0x00000000);
+        Canvas canvas = glBackend.begin(mainFramebufferId(client));
+        if (canvas == null) return;
+        try {
             canvas.save();
-            canvas.scale(textureScale, textureScale);
-            drawStaticKey(canvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE);
-            drawStaticKey(canvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
-            drawStaticKey(canvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
-            drawStaticKey(canvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE);
-
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
             int mouseY = (KEY_SIZE + GAP) * 2;
             int leftMouseW = (TOTAL_W - GAP) / 2;
             int rightMouseW = TOTAL_W - GAP - leftMouseW;
-            drawStaticMouseKey(canvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, KEY_SIZE);
-            drawStaticMouseKey(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE);
 
             int bottomY = (KEY_SIZE + GAP) * 3;
-            drawStaticKey(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE);
-            drawStaticKey(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE);
+            drawDynamicKey(canvas, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+            drawDynamicKey(canvas, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+            drawDynamicKey(canvas, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+            drawDynamicKey(canvas, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+
+            drawDynamicMouseKey(canvas, leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
+            drawDynamicMouseKey(canvas, rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
+
+            drawDynamicKey(canvas, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+            drawDynamicKey(canvas, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
+            drawKeyLabel(canvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+            drawKeyLabel(canvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+            drawKeyLabel(canvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+            drawKeyLabel(canvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+            drawMouseLabel(canvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, leftMouse);
+            drawMouseLabel(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
+            drawKeyLabel(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+            drawKeyLabel(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
             canvas.restore();
-            if (!uploadSurface(surface, dynamicTexture, textureW, textureH)) {
-                return false;
-            }
-            lastBaseSignature = baseSignature;
+        } finally {
+            glBackend.end();
         }
+    }
 
-        if (!overlayAnimating && overlayKey == lastOverlayKey && overlayTexture != null) {
-            return true;
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-
-        Canvas overlayCanvas = overlaySurface.getCanvas();
-        overlayCanvas.restoreToCount(1);
-        overlayCanvas.resetMatrix();
-        overlayCanvas.clear(0x00000000);
-        overlayCanvas.save();
-        overlayCanvas.scale(textureScale, textureScale);
-
-        drawDynamicKey(overlayCanvas, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
-        drawDynamicKey(overlayCanvas, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
-        drawDynamicKey(overlayCanvas, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
-        drawDynamicKey(overlayCanvas, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
-        drawDynamicKeyLabel(overlayCanvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
-        drawDynamicKeyLabel(overlayCanvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
-        drawDynamicKeyLabel(overlayCanvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
-        drawDynamicKeyLabel(overlayCanvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
-
-        int mouseY = (KEY_SIZE + GAP) * 2;
-        int leftMouseW = (TOTAL_W - GAP) / 2;
-        int rightMouseW = TOTAL_W - GAP - leftMouseW;
-        drawDynamicMouseKey(overlayCanvas, leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
-        drawDynamicMouseKey(overlayCanvas, rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
-        drawDynamicMouseLabel(overlayCanvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, leftMouse);
-        drawDynamicMouseLabel(overlayCanvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
-
-        int bottomY = (KEY_SIZE + GAP) * 3;
-        drawDynamicKey(overlayCanvas, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
-        drawDynamicKey(overlayCanvas, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-        drawDynamicKeyLabel(overlayCanvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
-        drawDynamicKeyLabel(overlayCanvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-        overlayCanvas.restore();
-
-        if (!uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH)) {
-            return false;
-        }
-
-        lastOverlayKey = overlayKey;
-        return true;
+        return 0;
     }
 
     private void drawFallback(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
@@ -337,14 +279,6 @@ public class KeystrokesRenderer {
         graphics.drawString(client.font, label, textX, textY, textColor, false);
     }
 
-    private void drawStaticKey(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height) {
-        drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, TEXT_COLOR);
-    }
-
-    private void drawStaticMouseKey(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height) {
-        drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, TEXT_COLOR);
-    }
-
     private void drawDynamicKey(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
         drawKeyShell(canvas, x, y, width, height, visual);
     }
@@ -356,14 +290,14 @@ public class KeystrokesRenderer {
         drawCenteredText(canvas, cpsText, x, y + 13f, width, 8f, 7.5f, withAlpha(textColor, 0.82f));
     }
 
-    private void drawDynamicKeyLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height, KeyVisual visual) {
-        if (visual.press <= 0.55f) return;
-        drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, ACTIVE_TEXT_COLOR);
+    private void drawKeyLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height, KeyVisual visual) {
+        int textColor = visual.press >= 0.99f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
+        drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, textColor);
     }
 
-    private void drawDynamicMouseLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, KeyVisual visual) {
-        if (visual.press <= 0.55f) return;
-        drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, ACTIVE_TEXT_COLOR);
+    private void drawMouseLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, KeyVisual visual) {
+        int textColor = visual.press >= 0.99f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
+        drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, textColor);
     }
 
     private void drawKeyShell(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
@@ -384,13 +318,8 @@ public class KeystrokesRenderer {
         canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), bgPaint);
 
         if (press > 0.01f) {
-            canvas.save();
-            canvas.clipRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), ClipMode.INTERSECT, true);
-            float maxRadius = (float) Math.sqrt(drawW * drawW + drawH * drawH) * 0.56f;
-            float radiusNow = maxRadius * easeOutCubic(press);
-            ripplePaint.setColor(withAlpha(BG_ACTIVE_COLOR, 0.90f));
-            canvas.drawCircle(drawX + drawW * 0.5f, drawY + drawH * 0.5f, radiusNow, ripplePaint);
-            canvas.restore();
+            ripplePaint.setColor(withAlpha(BG_ACTIVE_COLOR, 0.92f * easeOutCubic(press)));
+            canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), ripplePaint);
         }
 
         borderPaint.setColor(lerpColor(BORDER_COLOR, 0x99FFFFFF, press));
@@ -467,87 +396,19 @@ public class KeystrokesRenderer {
         return 1f - t * t * t;
     }
 
-    private int makeTextureKey(int leftCps, int rightCps) {
-        int key = leftCps & 0xFF;
-        key = key * 31 + (rightCps & 0xFF);
-        key = key * 31 + wKey.key();
-        key = key * 31 + aKey.key();
-        key = key * 31 + sKey.key();
-        key = key * 31 + dKey.key();
-        key = key * 31 + leftMouse.key();
-        key = key * 31 + rightMouse.key();
-        key = key * 31 + spaceKey.key();
-        key = key * 31 + shiftKey.key();
-        return key;
-    }
-
-    private boolean isOverlayAnimating() {
-        return wKey.isAnimating()
-                || aKey.isAnimating()
-                || sKey.isAnimating()
-                || dKey.isAnimating()
-                || leftMouse.isAnimating()
-                || rightMouse.isAnimating()
-                || spaceKey.isAnimating()
-                || shiftKey.isAnimating();
-    }
-
     private void ensureNativeLoaded() {
         if (nativeLoaded) return;
         Library.load();
         nativeLoaded = true;
     }
 
-    private boolean uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) {
-                return false;
-            }
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-            return true;
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyBaseTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        textureScale = -1f;
-        lastBaseSignature = "";
-    }
-
-    private void destroyOverlayTexture(Minecraft client) {
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        lastOverlayKey = 0;
-    }
-
     private void destroyTexture(Minecraft client) {
-        destroyBaseTexture(client);
-        destroyOverlayTexture(client);
+        glBackend.destroy();
+        clearPendingFrame();
+    }
+
+    private void clearPendingFrame() {
+        pendingFrame = false;
     }
 
     private static class KeyVisual {
@@ -560,17 +421,13 @@ public class KeystrokesRenderer {
                 pulse = 1f;
             }
             float target = active ? 1f : 0f;
-            press += (target - press) * Math.min(1f, dt * 18f);
+            float speed = active ? 16f : 13f;
+            press += (target - press) * Math.min(1f, dt * speed);
+            if (active && press > 0.985f) press = 1f;
+            if (!active && press < 0.015f) press = 0f;
             pulse = Math.max(0f, pulse - dt * 3.8f);
             wasActive = active;
         }
 
-        private int key() {
-            return Math.round(press * 32f) << 6 | Math.round(pulse * 32f);
-        }
-
-        private boolean isAnimating() {
-            return press > 0.002f || pulse > 0.002f;
-        }
     }
 }
