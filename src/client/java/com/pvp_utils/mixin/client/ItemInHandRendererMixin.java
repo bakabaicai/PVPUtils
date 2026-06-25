@@ -177,7 +177,8 @@ public abstract class ItemInHandRendererMixin {
                     poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
                 }
 
-                this.renderItem(abstractClientPlayer, itemStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
+                ItemStack renderStack = isBlocking ? mainHandStack : itemStack;
+                this.renderItem(abstractClientPlayer, renderStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
                 poseStack.popPose();
             }
         }

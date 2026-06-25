@@ -12,6 +12,7 @@ import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
+import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -43,17 +44,17 @@ public class GuiMixin {
         int guiHeight = mc.getWindow().getGuiScaledHeight();
         Canvas canvas = null;
 
-        boolean hudEditActive = HudEditOverlay.getInstance().isActive();
-        if (hudEditActive) {
-            canvas = SkiaRenderer.begin();
-        } else if (NotificationOverlay.getInstance().needsStandaloneCanvas()) {
+        boolean skiaScreenOpen = mc.screen instanceof SkiaScreen;
+        if (!skiaScreenOpen && NotificationOverlay.getInstance().needsStandaloneCanvas()) {
             int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
             if (bounds != null) {
                 canvas = SkiaRenderer.beginRegion(bounds[0], bounds[1], bounds[2], bounds[3]);
             }
         }
 
-        NotificationOverlay.getInstance().render(guiGraphics, canvas);
+        if (!skiaScreenOpen) {
+            NotificationOverlay.getInstance().render(guiGraphics, canvas);
+        }
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
@@ -64,11 +65,7 @@ public class GuiMixin {
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {
-            if (hudEditActive) {
-                SkiaRenderer.end(guiGraphics, guiWidth, guiHeight);
-            } else {
-                SkiaRenderer.endRegion(guiGraphics);
-            }
+            SkiaRenderer.endRegion(guiGraphics);
         }
 
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);

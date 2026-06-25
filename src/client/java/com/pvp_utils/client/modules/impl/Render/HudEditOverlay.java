@@ -3,10 +3,12 @@ package com.pvp_utils.client.modules.impl.Render;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.PathEffect;
+import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,6 +29,7 @@ public class HudEditOverlay {
     private static final float DASH_PERIOD = DASH_LEN + DASH_GAP;
     private static final float ANIM_DURATION = 0.2f;
     private static final float SNAP_THRESHOLD = 10f;
+    private static final float HINT_TEXT_SIZE = 11f;
 
     private DragTarget dragTarget = DragTarget.NONE;
     private boolean wasMouseDown = false;
@@ -51,6 +54,17 @@ public class HudEditOverlay {
     private float snapXAlpha = 0f;
     private float snapYAlpha = 0f;
     private boolean configDirty = false;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
+    private boolean nativeLoaded = false;
+    private boolean pendingFrame = false;
+    private int pendingGuiW = 0;
+    private int pendingGuiH = 0;
+    private float pendingProgress = 0f;
+    private RectState pendingTargetHud = null;
+    private RectState pendingKeystrokes = null;
+    private RectState pendingBlockCount = null;
+    private RectState pendingNotification = null;
+    private RectState pendingPotionStatus = null;
 
     public static HudEditOverlay getInstance() {
         return INSTANCE;
@@ -213,24 +227,38 @@ public class HudEditOverlay {
             progress = Math.min(1f, (now - animStartTime) / (ANIM_DURATION * 1000f));
         }
 
-        if (canvas == null) return;
+        pendingGuiW = guiW;
+        pendingGuiH = guiH;
+        pendingProgress = progress;
+        pendingTargetHud = targetHud == null ? null : new RectState(targetVisualX, targetVisualY, targetHud.w, targetHud.h);
+        pendingKeystrokes = keystrokes;
+        pendingBlockCount = blockCount;
+        pendingNotification = notification;
+        pendingPotionStatus = potionStatus;
+        pendingFrame = true;
 
-        if (gridAlpha > 0.01f) {
-            drawGrid(canvas, guiW, guiH, progress);
+        if (canvas != null) {
+            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, notification, potionStatus);
         }
-        if (targetHud != null) {
-            drawOutline(canvas, targetVisualX, targetVisualY, targetHud.w, targetHud.h, "Target HUD", targetHoverAlpha, progress);
+    }
+
+    public void renderFrameEnd() {
+        if (!pendingFrame) return;
+        Minecraft client = Minecraft.getInstance();
+        if (!active || client.options.hideGui) {
+            pendingFrame = false;
+            return;
         }
-        if (keystrokes != null) {
-            drawOutline(canvas, keystrokes.x, keystrokes.y, keystrokes.w, keystrokes.h, "Keystrokes", keystrokesHoverAlpha, progress);
+
+        ensureNativeLoaded();
+        Canvas canvas = glBackend.begin();
+        if (canvas == null) return;
+        try {
+            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingNotification, pendingPotionStatus);
+        } finally {
+            glBackend.end();
+            pendingFrame = false;
         }
-        if (blockCount != null) {
-            drawOutline(canvas, blockCount.x, blockCount.y, blockCount.w, blockCount.h, "Block Count", blockCountHoverAlpha, progress);
-        }
-        if (potionStatus != null) {
-            drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
-        }
-        drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
@@ -309,6 +337,29 @@ public class HudEditOverlay {
         }
     }
 
+    private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, RectState targetHud, RectState keystrokes,
+                             RectState blockCount, RectState notification, RectState potionStatus) {
+        if (gridAlpha > 0.01f) {
+            drawGrid(canvas, guiW, guiH, progress);
+        }
+        if (targetHud != null) {
+            drawOutline(canvas, targetHud.x, targetHud.y, targetHud.w, targetHud.h, "Target HUD", targetHoverAlpha, progress);
+        }
+        if (keystrokes != null) {
+            drawOutline(canvas, keystrokes.x, keystrokes.y, keystrokes.w, keystrokes.h, "Keystrokes", keystrokesHoverAlpha, progress);
+        }
+        if (blockCount != null) {
+            drawOutline(canvas, blockCount.x, blockCount.y, blockCount.w, blockCount.h, "Block Count", blockCountHoverAlpha, progress);
+        }
+        if (potionStatus != null) {
+            drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
+        }
+        if (notification != null) {
+            drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
+        }
+        drawHint(canvas, guiW, guiH, progress);
+    }
+
     private void drawOutline(Canvas canvas, float x, float y, float w, float h, String label, float hoverAlpha, float alpha) {
         float pad = 4f;
         float rw = w + pad * 2f;
@@ -336,6 +387,15 @@ public class HudEditOverlay {
         }
 
         FontRenderer.drawText(canvas, label, drawX - pad, drawY - pad - 4f, 10f, (alphaInt << 24) | 0xFFFFFF);
+    }
+
+    private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
+        String text = Config.isChinese ? "鼠标悬浮在组件上滚轮即可调节组件大小" : "Hover over a widget and scroll to resize it";
+        float textW = FontRenderer.measureTextWidth(text, HINT_TEXT_SIZE);
+        float x = (guiW - textW) * 0.5f;
+        float y = Math.max(48f, guiH - 92f);
+        int alpha = Math.round(210f * Math.max(0f, Math.min(1f, progress)));
+        FontRenderer.drawText(canvas, text, x, y, HINT_TEXT_SIZE, (alpha << 24) | 0xFFFFFF);
     }
 
     private RectState getTargetHudRect(int guiW, int guiH) {
@@ -424,6 +484,12 @@ public class HudEditOverlay {
 
     private float clampScale(float scale) {
         return Math.max(0.5f, Math.min(2.0f, scale));
+    }
+
+    private void ensureNativeLoaded() {
+        if (nativeLoaded) return;
+        Library.load();
+        nativeLoaded = true;
     }
 
     private record RectState(float x, float y, float w, float h) {}

@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
+import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import net.minecraft.client.Minecraft;
@@ -40,5 +41,6 @@ public class MinecraftMixin {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
         BlockCountDisplayRenderer.getInstance().renderFrameEnd();
+        HudEditOverlay.getInstance().renderFrameEnd();
     }
 }

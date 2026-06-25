@@ -285,18 +285,18 @@ public class KeystrokesRenderer {
 
     private void drawDynamicMouseKey(Canvas canvas, int cps, float x, float y, float width, float height, KeyVisual visual) {
         drawKeyShell(canvas, x, y, width, height, visual);
-        int textColor = visual.press > 0.55f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
+        int textColor = animatedTextColor(visual);
         String cpsText = cps + " CPS";
         drawCenteredText(canvas, cpsText, x, y + 13f, width, 8f, 7.5f, withAlpha(textColor, 0.82f));
     }
 
     private void drawKeyLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, float height, KeyVisual visual) {
-        int textColor = visual.press >= 0.99f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
+        int textColor = animatedTextColor(visual);
         drawCenteredText(canvas, label, labelWidth, x, y, width, height, 11f, textColor);
     }
 
     private void drawMouseLabel(Canvas canvas, String label, float labelWidth, float x, float y, float width, KeyVisual visual) {
-        int textColor = visual.press >= 0.99f ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
+        int textColor = animatedTextColor(visual);
         drawCenteredText(canvas, label, labelWidth, x, y + 3f, width, 9f, 8.5f, textColor);
     }
 
@@ -389,6 +389,10 @@ public class KeystrokesRenderer {
     private int withAlpha(int color, float alpha) {
         int a = Math.round(((color >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, alpha)));
         return (color & 0x00FFFFFF) | (a << 24);
+    }
+
+    private int animatedTextColor(KeyVisual visual) {
+        return lerpColor(TEXT_COLOR, ACTIVE_TEXT_COLOR, easeOutCubic(visual.press));
     }
 
     private float easeOutCubic(float value) {

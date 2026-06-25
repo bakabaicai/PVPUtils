@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.Version;
 import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
@@ -425,6 +426,7 @@ public class PVPUtilsMainUI extends Screen {
         for (MenuButton button : buttons) {
             button.renderText(c);
         }
+        renderVersionText(c);
         c.restore();
 
         Pixmap pixmap = new Pixmap();
@@ -552,6 +554,14 @@ public class PVPUtilsMainUI extends Screen {
             maxX = Math.max(maxX, button.x + button.w + 4f);
             maxY = Math.max(maxY, button.y + button.h + 10f);
         }
+        String version = Version.displayName();
+        if (Version.DEBUG) {
+            minY = Math.min(minY, this.height - 12f - 11f - 10f);
+            maxX = Math.max(maxX, 12f + FontRenderer.measureTextWidth("DEBUG", 11f));
+        }
+        minX = Math.min(minX, 12f);
+        maxX = Math.max(maxX, 12f + FontRenderer.measureTextWidth(version, 11f));
+        maxY = Math.max(maxY, this.height - 12f + FontRenderer.getLineHeight(11f));
         textX = Math.max(0, (int) Math.floor(minX - 6f));
         textY = Math.max(0, (int) Math.floor(minY - 6f));
         int right = Math.min(this.width, (int) Math.ceil(maxX + 6f));
@@ -634,6 +644,43 @@ public class PVPUtilsMainUI extends Screen {
             FontRenderer.drawText(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, effectY, 12f, secondary);
             renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
         }
+    }
+
+    private void renderVersionText(Canvas canvas) {
+        float versionX = 12f;
+        float versionY = this.height - 12f;
+        if (Version.DEBUG) {
+            float debugY = versionY - FontRenderer.getLineHeight(11f) - 4f;
+            FontRenderer.drawText(canvas, "DEBUG", versionX, debugY, 11f, 0xFFFFD34D);
+        }
+        drawVersionText(canvas, versionX, versionY, 11f, 0xE6FFFFFF);
+    }
+
+    private void drawVersionText(Canvas canvas, float x, float y, float size, int baseColor) {
+        String version = Version.displayName();
+        String type = Version.typeName();
+        if (type.isEmpty()) {
+            FontRenderer.drawText(canvas, version, x, y, size, baseColor);
+            return;
+        }
+
+        String marker = "-" + type;
+        int typeStart = version.indexOf(marker);
+        if (typeStart < 0) {
+            FontRenderer.drawText(canvas, version, x, y, size, baseColor);
+            return;
+        }
+
+        typeStart += 1;
+        int typeEnd = typeStart + type.length();
+        String before = version.substring(0, typeStart);
+        String typed = version.substring(typeStart, typeEnd);
+        String after = version.substring(typeEnd);
+        int typeColor = Version.TYPE == 1 ? 0xFFFF4444 : 0xFFFFD34D;
+        FontRenderer.drawText(canvas, before, x, y, size, baseColor);
+        float tx = x + FontRenderer.measureTextWidth(before, size);
+        FontRenderer.drawText(canvas, typed, tx, y, size, typeColor);
+        FontRenderer.drawText(canvas, after, tx + FontRenderer.measureTextWidth(typed, size), y, size, baseColor);
     }
 
     private void renderChoice(Canvas canvas, float x, float y, float w, String text, boolean selected, int alpha) {

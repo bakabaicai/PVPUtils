@@ -8,13 +8,33 @@ public final class Version {
     public static final String VERSION = "1.3";
 
     // 版本类型：0 = 正式版，1 = alpha，2 = beta
-    public static final int TYPE = 1;
+    public static final int TYPE = 2;
 
     // 修订号：0 不显示修订号，例如 alpha；1 则显示为 alpha.1
-    public static final int REVISION = 2;
+    public static final int REVISION = 5;
 
     //显示debug功能，正式版记得关闭
     public static final boolean DEBUG = false;
 
     private Version() {}
+
+    public static String displayName() {
+        StringBuilder builder = new StringBuilder(NAME).append("-v").append(VERSION);
+        String type = typeName();
+        if (!type.isEmpty()) {
+            builder.append('-').append(type);
+            if (REVISION > 0) {
+                builder.append('.').append(REVISION);
+            }
+        }
+        return builder.toString();
+    }
+
+    public static String typeName() {
+        return switch (TYPE) {
+            case 1 -> "alpha";
+            case 2 -> "beta";
+            default -> "";
+        };
+    }
 }

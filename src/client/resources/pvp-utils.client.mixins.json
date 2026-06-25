@@ -27,6 +27,7 @@
     "AbstractSignRendererMixin",
     "EnchantTableRendererMixin",
     "ScreenEffectRendererMixin",
+    "TitleScreenMixin",
     "GameRendererMixin",
     "GameRendererTotemMixin",
     "MotionBlurGameRendererMixin",

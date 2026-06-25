@@ -205,16 +205,22 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     private void updateScrollCache(BasePage page, float contentH) {
-        if (cachedScrollPage == page && cachedScrollContentH == contentH) return;
+        float contentTotalHeight = getContentTotalHeight(page);
+        if (cachedScrollPage == page
+                && cachedScrollContentH == contentH
+                && Math.abs(cachedContentTotalHeight - contentTotalHeight) < 0.01f) {
+            return;
+        }
         cachedScrollPage = page;
         cachedScrollContentH = contentH;
-        cachedContentTotalHeight = getContentTotalHeight(page);
+        cachedContentTotalHeight = contentTotalHeight;
         cachedScrollAreaHeight = contentH - 54f;
         cachedScrollMax = Math.max(0f, cachedContentTotalHeight - cachedScrollAreaHeight);
     }
 
     private void requestRegionRedraw() {
         redrawRequested = true;
+        cachedScrollPage = null;
         SkiaRenderer.markRegionDirty();
     }
 
