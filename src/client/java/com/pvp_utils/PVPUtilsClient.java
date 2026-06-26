@@ -55,7 +55,12 @@ public class PVPUtilsClient implements ClientModInitializer {
                                 context.getSource().sendFeedback(Update.checkingMessage());
                                 Update.startManualCheck();
                                 return 1;
-                            }))
+                            })
+                            .then(ClientCommandManager.literal("qqgroup")
+                                    .executes(context -> {
+                                        Update.copyQqGroupNumber();
+                                        return 1;
+                                    })))
             );
 
         });

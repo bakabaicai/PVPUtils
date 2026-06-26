@@ -22,6 +22,7 @@ public final class Update {
     private static final String CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/pvputils";
     private static final String MODRINTH_URL = "https://modrinth.com/mod/pvp_utils";
     private static final String GITHUB_URL = "https://github.com/bakabaicai/PVPUtils/releases";
+    private static final String QQ_GROUP_NUMBER = "947119584";
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6))
@@ -34,12 +35,10 @@ public final class Update {
     private Update() {}
 
     public static void startAutoCheck() {
-        log("auto-check start current=" + Version.displayName());
-        runCheck(false, null, message -> deliverToPlayer(message));
+        runCheck(false, null, Update::deliverToPlayer);
     }
 
     public static void startManualCheck() {
-        log("manual-check start current=" + Version.displayName());
         runCheck(true, Update::deliverToPlayer, Update::deliverToPlayer);
     }
 
@@ -63,22 +62,23 @@ public final class Update {
         return Component.literal(text).withStyle(ChatFormatting.RED);
     }
 
+    public static void copyQqGroupNumber() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) return;
+        client.keyboardHandler.setClipboard(QQ_GROUP_NUMBER);
+        deliverToPlayer(qqClipboardMessage());
+    }
+
     private static void runCheck(boolean manual, Consumer<MutableComponent> onResult, Consumer<MutableComponent> onError) {
         Thread thread = new Thread(() -> {
             try {
                 UpdateResult result = fetchResult();
                 cachedResult = result;
-                log("check complete current=" + Version.displayName()
-                        + " fetched=" + result.fetchedVersion
-                        + " compareBase=" + result.compareBase
-                        + " needUpdate=" + result.hasUpdate());
                 if (manual && onResult != null) {
                     onResult.accept(result.manualResultMessage());
                 }
             } catch (Exception e) {
                 cachedResult = null;
-                String reason = normalizeReason(e.getMessage(), false);
-                log("check failed current=" + Version.displayName() + " reason=" + reason);
                 if (onError != null) {
                     onError.accept(errorMessage(e.getMessage()));
                 }
@@ -104,27 +104,15 @@ public final class Update {
         String alphaLine = findLine(body, "Version Alpha:");
 
         String fetchedVersion;
-        String compareBase;
-
         if (Version.TYPE == 1) {
             fetchedVersion = extractVersion(alphaLine);
-            compareBase = currentTypedVersion();
         } else if (Version.TYPE == 2) {
             fetchedVersion = extractVersion(betaLine);
-            compareBase = currentTypedVersion();
         } else {
             fetchedVersion = extractVersion(releaseLine);
-            compareBase = Version.VERSION;
         }
 
-        log("parse current=" + Version.displayName()
-                + " release=" + extractVersion(releaseLine)
-                + " beta=" + extractVersion(betaLine)
-                + " alpha=" + extractVersion(alphaLine)
-                + " selected=" + fetchedVersion);
-
-        boolean needUpdate = isNewer(fetchedVersion);
-        return new UpdateResult(compareBase, fetchedVersion, needUpdate);
+        return new UpdateResult(fetchedVersion, isNewer(fetchedVersion));
     }
 
     private static boolean isNewer(String fetchedVersion) {
@@ -151,12 +139,20 @@ public final class Update {
 
     private static void deliverToPlayer(MutableComponent message) {
         Minecraft client = Minecraft.getInstance();
-        if (client == null || client.player == null) return;
+        if (client == null) return;
         client.execute(() -> {
             if (client.player != null) {
                 client.player.displayClientMessage(message, false);
             }
         });
+    }
+
+    private static MutableComponent qqClipboardMessage() {
+        if (Config.isChinese) {
+            return Component.literal("QQ群号已经复制至剪切板！").withStyle(ChatFormatting.GREEN);
+        }
+        return Component.literal("The QQ group number has been copied to your clipboard, but please note that you need to be in mainland China or have a suitable VPN to access Tencent QQ properly. Sorry for the inconvenience.")
+                .withStyle(ChatFormatting.GREEN);
     }
 
     private static String findLine(String body, String prefix) {
@@ -185,11 +181,7 @@ public final class Update {
         return reason;
     }
 
-    private static void log(String message) {
-        System.out.println("[PVPUtils][Update] " + message);
-    }
-
-    private record UpdateResult(String compareBase, String fetchedVersion, boolean hasUpdate) {
+    private record UpdateResult(String fetchedVersion, boolean hasUpdate) {
         MutableComponent updateAvailableMessage() {
             MutableComponent base = Component.literal(Config.isChinese
                     ? "有新版本可用！点击前往更新"
@@ -198,7 +190,8 @@ public final class Update {
             return base
                     .append(link("[Curseforge]", CURSEFORGE_URL, ChatFormatting.GOLD))
                     .append(link("[Modrinth]", MODRINTH_URL, ChatFormatting.GREEN))
-                    .append(link("[Github]", GITHUB_URL, ChatFormatting.WHITE));
+                    .append(link("[Github]", GITHUB_URL, ChatFormatting.WHITE))
+                    .append(qqGroupLink());
         }
 
         MutableComponent manualResultMessage() {
@@ -214,6 +207,14 @@ public final class Update {
                     .withColor(color)
                     .withBold(true)
                     .withClickEvent(new ClickEvent.OpenUrl(URI.create(url))));
+        }
+
+        private static MutableComponent qqGroupLink() {
+            String text = Config.isChinese ? "[QQ群聊(获取测试版)]" : "[QQ Group (Test Builds)]";
+            return Component.literal(text).withStyle(Style.EMPTY
+                    .withColor(0xFFB04DFF)
+                    .withBold(true)
+                    .withClickEvent(new ClickEvent.RunCommand("/PVPUtils update qqgroup")));
         }
     }
 

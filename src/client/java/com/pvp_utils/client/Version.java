@@ -11,7 +11,7 @@ public final class Version {
     public static final int TYPE = 2;
 
     // 修订号：0 不显示修订号，例如 alpha；1 则显示为 alpha.1
-    public static final int REVISION = 2;
+    public static final int REVISION = 5;
 
     //显示debug功能，正式版记得关闭
     public static final boolean DEBUG = false;
