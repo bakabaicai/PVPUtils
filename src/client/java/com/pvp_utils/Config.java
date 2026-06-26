@@ -3,7 +3,9 @@ package com.pvp_utils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 public class Config {
@@ -14,7 +16,7 @@ public class Config {
     public static boolean isChinese = defaultChinese();
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
-    public static boolean hitSound = true;
+    public static boolean hitSound = false;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
     public static boolean elytraAutoFirework = true;
@@ -100,15 +102,19 @@ public class Config {
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
 
-    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pvp_utils.properties");
+    private static final Path CONFIG_DIRECTORY = FabricLoader.getInstance().getGameDir().resolve("PVPUtils");
+    private static final Path CONFIG_FILE = CONFIG_DIRECTORY.resolve("Config.cfg");
+    private static final Path LEGACY_CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pvp_utils.properties");
 
     public static void load() {
-        if (!CONFIG_FILE.toFile().exists()) {
-            isChinese = defaultChinese();
+        ensureConfigDirectory();
+        migrateLegacyConfigIfNeeded();
+        if (!Files.exists(CONFIG_FILE)) {
+            applyGameLanguageDefault();
             save();
             return;
         }
-        try (InputStream is = new FileInputStream(CONFIG_FILE.toFile())) {
+        try (InputStream is = Files.newInputStream(CONFIG_FILE)) {
             Properties prop = new Properties();
             prop.load(is);
             autoMode = Boolean.parseBoolean(prop.getProperty("autoMode", "false"));
@@ -118,7 +124,7 @@ public class Config {
             isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", String.valueOf(defaultChinese())));
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
-            hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "true"));
+            hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "false"));
             elytraAssist = Boolean.parseBoolean(prop.getProperty("elytraAssist", "false"));
             elytraAutoDeploy = Boolean.parseBoolean(prop.getProperty("elytraAutoDeploy", "true"));
             elytraAutoFirework = Boolean.parseBoolean(prop.getProperty("elytraAutoFirework", "true"));
@@ -201,7 +207,8 @@ public class Config {
     }
 
     public static void save() {
-        try (OutputStream os = new FileOutputStream(CONFIG_FILE.toFile())) {
+        ensureConfigDirectory();
+        try (OutputStream os = Files.newOutputStream(CONFIG_FILE)) {
             Properties prop = new Properties();
             prop.setProperty("autoMode", String.valueOf(autoMode));
             prop.setProperty("swordBlock", String.valueOf(swordBlock));
@@ -302,5 +309,34 @@ public class Config {
             }
         } catch (Throwable ignored) {}
         return false;
+    }
+
+    public static void applyGameLanguageDefault() {
+        isChinese = defaultChinese();
+    }
+
+    public static void applyFirstUseLanguageDefault() {
+        if (!termsRead) {
+            applyGameLanguageDefault();
+        }
+    }
+
+    private static void ensureConfigDirectory() {
+        try {
+            Files.createDirectories(CONFIG_DIRECTORY);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to create config directory: " + CONFIG_DIRECTORY, e);
+        }
+    }
+
+    private static void migrateLegacyConfigIfNeeded() {
+        if (Files.exists(CONFIG_FILE) || !Files.exists(LEGACY_CONFIG_FILE)) {
+            return;
+        }
+        try {
+            Files.copy(LEGACY_CONFIG_FILE, CONFIG_FILE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to migrate legacy config to: " + CONFIG_FILE, e);
+        }
     }
 }

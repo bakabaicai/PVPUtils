@@ -492,5 +492,17 @@ public class HudEditOverlay {
         nativeLoaded = true;
     }
 
-    private record RectState(float x, float y, float w, float h) {}
+    private static final class RectState {
+        final float x;
+        final float y;
+        final float w;
+        final float h;
+
+        RectState(float x, float y, float w, float h) {
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = h;
+        }
+    }
 }

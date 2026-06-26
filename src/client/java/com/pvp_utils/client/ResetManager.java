@@ -74,6 +74,7 @@ public class ResetManager {
         Config.noAttackCooldownAnimation = false;
         Config.customCape = false;
         Config.chatHudEditQuickEnable = true;
+        Config.applyGameLanguageDefault();
         Config.termsRead = false;
         Config.fullMode = false;
         Config.hitSoundType = Config.HitSoundType.NETHERITE;

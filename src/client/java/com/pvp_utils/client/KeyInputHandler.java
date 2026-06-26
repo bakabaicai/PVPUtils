@@ -12,6 +12,7 @@ public class KeyInputHandler {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (KeyBindings.openSettings.consumeClick()) {
                 if (client.screen == null) {
+                    Config.applyFirstUseLanguageDefault();
                     Minecraft.getInstance().setScreen(Config.termsRead ? new NewSettingsScreen(null) : new TermsScreen(null));
                 }
             }
