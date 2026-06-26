@@ -46,8 +46,52 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("盔甲 HUD", "Armor HUD"), UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
-                new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); })));
+        modules.add(new SettingModule(
+                UiText.t("盔甲 HUD", "Armor HUD"),
+                UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
+                new SettingToggle(() -> Config.armorHud, v -> {
+                    Config.armorHud = v;
+                    Config.save();
+                }))
+                .addSub(
+                        UiText.t("模式", "Mode"),
+                        UiText.t("在 new 和 lite 之间切换", "Switch between new and lite"),
+                        new SettingCycle(List.of("New", "Lite"),
+                                () -> Config.armorHudMode == Config.ArmorHudMode.NEW ? 0 : 1,
+                                i -> {
+                                    Config.armorHudMode = i == 0 ? Config.ArmorHudMode.NEW : Config.ArmorHudMode.LITE;
+                                    if (Config.armorHudMode == Config.ArmorHudMode.LITE && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
+                                        Config.armorHudLayout = Config.ArmorHudLayout.HORIZONTAL;
+                                    }
+                                    Config.save();
+                                }))
+                .addSub(
+                        UiText.t("布局", "Layout"),
+                        UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
+                        new SettingCycle(List.of(
+                                        UiText.t("分离式", "Separated"),
+                                        UiText.t("竖向", "Vertical"),
+                                        UiText.t("横向", "Horizontal")),
+                                () -> switch (Config.armorHudLayout) {
+                                    case SEPARATED -> 0;
+                                    case VERTICAL -> 1;
+                                    case HORIZONTAL -> 2;
+                                },
+                                i -> {
+                                    if (Config.armorHudMode == Config.ArmorHudMode.NEW) {
+                                        Config.armorHudLayout = switch (i) {
+                                            case 1 -> Config.ArmorHudLayout.VERTICAL;
+                                            case 2 -> Config.ArmorHudLayout.HORIZONTAL;
+                                            default -> Config.ArmorHudLayout.SEPARATED;
+                                        };
+                                    } else {
+                                        Config.armorHudLayout = switch (i) {
+                                            case 0 -> Config.ArmorHudLayout.VERTICAL;
+                                            default -> Config.ArmorHudLayout.HORIZONTAL;
+                                        };
+                                    }
+                                    Config.save();
+                                })));
 
         modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示当前药水效果和剩余时间。", "Show active potion effects and remaining time."),
                 new SettingToggle(() -> Config.potionStatus, v -> { Config.potionStatus = v; Config.save(); }))

@@ -15,6 +15,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class Update {
@@ -30,19 +32,34 @@ public final class Update {
             .build();
 
     private static volatile UpdateResult cachedResult;
+    private static volatile MutableComponent pendingAutoError;
+    private static volatile MutableComponent pendingManualStatus;
+    private static volatile boolean manualChecking;
     private static volatile boolean shown;
 
     private Update() {}
 
     public static void startAutoCheck() {
-        runCheck(false, null, Update::deliverToPlayer);
+        runCheck(false, null, null);
     }
 
     public static void startManualCheck() {
-        runCheck(true, Update::deliverToPlayer, Update::deliverToPlayer);
+        manualChecking = true;
+        pendingManualStatus = checkingMessage();
+        runCheck(true, null, Update::deliverToPlayer);
     }
 
     public static void tick(Minecraft client) {
+        MutableComponent manualStatus = pendingManualStatus;
+        if (manualStatus != null && client != null && client.player != null && client.level != null) {
+            pendingManualStatus = null;
+            client.player.displayClientMessage(manualStatus, false);
+        }
+        MutableComponent autoError = pendingAutoError;
+        if (autoError != null && client != null && client.player != null && client.level != null) {
+            pendingAutoError = null;
+            client.player.displayClientMessage(autoError, false);
+        }
         if (shown || client == null || client.player == null || client.level == null) return;
         UpdateResult result = cachedResult;
         if (result == null || !result.hasUpdate()) return;
@@ -53,6 +70,13 @@ public final class Update {
     public static MutableComponent checkingMessage() {
         return Component.literal(Config.isChinese ? "正在检查更新..." : "Checking for updates...")
                 .withStyle(ChatFormatting.GRAY);
+    }
+
+    public static MutableComponent retryingMessage(int attempt, int maxAttempts) {
+        String text = Config.isChinese
+                ? "正在重试（" + attempt + "/" + maxAttempts + "）..."
+                : "Retrying (" + attempt + "/" + maxAttempts + ")...";
+        return Component.literal(text).withStyle(ChatFormatting.GRAY);
     }
 
     public static MutableComponent errorMessage(String reason) {
@@ -72,13 +96,20 @@ public final class Update {
     private static void runCheck(boolean manual, Consumer<MutableComponent> onResult, Consumer<MutableComponent> onError) {
         Thread thread = new Thread(() -> {
             try {
-                UpdateResult result = fetchResult();
+                UpdateResult result = fetchResultWithRetry(manual ? 5 : 5, manual);
                 cachedResult = result;
+                manualChecking = false;
+                pendingManualStatus = null;
                 if (manual && onResult != null) {
                     onResult.accept(result.manualResultMessage());
                 }
             } catch (Exception e) {
                 cachedResult = null;
+                manualChecking = false;
+                pendingManualStatus = null;
+                if (!manual) {
+                    pendingAutoError = errorMessage(e.getMessage());
+                }
                 if (onError != null) {
                     onError.accept(errorMessage(e.getMessage()));
                 }
@@ -88,7 +119,30 @@ public final class Update {
         thread.start();
     }
 
-    private static UpdateResult fetchResult() throws IOException, InterruptedException {
+    private static UpdateResult fetchResultWithRetry(int maxAttempts, boolean manual) throws IOException, InterruptedException {
+        IOException lastIo = null;
+        InterruptedException lastInterrupted = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return fetchResultOnce();
+            } catch (IOException e) {
+                lastIo = e;
+            } catch (InterruptedException e) {
+                lastInterrupted = e;
+            }
+            if (attempt < maxAttempts) {
+                if (manual) {
+                    pendingManualStatus = retryingMessage(attempt + 1, maxAttempts);
+                }
+                Thread.sleep(1200L);
+            }
+        }
+        if (lastInterrupted != null) throw lastInterrupted;
+        if (lastIo != null) throw lastIo;
+        throw new IOException("Unknown update error");
+    }
+
+    private static UpdateResult fetchResultOnce() throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(URI.create(UPDATE_URL))
                 .timeout(Duration.ofSeconds(8))
                 .header("User-Agent", "PVPUtils-UpdateChecker")
@@ -103,13 +157,31 @@ public final class Update {
         String betaLine = findLine(body, "Version Beta:");
         String alphaLine = findLine(body, "Version Alpha:");
 
-        String fetchedVersion;
-        if (Version.TYPE == 1) {
-            fetchedVersion = extractVersion(alphaLine);
-        } else if (Version.TYPE == 2) {
-            fetchedVersion = extractVersion(betaLine);
+        List<VersionCandidate> candidates = new ArrayList<>();
+        String releaseVersion = extractVersion(releaseLine);
+        String betaVersion = extractVersion(betaLine);
+        String alphaVersion = extractVersion(alphaLine);
+
+        if (Version.TYPE == 0) {
+            candidates.add(new VersionCandidate("release", releaseVersion));
+        } else if (Version.TYPE == 1) {
+            candidates.add(new VersionCandidate("alpha", alphaVersion));
+            candidates.add(new VersionCandidate("beta", betaVersion));
+            candidates.add(new VersionCandidate("release", releaseVersion));
         } else {
-            fetchedVersion = extractVersion(releaseLine);
+            candidates.add(new VersionCandidate("beta", betaVersion));
+            candidates.add(new VersionCandidate("release", releaseVersion));
+        }
+
+        String fetchedVersion = null;
+        for (VersionCandidate candidate : candidates) {
+            if (candidate.version != null && isNewer(candidate.version)) {
+                fetchedVersion = candidate.version;
+                break;
+            }
+        }
+        if (fetchedVersion == null) {
+            fetchedVersion = releaseVersion != null ? releaseVersion : (betaVersion != null ? betaVersion : alphaVersion);
         }
 
         return new UpdateResult(fetchedVersion, isNewer(fetchedVersion));
@@ -183,9 +255,12 @@ public final class Update {
 
     private record UpdateResult(String fetchedVersion, boolean hasUpdate) {
         MutableComponent updateAvailableMessage() {
+            String kind = Version.TYPE == 1 ? (Config.isChinese ? "测试版" : "test build")
+                    : Version.TYPE == 2 ? (Config.isChinese ? "正式版" : "release")
+                    : (Config.isChinese ? "正式版" : "release");
             MutableComponent base = Component.literal(Config.isChinese
-                    ? "有新版本可用！点击前往更新"
-                    : "A new version is available! Click to update ")
+                    ? "检测到新" + kind + "更新，点击前往更新 "
+                    : "A new " + kind + " update is available, click to update ")
                     .withStyle(ChatFormatting.GREEN);
             return base
                     .append(link("[Curseforge]", CURSEFORGE_URL, ChatFormatting.GOLD))
@@ -265,4 +340,6 @@ public final class Update {
                     && type.equals(other.type);
         }
     }
+
+    private record VersionCandidate(String type, String version) {}
 }

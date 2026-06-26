@@ -30,6 +30,9 @@ public class Config {
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static boolean armorHud = false;
+    public static boolean armorHudShowPercentage = true;
+    public static boolean armorHudShowBar = true;
+    public static ArmorHudDisplayMode armorHudDisplayMode = ArmorHudDisplayMode.BOTH;
     public static boolean potionStatus = false;
     public static boolean potionStatusBackground = true;
     public static boolean potionStatusCountdown = true;
@@ -58,6 +61,8 @@ public class Config {
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
     public static TargetHudMode targetHudMode = TargetHudMode.NEW;
     public static KeystrokesMode keystrokesMode = KeystrokesMode.NEW;
+    public static ArmorHudMode armorHudMode = ArmorHudMode.NEW;
+    public static ArmorHudLayout armorHudLayout = ArmorHudLayout.SEPARATED;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
@@ -78,6 +83,9 @@ public class Config {
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
     public static float blockCountDisplayScale = 1.0f;
+    public static float armorHudX = 0f;
+    public static float armorHudY = 0f;
+    public static float armorHudScale = 1.0f;
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
     public static float notificationScale = 1.0f;
@@ -97,6 +105,9 @@ public class Config {
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
     public enum TargetHudMode { LITE, NEW }
     public enum KeystrokesMode { LITE, NEW }
+    public enum ArmorHudMode { LITE, NEW }
+    public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
+    public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
@@ -138,6 +149,9 @@ public class Config {
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
+            armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
+            armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
+            armorHudDisplayMode = ArmorHudDisplayMode.valueOf(prop.getProperty("armorHudDisplayMode", "BOTH"));
             potionStatus = Boolean.parseBoolean(prop.getProperty("potionStatus", "false"));
             potionStatusBackground = Boolean.parseBoolean(prop.getProperty("potionStatusBackground", "true"));
             potionStatusCountdown = Boolean.parseBoolean(prop.getProperty("potionStatusCountdown", "true"));
@@ -166,6 +180,8 @@ public class Config {
             hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
             targetHudMode = TargetHudMode.valueOf(prop.getProperty("targetHudMode", "NEW"));
             keystrokesMode = KeystrokesMode.valueOf(prop.getProperty("keystrokesMode", "NEW"));
+            armorHudMode = ArmorHudMode.valueOf(prop.getProperty("armorHudMode", "NEW"));
+            armorHudLayout = ArmorHudLayout.valueOf(prop.getProperty("armorHudLayout", "SEPARATED"));
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
@@ -191,6 +207,9 @@ public class Config {
             blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
             blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
             blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
+            armorHudX = Float.parseFloat(prop.getProperty("armorHudX", "0"));
+            armorHudY = Float.parseFloat(prop.getProperty("armorHudY", "0"));
+            armorHudScale = Float.parseFloat(prop.getProperty("armorHudScale", "1.0"));
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
@@ -231,6 +250,9 @@ public class Config {
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("armorHud", String.valueOf(armorHud));
+            prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
+            prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
+            prop.setProperty("armorHudDisplayMode", armorHudDisplayMode.name());
             prop.setProperty("potionStatus", String.valueOf(potionStatus));
             prop.setProperty("potionStatusBackground", String.valueOf(potionStatusBackground));
             prop.setProperty("potionStatusCountdown", String.valueOf(potionStatusCountdown));
@@ -259,6 +281,8 @@ public class Config {
             prop.setProperty("hitSoundCondition", hitSoundCondition.name());
             prop.setProperty("targetHudMode", targetHudMode.name());
             prop.setProperty("keystrokesMode", keystrokesMode.name());
+            prop.setProperty("armorHudMode", armorHudMode.name());
+            prop.setProperty("armorHudLayout", armorHudLayout.name());
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
@@ -284,6 +308,9 @@ public class Config {
             prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
             prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
             prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
+            prop.setProperty("armorHudX", String.valueOf(armorHudX));
+            prop.setProperty("armorHudY", String.valueOf(armorHudY));
+            prop.setProperty("armorHudScale", String.valueOf(armorHudScale));
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("notificationScale", String.valueOf(notificationScale));

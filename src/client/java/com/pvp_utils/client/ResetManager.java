@@ -33,6 +33,9 @@ public class ResetManager {
         Config.fishingRodAssistUseDelay = 4;
         Config.blockCountDisplay = false;
         Config.armorHud = false;
+        Config.armorHudShowPercentage = true;
+        Config.armorHudShowBar = true;
+        Config.armorHudDisplayMode = Config.ArmorHudDisplayMode.BOTH;
         Config.potionStatus = false;
         Config.potionStatusBackground = true;
         Config.potionStatusCountdown = true;
@@ -58,6 +61,9 @@ public class ResetManager {
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;
+        Config.armorHudX = 0f;
+        Config.armorHudY = 0f;
+        Config.armorHudScale = 1.0f;
         Config.notificationX = Float.NaN;
         Config.notificationY = Float.NaN;
         Config.notificationScale = 1.0f;
@@ -81,6 +87,8 @@ public class ResetManager {
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.NEW;
         Config.keystrokesMode = Config.KeystrokesMode.NEW;
+        Config.armorHudMode = Config.ArmorHudMode.NEW;
+        Config.armorHudLayout = Config.ArmorHudLayout.SEPARATED;
         Config.animationMode = Config.AnimMode.MODE_1_7;
         Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
         Config.save();
