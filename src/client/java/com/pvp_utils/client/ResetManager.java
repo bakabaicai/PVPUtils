@@ -13,6 +13,7 @@ public class ResetManager {
         Config.useSwing = false;
         Config.autoMode = false;
         Config.noSneakAnimation = false;
+        Config.noDoubleSneak = true;
         Config.sneakDropScale = 0.5f;
         Config.sneakAnimationSpeed = 1.0f;
         Config.autoScreenshot = false;
