@@ -2,19 +2,39 @@ package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
+import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.List;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerMixin {
+    @Redirect(method = "handleSetEntityData", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundSetEntityDataPacket;packedItems()Ljava/util/List;", ordinal = 0))
+    private List<SynchedEntityData.DataValue<?>> fixLocalPlayerPoseTracker(ClientboundSetEntityDataPacket packet) {
+        Minecraft client = Minecraft.getInstance();
+        if (Config.noDoubleSneak && client.level != null && client.player != null) {
+            Entity entity = client.level.getEntity(packet.id());
+            if (entity == client.player) {
+                packet.packedItems().removeIf(value -> value.serializer().equals(EntityDataSerializers.POSE));
+            }
+        }
+
+        return packet.packedItems();
+    }
+
     @Inject(method = "handleDamageEvent", at = @At("HEAD"))
     private void onDamageEvent(ClientboundDamageEventPacket packet, CallbackInfo ci) {
         Minecraft client = Minecraft.getInstance();

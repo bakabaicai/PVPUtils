@@ -111,6 +111,8 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("潜行动画调整", "Sneak Animation Adjustment"), UiText.t("调整潜行视角下降效果", "Adjust sneak camera drop effect"),
                 new SettingToggle(() -> Config.noSneakAnimation, v -> { Config.noSneakAnimation = v; Config.save(); }))
+                .addSub(UiText.t("防双潜行", "No Double Sneak"), UiText.t("过滤本地玩家的姿态同步，避免潜行动画重复触发", "Filter local player pose sync to prevent sneak animation from triggering twice"),
+                        new SettingToggle(() -> Config.noDoubleSneak, v -> { Config.noDoubleSneak = v; Config.save(); }))
                 .addSub(UiText.t("下降幅度", "Drop Amount"), UiText.t("潜行时的下降幅度", "Sneak camera drop amount"),
                         new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakDropScale * 100.0, v -> { Config.sneakDropScale = (v.floatValue() / 100.0f); Config.save(); }))
                 .addSub(UiText.t("过渡速度", "Transition Speed"), UiText.t("潜行动画的过渡速度", "Sneak animation transition speed"),

@@ -359,6 +359,16 @@ public class SettingsScreen extends Screen {
                     this.init();
                 }).bounds(centerX - 75, currentY, 150, 20).build());
 
+        currentY += 25;
+        this.addRenderableWidget(Button.builder(
+                Component.literal(getToggleText(cn ? "防双潜行" : "No Double Sneak", Config.noDoubleSneak, cn)),
+                (button) -> {
+                    Config.noDoubleSneak = !Config.noDoubleSneak;
+                    button.setMessage(Component.literal(getToggleText(cn ? "防双潜行" : "No Double Sneak", Config.noDoubleSneak, cn)));
+                    Config.save();
+                    this.init();
+                }).bounds(centerX - 75, currentY, 150, 20).build());
+
         String sliderName = cn ? "潜行下降高度" : "Sneak Drop";
         if (Config.noSneakAnimation) {
             currentY += 25;
