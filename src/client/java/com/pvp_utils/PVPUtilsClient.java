@@ -52,7 +52,6 @@ public class PVPUtilsClient implements ClientModInitializer {
             dispatcher.register(ClientCommandManager.literal("PVPUtils")
                     .then(ClientCommandManager.literal("update")
                             .executes(context -> {
-                                context.getSource().sendFeedback(Update.checkingMessage());
                                 Update.startManualCheck();
                                 return 1;
                             })
