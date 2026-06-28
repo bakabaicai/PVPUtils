@@ -189,6 +189,7 @@ public final class Update {
             if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
         } else {
             if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
+            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
         }
         if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
         if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
