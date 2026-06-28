@@ -163,7 +163,9 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("缩放", "Scale"), UiText.t("调整名称标签整体大小", "Adjust name tag size"),
                         new SettingSlider(50.0, 300.0, "%.0f%%", () -> (double) Config.nameTagScale * 100.0, v -> { Config.nameTagScale = v.floatValue() / 100.0f; Config.save(); }))
                 .addSub(UiText.t("动态缩放", "Dynamic Scale"), UiText.t("根据距离自动缩放名称标签，让远近大小更接近", "Scale name tags by distance so their screen size stays closer"),
-                        new SettingToggle(() -> Config.nameTagDynamicScale, v -> { Config.nameTagDynamicScale = v; Config.save(); })));
+                        new SettingToggle(() -> Config.nameTagDynamicScale, v -> { Config.nameTagDynamicScale = v; Config.save(); }))
+                .addSub(UiText.t("仅玩家", "Only Player"), UiText.t("只放大真实玩家的名称标签，过滤多数 NPC", "Only scale real player name tags and filter most NPCs"),
+                        new SettingToggle(() -> Config.nameTagOnlyPlayer, v -> { Config.nameTagOnlyPlayer = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }
