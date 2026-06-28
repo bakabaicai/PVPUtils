@@ -14,9 +14,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 public final class Update {
@@ -34,7 +34,6 @@ public final class Update {
     private static volatile UpdateResult cachedResult;
     private static volatile MutableComponent pendingAutoError;
     private static volatile MutableComponent pendingManualStatus;
-    private static volatile boolean manualChecking;
     private static volatile boolean shown;
 
     private Update() {}
@@ -44,9 +43,8 @@ public final class Update {
     }
 
     public static void startManualCheck() {
-        manualChecking = true;
         pendingManualStatus = checkingMessage();
-        runCheck(true, null, Update::deliverToPlayer);
+        runCheck(true, Update::deliverToPlayer, Update::deliverToPlayer);
     }
 
     public static void tick(Minecraft client) {
@@ -55,11 +53,13 @@ public final class Update {
             pendingManualStatus = null;
             client.player.displayClientMessage(manualStatus, false);
         }
+
         MutableComponent autoError = pendingAutoError;
         if (autoError != null && client != null && client.player != null && client.level != null) {
             pendingAutoError = null;
             client.player.displayClientMessage(autoError, false);
         }
+
         if (shown || client == null || client.player == null || client.level == null) return;
         UpdateResult result = cachedResult;
         if (result == null || !result.hasUpdate()) return;
@@ -96,21 +96,23 @@ public final class Update {
     private static void runCheck(boolean manual, Consumer<MutableComponent> onResult, Consumer<MutableComponent> onError) {
         Thread thread = new Thread(() -> {
             try {
-                UpdateResult result = fetchResultWithRetry(manual ? 5 : 5, manual);
+                System.out.println("[PVPUtils][Update] check start manual=" + manual + " current=" + currentTypedVersion());
+                UpdateResult result = fetchResultWithRetry(5, manual);
                 cachedResult = result;
-                manualChecking = false;
                 pendingManualStatus = null;
+                System.out.println("[PVPUtils][Update] check complete current=" + currentTypedVersion()
+                        + " fetched=" + result.fetchedVersion()
+                        + " needUpdate=" + result.hasUpdate());
                 if (manual && onResult != null) {
                     onResult.accept(result.manualResultMessage());
                 }
             } catch (Exception e) {
                 cachedResult = null;
-                manualChecking = false;
                 pendingManualStatus = null;
+                System.out.println("[PVPUtils][Update] check failed current=" + currentTypedVersion() + " reason=" + e);
                 if (!manual) {
                     pendingAutoError = errorMessage(e.getMessage());
-                }
-                if (onError != null) {
+                } else if (onError != null) {
                     onError.accept(errorMessage(e.getMessage()));
                 }
             }
@@ -124,6 +126,9 @@ public final class Update {
         InterruptedException lastInterrupted = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
+                if (manual) {
+                    System.out.println("[PVPUtils][Update] fetch attempt " + attempt + "/" + maxAttempts);
+                }
                 return fetchResultOnce();
             } catch (IOException e) {
                 lastIo = e;
@@ -149,6 +154,7 @@ public final class Update {
                 .GET()
                 .build();
         String body = HTTP.send(request, HttpResponse.BodyHandlers.ofString()).body();
+        System.out.println("[PVPUtils][Update] raw body received");
         return parse(body);
     }
 
@@ -157,52 +163,56 @@ public final class Update {
         String betaLine = findLine(body, "Version Beta:");
         String alphaLine = findLine(body, "Version Alpha:");
 
-        List<VersionCandidate> candidates = new ArrayList<>();
         String releaseVersion = extractVersion(releaseLine);
         String betaVersion = extractVersion(betaLine);
         String alphaVersion = extractVersion(alphaLine);
 
-        if (Version.TYPE == 0) {
-            candidates.add(new VersionCandidate("release", releaseVersion));
-        } else if (Version.TYPE == 1) {
-            candidates.add(new VersionCandidate("alpha", alphaVersion));
-            candidates.add(new VersionCandidate("beta", betaVersion));
-            candidates.add(new VersionCandidate("release", releaseVersion));
-        } else {
-            candidates.add(new VersionCandidate("beta", betaVersion));
-            candidates.add(new VersionCandidate("release", releaseVersion));
-        }
+        System.out.println("[PVPUtils][Update] parse current=" + currentTypedVersion()
+                + " release=" + releaseVersion
+                + " beta=" + betaVersion
+                + " alpha=" + alphaVersion);
 
-        String fetchedVersion = null;
-        for (VersionCandidate candidate : candidates) {
-            if (candidate.version != null && isNewer(candidate.version)) {
-                fetchedVersion = candidate.version;
-                break;
-            }
-        }
-        if (fetchedVersion == null) {
-            fetchedVersion = releaseVersion != null ? releaseVersion : (betaVersion != null ? betaVersion : alphaVersion);
-        }
-
-        return new UpdateResult(fetchedVersion, isNewer(fetchedVersion));
+        VersionCandidate selected = selectCandidate(releaseVersion, betaVersion, alphaVersion);
+        String fetchedVersion = selected == null ? null : selected.version;
+        boolean needUpdate = selected != null && isNewer(selected);
+        System.out.println("[PVPUtils][Update] selected=" + fetchedVersion + " needUpdate=" + needUpdate);
+        return new UpdateResult(fetchedVersion, needUpdate);
     }
 
-    private static boolean isNewer(String fetchedVersion) {
-        if (fetchedVersion == null || fetchedVersion.isBlank()) return false;
+    private static VersionCandidate selectCandidate(String releaseVersion, String betaVersion, String alphaVersion) {
+        if (Version.TYPE == 1) {
+            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
+            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
+            if (alphaVersion != null) return new VersionCandidate("alpha", alphaVersion);
+        } else if (Version.TYPE == 2) {
+            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
+            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
+        } else {
+            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
+        }
+        if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
+        if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
+        if (alphaVersion != null) return new VersionCandidate("alpha", alphaVersion);
+        return null;
+    }
 
-        if (Version.TYPE == 1 || Version.TYPE == 2) {
-            VersionToken current = VersionToken.parse(currentTypedVersion());
-            VersionToken fetched = VersionToken.parse(fetchedVersion);
-            if (current == null || fetched == null) return false;
-            if (!current.sameFamily(fetched)) return false;
-            return fetched.revision > current.revision;
+    private static boolean isNewer(VersionCandidate candidate) {
+        if (candidate == null || candidate.version == null || candidate.version.isBlank()) return false;
+
+        VersionToken current = VersionToken.parse(currentTypedVersion());
+        VersionToken fetched = VersionToken.parse(candidate.version);
+        if (current == null || fetched == null) return false;
+
+        if ("release".equals(candidate.type)) {
+            return fetched.major > current.major
+                    || (fetched.major == current.major && fetched.minor > current.minor)
+                    || (fetched.major == current.major && fetched.minor == current.minor && current.revision > 0);
         }
 
-        VersionToken fetched = VersionToken.parse(fetchedVersion);
-        VersionToken current = VersionToken.parse("v" + Version.VERSION);
-        if (current == null || fetched == null) return false;
-        return fetched.major > current.major
-                || (fetched.major == current.major && fetched.minor > current.minor);
+        if (!current.sameFamily(fetched)) {
+            return false;
+        }
+        return fetched.revision > current.revision;
     }
 
     private static String currentTypedVersion() {
@@ -221,7 +231,8 @@ public final class Update {
 
     private static MutableComponent qqClipboardMessage() {
         if (Config.isChinese) {
-            return Component.literal("QQ群号已经复制至剪切板！").withStyle(ChatFormatting.GREEN);
+            return Component.literal("QQ群号已经复制至剪切板，但请注意，您需要在中国境内或者拥有合适的VPN才能正常访问腾讯QQ，为您带来不便敬请谅解。")
+                    .withStyle(ChatFormatting.GREEN);
         }
         return Component.literal("The QQ group number has been copied to your clipboard, but please note that you need to be in mainland China or have a suitable VPN to access Tencent QQ properly. Sorry for the inconvenience.")
                 .withStyle(ChatFormatting.GREEN);
@@ -259,13 +270,13 @@ public final class Update {
                     : Version.TYPE == 2 ? (Config.isChinese ? "正式版" : "release")
                     : (Config.isChinese ? "正式版" : "release");
             MutableComponent base = Component.literal(Config.isChinese
-                    ? "检测到新" + kind + "更新，点击前往更新 "
+                    ? "检测到新的" + kind + "更新，点击前往更新 "
                     : "A new " + kind + " update is available, click to update ")
                     .withStyle(ChatFormatting.GREEN);
             return base
-                    .append(link("[Curseforge]", CURSEFORGE_URL, ChatFormatting.GOLD))
-                    .append(link("[Modrinth]", MODRINTH_URL, ChatFormatting.GREEN))
-                    .append(link("[Github]", GITHUB_URL, ChatFormatting.WHITE))
+                    .append(link("[Curseforge]", CURSEFORGE_URL, ChatFormatting.GOLD, null))
+                    .append(link("[Modrinth]", MODRINTH_URL, ChatFormatting.GREEN, null))
+                    .append(link("[Github]", GITHUB_URL, ChatFormatting.WHITE, null))
                     .append(qqGroupLink());
         }
 
@@ -277,15 +288,20 @@ public final class Update {
             return Component.literal(text).withStyle(ChatFormatting.GREEN);
         }
 
-        private static MutableComponent link(String text, String url, ChatFormatting color) {
-            return Component.literal(text).withStyle(Style.EMPTY
+        private static MutableComponent link(String text, String url, ChatFormatting color, String command) {
+            Style style = Style.EMPTY
                     .withColor(color)
-                    .withBold(true)
-                    .withClickEvent(new ClickEvent.OpenUrl(URI.create(url))));
+                    .withBold(true);
+            if (command != null) {
+                style = style.withClickEvent(new ClickEvent.RunCommand(command));
+            } else {
+                style = style.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)));
+            }
+            return Component.literal(text).withStyle(style);
         }
 
         private static MutableComponent qqGroupLink() {
-            String text = Config.isChinese ? "[QQ群聊(获取测试版)]" : "[QQ Group (Test Builds)]";
+            String text = Config.isChinese ? "[QQ群聊(获取测试版)]" : "[QQ Group (Get Test Builds)]";
             return Component.literal(text).withStyle(Style.EMPTY
                     .withColor(0xFFB04DFF)
                     .withBold(true)
