@@ -64,13 +64,24 @@ public abstract class BetterChatLineRenderMixin {
             Minecraft client = ((ChatComponentAccessor) this.field_63873).pvp_utils$getMinecraft();
             if (client != null) {
                 try {
-                    GuiGraphics graphics = ((ChatComponentGraphicsAccessor) this.val$graphics).pvp_utils$getGraphics();
+                    GuiGraphics graphics = this.pvp_utils$getGraphics();
                     PlayerSkin skin = client.getSkinManager().createLookup(profile, false).get();
                     PlayerFaceRenderer.draw(graphics, skin, AVATAR_X, avatarY, AVATAR_SIZE);
                 } catch (Throwable ignored) {
                 }
             }
         }
+    }
+
+    @Unique
+    private GuiGraphics pvp_utils$getGraphics() {
+        if (this.val$graphics instanceof ChatComponentDrawingBackgroundGraphicsAccessor background) {
+            return background.pvp_utils$getGraphics();
+        }
+        if (this.val$graphics instanceof ChatComponentDrawingFocusedGraphicsAccessor focused) {
+            return focused.pvp_utils$getGraphics();
+        }
+        throw new IllegalStateException("Unsupported ChatGraphicsAccess: " + this.val$graphics.getClass().getName());
     }
 
     @ModifyArgs(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;handleTag(IIIIFLnet/minecraft/client/GuiMessageTag;)V"))

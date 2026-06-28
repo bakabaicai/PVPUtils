@@ -44,7 +44,8 @@
     "BetterChatTextCollectorMixin",
     "BetterChatPlayerChatMessageMixin",
     "ChatComponentAccessor",
-    "ChatComponentGraphicsAccessor",
+    "ChatComponentDrawingBackgroundGraphicsAccessor",
+    "ChatComponentDrawingFocusedGraphicsAccessor",
     "BetterChatScreenMixin"
   ],
   "injectors": {
