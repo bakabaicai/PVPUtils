@@ -10,7 +10,6 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import java.util.List;
 
 public class RenderPage extends BasePage {
-
     public RenderPage() {
         modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false))))
@@ -49,13 +48,8 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(
                 UiText.t("盔甲 HUD", "Armor HUD"),
                 UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
-                new SettingToggle(() -> Config.armorHud, v -> {
-                    Config.armorHud = v;
-                    Config.save();
-                }))
-                .addSub(
-                        UiText.t("模式", "Mode"),
-                        UiText.t("在 new 和 lite 之间切换", "Switch between new and lite"),
+                new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); }))
+                .addSub(UiText.t("模式", "Mode"), UiText.t("在 new 和 lite 之间切换", "Switch between new and lite"),
                         new SettingCycle(List.of("New", "Lite"),
                                 () -> Config.armorHudMode == Config.ArmorHudMode.NEW ? 0 : 1,
                                 i -> {
@@ -65,9 +59,7 @@ public class RenderPage extends BasePage {
                                     }
                                     Config.save();
                                 }))
-                .addSub(
-                        UiText.t("布局", "Layout"),
-                        UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
+                .addSub(UiText.t("布局", "Layout"), UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
                         new SettingCycle(List.of(
                                         UiText.t("分离式", "Separated"),
                                         UiText.t("竖向", "Vertical"),
@@ -153,7 +145,7 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
-                .addSub(UiText.t("模式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
+                .addSub(UiText.t("选择目标 HUD 样式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
                         new SettingCycle(List.of("New", "Lite"),
                                 () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : 1,
                                 i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : Config.TargetHudMode.LITE; Config.save(); }))
@@ -161,7 +153,7 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
                 new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); }))
-                .addSub(UiText.t("模式", "Mode"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
+                .addSub(UiText.t("选择按键显示样式", "Mode"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
                         new SettingCycle(List.of("New", "Lite"),
                                 () -> Config.keystrokesMode == Config.KeystrokesMode.NEW ? 0 : 1,
                                 i -> { Config.keystrokesMode = i == 0 ? Config.KeystrokesMode.NEW : Config.KeystrokesMode.LITE; Config.save(); })));

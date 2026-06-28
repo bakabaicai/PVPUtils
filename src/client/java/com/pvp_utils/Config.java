@@ -51,6 +51,11 @@ public class Config {
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
+    public static boolean betterChat = false;
+    public static boolean betterChatMessageAnimation = true;
+    public static boolean betterChatInputAnimation = true;
+    public static int betterChatMessageFadeTime = 170;
+    public static int betterChatInputFadeTime = 170;
     public static boolean useMainUI = false;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
@@ -171,6 +176,11 @@ public class Config {
             noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
             customCape = Boolean.parseBoolean(prop.getProperty("customCape", "false"));
             chatHudEditQuickEnable = Boolean.parseBoolean(prop.getProperty("chatHudEditQuickEnable", "true"));
+            betterChat = Boolean.parseBoolean(prop.getProperty("betterChat", "false"));
+            betterChatMessageAnimation = Boolean.parseBoolean(prop.getProperty("betterChatMessageAnimation", "true"));
+            betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
+            betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
+            betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
             useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
             mainUICustomBackground = Boolean.parseBoolean(prop.getProperty("mainUICustomBackground", "false"));
             mainUIMouseEffect = Boolean.parseBoolean(prop.getProperty("mainUIMouseEffect", "false"));
@@ -273,6 +283,11 @@ public class Config {
             prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
             prop.setProperty("customCape", String.valueOf(customCape));
             prop.setProperty("chatHudEditQuickEnable", String.valueOf(chatHudEditQuickEnable));
+            prop.setProperty("betterChat", String.valueOf(betterChat));
+            prop.setProperty("betterChatMessageAnimation", String.valueOf(betterChatMessageAnimation));
+            prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
+            prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
+            prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
             prop.setProperty("useMainUI", String.valueOf(useMainUI));
             prop.setProperty("mainUICustomBackground", String.valueOf(mainUICustomBackground));
             prop.setProperty("mainUIMouseEffect", String.valueOf(mainUIMouseEffect));

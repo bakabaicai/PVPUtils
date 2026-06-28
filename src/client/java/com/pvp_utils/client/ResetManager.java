@@ -81,6 +81,11 @@ public class ResetManager {
         Config.noAttackCooldownAnimation = false;
         Config.customCape = false;
         Config.chatHudEditQuickEnable = true;
+        Config.betterChat = false;
+        Config.betterChatMessageAnimation = true;
+        Config.betterChatInputAnimation = true;
+        Config.betterChatMessageFadeTime = 170;
+        Config.betterChatInputFadeTime = 170;
         Config.applyGameLanguageDefault();
         Config.termsRead = false;
         Config.fullMode = false;

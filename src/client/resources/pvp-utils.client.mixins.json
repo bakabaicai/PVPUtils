@@ -36,7 +36,10 @@
     "PostPassAccessor",
     "ShaderManagerAccessor",
     "LevelParticleMixin",
-    "ParticleEngineMixin"
+    "ParticleEngineMixin",
+    "BetterChatChatMixin",
+    "BetterChatGuiMessageMixin",
+    "BetterChatScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
