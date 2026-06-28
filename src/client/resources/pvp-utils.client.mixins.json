@@ -14,6 +14,8 @@
     "BlockItemMixin",
     "PlayerPoseAccessMixin",
     "CameraMixin",
+    "EntityRenderStateMixin",
+    "EntityRendererMixin",
     "NameTagFeatureRendererStorageMixin",
     "CapeLayerMixin",
     "LightTextureMixin",

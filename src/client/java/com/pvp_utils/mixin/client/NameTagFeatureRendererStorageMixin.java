@@ -2,6 +2,7 @@ package com.pvp_utils.mixin.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.util.NameTagPlayerFilterContext;
 import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -28,6 +29,7 @@ public class NameTagFeatureRendererStorageMixin {
     )
     private void pvp_utils$modifyNameTagScale(Args args) {
         if (!Config.nameTag) return;
+        if (Config.nameTagOnlyPlayer && !NameTagPlayerFilterContext.isRealPlayer()) return;
         float scale = clamp(Config.nameTagScale, 0.5f, 3.0f) * dynamicScale();
         args.set(0, (float) args.get(0) * scale);
         args.set(1, (float) args.get(1) * scale);

@@ -78,6 +78,7 @@ public class Config {
     public static boolean nameTag = false;
     public static float nameTagScale = 1.0f;
     public static boolean nameTagDynamicScale = false;
+    public static boolean nameTagOnlyPlayer = false;
     public static boolean dynamicMotionBlur = false;
     public static float dynamicMotionBlurStrength = 1.0f;
     public static boolean dynamicMotionBlurRefreshRateScaling = true;
@@ -203,6 +204,7 @@ public class Config {
             nameTag = Boolean.parseBoolean(prop.getProperty("nameTag", "false"));
             nameTagScale = Float.parseFloat(prop.getProperty("nameTagScale", "1.0"));
             nameTagDynamicScale = Boolean.parseBoolean(prop.getProperty("nameTagDynamicScale", "false"));
+            nameTagOnlyPlayer = Boolean.parseBoolean(prop.getProperty("nameTagOnlyPlayer", "false"));
             dynamicMotionBlur = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlur", "false"));
             dynamicMotionBlurStrength = Float.parseFloat(prop.getProperty("dynamicMotionBlurStrength", "1.0"));
             dynamicMotionBlurRefreshRateScaling = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlurRefreshRateScaling", "true"));
@@ -305,6 +307,7 @@ public class Config {
             prop.setProperty("nameTag", String.valueOf(nameTag));
             prop.setProperty("nameTagScale", String.valueOf(nameTagScale));
             prop.setProperty("nameTagDynamicScale", String.valueOf(nameTagDynamicScale));
+            prop.setProperty("nameTagOnlyPlayer", String.valueOf(nameTagOnlyPlayer));
             prop.setProperty("dynamicMotionBlur", String.valueOf(dynamicMotionBlur));
             prop.setProperty("dynamicMotionBlurStrength", String.valueOf(dynamicMotionBlurStrength));
             prop.setProperty("dynamicMotionBlurRefreshRateScaling", String.valueOf(dynamicMotionBlurRefreshRateScaling));
