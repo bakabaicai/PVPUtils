@@ -84,6 +84,7 @@ public class ResetManager {
         Config.betterChat = false;
         Config.betterChatMessageAnimation = true;
         Config.betterChatInputAnimation = true;
+        Config.betterChatAvatar = true;
         Config.betterChatMessageFadeTime = 170;
         Config.betterChatInputFadeTime = 170;
         Config.applyGameLanguageDefault();

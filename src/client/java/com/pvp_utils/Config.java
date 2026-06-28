@@ -54,6 +54,7 @@ public class Config {
     public static boolean betterChat = false;
     public static boolean betterChatMessageAnimation = true;
     public static boolean betterChatInputAnimation = true;
+    public static boolean betterChatAvatar = true;
     public static int betterChatMessageFadeTime = 170;
     public static int betterChatInputFadeTime = 170;
     public static boolean useMainUI = false;
@@ -179,6 +180,7 @@ public class Config {
             betterChat = Boolean.parseBoolean(prop.getProperty("betterChat", "false"));
             betterChatMessageAnimation = Boolean.parseBoolean(prop.getProperty("betterChatMessageAnimation", "true"));
             betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
+            betterChatAvatar = Boolean.parseBoolean(prop.getProperty("betterChatAvatar", "true"));
             betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
             betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
             useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
@@ -286,6 +288,7 @@ public class Config {
             prop.setProperty("betterChat", String.valueOf(betterChat));
             prop.setProperty("betterChatMessageAnimation", String.valueOf(betterChatMessageAnimation));
             prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
+            prop.setProperty("betterChatAvatar", String.valueOf(betterChatAvatar));
             prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
             prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
             prop.setProperty("useMainUI", String.valueOf(useMainUI));

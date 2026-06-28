@@ -1,6 +1,6 @@
 package com.pvp_utils.mixin.client;
 
-import com.mojang.brigadier.Message;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatState;
 import net.minecraft.client.GuiMessage;
@@ -21,9 +21,17 @@ import java.util.List;
 
 @Mixin(ChatComponent.class)
 public abstract class BetterChatChatMixin {
+    private static final int CHAT_HEAD_SIZE = 8;
+    private static final int CHAT_HEAD_GAP = 2;
+    private static final int CHAT_HEAD_SHIFT = CHAT_HEAD_SIZE + CHAT_HEAD_GAP;
     @Shadow private int chatScrollbarPos;
     @Shadow @Final private List<GuiMessage.Line> trimmedMessages;
     @Shadow private int getLineHeight() { return 0; }
+
+    @ModifyReturnValue(method = "getWidth", at = @At("RETURN"))
+    private int pvp_utils$extendWidthForAvatars(int original) {
+        return Config.betterChat && Config.betterChatAvatar ? original + CHAT_HEAD_SHIFT : original;
+    }
 
     @Inject(method = "render", at = @At("HEAD"))
     private void pvp_utils$chatRenderStart(GuiGraphics context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {

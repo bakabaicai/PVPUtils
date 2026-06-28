@@ -39,6 +39,12 @@
     "ParticleEngineMixin",
     "BetterChatChatMixin",
     "BetterChatGuiMessageMixin",
+    "BetterChatGuiMessageLineMixin",
+    "BetterChatLineRenderMixin",
+    "BetterChatTextCollectorMixin",
+    "BetterChatPlayerChatMessageMixin",
+    "ChatComponentAccessor",
+    "ChatComponentGraphicsAccessor",
     "BetterChatScreenMixin"
   ],
   "injectors": {
