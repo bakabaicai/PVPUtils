@@ -8,10 +8,10 @@ public final class Version {
     public static final String VERSION = "1.3";
 
     // 版本类型：0 = 正式版，1 = alpha，2 = beta
-    public static final int TYPE = 2;
+    public static final int TYPE = 0;
 
     // 修订号：0 不显示修订号，例如 alpha；1 则显示为 alpha.1
-    public static final int REVISION = 6;
+    public static final int REVISION = 0;
 
     //显示debug功能，正式版记得关闭
     public static final boolean DEBUG = false;
