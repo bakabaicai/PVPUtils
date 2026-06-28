@@ -48,6 +48,8 @@ public class Config {
     public static boolean hideHurtShake = false;
     public static boolean hideTotemAnimation = false;
     public static boolean hideExplosionParticles = false;
+    public static boolean hideVignette = false;
+    public static boolean hideFog = false;
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
@@ -175,6 +177,8 @@ public class Config {
             hideHurtShake = Boolean.parseBoolean(prop.getProperty("hideHurtShake", "false"));
             hideTotemAnimation = Boolean.parseBoolean(prop.getProperty("hideTotemAnimation", "false"));
             hideExplosionParticles = Boolean.parseBoolean(prop.getProperty("hideExplosionParticles", "false"));
+            hideVignette = Boolean.parseBoolean(prop.getProperty("hideVignette", "false"));
+            hideFog = Boolean.parseBoolean(prop.getProperty("hideFog", "false"));
             noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
             customCape = Boolean.parseBoolean(prop.getProperty("customCape", "false"));
             chatHudEditQuickEnable = Boolean.parseBoolean(prop.getProperty("chatHudEditQuickEnable", "true"));
@@ -284,6 +288,8 @@ public class Config {
             prop.setProperty("hideHurtShake", String.valueOf(hideHurtShake));
             prop.setProperty("hideTotemAnimation", String.valueOf(hideTotemAnimation));
             prop.setProperty("hideExplosionParticles", String.valueOf(hideExplosionParticles));
+            prop.setProperty("hideVignette", String.valueOf(hideVignette));
+            prop.setProperty("hideFog", String.valueOf(hideFog));
             prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
             prop.setProperty("customCape", String.valueOf(customCape));
             prop.setProperty("chatHudEditQuickEnable", String.valueOf(chatHudEditQuickEnable));

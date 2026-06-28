@@ -28,7 +28,7 @@
     "ChatScreenMixin",
     "AbstractSignRendererMixin",
     "EnchantTableRendererMixin",
-    "ScreenEffectRendererMixin",
+    "FogRendererMixin",
     "TitleScreenMixin",
     "GameRendererMixin",
     "GameRendererTotemMixin",

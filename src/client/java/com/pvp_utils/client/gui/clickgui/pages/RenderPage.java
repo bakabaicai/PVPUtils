@@ -133,6 +133,10 @@ public class RenderPage extends BasePage {
                         new SettingToggle(() -> Config.hideEnchantTableBook, v -> { Config.hideEnchantTableBook = v; Config.save(); }))
                 .addSub(UiText.t("火焰效果", "Fire Overlay"), UiText.t("隐藏第一人称着火遮挡效果", "Hide the first-person fire overlay"),
                         new SettingToggle(() -> Config.hideFireOverlay, v -> { Config.hideFireOverlay = v; Config.save(); }))
+                .addSub(UiText.t("屏幕暗角", "Vignette"), UiText.t("隐藏屏幕边缘暗角效果", "Hide the screen edge vignette"),
+                        new SettingToggle(() -> Config.hideVignette, v -> { Config.hideVignette = v; Config.save(); }))
+                .addSub(UiText.t("视角场迷雾", "View Fog"), UiText.t("隐藏视角中的世界迷雾效果", "Hide world fog in the view"),
+                        new SettingToggle(() -> Config.hideFog, v -> { Config.hideFog = v; Config.save(); }))
                 .addSub(UiText.t("图腾动画", "Totem Animation"), UiText.t("隐藏图腾触发时的全屏动画效果", "Hide the full-screen animation when a totem triggers"),
                         new SettingToggle(() -> Config.hideTotemAnimation, v -> { Config.hideTotemAnimation = v; Config.save(); }))
                 .addSub(UiText.t("爆炸粒子", "Explosion Particles"), UiText.t("隐藏爆炸产生的粒子效果", "Hide particles produced by explosions"),
