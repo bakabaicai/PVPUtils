@@ -176,44 +176,42 @@ public final class Update {
         String fetchedVersion = selected == null ? null : selected.version;
         boolean needUpdate = selected != null && isNewer(selected);
         System.out.println("[PVPUtils][Update] selected=" + fetchedVersion + " needUpdate=" + needUpdate);
-        return new UpdateResult(fetchedVersion, needUpdate);
+        return new UpdateResult(selected, needUpdate);
     }
 
     private static VersionCandidate selectCandidate(String releaseVersion, String betaVersion, String alphaVersion) {
-        if (Version.TYPE == 1) {
-            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
-            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
-            if (alphaVersion != null) return new VersionCandidate("alpha", alphaVersion);
-        } else if (Version.TYPE == 2) {
-            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
-            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
-        } else {
-            if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
-            if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
+        VersionToken current = VersionToken.parse(currentTypedVersion());
+        VersionCandidate release = releaseVersion == null ? null : new VersionCandidate("release", releaseVersion, VersionToken.parse(releaseVersion));
+        VersionCandidate beta = betaVersion == null ? null : new VersionCandidate("beta", betaVersion, VersionToken.parse(betaVersion));
+        VersionCandidate alpha = alphaVersion == null ? null : new VersionCandidate("alpha", alphaVersion, VersionToken.parse(alphaVersion));
+
+        if (Version.TYPE == 3) {
+            return isNewer(release, current) ? release : null;
         }
-        if (releaseVersion != null) return new VersionCandidate("release", releaseVersion);
-        if (betaVersion != null) return new VersionCandidate("beta", betaVersion);
-        if (alphaVersion != null) return new VersionCandidate("alpha", alphaVersion);
-        return null;
+
+        if (isNewer(release, current)) {
+            return release;
+        }
+
+        if (Version.TYPE == 2) {
+            return isNewer(beta, current) ? beta : null;
+        }
+
+        if (isNewer(beta, current)) {
+            return beta;
+        }
+
+        return isNewer(alpha, current) ? alpha : null;
     }
 
     private static boolean isNewer(VersionCandidate candidate) {
+        return isNewer(candidate, VersionToken.parse(currentTypedVersion()));
+    }
+
+    private static boolean isNewer(VersionCandidate candidate, VersionToken current) {
         if (candidate == null || candidate.version == null || candidate.version.isBlank()) return false;
-
-        VersionToken current = VersionToken.parse(currentTypedVersion());
-        VersionToken fetched = VersionToken.parse(candidate.version);
-        if (current == null || fetched == null) return false;
-
-        if ("release".equals(candidate.type)) {
-            return fetched.major > current.major
-                    || (fetched.major == current.major && fetched.minor > current.minor)
-                    || (fetched.major == current.major && fetched.minor == current.minor && current.revision > 0);
-        }
-
-        if (!current.sameFamily(fetched)) {
-            return false;
-        }
-        return fetched.revision > current.revision;
+        VersionToken fetched = candidate.token != null ? candidate.token : VersionToken.parse(candidate.version);
+        return current != null && fetched != null && fetched.compareTo(current) > 0;
     }
 
     private static String currentTypedVersion() {
@@ -265,11 +263,13 @@ public final class Update {
         return reason;
     }
 
-    private record UpdateResult(String fetchedVersion, boolean hasUpdate) {
+    private record UpdateResult(VersionCandidate selected, boolean hasUpdate) {
+        String fetchedVersion() {
+            return selected == null ? null : selected.version;
+        }
+
         MutableComponent updateAvailableMessage() {
-            String kind = Version.TYPE == 1 ? (Config.isChinese ? "测试版" : "test build")
-                    : Version.TYPE == 2 ? (Config.isChinese ? "正式版" : "release")
-                    : (Config.isChinese ? "正式版" : "release");
+            String kind = updateKindText();
             MutableComponent base = Component.literal(Config.isChinese
                     ? "检测到新的" + kind + "更新，点击前往更新 "
                     : "A new " + kind + " update is available, click to update ")
@@ -287,6 +287,15 @@ public final class Update {
             }
             String text = Config.isChinese ? "当前已经是最新版本。" : "You are already on the latest version.";
             return Component.literal(text).withStyle(ChatFormatting.GREEN);
+        }
+
+        private String updateKindText() {
+            String type = selected == null ? "release" : selected.type;
+            return switch (type) {
+                case "alpha" -> Config.isChinese ? "测试版" : "alpha";
+                case "beta" -> Config.isChinese ? "测试版" : "beta";
+                default -> Config.isChinese ? "正式版" : "release";
+            };
         }
 
         private static MutableComponent link(String text, String url, ChatFormatting color, String command) {
@@ -310,7 +319,7 @@ public final class Update {
         }
     }
 
-    private record VersionToken(int major, int minor, String type, int revision) {
+    private record VersionToken(int major, int minor, String type, int revision) implements Comparable<VersionToken> {
         static VersionToken parse(String text) {
             if (text == null || text.isBlank()) return null;
             String cleaned = text.trim();
@@ -356,7 +365,28 @@ public final class Update {
                     && minor == other.minor
                     && type.equals(other.type);
         }
+
+        @Override
+        public int compareTo(VersionToken other) {
+            if (other == null) return 1;
+            if (major != other.major) return Integer.compare(major, other.major);
+            if (minor != other.minor) return Integer.compare(minor, other.minor);
+            int rank = rank(type);
+            int otherRank = rank(other.type);
+            if (rank != otherRank) return Integer.compare(rank, otherRank);
+            return Integer.compare(revision, other.revision);
+        }
+
+        private static int rank(String type) {
+            if (type == null) return 0;
+            return switch (type.toLowerCase(Locale.ROOT)) {
+                case "release" -> 3;
+                case "beta" -> 2;
+                case "alpha" -> 1;
+                default -> 0;
+            };
+        }
     }
 
-    private record VersionCandidate(String type, String version) {}
+    private record VersionCandidate(String type, String version, VersionToken token) {}
 }
