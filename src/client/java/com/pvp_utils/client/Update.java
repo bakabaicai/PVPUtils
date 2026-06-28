@@ -148,14 +148,22 @@ public final class Update {
     }
 
     private static UpdateResult fetchResultOnce() throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(UPDATE_URL))
+        HttpRequest request = HttpRequest.newBuilder(buildUpdateUri())
                 .timeout(Duration.ofSeconds(8))
                 .header("User-Agent", "PVPUtils-UpdateChecker")
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
                 .GET()
                 .build();
         String body = HTTP.send(request, HttpResponse.BodyHandlers.ofString()).body();
         System.out.println("[PVPUtils][Update] raw body received");
         return parse(body);
+    }
+
+    private static URI buildUpdateUri() {
+        String separator = UPDATE_URL.contains("?") ? "&" : "?";
+        return URI.create(UPDATE_URL + separator + "t=" + System.currentTimeMillis());
     }
 
     private static UpdateResult parse(String body) {
