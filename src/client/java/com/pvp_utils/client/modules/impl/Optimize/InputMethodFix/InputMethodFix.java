@@ -1,4 +1,4 @@
-package com.pvp_utils.client.modules.impl.Optimize;
+package com.pvp_utils.client.modules.impl.Optimize.InputMethodFix;
 
 import com.pvp_utils.Config;
 import com.sun.jna.Library;
@@ -19,28 +19,46 @@ import org.lwjgl.glfw.GLFWNativeWin32;
 
 import java.util.Locale;
 
-public final class InputMethodManager {
-    private static final boolean WINDOWS = System.getProperty("os.name", "")
-            .toLowerCase(Locale.ROOT).contains("win");
+public final class InputMethodFix {
+    private static final boolean WINDOWS = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 
     private static Pointer windowHandle;
     private static Pointer previousInputContext;
     private static boolean disabled;
 
-    private InputMethodManager() {}
+    private InputMethodFix() {}
 
     public static void tick(Minecraft client) {
-        if (!WINDOWS) return;
-
+        if (!WINDOWS || client == null || client.getWindow() == null) {
+            return;
+        }
         if (!Config.disableImeInGame || client.player == null || shouldAllowInputMethod(client.screen)) {
             restore();
             return;
         }
-
         disable(client);
     }
 
-    private static boolean shouldAllowInputMethod(Screen screen) {
+    public static void onWindowActiveChanged(boolean active, Minecraft client) {
+        if (!active) {
+            restore();
+            return;
+        }
+        tick(client);
+    }
+
+    public static void onScreenChanged(Screen screen, Minecraft client) {
+        if (!WINDOWS) {
+            return;
+        }
+        if (!Config.disableImeInGame || client == null || client.player == null || shouldAllowInputMethod(screen)) {
+            restore();
+            return;
+        }
+        disable(client);
+    }
+
+    public static boolean shouldAllowInputMethod(Screen screen) {
         if (screen == null) return false;
         if (screen instanceof ChatScreen || screen instanceof InBedChatScreen) return true;
         if (screen instanceof AbstractSignEditScreen || screen instanceof BookEditScreen) return true;
@@ -48,6 +66,13 @@ public final class InputMethodManager {
 
         GuiEventListener focused = screen.getFocused();
         return focused instanceof EditBox || focused instanceof MultiLineEditBox;
+    }
+
+    public static void refreshForFocusedTextField(Minecraft client) {
+        if (!WINDOWS || client == null) return;
+        if (Config.disableImeInGame && client.player != null && shouldAllowInputMethod(client.screen)) {
+            restore();
+        }
     }
 
     private static void disable(Minecraft client) {
