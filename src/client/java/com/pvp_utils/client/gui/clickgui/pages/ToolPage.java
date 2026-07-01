@@ -6,6 +6,8 @@ import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 
+import java.util.List;
+
 public class ToolPage extends BasePage {
 
     public ToolPage() {
@@ -29,7 +31,19 @@ public class ToolPage extends BasePage {
                 new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("Skija 模糊卡片测试", "Skija Blur Card Test"), UiText.t("用 GPU 纹理拷贝和 Skija 绘制一个背景模糊卡片", "Draw a blurred card using GPU texture copy and Skia"),
-                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); })));
+                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); }))
+                .addSub(UiText.t("模糊颜色", "Blur Color"), UiText.t("选择卡片遮罩颜色", "Choose the card tint color"),
+                        new SettingCycle(List.of(
+                                UiText.t("深灰", "Slate"),
+                                UiText.t("浅色", "Light"),
+                                UiText.t("蓝色", "Blue"),
+                                UiText.t("紫色", "Purple"),
+                                UiText.t("绿色", "Green")),
+                                () -> Config.skiaBlurColor.ordinal(),
+                                i -> { Config.skiaBlurColor = Config.SkiaBlurColor.values()[i % Config.SkiaBlurColor.values().length]; Config.save(); }))
+                .addSub(UiText.t("模糊强度", "Blur Strength"), UiText.t("调整背景模糊半径", "Adjust the background blur radius"),
+                        new SettingSlider(0.0, 200.0, "%.0f%%", () -> (double) Config.skiaBlurStrength * 100.0,
+                                v -> { Config.skiaBlurStrength = v.floatValue() / 100.0f; Config.save(); })));
 
         if (Version.DEBUG) {
             modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),

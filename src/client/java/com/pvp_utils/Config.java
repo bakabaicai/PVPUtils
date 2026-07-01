@@ -31,6 +31,8 @@ public class Config {
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static boolean skiaBlurCardTest = false;
+    public static SkiaBlurColor skiaBlurColor = SkiaBlurColor.SLATE;
+    public static float skiaBlurStrength = 1.0f;
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
@@ -120,6 +122,7 @@ public class Config {
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
+    public enum SkiaBlurColor { SLATE, LIGHT, BLUE, PURPLE, GREEN }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
@@ -161,6 +164,8 @@ public class Config {
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
+            skiaBlurColor = SkiaBlurColor.valueOf(prop.getProperty("skiaBlurColor", "SLATE"));
+            skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
             armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
@@ -273,6 +278,8 @@ public class Config {
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
+            prop.setProperty("skiaBlurColor", skiaBlurColor.name());
+            prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
             prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
