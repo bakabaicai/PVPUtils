@@ -28,8 +28,10 @@ public class OptimizePage extends BasePage {
 
         modules.add(new SettingModule(
                 UiText.t("平滑快捷栏", "Smooth Hotbar"),
-                UiText.t("让快捷栏滚轮切换时带有平滑过渡，并支持循环滚动", "Make hotbar scrolling smooth and support rollover"),
-                new SettingToggle(() -> Config.smoothHotbarScrolling, v -> { Config.smoothHotbarScrolling = v; Config.save(); })));
+                UiText.t("让快捷栏滚轮切换时带有平滑过渡", "Make hotbar scrolling smooth"),
+                new SettingToggle(() -> Config.smoothHotbarScrolling, v -> { Config.smoothHotbarScrolling = v; Config.save(); }))
+                .addSub(UiText.t("动画速度", "Animation Speed"), UiText.t("控制选中框移动到目标格子的平滑速度", "Controls how fast the selector animates to the target slot"),
+                        new SettingSlider(0.05, 0.99, "%.2f", () -> (double) Config.smoothHotbarAnimationSpeed, v -> { Config.smoothHotbarAnimationSpeed = v.floatValue(); Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("优化设置", "Optimize Settings"); }

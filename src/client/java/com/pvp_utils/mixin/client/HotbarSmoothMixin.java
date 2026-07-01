@@ -21,8 +21,6 @@ public class HotbarSmoothMixin {
     @Unique private static final int SLOT_WIDTH = 20;
     @Unique private static final int SLOT_COUNT = 9;
     @Unique private static final int ROLLOVER_SPACE = 4;
-    @Unique private static final float SMOOTHNESS = 0.55f;
-
     @Unique private float pvp_utils$smoothSelectorPos;
 
     @WrapMethod(method = "renderHotbarAndDecorations")
@@ -39,7 +37,8 @@ public class HotbarSmoothMixin {
         }
 
         float target = getTargetPosition(player.getInventory().getSelectedSlot(), Config.hotbarRollover);
-        pvp_utils$smoothSelectorPos += (target - pvp_utils$smoothSelectorPos) * (1f - (float) Math.pow(SMOOTHNESS, deltaTracker.getRealtimeDeltaTicks()));
+        float smoothness = Math.min(0.99f, Math.max(0.05f, Config.smoothHotbarAnimationSpeed));
+        pvp_utils$smoothSelectorPos += (target - pvp_utils$smoothSelectorPos) * (1f - (float) Math.pow(smoothness, deltaTracker.getRealtimeDeltaTicks()));
 
         operation.call(graphics, deltaTracker);
     }

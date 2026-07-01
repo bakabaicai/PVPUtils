@@ -58,6 +58,7 @@ public class Config {
     public static boolean betterChatInputAnimation = true;
     public static boolean betterChatAvatar = true;
     public static boolean smoothHotbarScrolling = false;
+    public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;
     public static int betterChatInputFadeTime = 170;
     public static int hotbarRollover = 0;
@@ -189,6 +190,7 @@ public class Config {
             betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
             betterChatAvatar = Boolean.parseBoolean(prop.getProperty("betterChatAvatar", "true"));
             smoothHotbarScrolling = Boolean.parseBoolean(prop.getProperty("smoothHotbarScrolling", "false"));
+            smoothHotbarAnimationSpeed = Float.parseFloat(prop.getProperty("smoothHotbarAnimationSpeed", "0.55"));
             betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
             betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
             hotbarRollover = Integer.parseInt(prop.getProperty("hotbarRollover", "0"));
@@ -302,6 +304,7 @@ public class Config {
             prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
             prop.setProperty("betterChatAvatar", String.valueOf(betterChatAvatar));
             prop.setProperty("smoothHotbarScrolling", String.valueOf(smoothHotbarScrolling));
+            prop.setProperty("smoothHotbarAnimationSpeed", String.valueOf(smoothHotbarAnimationSpeed));
             prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
             prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
             prop.setProperty("hotbarRollover", String.valueOf(hotbarRollover));
