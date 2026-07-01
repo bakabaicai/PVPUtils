@@ -57,8 +57,10 @@ public class Config {
     public static boolean betterChatMessageAnimation = true;
     public static boolean betterChatInputAnimation = true;
     public static boolean betterChatAvatar = true;
+    public static boolean smoothHotbarScrolling = false;
     public static int betterChatMessageFadeTime = 170;
     public static int betterChatInputFadeTime = 170;
+    public static int hotbarRollover = 0;
     public static boolean useMainUI = false;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
@@ -186,8 +188,10 @@ public class Config {
             betterChatMessageAnimation = Boolean.parseBoolean(prop.getProperty("betterChatMessageAnimation", "true"));
             betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
             betterChatAvatar = Boolean.parseBoolean(prop.getProperty("betterChatAvatar", "true"));
+            smoothHotbarScrolling = Boolean.parseBoolean(prop.getProperty("smoothHotbarScrolling", "false"));
             betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
             betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
+            hotbarRollover = Integer.parseInt(prop.getProperty("hotbarRollover", "0"));
             useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
             mainUICustomBackground = Boolean.parseBoolean(prop.getProperty("mainUICustomBackground", "false"));
             mainUIMouseEffect = Boolean.parseBoolean(prop.getProperty("mainUIMouseEffect", "false"));
@@ -297,8 +301,10 @@ public class Config {
             prop.setProperty("betterChatMessageAnimation", String.valueOf(betterChatMessageAnimation));
             prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
             prop.setProperty("betterChatAvatar", String.valueOf(betterChatAvatar));
+            prop.setProperty("smoothHotbarScrolling", String.valueOf(smoothHotbarScrolling));
             prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
             prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
+            prop.setProperty("hotbarRollover", String.valueOf(hotbarRollover));
             prop.setProperty("useMainUI", String.valueOf(useMainUI));
             prop.setProperty("mainUICustomBackground", String.valueOf(mainUICustomBackground));
             prop.setProperty("mainUIMouseEffect", String.valueOf(mainUIMouseEffect));

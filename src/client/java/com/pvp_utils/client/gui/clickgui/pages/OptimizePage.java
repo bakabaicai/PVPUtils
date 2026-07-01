@@ -25,6 +25,11 @@ public class OptimizePage extends BasePage {
                         new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatMessageFadeTime, v -> { Config.betterChatMessageFadeTime = v.intValue(); Config.save(); }))
                 .addSub(UiText.t("输入栏动画时间", "Input Fade Time"), UiText.t("聊天输入栏的动画时长", "Duration for chat input bar animation"),
                         new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatInputFadeTime, v -> { Config.betterChatInputFadeTime = v.intValue(); Config.save(); })));
+
+        modules.add(new SettingModule(
+                UiText.t("平滑快捷栏", "Smooth Hotbar"),
+                UiText.t("让快捷栏滚轮切换时带有平滑过渡，并支持循环滚动", "Make hotbar scrolling smooth and support rollover"),
+                new SettingToggle(() -> Config.smoothHotbarScrolling, v -> { Config.smoothHotbarScrolling = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("优化设置", "Optimize Settings"); }
