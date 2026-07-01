@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
+import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
@@ -16,6 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void pvp_utils$tickToolOverrides(CallbackInfo ci) {
+        TimeWeatherChanger.tick((Minecraft) (Object) this);
+    }
+
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void hideAutoChestDepositScreen(Screen screen, CallbackInfo ci) {
         if (AutoChestDepositManager.shouldHideContainerScreen(screen)) {
