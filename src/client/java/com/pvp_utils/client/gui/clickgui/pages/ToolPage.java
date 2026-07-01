@@ -44,6 +44,23 @@ public class ToolPage extends BasePage {
                 .addSub(UiText.t("模糊强度", "Blur Strength"), UiText.t("调整背景模糊半径", "Adjust the background blur radius"),
                         new SettingSlider(0.0, 200.0, "%.0f%%", () -> (double) Config.skiaBlurStrength * 100.0,
                                 v -> { Config.skiaBlurStrength = v.floatValue() / 100.0f; Config.save(); })));
+                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); })));
+        modules.add(new SettingModule(UiText.t("改变客户端时间", "Time Change"), UiText.t("强制修改客户端显示的世界时间", "Force the client-side world time"),
+                new SettingToggle(() -> Config.timeChange, v -> { Config.timeChange = v; Config.save(); }))
+                .addSub(UiText.t("时间", "Time"), UiText.t("选择客户端显示的世界时间", "Choose the client-side world time"),
+                        new SettingSlider(0, 23999, "%.0f", () -> (double) Config.clientTime,
+                                v -> { Config.clientTime = v.intValue(); Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("改变客户端天气", "Weather Change"), UiText.t("强制修改客户端显示的天气", "Force the client-side weather"),
+                new SettingToggle(() -> Config.weatherChange, v -> { Config.weatherChange = v; Config.save(); }))
+                .addSub(UiText.t("天气模式", "Weather Mode"), UiText.t("选择客户端显示的天气", "Choose the client-side weather"),
+                        new SettingCycle(List.of(
+                                UiText.t("晴天", "Clear"),
+                                UiText.t("雨天", "Rain"),
+                                UiText.t("雪天", "Snow"),
+                                UiText.t("雷暴", "Thunder")),
+                                () -> Config.weatherMode.ordinal(),
+                                i -> { Config.weatherMode = Config.WeatherMode.values()[i % Config.WeatherMode.values().length]; Config.save(); })));
 
         if (Version.DEBUG) {
             modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),
