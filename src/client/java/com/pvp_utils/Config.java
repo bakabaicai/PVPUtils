@@ -31,6 +31,8 @@ public class Config {
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static boolean skiaBlurCardTest = false;
+    public static boolean timeChange = false;
+    public static boolean weatherChange = false;
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
@@ -58,8 +60,11 @@ public class Config {
     public static boolean betterChatMessageAnimation = true;
     public static boolean betterChatInputAnimation = true;
     public static boolean betterChatAvatar = true;
+    public static boolean smoothHotbarScrolling = false;
+    public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;
     public static int betterChatInputFadeTime = 170;
+    public static int hotbarRollover = 0;
     public static boolean useMainUI = false;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
@@ -110,6 +115,8 @@ public class Config {
     public static int fishingRodAssistUseDelay = 0;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
+    public static int clientTime = 6000;
+    public static WeatherMode weatherMode = WeatherMode.CLEAR;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
@@ -120,6 +127,7 @@ public class Config {
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
+    public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
@@ -161,6 +169,8 @@ public class Config {
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
+            timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
+            weatherChange = Boolean.parseBoolean(prop.getProperty("weatherChange", "false"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
             armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
@@ -188,8 +198,11 @@ public class Config {
             betterChatMessageAnimation = Boolean.parseBoolean(prop.getProperty("betterChatMessageAnimation", "true"));
             betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
             betterChatAvatar = Boolean.parseBoolean(prop.getProperty("betterChatAvatar", "true"));
+            smoothHotbarScrolling = Boolean.parseBoolean(prop.getProperty("smoothHotbarScrolling", "false"));
+            smoothHotbarAnimationSpeed = Float.parseFloat(prop.getProperty("smoothHotbarAnimationSpeed", "0.55"));
             betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
             betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
+            hotbarRollover = Integer.parseInt(prop.getProperty("hotbarRollover", "0"));
             useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
             mainUICustomBackground = Boolean.parseBoolean(prop.getProperty("mainUICustomBackground", "false"));
             mainUIMouseEffect = Boolean.parseBoolean(prop.getProperty("mainUIMouseEffect", "false"));
@@ -209,6 +222,7 @@ public class Config {
             sneakAnimationSpeed = Float.parseFloat(prop.getProperty("sneakAnimationSpeed", "1.0"));
             animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
             motionBlurAlgorithm = MotionBlurAlgorithm.valueOf(prop.getProperty("motionBlurAlgorithm", "VELOCITY_BASED"));
+            weatherMode = WeatherMode.valueOf(prop.getProperty("weatherMode", "CLEAR"));
             offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
             offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
             offsetZ = Float.parseFloat(prop.getProperty("offsetZ", "0"));
@@ -242,6 +256,7 @@ public class Config {
             fishingRodAssistUseDelay = Integer.parseInt(prop.getProperty("fishingRodAssistUseDelay", "0"));
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
+            clientTime = Integer.parseInt(prop.getProperty("clientTime", "6000"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -273,6 +288,8 @@ public class Config {
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
+            prop.setProperty("timeChange", String.valueOf(timeChange));
+            prop.setProperty("weatherChange", String.valueOf(weatherChange));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
             prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
@@ -300,8 +317,11 @@ public class Config {
             prop.setProperty("betterChatMessageAnimation", String.valueOf(betterChatMessageAnimation));
             prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
             prop.setProperty("betterChatAvatar", String.valueOf(betterChatAvatar));
+            prop.setProperty("smoothHotbarScrolling", String.valueOf(smoothHotbarScrolling));
+            prop.setProperty("smoothHotbarAnimationSpeed", String.valueOf(smoothHotbarAnimationSpeed));
             prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
             prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
+            prop.setProperty("hotbarRollover", String.valueOf(hotbarRollover));
             prop.setProperty("useMainUI", String.valueOf(useMainUI));
             prop.setProperty("mainUICustomBackground", String.valueOf(mainUICustomBackground));
             prop.setProperty("mainUIMouseEffect", String.valueOf(mainUIMouseEffect));
@@ -321,6 +341,7 @@ public class Config {
             prop.setProperty("sneakAnimationSpeed", String.valueOf(sneakAnimationSpeed));
             prop.setProperty("animationMode", animationMode.name());
             prop.setProperty("motionBlurAlgorithm", motionBlurAlgorithm.name());
+            prop.setProperty("weatherMode", weatherMode.name());
             prop.setProperty("offsetX", String.valueOf(offsetX));
             prop.setProperty("offsetY", String.valueOf(offsetY));
             prop.setProperty("offsetZ", String.valueOf(offsetZ));
@@ -354,6 +375,7 @@ public class Config {
             prop.setProperty("fishingRodAssistUseDelay", String.valueOf(fishingRodAssistUseDelay));
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
+            prop.setProperty("clientTime", String.valueOf(clientTime));
             prop.store(os, null);
         } catch (IOException e) {
             e.printStackTrace();

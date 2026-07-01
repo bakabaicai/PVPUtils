@@ -41,7 +41,19 @@ public class SettingModule {
     }
 
     public SettingModule addSub(String title, String subtitle, SettingWidget widget) {
-        subEntries.add(new SubEntry(title, subtitle, widget));
+        subEntries.add(new SubEntry(title, subtitle, widget, () -> true, false));
+        disposeStaticPicture();
+        return this;
+    }
+
+    public SettingModule addSub(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier) {
+        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, true));
+        disposeStaticPicture();
+        return this;
+    }
+
+    public SettingModule addSubWhen(BooleanSupplier visibleSupplier, String title, String subtitle, SettingWidget widget) {
+        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, true));
         disposeStaticPicture();
         return this;
     }
@@ -59,7 +71,7 @@ public class SettingModule {
     public float getTotalHeight() {
         float base = MODULE_H;
         if (expandProgress > 0f) {
-            base += expandProgress * subEntries.size() * SUB_H;
+            base += expandProgress * getVisibleSubCount() * SUB_H;
         }
         return base;
     }
@@ -68,6 +80,7 @@ public class SettingModule {
         if (Math.abs((expanded ? 1f : 0f) - expandProgress) > 0.01f) return true;
         if (mainWidget != null && mainWidget.isAnimating()) return true;
         for (SubEntry sub : subEntries) {
+            if (!sub.isVisible()) continue;
             if (sub.widget != null && sub.widget.isAnimating()) return true;
         }
         return false;
@@ -83,10 +96,10 @@ public class SettingModule {
     public void draw(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom) {
         boolean stableExpanded = expandProgress >= 0.99f;
         boolean stableCollapsed = expandProgress <= 0.01f;
-        boolean canUseStaticPicture = alpha >= 0.999f && (stableExpanded || stableCollapsed);
+        boolean canUseStaticPicture = alpha >= 0.999f && (stableExpanded || stableCollapsed) && !hasConditionalSubEntries();
 
         if (canUseStaticPicture) {
-            boolean expandedState = stableExpanded && !subEntries.isEmpty();
+            boolean expandedState = stableExpanded && hasVisibleSubEntries();
             ensureStaticPicture(contentW, expandedState);
             if (staticPicture != null) {
                 canvas.save();
@@ -108,6 +121,7 @@ public class SettingModule {
             float subAlpha = alpha * expandProgress;
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
+                if (!sub.isVisible()) continue;
                 float subBottom = sy + SUB_H - 6f;
                 if (subBottom > viewportTop && sy < viewportBottom && sub.widget != null) {
                     float wx = x + contentW - PAD_X - sub.widget.getWidth();
@@ -123,7 +137,7 @@ public class SettingModule {
         if (staticPicture != null && Math.abs(staticPictureWidth - contentW) < 0.01f && staticPictureExpanded == expandedState) return;
         disposeStaticPicture();
         PictureRecorder recorder = new PictureRecorder();
-        float totalHeight = MODULE_H + (expandedState ? subEntries.size() * SUB_H : 0f);
+        float totalHeight = MODULE_H + (expandedState ? getVisibleSubCount() * SUB_H : 0f);
         Canvas pictureCanvas = recorder.beginRecording(Rect.makeXYWH(0f, 0f, contentW, totalHeight));
         drawStaticContent(pictureCanvas, 0f, 0f, contentW, 1f, 0f, totalHeight, expandedState ? 1f : 0f);
         staticPicture = recorder.finishRecordingAsPicture();
@@ -142,6 +156,7 @@ public class SettingModule {
             float subAlpha = alpha * progress;
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
+                if (!sub.isVisible()) continue;
                 float subBottom = sy + SUB_H - 6f;
                 if (subBottom > viewportTop && sy < viewportBottom) {
                     subPaint.setColor(withAlpha(0xF8F8FF, subAlpha));
@@ -157,7 +172,7 @@ public class SettingModule {
             }
         }
 
-        if (!subEntries.isEmpty()) {
+        if (hasVisibleSubEntries()) {
             String arrow = progress > 0.5f ? ARROW_EXPANDED : ARROW_COLLAPSED;
             float aw = FontRenderer.measureTextWidth(arrow, 12f, FontRenderer.MATERIAL_SYMBOLS);
             FontRenderer.drawText(canvas, arrow, x + contentW - 5f - aw, y + (MODULE_H - 8f) / 2f + 5.5f, 12f, withAlpha(0xBBBBBB, alpha), FontRenderer.MATERIAL_SYMBOLS);
@@ -168,7 +183,7 @@ public class SettingModule {
         float moduleBottom = y + MODULE_H - 8f;
 
         if (my >= y && my <= moduleBottom) {
-            if (button == 1 && !subEntries.isEmpty()) {
+            if (button == 1 && hasVisibleSubEntries()) {
                 expanded = !expanded;
                 disposeStaticPicture();
                 return true;
@@ -183,6 +198,7 @@ public class SettingModule {
         if (expanded && expandProgress > 0.5f) {
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
+                if (!sub.isVisible()) continue;
                 float subBottom = sy + SUB_H - 6f;
                 if (my >= sy && my <= subBottom && sub.widget != null) {
                     float wx = x + contentW - PAD_X - sub.widget.getWidth();
@@ -204,6 +220,7 @@ public class SettingModule {
         if (expanded) {
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
+                if (!sub.isVisible()) continue;
                 if (sub.widget instanceof SettingSlider s && s.isDragging()) {
                     float wx = x + contentW - PAD_X - s.getWidth();
                     float wy = sy + (SUB_H - 6f - s.getHeight()) / 2f;
@@ -218,6 +235,7 @@ public class SettingModule {
     public void releaseDrag() {
         if (mainWidget instanceof SettingSlider s) s.releaseDrag();
         for (SubEntry sub : subEntries) {
+            if (!sub.isVisible()) continue;
             if (sub.widget instanceof SettingSlider s) s.releaseDrag();
         }
     }
@@ -233,5 +251,31 @@ public class SettingModule {
         return ((int) (alpha * 255) << 24) | (color & 0x00FFFFFF);
     }
 
-    private record SubEntry(String title, String subtitle, SettingWidget widget) {}
+    private int getVisibleSubCount() {
+        int count = 0;
+        for (SubEntry sub : subEntries) {
+            if (sub.isVisible()) count++;
+        }
+        return count;
+    }
+
+    private boolean hasVisibleSubEntries() {
+        for (SubEntry sub : subEntries) {
+            if (sub.isVisible()) return true;
+        }
+        return false;
+    }
+
+    private boolean hasConditionalSubEntries() {
+        for (SubEntry sub : subEntries) {
+            if (sub.conditional) return true;
+        }
+        return false;
+    }
+
+    private record SubEntry(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier, boolean conditional) {
+        private boolean isVisible() {
+            return visibleSupplier.getAsBoolean();
+        }
+    }
 }
