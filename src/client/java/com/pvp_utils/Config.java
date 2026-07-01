@@ -30,6 +30,7 @@ public class Config {
     public static boolean autoSprint = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
+    public static boolean skiaBlurCardTest = false;
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
@@ -159,6 +160,7 @@ public class Config {
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
+            skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
             armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
@@ -270,6 +272,7 @@ public class Config {
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
+            prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
             prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));

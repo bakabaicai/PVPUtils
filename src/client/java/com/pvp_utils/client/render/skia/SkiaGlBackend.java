@@ -81,6 +81,10 @@ public final class SkiaGlBackend {
         return surface != null;
     }
 
+    public DirectContext getContext() {
+        return context;
+    }
+
     public void resetCanvasState() {
         drawing = false;
         if (canvas != null) {
