@@ -7,6 +7,7 @@ import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.Rect;
@@ -56,6 +57,8 @@ public class TargetHudRenderer {
     private int lastTextureHealth = -1;
     private int lastTextureAbsorption = -1;
     private int lastTextureHealthTextAnim = -1;
+    private Config.HudTheme lastTextureTheme = null;
+    private Config.HudTheme lastOverlayTextureTheme = null;
     private String lastRawName = "";
     private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
@@ -66,7 +69,6 @@ public class TargetHudRenderer {
     private long healthTextAnimStart = 0L;
     private int healthTextDirection = 0;
     private float lastHealthTextValue = -1f;
-    private final Paint newHudBgPaint = new Paint();
     private final Paint newHudAvatarPaint = new Paint();
     private final Paint newHudTrackPaint = new Paint();
     private final Paint newHudFillPaint = new Paint();
@@ -110,7 +112,6 @@ public class TargetHudRenderer {
     }
 
     private TargetHudRenderer() {
-        newHudBgPaint.setAntiAlias(true);
         newHudAvatarPaint.setAntiAlias(true);
         newHudTrackPaint.setAntiAlias(true);
         newHudFillPaint.setAntiAlias(true);
@@ -380,10 +381,16 @@ public class TargetHudRenderer {
         float cx = x + scaledW * 0.5f;
         float cy = y + scaledH * 0.5f;
         float drawScale = easeOutBack(alpha);
+        float drawX = cx + (x - cx) * drawScale;
+        float drawY = cy + (y - cy) * drawScale;
+        float drawW = scaledW * drawScale;
+        float drawH = scaledH * drawScale;
+        float drawRadius = 16f * hudScale * drawScale;
 
         renderNewBaseTexture(client, name);
         renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now);
         renderAvatarMaskTexture(client);
+        SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -447,7 +454,7 @@ public class TargetHudRenderer {
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
         int targetW = Math.max(1, Math.round(NEW_HUD_WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(NEW_HUD_HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName)) return;
+        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
             destroyBaseTexture(client);
@@ -465,15 +472,14 @@ public class TargetHudRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-        newHudBgPaint.setColor(0xFFFFFFFF);
-        c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
         newHudAvatarPaint.setColor(0xFFFFFFFF);
         c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
 
-        FontRenderer.drawText(c, name, 60f, 24f, 13f, 0xFF202027);
+        FontRenderer.drawText(c, name, 60f, 24f, 13f, Config.hudPrimaryTextColor());
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
+        lastTextureTheme = Config.hudTheme;
     }
 
     private void renderNewOverlayTexture(Minecraft client, String healthText, float healthRatio, float absorptionRatio, long now) {
@@ -484,7 +490,7 @@ public class TargetHudRenderer {
         int healthKey = Math.round(healthRatio * 120f);
         int absorptionKey = Math.round(absorptionRatio * 80f);
         int healthTextAnimKey = getHealthTextAnimKey(now);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption) return;
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -526,6 +532,7 @@ public class TargetHudRenderer {
         lastTextureHealth = healthKey;
         lastTextureAbsorption = absorptionKey;
         lastTextureHealthTextAnim = healthTextAnimKey;
+        lastOverlayTextureTheme = Config.hudTheme;
     }
 
     private void updateHealthTextAnimation(float value, long now) {
@@ -562,10 +569,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                FontRenderer.drawText(c, oldCh, x, oldY, 10f, 0xAA5C5870);
-                FontRenderer.drawText(c, ch, x, newY, 10f, 0xAA5C5870);
+                FontRenderer.drawText(c, oldCh, x, oldY, 10f, Config.hudMutedTextColor());
+                FontRenderer.drawText(c, ch, x, newY, 10f, Config.hudMutedTextColor());
             } else {
-                FontRenderer.drawText(c, ch, x, baseY, 10f, 0xAA5C5870);
+                FontRenderer.drawText(c, ch, x, baseY, 10f, Config.hudMutedTextColor());
             }
             x += w;
         }
@@ -716,6 +723,7 @@ public class TargetHudRenderer {
         textureW = -1;
         textureH = -1;
         lastTextureName = "";
+        lastTextureTheme = null;
     }
 
     private void destroyOverlayTexture(Minecraft client) {
@@ -733,6 +741,7 @@ public class TargetHudRenderer {
         lastTextureHealth = -1;
         lastTextureAbsorption = -1;
         lastTextureHealthTextAnim = -1;
+        lastOverlayTextureTheme = null;
     }
 
     private void destroyTexture(Minecraft client) {

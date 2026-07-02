@@ -31,20 +31,7 @@ public class ToolPage extends BasePage {
                 new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("Skija 模糊卡片测试", "Skija Blur Card Test"), UiText.t("用 GPU 纹理拷贝和 Skija 绘制一个背景模糊卡片", "Draw a blurred card using GPU texture copy and Skia"),
-                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); }))
-                .addSub(UiText.t("模糊颜色", "Blur Color"), UiText.t("选择卡片遮罩颜色", "Choose the card tint color"),
-                        new SettingCycle(List.of(
-                                UiText.t("深灰", "Slate"),
-                                UiText.t("浅色", "Light"),
-                                UiText.t("蓝色", "Blue"),
-                                UiText.t("紫色", "Purple"),
-                                UiText.t("绿色", "Green")),
-                                () -> Config.skiaBlurColor.ordinal(),
-                                i -> { Config.skiaBlurColor = Config.SkiaBlurColor.values()[i % Config.SkiaBlurColor.values().length]; Config.save(); }))
-                .addSub(UiText.t("模糊强度", "Blur Strength"), UiText.t("调整背景模糊半径", "Adjust the background blur radius"),
-                        new SettingSlider(0.0, 200.0, "%.0f%%", () -> (double) Config.skiaBlurStrength * 100.0,
-                                v -> { Config.skiaBlurStrength = v.floatValue() / 100.0f; Config.save(); })));
-                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); });
+                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); })));
         modules.add(new SettingModule(UiText.t("改变客户端时间", "Time Change"), UiText.t("强制修改客户端显示的世界时间", "Force the client-side world time"),
                 new SettingToggle(() -> Config.timeChange, v -> { Config.timeChange = v; Config.save(); }))
                 .addSub(UiText.t("时间", "Time"), UiText.t("选择客户端显示的世界时间", "Choose the client-side world time"),
