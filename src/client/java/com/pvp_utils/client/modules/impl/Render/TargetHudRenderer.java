@@ -70,6 +70,7 @@ public class TargetHudRenderer {
     private int lastTextureHealthTextAnim = -1;
     private Config.HudTheme lastTextureTheme = null;
     private Config.HudTheme lastOverlayTextureTheme = null;
+    private Config.HudTheme lastAvatarMaskTheme = null;
     private boolean lastTextureBlurMode = false;
     private boolean lastOverlayTextureBlurMode = false;
     private int lastAvatarFlashKey = -1;
@@ -612,15 +613,15 @@ public class TargetHudRenderer {
         c.save();
         c.scale(targetScale, targetScale);
         if (!blurMode) {
-            newHudBgPaint.setColor(0xFFFFFFFF);
+            newHudBgPaint.setColor(newHudCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
         }
         if (!blurMode) {
-            newHudAvatarPaint.setColor(0xFFFFFFFF);
+            newHudAvatarPaint.setColor(newHudAvatarBackplateColor());
             c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
         }
 
-        FontRenderer.drawText(c, name, 60f, 24f, 13f, blurMode ? Config.hudPrimaryTextColor() : 0xFF202027);
+        FontRenderer.drawText(c, name, 60f, 24f, 13f, newHudPrimaryTextColor(blurMode));
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
@@ -661,7 +662,7 @@ public class TargetHudRenderer {
         float barY = 45f;
         float barW = 112f;
         float barH = 7f;
-        newHudTrackPaint.setColor(0x2D000000);
+        newHudTrackPaint.setColor(newHudTrackColor(blurMode));
         c.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), newHudTrackPaint);
         float fillW = Math.max(barH, barW * Mth.clamp(healthRatio, 0f, 1f));
         newHudFillPaint.setColor(0xFF000000 | (getHealthColor(Mth.clamp(healthRatio, 0f, 1f)) & 0xFFFFFF));
@@ -716,14 +717,37 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                FontRenderer.drawText(c, oldCh, x, oldY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
-                FontRenderer.drawText(c, ch, x, newY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
+                FontRenderer.drawText(c, oldCh, x, oldY, 10f, newHudMutedTextColor(blurMode));
+                FontRenderer.drawText(c, ch, x, newY, 10f, newHudMutedTextColor(blurMode));
             } else {
-                FontRenderer.drawText(c, ch, x, baseY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
+                FontRenderer.drawText(c, ch, x, baseY, 10f, newHudMutedTextColor(blurMode));
             }
             x += w;
         }
         c.restore();
+    }
+
+    private int newHudCardColor() {
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
+    }
+
+    private int newHudAvatarBackplateColor() {
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x66FFFFFF : 0x332A3345;
+    }
+
+    private int newHudPrimaryTextColor(boolean blurMode) {
+        return blurMode ? Config.hudPrimaryTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+    }
+
+    private int newHudMutedTextColor(boolean blurMode) {
+        return blurMode ? Config.hudMutedTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+    }
+
+    private int newHudTrackColor(boolean blurMode) {
+        if (blurMode) {
+            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x33111827 : 0x2D000000;
+        }
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x22111827 : 0x33FFFFFF;
     }
 
     private int getHealthTextAnimKey(long now) {
@@ -800,7 +824,7 @@ public class TargetHudRenderer {
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
         int targetW = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
         int targetH = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
-        if (avatarMaskTexture != null && targetW == avatarMaskW && targetH == avatarMaskH) return;
+        if (avatarMaskTexture != null && targetW == avatarMaskW && targetH == avatarMaskH && lastAvatarMaskTheme == Config.hudTheme) return;
 
         if (avatarMaskSurface != null) {
             avatarMaskSurface.close();
@@ -823,11 +847,12 @@ public class TargetHudRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-        avatarMaskCoverPaint.setColor(0xFFFFFFFF);
+        avatarMaskCoverPaint.setColor(newHudAvatarBackplateColor());
         c.drawRect(io.github.humbleui.types.Rect.makeXYWH(0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE), avatarMaskCoverPaint);
         c.drawRRect(RRect.makeXYWH(-0.75f, -0.75f, NEW_AVATAR_SIZE + 1.5f, NEW_AVATAR_SIZE + 1.5f, NEW_AVATAR_RADIUS + 0.75f), avatarMaskHolePaint);
         c.restore();
         uploadSurface(avatarMaskSurface, avatarMaskTexture, avatarMaskW, avatarMaskH);
+        lastAvatarMaskTheme = Config.hudTheme;
     }
 
     private void renderAvatarFlashTexture(Minecraft client, float alpha, float hurtFlashFactor, float healFlashFactor) {
@@ -969,6 +994,7 @@ public class TargetHudRenderer {
         }
         avatarMaskW = -1;
         avatarMaskH = -1;
+        lastAvatarMaskTheme = null;
         avatarFlashW = -1;
         avatarFlashH = -1;
         lastAvatarFlashKey = -1;

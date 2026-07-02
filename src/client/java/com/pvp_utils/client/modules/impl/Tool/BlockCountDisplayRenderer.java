@@ -360,10 +360,10 @@ public class BlockCountDisplayRenderer {
         c.save();
         c.scale(textureScale, textureScale);
         if (!blurMode) {
-            bgPaint.setColor(0xF2FFFFFF);
+            bgPaint.setColor(newCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
         }
-        FontRenderer.drawText(c, name, 16f, 22f, 12f, blurMode ? Config.hudPrimaryTextColor() : 0xFF202027);
+        FontRenderer.drawText(c, name, 16f, 22f, 12f, primaryTextColor(blurMode));
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
@@ -395,13 +395,13 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-        FontRenderer.drawText(c, speed, 16f, 40f, 11f, blurMode ? Config.hudMutedTextColor() : 0xFF5C5870);
+        FontRenderer.drawText(c, speed, 16f, 40f, 11f, mutedTextColor(blurMode));
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;
-        ringFillPaint.setColor(0x1F8F5CFF);
+        ringFillPaint.setColor(ringFillColor(blurMode));
         c.drawCircle(ringCx, ringCy, radius + 5f, ringFillPaint);
-        ringTrackPaint.setColor(0x338F5CFF);
+        ringTrackPaint.setColor(ringTrackColor(blurMode));
         c.drawCircle(ringCx, ringCy, radius, ringTrackPaint);
         ringArcPaint.setColor((int) PURPLE);
         c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, ringArcPaint);
@@ -411,6 +411,32 @@ public class BlockCountDisplayRenderer {
         lastTextureProgress = progressKey;
         lastOverlayTextureTheme = Config.hudTheme;
         lastOverlayTextureBlurMode = blurMode;
+    }
+
+    private int newCardColor() {
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
+    }
+
+    private int primaryTextColor(boolean blurMode) {
+        return blurMode ? Config.hudPrimaryTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+    }
+
+    private int mutedTextColor(boolean blurMode) {
+        return blurMode ? Config.hudMutedTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+    }
+
+    private int ringFillColor(boolean blurMode) {
+        if (blurMode) {
+            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x228F5CFF : 0x1F8F5CFF;
+        }
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x228F5CFF : 0x2A8F5CFF;
+    }
+
+    private int ringTrackColor(boolean blurMode) {
+        if (blurMode) {
+            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x338F5CFF;
+        }
+        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x668F5CFF;
     }
 
     private void ensureNativeLoaded() {
