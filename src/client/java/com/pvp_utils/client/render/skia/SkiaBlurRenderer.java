@@ -4,6 +4,7 @@ import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.ColorFilter;
 import io.github.humbleui.skija.ColorType;
 import io.github.humbleui.skija.DirectContext;
 import io.github.humbleui.skija.FilterTileMode;
@@ -67,7 +68,9 @@ public final class SkiaBlurRenderer {
         if (capture.textureId == 0) return false;
 
         Image image = null;
+        ImageFilter linearize = null;
         ImageFilter blur = null;
+        ImageFilter encode = null;
         try {
             image = Image.adoptGLTextureFrom(context, capture.textureId, GL_TEXTURE_2D, capture.width, capture.height,
                     GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGBA_8888);
@@ -76,8 +79,10 @@ public final class SkiaBlurRenderer {
             canvas.save();
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, radius), true);
 
-            blur = ImageFilter.makeBlur(blurSigma, blurSigma, FilterTileMode.CLAMP);
-            blurPaint.setImageFilter(blur);
+            linearize = ImageFilter.makeColorFilter(ColorFilter.getSRGBToLinearGamma(), null);
+            blur = ImageFilter.makeBlur(blurSigma, blurSigma, FilterTileMode.CLAMP, linearize, (Rect) null);
+            encode = ImageFilter.makeColorFilter(ColorFilter.getLinearToSRGBGamma(), blur);
+            blurPaint.setImageFilter(encode);
             canvas.drawImageRect(image,
                     Rect.makeXYWH(0f, 0f, capture.width, capture.height),
                     Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH),
@@ -91,7 +96,9 @@ public final class SkiaBlurRenderer {
             canvas.restore();
             return true;
         } finally {
+            if (encode != null) encode.close();
             if (blur != null) blur.close();
+            if (linearize != null) linearize.close();
             if (image != null) image.close();
             if (capture.textureId != 0) glDeleteTextures(capture.textureId);
         }
@@ -109,13 +116,18 @@ public final class SkiaBlurRenderer {
         int sourceY = Math.max(0, framebufferH - bottom);
 
         int textureId = glGenTextures();
+        int resolveFramebufferId = glGenFramebuffers();
         int[] oldTexture = new int[1];
         int[] oldReadFramebuffer = new int[1];
+        int[] oldDrawFramebuffer = new int[1];
         int[] oldReadBuffer = new int[1];
+        boolean framebufferSrgb = glIsEnabled(GL_FRAMEBUFFER_SRGB);
         glGetIntegerv(GL_TEXTURE_BINDING_2D, oldTexture);
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, oldReadFramebuffer);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, oldDrawFramebuffer);
         glGetIntegerv(GL_READ_BUFFER, oldReadBuffer);
         try {
+            glDisable(GL_FRAMEBUFFER_SRGB);
             glBindTexture(GL_TEXTURE_2D, textureId);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -123,18 +135,41 @@ public final class SkiaBlurRenderer {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, copyW, copyH, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0L);
 
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFramebufferId);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+            if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+                glDeleteFramebuffers(resolveFramebufferId);
+                glDeleteTextures(textureId);
+                textureId = 0;
+                return Capture.EMPTY;
+            }
+
             int readBuffer = prepareReadFramebuffer(sourceFramebufferId);
             if (readBuffer == 0) {
+                glDeleteFramebuffers(resolveFramebufferId);
                 glDeleteTextures(textureId);
                 textureId = 0;
                 return Capture.EMPTY;
             }
             glReadBuffer(readBuffer);
-            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, left, sourceY, copyW, copyH);
+            glBlitFramebuffer(
+                    left, sourceY, left + copyW, sourceY + copyH,
+                    0, 0, copyW, copyH,
+                    GL_COLOR_BUFFER_BIT,
+                    GL_NEAREST
+            );
+            glFlush();
         } finally {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFramebuffer[0]);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldDrawFramebuffer[0]);
             restoreReadBuffer(oldReadFramebuffer[0], oldReadBuffer[0]);
             glBindTexture(GL_TEXTURE_2D, oldTexture[0]);
+            if (framebufferSrgb) {
+                glEnable(GL_FRAMEBUFFER_SRGB);
+            } else {
+                glDisable(GL_FRAMEBUFFER_SRGB);
+            }
+            if (resolveFramebufferId != 0) glDeleteFramebuffers(resolveFramebufferId);
         }
 
         return new Capture(textureId, copyW, copyH, left / scale, top / scale, copyW / scale, copyH / scale);
