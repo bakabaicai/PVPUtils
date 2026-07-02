@@ -73,7 +73,7 @@ public final class SkiaBlurRenderer {
         ImageFilter encode = null;
         try {
             image = Image.adoptGLTextureFrom(context, capture.textureId, GL_TEXTURE_2D, capture.width, capture.height,
-                    GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGBA_8888);
+                    GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
             capture.textureId = 0;
 
             canvas.save();
