@@ -174,9 +174,9 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
                 .addSub(UiText.t("选择目标 HUD 样式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
-                        new SettingCycle(List.of("New", "Lite"),
-                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : 1,
-                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : Config.TargetHudMode.LITE; Config.save(); }))
+                        new SettingCycle(List.of("New", "Blur", "Lite"),
+                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : Config.targetHudMode == Config.TargetHudMode.BLUR ? 1 : 2,
+                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : i == 1 ? Config.TargetHudMode.BLUR : Config.TargetHudMode.LITE; Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),

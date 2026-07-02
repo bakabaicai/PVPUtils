@@ -59,6 +59,8 @@ public class TargetHudRenderer {
     private int lastTextureHealthTextAnim = -1;
     private Config.HudTheme lastTextureTheme = null;
     private Config.HudTheme lastOverlayTextureTheme = null;
+    private boolean lastTextureBlurMode = false;
+    private boolean lastOverlayTextureBlurMode = false;
     private String lastRawName = "";
     private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
@@ -69,6 +71,7 @@ public class TargetHudRenderer {
     private long healthTextAnimStart = 0L;
     private int healthTextDirection = 0;
     private float lastHealthTextValue = -1f;
+    private final Paint newHudBgPaint = new Paint();
     private final Paint newHudAvatarPaint = new Paint();
     private final Paint newHudTrackPaint = new Paint();
     private final Paint newHudFillPaint = new Paint();
@@ -112,6 +115,7 @@ public class TargetHudRenderer {
     }
 
     private TargetHudRenderer() {
+        newHudBgPaint.setAntiAlias(true);
         newHudAvatarPaint.setAntiAlias(true);
         newHudTrackPaint.setAntiAlias(true);
         newHudFillPaint.setAntiAlias(true);
@@ -226,8 +230,8 @@ public class TargetHudRenderer {
             return;
         }
 
-        if (Config.targetHudMode == Config.TargetHudMode.NEW) {
-            renderNew(graphics, client, alpha, now);
+        if (Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR) {
+            renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
             return;
         }
 
@@ -348,7 +352,7 @@ public class TargetHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, float alpha, long now) {
+    private void renderNew(GuiGraphics graphics, Minecraft client, float alpha, long now, boolean blurMode) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float hudScale = Math.max(0.5f, Config.targetHudScale);
@@ -387,10 +391,12 @@ public class TargetHudRenderer {
         float drawH = scaledH * drawScale;
         float drawRadius = 16f * hudScale * drawScale;
 
-        renderNewBaseTexture(client, name);
-        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now);
+        renderNewBaseTexture(client, name, blurMode);
+        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, blurMode);
         renderAvatarMaskTexture(client);
-        SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        if (blurMode) {
+            SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        }
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -449,12 +455,12 @@ public class TargetHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void renderNewBaseTexture(Minecraft client, String name) {
+    private void renderNewBaseTexture(Minecraft client, String name, boolean blurMode) {
         ensureNativeLoaded();
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
         int targetW = Math.max(1, Math.round(NEW_HUD_WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(NEW_HUD_HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme) return;
+        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme && lastTextureBlurMode == blurMode) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
             destroyBaseTexture(client);
@@ -472,17 +478,22 @@ public class TargetHudRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
+        if (!blurMode) {
+            newHudBgPaint.setColor(0xFFFFFFFF);
+            c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
+        }
         newHudAvatarPaint.setColor(0xFFFFFFFF);
         c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
 
-        FontRenderer.drawText(c, name, 60f, 24f, 13f, Config.hudPrimaryTextColor());
+        FontRenderer.drawText(c, name, 60f, 24f, 13f, blurMode ? Config.hudPrimaryTextColor() : 0xFF202027);
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
         lastTextureTheme = Config.hudTheme;
+        lastTextureBlurMode = blurMode;
     }
 
-    private void renderNewOverlayTexture(Minecraft client, String healthText, float healthRatio, float absorptionRatio, long now) {
+    private void renderNewOverlayTexture(Minecraft client, String healthText, float healthRatio, float absorptionRatio, long now, boolean blurMode) {
         ensureNativeLoaded();
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
         int targetW = Math.max(1, Math.round(NEW_OVERLAY_WIDTH * targetScale));
@@ -490,7 +501,7 @@ public class TargetHudRenderer {
         int healthKey = Math.round(healthRatio * 120f);
         int absorptionKey = Math.round(absorptionRatio * 80f);
         int healthTextAnimKey = getHealthTextAnimKey(now);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme) return;
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -509,7 +520,7 @@ public class TargetHudRenderer {
         c.save();
         c.scale(targetScale, targetScale);
         c.translate(-NEW_OVERLAY_X, -NEW_OVERLAY_Y);
-        drawAnimatedHealthText(c, healthText, now);
+        drawAnimatedHealthText(c, healthText, now, blurMode);
 
         float barX = 60f;
         float barY = 45f;
@@ -533,6 +544,7 @@ public class TargetHudRenderer {
         lastTextureAbsorption = absorptionKey;
         lastTextureHealthTextAnim = healthTextAnimKey;
         lastOverlayTextureTheme = Config.hudTheme;
+        lastOverlayTextureBlurMode = blurMode;
     }
 
     private void updateHealthTextAnimation(float value, long now) {
@@ -552,7 +564,7 @@ public class TargetHudRenderer {
         }
     }
 
-    private void drawAnimatedHealthText(Canvas c, String healthText, long now) {
+    private void drawAnimatedHealthText(Canvas c, String healthText, long now, boolean blurMode) {
         float progress = healthTextAnimStart == 0L ? 1f : Mth.clamp((now - healthTextAnimStart) / (float) HEALTH_TEXT_ANIM_DURATION, 0f, 1f);
         float eased = 1f - (1f - progress) * (1f - progress) * (1f - progress);
         float baseY = 40f;
@@ -569,10 +581,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                FontRenderer.drawText(c, oldCh, x, oldY, 10f, Config.hudMutedTextColor());
-                FontRenderer.drawText(c, ch, x, newY, 10f, Config.hudMutedTextColor());
+                FontRenderer.drawText(c, oldCh, x, oldY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
+                FontRenderer.drawText(c, ch, x, newY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
             } else {
-                FontRenderer.drawText(c, ch, x, baseY, 10f, Config.hudMutedTextColor());
+                FontRenderer.drawText(c, ch, x, baseY, 10f, blurMode ? Config.hudMutedTextColor() : 0xAA5C5870);
             }
             x += w;
         }
@@ -741,6 +753,8 @@ public class TargetHudRenderer {
         lastTextureHealth = -1;
         lastTextureAbsorption = -1;
         lastTextureHealthTextAnim = -1;
+        lastTextureBlurMode = false;
+        lastOverlayTextureBlurMode = false;
         lastOverlayTextureTheme = null;
     }
 
