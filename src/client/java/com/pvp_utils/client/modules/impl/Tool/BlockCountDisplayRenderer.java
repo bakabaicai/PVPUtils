@@ -6,6 +6,7 @@ import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
@@ -37,7 +38,6 @@ public class BlockCountDisplayRenderer {
 
     private final RateCounter rightClicks = new RateCounter();
     private final RateCounter placements = new RateCounter();
-    private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ringFillPaint = new Paint().setAntiAlias(true);
     private final Paint ringTrackPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
     private final Paint ringArcPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
@@ -54,6 +54,8 @@ public class BlockCountDisplayRenderer {
     private String lastTextureName = "";
     private String lastTextureSpeed = "";
     private int lastTextureProgress = -1;
+    private Config.HudTheme lastTextureTheme = null;
+    private Config.HudTheme lastOverlayTextureTheme = null;
     private int textureW = -1;
     private int textureH = -1;
     private int overlayTextureW = -1;
@@ -217,6 +219,11 @@ public class BlockCountDisplayRenderer {
         float cx = x + scaledW * 0.5f;
         float cy = y + scaledH * 0.5f;
         float drawScale = easeOutBack(scale);
+        float drawX = cx + (x - cx) * drawScale;
+        float drawY = cy + (y - cy) * drawScale;
+        float drawW = scaledW * drawScale;
+        float drawH = scaledH * drawScale;
+        float drawRadius = 16f * userScale * drawScale;
 
         String name = displayStack.getHoverName().getString();
         if (FontRenderer.measureTextWidth(name, 13f) > 128f) {
@@ -234,6 +241,7 @@ public class BlockCountDisplayRenderer {
 
         renderBaseTexture(client, name);
         renderOverlayTexture(client, speed, ringProgress);
+        SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -326,7 +334,7 @@ public class BlockCountDisplayRenderer {
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName)) return;
+        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
             destroyBaseTexture(client);
@@ -345,12 +353,11 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(textureScale, textureScale);
-        bgPaint.setColor(0xF2FFFFFF);
-        c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
-        FontRenderer.drawText(c, name, 16f, 22f, 12f, 0xFF202027);
+        FontRenderer.drawText(c, name, 16f, 22f, 12f, Config.hudPrimaryTextColor());
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
+        lastTextureTheme = Config.hudTheme;
     }
 
     private void renderOverlayTexture(Minecraft client, String speed, float progress) {
@@ -360,7 +367,7 @@ public class BlockCountDisplayRenderer {
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
         int progressKey = Math.round(progress * 48f);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress) return;
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress && lastOverlayTextureTheme == Config.hudTheme) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -377,7 +384,7 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-        FontRenderer.drawText(c, speed, 16f, 40f, 11f, 0xFF5C5870);
+        FontRenderer.drawText(c, speed, 16f, 40f, 11f, Config.hudMutedTextColor());
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;
@@ -391,6 +398,7 @@ public class BlockCountDisplayRenderer {
         uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
         lastTextureSpeed = speed;
         lastTextureProgress = progressKey;
+        lastOverlayTextureTheme = Config.hudTheme;
     }
 
     private void ensureNativeLoaded() {
@@ -427,6 +435,7 @@ public class BlockCountDisplayRenderer {
         textureH = -1;
         textureScale = -1f;
         lastTextureName = "";
+        lastTextureTheme = null;
     }
 
     private void destroyOverlayTexture(Minecraft client) {
@@ -442,6 +451,7 @@ public class BlockCountDisplayRenderer {
         overlayTextureH = -1;
         lastTextureSpeed = "";
         lastTextureProgress = -1;
+        lastOverlayTextureTheme = null;
     }
 
     private void destroyTexture(Minecraft client) {

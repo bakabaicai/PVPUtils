@@ -42,43 +42,20 @@ public class SkiaBlurCardRenderer {
         }
 
         try {
-            int tintColor = scrimColorForConfig();
             SkiaBlurRenderer.getInstance().render(canvas, context, client, framebufferId,
-                    x, y, CARD_W, CARD_H, RADIUS, tintColor, Config.skiaBlurStrength);
+                    x, y, CARD_W, CARD_H, RADIUS, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
 
             borderPaint.setColor(borderColorForConfig());
             canvas.drawRRect(RRect.makeXYWH(x + 0.5f, y + 0.5f, CARD_W - 1f, CARD_H - 1f, RADIUS), borderPaint);
 
-            FontRenderer.drawText(canvas, "Skija GPU Blur", x + 16f, y + 27f, 15f, textColorForConfig(0xFF, 0x11));
-            FontRenderer.drawText(canvas, "Reusable Gaussian API", x + 16f, y + 49f, 9.5f, textColorForConfig(0xCC, 0x88));
+            FontRenderer.drawText(canvas, "Skija GPU Blur", x + 16f, y + 27f, 15f, Config.hudPrimaryTextColor());
+            FontRenderer.drawText(canvas, "Reusable Gaussian API", x + 16f, y + 49f, 9.5f, Config.hudSecondaryTextColor());
         } finally {
             glBackend.end();
         }
     }
 
-    private int scrimColorForConfig() {
-        return argb(0x82, colorRgbForConfig());
-    }
-
     private int borderColorForConfig() {
-        return Config.skiaBlurColor == Config.SkiaBlurColor.LIGHT ? argb(0x55, 0x111827) : argb(0x55, 0xFFFFFF);
-    }
-
-    private int textColorForConfig(int darkAlpha, int lightAlpha) {
-        return Config.skiaBlurColor == Config.SkiaBlurColor.LIGHT ? argb(lightAlpha, 0x111827) : argb(darkAlpha, 0xFFFFFF);
-    }
-
-    private int colorRgbForConfig() {
-        return switch (Config.skiaBlurColor) {
-            case LIGHT -> 0xF8FAFC;
-            case BLUE -> 0x1D4ED8;
-            case PURPLE -> 0x7C3AED;
-            case GREEN -> 0x047857;
-            default -> 0x111827;
-        };
-    }
-
-    private int argb(int alpha, int rgb) {
-        return ((alpha & 0xFF) << 24) | (rgb & 0x00FFFFFF);
+        return Config.hudBorderColor();
     }
 }

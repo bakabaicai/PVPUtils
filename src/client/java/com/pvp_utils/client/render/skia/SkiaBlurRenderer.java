@@ -1,5 +1,8 @@
 package com.pvp_utils.client.render.skia;
 
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ColorType;
 import io.github.humbleui.skija.DirectContext;
@@ -22,6 +25,7 @@ public final class SkiaBlurRenderer {
 
     private final Paint blurPaint = new Paint().setAntiAlias(true);
     private final Paint tintPaint = new Paint().setAntiAlias(true);
+    private final SkiaGlBackend framebufferBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
 
     private SkiaBlurRenderer() {}
@@ -34,6 +38,22 @@ public final class SkiaBlurRenderer {
         int[] framebuffer = new int[1];
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, framebuffer);
         return framebuffer[0];
+    }
+
+    public boolean render(Minecraft client, float x, float y, float width, float height, float radius, int tintColor, float strength) {
+        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null) return false;
+        int framebufferId = mainFramebufferId(client);
+        Canvas canvas = framebufferBackend.begin(framebufferId);
+        DirectContext context = framebufferBackend.getContext();
+        if (canvas == null || context == null) {
+            framebufferBackend.end();
+            return false;
+        }
+        try {
+            return render(canvas, context, client, framebufferId, x, y, width, height, radius, tintColor, strength);
+        } finally {
+            framebufferBackend.end();
+        }
     }
 
     public boolean render(Canvas canvas, DirectContext context, Minecraft client, int sourceFramebufferId,
@@ -161,6 +181,14 @@ public final class SkiaBlurRenderer {
 
     private boolean isColorAttachmentReadBuffer(int readBuffer) {
         return readBuffer >= GL_COLOR_ATTACHMENT0 && readBuffer <= GL_COLOR_ATTACHMENT0 + 31;
+    }
+
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
+        }
+        return currentDrawFramebufferId();
     }
 
     private float blurSigma(float strength) {

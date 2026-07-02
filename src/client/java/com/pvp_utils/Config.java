@@ -31,7 +31,7 @@ public class Config {
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static boolean skiaBlurCardTest = false;
-    public static SkiaBlurColor skiaBlurColor = SkiaBlurColor.SLATE;
+    public static HudTheme hudTheme = HudTheme.DARK;
     public static float skiaBlurStrength = 1.0f;
     public static boolean timeChange = false;
     public static boolean weatherChange = false;
@@ -129,8 +129,28 @@ public class Config {
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
-    public enum SkiaBlurColor { SLATE, LIGHT, BLUE, PURPLE, GREEN }
+    public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
+
+    public static int skiaBlurTintColor() {
+        return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
+    }
+
+    public static int hudPrimaryTextColor() {
+        return hudTheme == HudTheme.LIGHT ? 0xFF111827 : 0xFFFFFFFF;
+    }
+
+    public static int hudSecondaryTextColor() {
+        return hudTheme == HudTheme.LIGHT ? 0xAA111827 : 0xCCFFFFFF;
+    }
+
+    public static int hudMutedTextColor() {
+        return hudTheme == HudTheme.LIGHT ? 0xAA5C5870 : 0xBFFFFFFF;
+    }
+
+    public static int hudBorderColor() {
+        return hudTheme == HudTheme.LIGHT ? 0x55111827 : 0x55FFFFFF;
+    }
 
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
@@ -172,7 +192,7 @@ public class Config {
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
-            skiaBlurColor = SkiaBlurColor.valueOf(prop.getProperty("skiaBlurColor", "SLATE"));
+            hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
             timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
             weatherChange = Boolean.parseBoolean(prop.getProperty("weatherChange", "false"));
@@ -293,7 +313,7 @@ public class Config {
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
-            prop.setProperty("skiaBlurColor", skiaBlurColor.name());
+            prop.setProperty("hudTheme", hudTheme.name());
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
             prop.setProperty("timeChange", String.valueOf(timeChange));
             prop.setProperty("weatherChange", String.valueOf(weatherChange));
@@ -398,6 +418,13 @@ public class Config {
             }
         } catch (Throwable ignored) {}
         return false;
+    }
+
+    private static HudTheme parseHudTheme(String value) {
+        if ("LIGHT".equals(value)) {
+            return HudTheme.LIGHT;
+        }
+        return HudTheme.DARK;
     }
 
     public static void applyGameLanguageDefault() {
