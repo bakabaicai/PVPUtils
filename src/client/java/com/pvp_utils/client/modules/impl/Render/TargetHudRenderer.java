@@ -17,6 +17,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.core.ClientAsset;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -28,7 +29,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
 import org.lwjgl.system.MemoryUtil;
 
+import java.io.InputStream;
+import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 
 public class TargetHudRenderer {
     private static final TargetHudRenderer INSTANCE = new TargetHudRenderer();
@@ -42,9 +46,12 @@ public class TargetHudRenderer {
     private Surface surface;
     private Surface overlaySurface;
     private Surface avatarMaskSurface;
+    private Surface avatarFlashSurface;
     private DynamicTexture dynamicTexture;
     private DynamicTexture overlayTexture;
     private DynamicTexture avatarMaskTexture;
+    private DynamicTexture avatarFlashTexture;
+    private DynamicTexture roundedAvatarTexture;
     private boolean nativeLoaded = false;
     private int textureW = -1;
     private int textureH = -1;
@@ -52,6 +59,10 @@ public class TargetHudRenderer {
     private int overlayTextureH = -1;
     private int avatarMaskW = -1;
     private int avatarMaskH = -1;
+    private int avatarFlashW = -1;
+    private int avatarFlashH = -1;
+    private int roundedAvatarW = -1;
+    private int roundedAvatarH = -1;
     private String lastTextureName = "";
     private String lastTextureHealthText = "";
     private int lastTextureHealth = -1;
@@ -61,6 +72,10 @@ public class TargetHudRenderer {
     private Config.HudTheme lastOverlayTextureTheme = null;
     private boolean lastTextureBlurMode = false;
     private boolean lastOverlayTextureBlurMode = false;
+    private int lastAvatarFlashKey = -1;
+    private String lastRoundedAvatarKey = "";
+    private String pendingRoundedAvatarKey = "";
+    private CompletableFuture<NativeImage> pendingRoundedAvatarImage = null;
     private String lastRawName = "";
     private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
@@ -78,6 +93,7 @@ public class TargetHudRenderer {
     private final Paint newHudAbsorbPaint = new Paint();
     private final Paint avatarMaskCoverPaint = new Paint();
     private final Paint avatarMaskHolePaint = new Paint();
+    private final Paint avatarFlashPaint = new Paint();
     private PlayerSkin cachedPlayerSkin = null;
     private int cachedPlayerSkinEntityId = Integer.MIN_VALUE;
     private final float[] healthCharWidthCache = new float[128];
@@ -108,6 +124,8 @@ public class TargetHudRenderer {
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_new");
     private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_new_overlay");
     private static final Identifier AVATAR_MASK_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_avatar_mask");
+    private static final Identifier AVATAR_FLASH_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_avatar_flash");
+    private static final Identifier ROUNDED_AVATAR_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_rounded_avatar");
     private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     public static TargetHudRenderer getInstance() {
@@ -123,6 +141,7 @@ public class TargetHudRenderer {
         avatarMaskCoverPaint.setAntiAlias(true);
         avatarMaskHolePaint.setAntiAlias(true);
         avatarMaskHolePaint.setBlendMode(BlendMode.CLEAR);
+        avatarFlashPaint.setAntiAlias(true);
     }
 
     private PlayerSkin resolvePlayerSkin(Minecraft client, Player player) {
@@ -393,7 +412,6 @@ public class TargetHudRenderer {
 
         renderNewBaseTexture(client, name, blurMode);
         renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, blurMode);
-        renderAvatarMaskTexture(client);
         if (blurMode) {
             SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
         }
@@ -415,6 +433,8 @@ public class TargetHudRenderer {
         float avatarScale = 1.0f;
         float hurtFlashFactor = getFlashFactor(now, lastDamageTime);
         float healFlashFactor = getFlashFactor(now, lastHealTime);
+        renderAvatarFlashTexture(client, alpha, hurtFlashFactor, healFlashFactor);
+        boolean playerRoundedAvatarRendered = false;
         if (hurtFlashFactor > 0.0f) {
             float damageFactor = 1.0f - hurtFlashFactor;
             float scaleProgress = (float) Math.sin(damageFactor * Math.PI);
@@ -427,32 +447,145 @@ public class TargetHudRenderer {
         graphics.pose().translate(avatarCenterX, avatarCenterY);
         graphics.pose().scale(avatarScale, avatarScale);
         graphics.pose().translate(-avatarCenterX, -avatarCenterY);
+        int avatarDrawInset = 0;
+        int avatarDrawSize = NEW_AVATAR_SIZE - avatarDrawInset * 2;
         if (target instanceof Player player) {
             try {
                 PlayerSkin skin = resolvePlayerSkin(client, player);
-                PlayerFaceRenderer.draw(graphics, skin, avatarX, avatarY, NEW_AVATAR_SIZE);
+                playerRoundedAvatarRendered = renderRoundedPlayerAvatarTexture(graphics, client, skin, avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarDrawSize);
+                if (!playerRoundedAvatarRendered) {
+                    PlayerFaceRenderer.draw(graphics, skin, avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarDrawSize);
+                }
             } catch (Exception e) {
-                graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, alphaBits | 0x111111);
+                graphics.fill(avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarX + avatarDrawInset + avatarDrawSize, avatarY + avatarDrawInset + avatarDrawSize, alphaBits | 0x111111);
             }
         } else {
             SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
             if (eggItem != null) {
                 graphics.renderFakeItem(new ItemStack(eggItem), avatarX + 11, avatarY + 11);
             } else {
-                graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, alphaBits | 0x111111);
+                graphics.fill(avatarX + avatarDrawInset, avatarY + avatarDrawInset, avatarX + avatarDrawInset + avatarDrawSize, avatarY + avatarDrawInset + avatarDrawSize, alphaBits | 0x111111);
             }
         }
-        if (hurtFlashFactor > 0.0f) {
-            int damageAlphaInt = (int) (alphaInt * hurtFlashFactor * 0.6f);
-            graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, (damageAlphaInt << 24) | 0xFF0000);
+        if (lastAvatarFlashKey != 0) {
+            graphics.blit(RenderPipelines.GUI_TEXTURED, AVATAR_FLASH_TEXTURE_ID, avatarX, avatarY, 0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, avatarFlashW, avatarFlashH, avatarFlashW, avatarFlashH);
         }
-        if (healFlashFactor > 0.0f) {
-            int healAlphaInt = (int) (alphaInt * healFlashFactor * 0.62f);
-            graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, (healAlphaInt << 24) | 0x55FF55);
+        if (!blurMode && !playerRoundedAvatarRendered) {
+            renderAvatarMaskTexture(client);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, AVATAR_MASK_TEXTURE_ID, avatarX, avatarY, 0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, avatarMaskW, avatarMaskH, avatarMaskW, avatarMaskH);
         }
-        graphics.blit(RenderPipelines.GUI_TEXTURED, AVATAR_MASK_TEXTURE_ID, avatarX, avatarY, 0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, avatarMaskW, avatarMaskH, avatarMaskW, avatarMaskH);
         graphics.pose().popMatrix();
         graphics.pose().popMatrix();
+    }
+
+    private boolean renderRoundedPlayerAvatarTexture(GuiGraphics graphics, Minecraft client, PlayerSkin skin, int x, int y, int size) {
+        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
+        int targetW = Math.max(1, Math.round(size * targetScale));
+        int targetH = Math.max(1, Math.round(size * targetScale));
+        String key = skin.body().id() + "|" + targetW + "x" + targetH;
+
+        if (roundedAvatarTexture != null && key.equals(lastRoundedAvatarKey) && targetW == roundedAvatarW && targetH == roundedAvatarH) {
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ROUNDED_AVATAR_TEXTURE_ID, x, y, 0f, 0f, size, size, roundedAvatarW, roundedAvatarH, roundedAvatarW, roundedAvatarH);
+            return true;
+        }
+
+        if (pendingRoundedAvatarImage != null && key.equals(pendingRoundedAvatarKey) && pendingRoundedAvatarImage.isDone()) {
+            try {
+                NativeImage image = pendingRoundedAvatarImage.join();
+                releaseRoundedAvatarTexture(client);
+                roundedAvatarTexture = new DynamicTexture(() -> "pvp_utils:target_hud_rounded_avatar", image);
+                client.getTextureManager().register(ROUNDED_AVATAR_TEXTURE_ID, roundedAvatarTexture);
+                roundedAvatarW = targetW;
+                roundedAvatarH = targetH;
+                lastRoundedAvatarKey = key;
+                pendingRoundedAvatarImage = null;
+                pendingRoundedAvatarKey = "";
+                graphics.blit(RenderPipelines.GUI_TEXTURED, ROUNDED_AVATAR_TEXTURE_ID, x, y, 0f, 0f, size, size, roundedAvatarW, roundedAvatarH, roundedAvatarW, roundedAvatarH);
+                return true;
+            } catch (Exception ignored) {
+                pendingRoundedAvatarImage = null;
+                pendingRoundedAvatarKey = "";
+                lastRoundedAvatarKey = key;
+                return false;
+            }
+        }
+
+        if (pendingRoundedAvatarImage == null || !key.equals(pendingRoundedAvatarKey)) {
+            pendingRoundedAvatarKey = key;
+            pendingRoundedAvatarImage = CompletableFuture.supplyAsync(() -> loadRoundedAvatarImage(client, skin.body(), targetW, targetH));
+        }
+        return false;
+    }
+
+    private NativeImage loadRoundedAvatarImage(Minecraft client, ClientAsset.Texture texture, int targetW, int targetH) {
+        try (InputStream resourceStream = client.getResourceManager().open(texture.texturePath())) {
+            try (NativeImage source = NativeImage.read(resourceStream)) {
+                return createRoundedAvatarImage(source, targetW, targetH);
+            }
+        } catch (Exception ignored) {
+            if (texture instanceof ClientAsset.DownloadedTexture downloadedTexture) {
+                try (InputStream stream = URI.create(downloadedTexture.url()).toURL().openStream();
+                     NativeImage source = NativeImage.read(stream)) {
+                    return createRoundedAvatarImage(source, targetW, targetH);
+                } catch (Exception ignoredAgain) {
+                    throw new IllegalStateException("Failed to load player skin image");
+                }
+            }
+            throw new IllegalStateException("Failed to load player skin image");
+        }
+    }
+
+    private NativeImage createRoundedAvatarImage(NativeImage source, int targetW, int targetH) {
+        NativeImage output = new NativeImage(NativeImage.Format.RGBA, targetW, targetH, false);
+        int sourceW = Math.max(1, source.getWidth());
+        int sourceH = Math.max(1, source.getHeight());
+        int skinScaleX = Math.max(1, sourceW / 64);
+        int skinScaleY = Math.max(1, sourceH / 64);
+        float radius = Math.min(targetW, targetH) * (NEW_AVATAR_RADIUS / (float) NEW_AVATAR_SIZE);
+
+        for (int py = 0; py < targetH; py++) {
+            for (int px = 0; px < targetW; px++) {
+                if (!insideRoundedRect(px + 0.5f, py + 0.5f, targetW, targetH, radius)) {
+                    output.setPixel(px, py, 0);
+                    continue;
+                }
+
+                float u = px / (float) targetW;
+                float v = py / (float) targetH;
+                int srcX = Mth.clamp((int) ((8f + u * 8f) * skinScaleX), 0, sourceW - 1);
+                int srcY = Mth.clamp((int) ((8f + v * 8f) * skinScaleY), 0, sourceH - 1);
+                int hatX = Mth.clamp((int) ((40f + u * 8f) * skinScaleX), 0, sourceW - 1);
+                int hatY = srcY;
+                int color = blendArgb(source.getPixel(srcX, srcY), source.getPixel(hatX, hatY));
+                output.setPixel(px, py, color);
+            }
+        }
+        return output;
+    }
+
+    private boolean insideRoundedRect(float px, float py, int width, int height, float radius) {
+        float left = radius;
+        float right = width - radius;
+        float top = radius;
+        float bottom = height - radius;
+        float cx = Mth.clamp(px, left, right);
+        float cy = Mth.clamp(py, top, bottom);
+        float dx = px - cx;
+        float dy = py - cy;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
+    private int blendArgb(int base, int overlay) {
+        int alpha = (overlay >>> 24) & 0xFF;
+        if (alpha <= 0) return base;
+        if (alpha >= 255) return overlay;
+
+        int inv = 255 - alpha;
+        int r = (((overlay >>> 16) & 0xFF) * alpha + ((base >>> 16) & 0xFF) * inv) / 255;
+        int g = (((overlay >>> 8) & 0xFF) * alpha + ((base >>> 8) & 0xFF) * inv) / 255;
+        int b = ((overlay & 0xFF) * alpha + (base & 0xFF) * inv) / 255;
+        int a = Math.max((base >>> 24) & 0xFF, alpha);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     private void renderNewBaseTexture(Minecraft client, String name, boolean blurMode) {
@@ -482,8 +615,10 @@ public class TargetHudRenderer {
             newHudBgPaint.setColor(0xFFFFFFFF);
             c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
         }
-        newHudAvatarPaint.setColor(0xFFFFFFFF);
-        c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
+        if (!blurMode) {
+            newHudAvatarPaint.setColor(0xFFFFFFFF);
+            c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
+        }
 
         FontRenderer.drawText(c, name, 60f, 24f, 13f, blurMode ? Config.hudPrimaryTextColor() : 0xFF202027);
         c.restore();
@@ -695,6 +830,50 @@ public class TargetHudRenderer {
         uploadSurface(avatarMaskSurface, avatarMaskTexture, avatarMaskW, avatarMaskH);
     }
 
+    private void renderAvatarFlashTexture(Minecraft client, float alpha, float hurtFlashFactor, float healFlashFactor) {
+        ensureNativeLoaded();
+        int damageAlpha = Math.round(alpha * hurtFlashFactor * 0.6f * 255f);
+        int healAlpha = Math.round(alpha * healFlashFactor * 0.62f * 255f);
+        int flashKey = (damageAlpha << 8) | healAlpha;
+        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
+        int targetW = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
+        int targetH = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
+        if (avatarFlashTexture != null && targetW == avatarFlashW && targetH == avatarFlashH && lastAvatarFlashKey == flashKey) return;
+
+        if (avatarFlashSurface != null) {
+            avatarFlashSurface.close();
+            avatarFlashSurface = null;
+        }
+        if (avatarFlashTexture != null) {
+            client.getTextureManager().release(AVATAR_FLASH_TEXTURE_ID);
+            avatarFlashTexture = null;
+        }
+
+        avatarFlashSurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
+        avatarFlashTexture = new DynamicTexture("pvp_utils:target_hud_avatar_flash", targetW, targetH, false);
+        client.getTextureManager().register(AVATAR_FLASH_TEXTURE_ID, avatarFlashTexture);
+        avatarFlashW = targetW;
+        avatarFlashH = targetH;
+
+        Canvas c = avatarFlashSurface.getCanvas();
+        c.restoreToCount(1);
+        c.resetMatrix();
+        c.clear(0x00000000);
+        c.save();
+        c.scale(targetScale, targetScale);
+        if (damageAlpha > 0) {
+            avatarFlashPaint.setColor((damageAlpha << 24) | 0xFF0000);
+            c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), avatarFlashPaint);
+        }
+        if (healAlpha > 0) {
+            avatarFlashPaint.setColor((healAlpha << 24) | 0x55FF55);
+            c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), avatarFlashPaint);
+        }
+        c.restore();
+        uploadSurface(avatarFlashSurface, avatarFlashTexture, avatarFlashW, avatarFlashH);
+        lastAvatarFlashKey = flashKey;
+    }
+
     private float easeOutBack(float value) {
         float t = Mth.clamp(value, 0f, 1f) - 1f;
         return 1f + t * t * (1.55f * t + 0.55f);
@@ -758,9 +937,20 @@ public class TargetHudRenderer {
         lastOverlayTextureTheme = null;
     }
 
+    private void releaseRoundedAvatarTexture(Minecraft client) {
+        if (roundedAvatarTexture != null) {
+            client.getTextureManager().release(ROUNDED_AVATAR_TEXTURE_ID);
+            roundedAvatarTexture = null;
+        }
+        roundedAvatarW = -1;
+        roundedAvatarH = -1;
+        lastRoundedAvatarKey = "";
+    }
+
     private void destroyTexture(Minecraft client) {
         destroyBaseTexture(client);
         destroyOverlayTexture(client);
+        releaseRoundedAvatarTexture(client);
         if (avatarMaskSurface != null) {
             avatarMaskSurface.close();
             avatarMaskSurface = null;
@@ -769,8 +959,19 @@ public class TargetHudRenderer {
             client.getTextureManager().release(AVATAR_MASK_TEXTURE_ID);
             avatarMaskTexture = null;
         }
+        if (avatarFlashSurface != null) {
+            avatarFlashSurface.close();
+            avatarFlashSurface = null;
+        }
+        if (avatarFlashTexture != null) {
+            client.getTextureManager().release(AVATAR_FLASH_TEXTURE_ID);
+            avatarFlashTexture = null;
+        }
         avatarMaskW = -1;
         avatarMaskH = -1;
+        avatarFlashW = -1;
+        avatarFlashH = -1;
+        lastAvatarFlashKey = -1;
     }
 
     private int getHealthColor(float ratio) {
