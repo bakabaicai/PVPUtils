@@ -25,6 +25,7 @@ public final class SkiaBlurRenderer {
     private static final float MIN_CAPTURE_MARGIN = 18f;
 
     private final Paint blurPaint = new Paint().setAntiAlias(true);
+    private final Paint frostPaint = new Paint().setAntiAlias(true);
     private final Paint tintPaint = new Paint().setAntiAlias(true);
     private final SkiaGlBackend framebufferBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
@@ -90,6 +91,9 @@ public final class SkiaBlurRenderer {
                     blurPaint,
                     true);
             blurPaint.setImageFilter(null);
+
+            frostPaint.setColor(0x10000000);
+            canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), frostPaint);
 
             tintPaint.setColor(tintColor);
             canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), tintPaint);
