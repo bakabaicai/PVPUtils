@@ -38,6 +38,7 @@ public class BlockCountDisplayRenderer {
 
     private final RateCounter rightClicks = new RateCounter();
     private final RateCounter placements = new RateCounter();
+    private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ringFillPaint = new Paint().setAntiAlias(true);
     private final Paint ringTrackPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
     private final Paint ringArcPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
@@ -56,6 +57,8 @@ public class BlockCountDisplayRenderer {
     private int lastTextureProgress = -1;
     private Config.HudTheme lastTextureTheme = null;
     private Config.HudTheme lastOverlayTextureTheme = null;
+    private boolean lastTextureBlurMode = false;
+    private boolean lastOverlayTextureBlurMode = false;
     private int textureW = -1;
     private int textureH = -1;
     private int overlayTextureW = -1;
@@ -239,9 +242,12 @@ public class BlockCountDisplayRenderer {
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         ringProgress += (ratio - ringProgress) * 0.18f;
 
-        renderBaseTexture(client, name);
-        renderOverlayTexture(client, speed, ringProgress);
-        SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        boolean blurMode = Config.blockCountDisplayMode == Config.BlockCountDisplayMode.BLUR;
+        renderBaseTexture(client, name, blurMode);
+        renderOverlayTexture(client, speed, ringProgress, blurMode);
+        if (blurMode) {
+            SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        }
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -328,13 +334,13 @@ public class BlockCountDisplayRenderer {
         placements.clear();
     }
 
-    private void renderBaseTexture(Minecraft client, String name) {
+    private void renderBaseTexture(Minecraft client, String name, boolean blurMode) {
         ensureNativeLoaded();
         float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme) return;
+        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme && lastTextureBlurMode == blurMode) return;
 
         if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
             destroyBaseTexture(client);
@@ -353,21 +359,26 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(textureScale, textureScale);
-        FontRenderer.drawText(c, name, 16f, 22f, 12f, Config.hudPrimaryTextColor());
+        if (!blurMode) {
+            bgPaint.setColor(0xF2FFFFFF);
+            c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
+        }
+        FontRenderer.drawText(c, name, 16f, 22f, 12f, blurMode ? Config.hudPrimaryTextColor() : 0xFF202027);
         c.restore();
         uploadSurface(surface, dynamicTexture, textureW, textureH);
         lastTextureName = name;
         lastTextureTheme = Config.hudTheme;
+        lastTextureBlurMode = blurMode;
     }
 
-    private void renderOverlayTexture(Minecraft client, String speed, float progress) {
+    private void renderOverlayTexture(Minecraft client, String speed, float progress, boolean blurMode) {
         ensureNativeLoaded();
         float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
         float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
         int targetW = Math.max(1, Math.round(WIDTH * targetScale));
         int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
         int progressKey = Math.round(progress * 48f);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress && lastOverlayTextureTheme == Config.hudTheme) return;
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -384,7 +395,7 @@ public class BlockCountDisplayRenderer {
         c.clear(0x00000000);
         c.save();
         c.scale(targetScale, targetScale);
-        FontRenderer.drawText(c, speed, 16f, 40f, 11f, Config.hudMutedTextColor());
+        FontRenderer.drawText(c, speed, 16f, 40f, 11f, blurMode ? Config.hudMutedTextColor() : 0xFF5C5870);
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;
@@ -399,6 +410,7 @@ public class BlockCountDisplayRenderer {
         lastTextureSpeed = speed;
         lastTextureProgress = progressKey;
         lastOverlayTextureTheme = Config.hudTheme;
+        lastOverlayTextureBlurMode = blurMode;
     }
 
     private void ensureNativeLoaded() {
@@ -435,6 +447,7 @@ public class BlockCountDisplayRenderer {
         textureH = -1;
         textureScale = -1f;
         lastTextureName = "";
+        lastTextureBlurMode = false;
         lastTextureTheme = null;
     }
 
@@ -451,6 +464,7 @@ public class BlockCountDisplayRenderer {
         overlayTextureH = -1;
         lastTextureSpeed = "";
         lastTextureProgress = -1;
+        lastOverlayTextureBlurMode = false;
         lastOverlayTextureTheme = null;
     }
 

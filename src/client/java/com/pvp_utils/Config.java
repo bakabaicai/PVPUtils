@@ -30,6 +30,7 @@ public class Config {
     public static boolean autoSprint = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
+    public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean skiaBlurCardTest = false;
     public static HudTheme hudTheme = HudTheme.DARK;
     public static float skiaBlurStrength = 1.0f;
@@ -123,7 +124,8 @@ public class Config {
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
-    public enum TargetHudMode { LITE, NEW }
+    public enum TargetHudMode { LITE, NEW, BLUR }
+    public enum BlockCountDisplayMode { NEW, BLUR }
     public enum KeystrokesMode { LITE, NEW }
     public enum ArmorHudMode { LITE, NEW }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
@@ -191,6 +193,7 @@ public class Config {
             autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
+            blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
             skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
             hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
@@ -312,6 +315,7 @@ public class Config {
             prop.setProperty("autoSprint", String.valueOf(autoSprint));
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
+            prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
             prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
             prop.setProperty("hudTheme", hudTheme.name());
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));

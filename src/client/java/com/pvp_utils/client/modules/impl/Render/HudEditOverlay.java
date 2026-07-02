@@ -426,8 +426,9 @@ public class HudEditOverlay {
 
     private RectState getTargetHudRect(int guiW, int guiH) {
         float scale = Math.max(0.5f, Config.targetHudScale);
-        float baseW = Config.targetHudMode == Config.TargetHudMode.NEW ? TARGET_HUD_NEW_WIDTH : TARGET_HUD_WIDTH;
-        float baseH = Config.targetHudMode == Config.TargetHudMode.NEW ? TARGET_HUD_NEW_HEIGHT : TARGET_HUD_HEIGHT;
+        boolean newSize = Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR;
+        float baseW = newSize ? TARGET_HUD_NEW_WIDTH : TARGET_HUD_WIDTH;
+        float baseH = newSize ? TARGET_HUD_NEW_HEIGHT : TARGET_HUD_HEIGHT;
         float w = baseW * scale;
         float h = baseH * scale;
         float x = guiW * 0.5f + Config.targetHudX;
