@@ -43,6 +43,7 @@
     "ShaderManagerAccessor",
     "LevelParticleMixin",
     "ParticleEngineMixin",
+    "WeatherEffectRendererMixin",
     "BetterChatChatMixin",
     "BetterChatGuiMessageMixin",
     "BetterChatGuiMessageLineMixin",

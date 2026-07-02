@@ -13,30 +13,35 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class LevelParticleMixin {
     @Inject(method = "addParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V", at = @At("HEAD"), cancellable = true)
     private void hideExplosionParticles(ParticleOptions particleOptions, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
-        if (Config.hideExplosionParticles && isExplosionParticle(particleOptions)) {
+        if (shouldHideParticle(particleOptions)) {
             ci.cancel();
         }
     }
 
     @Inject(method = "addParticle(Lnet/minecraft/core/particles/ParticleOptions;ZZDDDDDD)V", at = @At("HEAD"), cancellable = true)
     private void hideExplosionParticlesForced(ParticleOptions particleOptions, boolean force, boolean important, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
-        if (Config.hideExplosionParticles && isExplosionParticle(particleOptions)) {
+        if (shouldHideParticle(particleOptions)) {
             ci.cancel();
         }
     }
 
     @Inject(method = "addAlwaysVisibleParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V", at = @At("HEAD"), cancellable = true)
     private void hideAlwaysVisibleExplosionParticles(ParticleOptions particleOptions, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
-        if (Config.hideExplosionParticles && isExplosionParticle(particleOptions)) {
+        if (shouldHideParticle(particleOptions)) {
             ci.cancel();
         }
     }
 
     @Inject(method = "addAlwaysVisibleParticle(Lnet/minecraft/core/particles/ParticleOptions;ZDDDDDD)V", at = @At("HEAD"), cancellable = true)
     private void hideAlwaysVisibleExplosionParticlesForced(ParticleOptions particleOptions, boolean ignoreRange, double x, double y, double z, double vx, double vy, double vz, CallbackInfo ci) {
-        if (Config.hideExplosionParticles && isExplosionParticle(particleOptions)) {
+        if (shouldHideParticle(particleOptions)) {
             ci.cancel();
         }
+    }
+
+    private boolean shouldHideParticle(ParticleOptions particleOptions) {
+        return (Config.hideExplosionParticles && isExplosionParticle(particleOptions))
+                || (Config.hideRainParticles && isRainParticle(particleOptions));
     }
 
     private boolean isExplosionParticle(ParticleOptions particleOptions) {
@@ -45,5 +50,11 @@ public class LevelParticleMixin {
                 || particleOptions == ParticleTypes.POOF
                 || particleOptions == ParticleTypes.SMOKE
                 || particleOptions == ParticleTypes.LARGE_SMOKE;
+    }
+
+    private boolean isRainParticle(ParticleOptions particleOptions) {
+        return particleOptions == ParticleTypes.RAIN
+                || particleOptions == ParticleTypes.DRIPPING_WATER
+                || particleOptions == ParticleTypes.FALLING_WATER;
     }
 }

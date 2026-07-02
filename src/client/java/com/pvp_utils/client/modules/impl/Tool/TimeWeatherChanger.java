@@ -5,11 +5,19 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 
 public final class TimeWeatherChanger {
+    private static boolean wasWeatherChangeEnabled = false;
+    private static boolean savedRaining = false;
+    private static float savedRainLevel = 0.0f;
+    private static float savedThunderLevel = 0.0f;
+
     private TimeWeatherChanger() {}
 
     public static void tick(Minecraft client) {
         ClientLevel level = client.level;
-        if (level == null) return;
+        if (level == null) {
+            wasWeatherChangeEnabled = false;
+            return;
+        }
 
         if (Config.timeChange) {
             long time = Math.floorMod(Config.clientTime, 24000);
@@ -17,8 +25,27 @@ public final class TimeWeatherChanger {
         }
 
         if (Config.weatherChange) {
+            if (!wasWeatherChangeEnabled) {
+                saveWeather(level);
+                wasWeatherChangeEnabled = true;
+            }
             applyWeather(level);
+        } else if (wasWeatherChangeEnabled) {
+            restoreWeather(level);
+            wasWeatherChangeEnabled = false;
         }
+    }
+
+    private static void saveWeather(ClientLevel level) {
+        savedRaining = level.getLevelData().isRaining();
+        savedRainLevel = level.getRainLevel(1.0f);
+        savedThunderLevel = level.getThunderLevel(1.0f);
+    }
+
+    private static void restoreWeather(ClientLevel level) {
+        level.getLevelData().setRaining(savedRaining);
+        level.setRainLevel(savedRainLevel);
+        level.setThunderLevel(savedThunderLevel);
     }
 
     private static void applyWeather(ClientLevel level) {

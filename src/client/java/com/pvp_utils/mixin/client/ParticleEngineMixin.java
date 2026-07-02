@@ -14,9 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class ParticleEngineMixin {
     @Inject(method = "createParticle", at = @At("HEAD"), cancellable = true)
     private void hideExplosionParticles(ParticleOptions particleOptions, double x, double y, double z, double vx, double vy, double vz, CallbackInfoReturnable<Particle> cir) {
-        if (Config.hideExplosionParticles && isExplosionParticle(particleOptions)) {
+        if (shouldHideParticle(particleOptions)) {
             cir.setReturnValue(null);
         }
+    }
+
+    private boolean shouldHideParticle(ParticleOptions particleOptions) {
+        return (Config.hideExplosionParticles && isExplosionParticle(particleOptions))
+                || (Config.hideRainParticles && isRainParticle(particleOptions));
     }
 
     private boolean isExplosionParticle(ParticleOptions particleOptions) {
@@ -25,5 +30,11 @@ public class ParticleEngineMixin {
                 || particleOptions == ParticleTypes.POOF
                 || particleOptions == ParticleTypes.SMOKE
                 || particleOptions == ParticleTypes.LARGE_SMOKE;
+    }
+
+    private boolean isRainParticle(ParticleOptions particleOptions) {
+        return particleOptions == ParticleTypes.RAIN
+                || particleOptions == ParticleTypes.DRIPPING_WATER
+                || particleOptions == ParticleTypes.FALLING_WATER;
     }
 }
