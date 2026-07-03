@@ -70,8 +70,22 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.dynamicIsland = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物在空中旋转，落地后随机角度平躺", "Make dropped items spin in the air and lie flat at a random angle after landing"),
-                new SettingToggle(() -> Config.itemPhysics, v -> { Config.itemPhysics = v; Config.save(); })));
+        modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物以更加物理的方式掉落", "Make dropped items fall in a more physical way"),
+                new SettingToggle(() -> Config.itemPhysics, v -> {
+                    Config.itemPhysics = v;
+                    if (v) Config.item2DRender = false;
+                    Config.save();
+                }))
+                .addSub(UiText.t("旋转速度", "Rotation Speed"), UiText.t("调整掉落物腾空时的旋转速度", "Adjust how fast dropped items rotate in the air"),
+                        new SettingSlider(0.0, 3.0, "%.1fx", () -> (double) Config.itemPhysicsRotationSpeed,
+                                v -> { Config.itemPhysicsRotationSpeed = v.floatValue(); Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("掉落物 2D 渲染", "Dropped Item 2D Render"), UiText.t("将掉落物的渲染方式更改为2D渲染（老版本渲染方式）", "Change dropped item rendering to 2D rendering (old version style)"),
+                new SettingToggle(() -> Config.item2DRender, v -> {
+                    Config.item2DRender = v;
+                    if (v) Config.itemPhysics = false;
+                    Config.save();
+                })));
 
         modules.add(new SettingModule(
                 UiText.t("盔甲 HUD", "Armor HUD"),

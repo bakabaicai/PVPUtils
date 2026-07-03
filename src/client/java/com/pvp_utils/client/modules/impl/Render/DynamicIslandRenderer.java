@@ -153,7 +153,8 @@ public class DynamicIslandRenderer {
         String username = client.getUser() != null ? client.getUser().getName() : "Unknown";
         String location = getLocationText(client);
         String fps = String.valueOf(client.getFps());
-        return new IslandContent("PVPUtils", username, location, fps);
+        String brand = Config.clientName == null || Config.clientName.isBlank() ? "PVPUtils" : Config.clientName;
+        return new IslandContent(brand, username, location, fps);
     }
 
     private String getLocationText(Minecraft client) {

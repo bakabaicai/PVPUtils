@@ -33,6 +33,8 @@ public class Config {
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
     public static boolean itemPhysics = false;
+    public static boolean item2DRender = false;
+    public static float itemPhysicsRotationSpeed = 1.0f;
     public static HudTheme hudTheme = HudTheme.DARK;
     public static float skiaBlurStrength = 1.0f;
     public static boolean timeChange = false;
@@ -80,6 +82,7 @@ public class Config {
     public static boolean mainUIMouseEffect = false;
     public static boolean termsRead = false;
     public static boolean fullMode = false;
+    public static String clientName = "PVPUtils";
     public static String mainUIBackgroundImage = "1.png";
     public static String customCapeImage = "default.png";
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
@@ -208,6 +211,8 @@ public class Config {
             blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
             dynamicIsland = Boolean.parseBoolean(prop.getProperty("dynamicIsland", "false"));
             itemPhysics = Boolean.parseBoolean(prop.getProperty("itemPhysics", "false"));
+            item2DRender = Boolean.parseBoolean(prop.getProperty("item2DRender", "false"));
+            itemPhysicsRotationSpeed = Float.parseFloat(prop.getProperty("itemPhysicsRotationSpeed", "1.0"));
             hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
             timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
@@ -255,6 +260,7 @@ public class Config {
             mainUIMouseEffect = Boolean.parseBoolean(prop.getProperty("mainUIMouseEffect", "false"));
             termsRead = Boolean.parseBoolean(prop.getProperty("termsRead", "false"));
             fullMode = Boolean.parseBoolean(prop.getProperty("fullMode", "false"));
+            clientName = prop.getProperty("clientName", "PVPUtils");
             mainUIBackgroundImage = prop.getProperty("mainUIBackgroundImage", "1.png");
             customCapeImage = prop.getProperty("customCapeImage", "default.png");
             hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
@@ -342,6 +348,8 @@ public class Config {
             prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
             prop.setProperty("dynamicIsland", String.valueOf(dynamicIsland));
             prop.setProperty("itemPhysics", String.valueOf(itemPhysics));
+            prop.setProperty("item2DRender", String.valueOf(item2DRender));
+            prop.setProperty("itemPhysicsRotationSpeed", String.valueOf(itemPhysicsRotationSpeed));
             prop.setProperty("hudTheme", hudTheme.name());
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
             prop.setProperty("timeChange", String.valueOf(timeChange));
@@ -389,6 +397,7 @@ public class Config {
             prop.setProperty("mainUIMouseEffect", String.valueOf(mainUIMouseEffect));
             prop.setProperty("termsRead", String.valueOf(termsRead));
             prop.setProperty("fullMode", String.valueOf(fullMode));
+            prop.setProperty("clientName", clientName);
             prop.setProperty("mainUIBackgroundImage", mainUIBackgroundImage);
             prop.setProperty("customCapeImage", customCapeImage);
             prop.setProperty("hitSoundType", hitSoundType.name());

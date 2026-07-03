@@ -35,6 +35,8 @@ public class ResetManager {
         Config.blockCountDisplay = false;
         Config.dynamicIsland = false;
         Config.itemPhysics = false;
+        Config.item2DRender = false;
+        Config.itemPhysicsRotationSpeed = 1.0f;
         Config.armorHud = false;
         Config.armorHudShowPercentage = true;
         Config.armorHudShowBar = true;
@@ -93,6 +95,7 @@ public class ResetManager {
         Config.applyGameLanguageDefault();
         Config.termsRead = false;
         Config.fullMode = false;
+        Config.clientName = "PVPUtils";
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.NEW;

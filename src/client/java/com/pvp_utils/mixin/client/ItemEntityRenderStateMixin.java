@@ -9,12 +9,14 @@ import org.spongepowered.asm.mixin.Unique;
 public class ItemEntityRenderStateMixin implements ItemPhysicsRenderState {
     @Unique private boolean pvp_utils$itemPhysicsOnGround;
     @Unique private boolean pvp_utils$itemPhysicsMoving;
+    @Unique private boolean pvp_utils$itemPhysicsBlockItem;
     @Unique private int pvp_utils$itemPhysicsSeed;
 
     @Override
-    public void pvp_utils$setItemPhysics(boolean onGround, boolean moving, int seed) {
+    public void pvp_utils$setItemPhysics(boolean onGround, boolean moving, boolean blockItem, int seed) {
         this.pvp_utils$itemPhysicsOnGround = onGround;
         this.pvp_utils$itemPhysicsMoving = moving;
+        this.pvp_utils$itemPhysicsBlockItem = blockItem;
         this.pvp_utils$itemPhysicsSeed = seed;
     }
 
@@ -26,6 +28,11 @@ public class ItemEntityRenderStateMixin implements ItemPhysicsRenderState {
     @Override
     public boolean pvp_utils$itemPhysicsMoving() {
         return pvp_utils$itemPhysicsMoving;
+    }
+
+    @Override
+    public boolean pvp_utils$itemPhysicsBlockItem() {
+        return pvp_utils$itemPhysicsBlockItem;
     }
 
     @Override
