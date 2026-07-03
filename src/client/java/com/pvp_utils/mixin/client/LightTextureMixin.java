@@ -1,7 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Render.GammaOverrideManager;
 import net.minecraft.client.renderer.LightTexture;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,6 +13,6 @@ public abstract class LightTextureMixin {
             at = @At(value = "INVOKE", target = "Ljava/lang/Double;floatValue()F", ordinal = 1)
     )
     private float overrideGamma(float gamma) {
-        return Config.gammaOverride ? (float) Config.gammaValue : gamma;
+        return GammaOverrideManager.apply(gamma);
     }
 }
