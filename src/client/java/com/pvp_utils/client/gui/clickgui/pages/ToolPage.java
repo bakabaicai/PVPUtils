@@ -34,8 +34,6 @@ public class ToolPage extends BasePage {
                                 () -> Config.blockCountDisplayMode == Config.BlockCountDisplayMode.NEW ? 0 : 1,
                                 i -> { Config.blockCountDisplayMode = i == 0 ? Config.BlockCountDisplayMode.NEW : Config.BlockCountDisplayMode.BLUR; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("Skija 模糊卡片测试", "Skija Blur Card Test"), UiText.t("用 GPU 纹理拷贝和 Skija 绘制一个背景模糊卡片", "Draw a blurred card using GPU texture copy and Skia"),
-                new SettingToggle(() -> Config.skiaBlurCardTest, v -> { Config.skiaBlurCardTest = v; Config.save(); })));
         modules.add(new SettingModule(UiText.t("改变客户端时间", "Time Change"), UiText.t("强制修改客户端显示的世界时间", "Force the client-side world time"),
                 new SettingToggle(() -> Config.timeChange, v -> { Config.timeChange = v; Config.save(); }))
                 .addSub(UiText.t("时间", "Time"), UiText.t("选择客户端显示的世界时间", "Choose the client-side world time"),

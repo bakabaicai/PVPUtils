@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = GameRenderer.class, priority = 500)
+@Mixin(GameRenderer.class)
 public class MotionBlurGameRendererMixin {
     @Inject(method = "renderLevel", at = @At("TAIL"))
     private void pvp_utils$afterRenderLevel(DeltaTracker deltaTracker, CallbackInfo ci) {

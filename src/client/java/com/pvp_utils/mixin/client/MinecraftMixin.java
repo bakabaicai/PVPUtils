@@ -8,7 +8,6 @@ import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
-import com.pvp_utils.client.modules.impl.Render.SkiaBlurCardRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -126,7 +125,6 @@ public class MinecraftMixin {
     private void pvp_utils$renderSkiaFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
-        SkiaBlurCardRenderer.getInstance().renderFrameEnd();
         BlockCountDisplayRenderer.getInstance().renderFrameEnd();
         HudEditOverlay.getInstance().renderFrameEnd();
     }

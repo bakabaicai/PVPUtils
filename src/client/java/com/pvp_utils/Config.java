@@ -32,7 +32,7 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
-    public static boolean skiaBlurCardTest = false;
+    public static boolean itemPhysics = false;
     public static HudTheme hudTheme = HudTheme.DARK;
     public static float skiaBlurStrength = 1.0f;
     public static boolean timeChange = false;
@@ -207,7 +207,7 @@ public class Config {
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
             dynamicIsland = Boolean.parseBoolean(prop.getProperty("dynamicIsland", "false"));
-            skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
+            itemPhysics = Boolean.parseBoolean(prop.getProperty("itemPhysics", "false"));
             hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
             timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
@@ -341,7 +341,7 @@ public class Config {
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
             prop.setProperty("dynamicIsland", String.valueOf(dynamicIsland));
-            prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
+            prop.setProperty("itemPhysics", String.valueOf(itemPhysics));
             prop.setProperty("hudTheme", hudTheme.name());
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
             prop.setProperty("timeChange", String.valueOf(timeChange));

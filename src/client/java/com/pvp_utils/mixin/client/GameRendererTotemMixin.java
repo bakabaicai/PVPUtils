@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = GameRenderer.class, priority = 500)
+@Mixin(GameRenderer.class)
 public class GameRendererTotemMixin {
     @Inject(method = "displayItemActivation", at = @At("HEAD"), cancellable = true)
     private void hideTotemAnimation(ItemStack itemStack, CallbackInfo ci) {
