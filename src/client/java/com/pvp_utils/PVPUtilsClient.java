@@ -19,14 +19,13 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
+import com.pvp_utils.client.util.ChatUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.Minecraft;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 
 public class PVPUtilsClient implements ClientModInitializer {
     @Override
@@ -87,7 +86,7 @@ public class PVPUtilsClient implements ClientModInitializer {
                                     String message = Config.isChinese
                                             ? "客户端名称已被更改为：" + clientName
                                             : "Client name has been changed to: " + clientName;
-                                    context.getSource().sendFeedback(Component.literal(message).withStyle(ChatFormatting.GREEN));
+                                    ChatUtils.success(message);
                                     return 1;
                                 })));
     }
@@ -98,6 +97,6 @@ public class PVPUtilsClient implements ClientModInitializer {
         String message = Config.isChinese
                 ? "Clientname字段不能为空！"
                 : "Clientname field cannot be empty!";
-        source.sendFeedback(Component.literal(message).withStyle(ChatFormatting.RED));
+        ChatUtils.error(message);
     }
 }

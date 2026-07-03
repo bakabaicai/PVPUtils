@@ -1,6 +1,7 @@
 package com.pvp_utils.client;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.util.ChatUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
@@ -51,20 +52,20 @@ public final class Update {
         MutableComponent manualStatus = pendingManualStatus;
         if (manualStatus != null && client != null && client.player != null && client.level != null) {
             pendingManualStatus = null;
-            client.player.displayClientMessage(manualStatus, false);
+            ChatUtils.send(manualStatus);
         }
 
         MutableComponent autoError = pendingAutoError;
         if (autoError != null && client != null && client.player != null && client.level != null) {
             pendingAutoError = null;
-            client.player.displayClientMessage(autoError, false);
+            ChatUtils.error(autoError);
         }
 
         if (shown || client == null || client.player == null || client.level == null) return;
         UpdateResult result = cachedResult;
         if (result == null || !result.hasUpdate()) return;
         shown = true;
-        client.player.displayClientMessage(result.updateAvailableMessage(), false);
+        ChatUtils.send(result.updateAvailableMessage());
     }
 
     public static MutableComponent checkingMessage() {
@@ -231,7 +232,7 @@ public final class Update {
         if (client == null) return;
         client.execute(() -> {
             if (client.player != null) {
-                client.player.displayClientMessage(message, false);
+                ChatUtils.send(message);
             }
         });
     }
