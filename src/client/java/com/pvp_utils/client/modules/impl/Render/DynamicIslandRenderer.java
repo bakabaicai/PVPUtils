@@ -52,6 +52,7 @@ public class DynamicIslandRenderer {
     private static final String ICON_PERSON = "\uE7FD";
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
+    private static final int TAB_SELF_NAME_COLOR = 0xFF8FD8FF;
     private static final int BLUR_TINT = 0x72FFFFFF;
     private static final float BLUR_STRENGTH = 0.85f;
     private static final float SIZE_EASE_SPEED = 13.5f;
@@ -322,13 +323,18 @@ public class DynamicIslandRenderer {
             float y = startY + row * TAB_ROW_HEIGHT;
             PlayerInfo player = players.get(i);
             String name = trimToWidth(getPlayerName(player), columnW - 46f, TAB_NAME_SIZE);
-            int color = player.getGameMode() == GameType.SPECTATOR ? 0xFFAAAAAA : 0xFFFFFFFF;
+            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : player.getGameMode() == GameType.SPECTATOR ? 0xFFAAAAAA : 0xFFFFFFFF;
             FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
 
             String latency = formatLatency(player.getLatency());
             float latencyW = FontRenderer.measureTextWidth(latency, 9f);
             FontRenderer.drawText(canvas, latency, x + columnW - latencyW, y, 9f, withAlpha(latencyColor(player.getLatency()), alpha));
         }
+    }
+
+    private boolean isLocalPlayer(PlayerInfo player) {
+        Minecraft client = Minecraft.getInstance();
+        return client.player != null && player.getProfile().id().equals(client.player.getUUID());
     }
 
     private String getPlayerName(PlayerInfo player) {
