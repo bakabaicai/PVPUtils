@@ -70,6 +70,9 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.dynamicIsland = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物在空中旋转，落地后随机角度平躺", "Make dropped items spin in the air and lie flat at a random angle after landing"),
+                new SettingToggle(() -> Config.itemPhysics, v -> { Config.itemPhysics = v; Config.save(); })));
+
         modules.add(new SettingModule(
                 UiText.t("盔甲 HUD", "Armor HUD"),
                 UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
