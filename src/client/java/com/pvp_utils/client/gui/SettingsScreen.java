@@ -120,6 +120,11 @@ public class SettingsScreen extends Screen {
                     Config.dynamicMotionBlur = false;
                     Config.dynamicMotionBlurStrength = 1.0f;
                     Config.dynamicMotionBlurRefreshRateScaling = true;
+                    Config.hitColor = false;
+                    Config.hitColorRed = 255;
+                    Config.hitColorGreen = 0;
+                    Config.hitColorBlue = 0;
+                    Config.hitColorAlpha = 179;
                     Config.armorHud = false;
                     Config.potionStatus = false;
                     Config.blockCountDisplayX = 0f;

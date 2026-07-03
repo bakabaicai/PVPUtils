@@ -64,6 +64,11 @@ public class ResetManager {
         Config.dynamicMotionBlur = false;
         Config.dynamicMotionBlurStrength = 1.0f;
         Config.dynamicMotionBlurRefreshRateScaling = true;
+        Config.hitColor = false;
+        Config.hitColorRed = 255;
+        Config.hitColorGreen = 0;
+        Config.hitColorBlue = 0;
+        Config.hitColorAlpha = 179;
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;

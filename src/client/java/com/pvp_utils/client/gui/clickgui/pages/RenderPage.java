@@ -55,6 +55,19 @@ public class RenderPage extends BasePage {
                 .addSubWhen(() -> Config.attackEffectsLightning, UiText.t("闪电数量", "Lightning Count"), UiText.t("攻击时渲染的闪电数量", "Number of lightning effects rendered per attack"),
                         new SettingSlider(1.0, 5.0, "%.0f", () -> (double) Config.attackEffectsLightningCount, v -> { Config.attackEffectsLightningCount = v.intValue(); Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("更改受击颜色", "Hit Color"), UiText.t("更改实体受击时的颜色", "Change the color shown when entities are hit"),
+                new SettingToggle(() -> Config.hitColor, v -> { Config.hitColor = v; Config.save(); }))
+                .addSub("R", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorRed, v -> { Config.hitColorRed = clampColor(v); Config.save(); }))
+                .addSub("G", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorGreen, v -> { Config.hitColorGreen = clampColor(v); Config.save(); }))
+                .addSub("B", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorBlue, v -> { Config.hitColorBlue = clampColor(v); Config.save(); }))
+                .addSub(UiText.t("透明度", "Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.hitColorAlpha), v -> { Config.hitColorAlpha = transparencyPercentToAlpha(v); Config.save(); }))
+                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示当前受击覆盖颜色", "Preview the current hit overlay color"),
+                        new SettingColorPreview(() -> hitColorArgb())));
+
         modules.add(new SettingModule(UiText.t("自动格挡", "Auto Block"), UiText.t("自动触发格挡动作", "Automatically trigger blocking"),
                 new SettingToggle(() -> Config.autoMode, v -> { Config.autoMode = v; Config.save(); }))
                 .addSub(UiText.t("触发距离", "Trigger Range"), UiText.t("自定义近战触发距离", "Customize melee trigger range"),
@@ -208,4 +221,25 @@ public class RenderPage extends BasePage {
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }
     @Override public String getSubtitle() { return UiText.t("调整视觉与动画效果", "Adjust visuals and animations"); }
+
+    private static int clampColor(Double value) {
+        return Math.max(0, Math.min(255, value.intValue()));
+    }
+
+    private static double alphaToTransparencyPercent(int alpha) {
+        int clamped = Math.max(0, Math.min(255, alpha));
+        return (255.0 - clamped) / 255.0 * 100.0;
+    }
+
+    private static int transparencyPercentToAlpha(Double value) {
+        double percent = Math.max(0.0, Math.min(100.0, value));
+        return Math.max(0, Math.min(255, (int) Math.round((100.0 - percent) / 100.0 * 255.0)));
+    }
+
+    private static int hitColorArgb() {
+        return ((Config.hitColorAlpha & 0xFF) << 24)
+                | ((Config.hitColorRed & 0xFF) << 16)
+                | ((Config.hitColorGreen & 0xFF) << 8)
+                | (Config.hitColorBlue & 0xFF);
+    }
 }

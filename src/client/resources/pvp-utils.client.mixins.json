@@ -21,6 +21,7 @@
     "NameTagFeatureRendererStorageMixin",
     "CapeLayerMixin",
     "LightTextureMixin",
+    "OverlayTextureMixin",
     "ChestRendererMixin",
     "KeyboardInputMixin",
     "MinecraftMixin",

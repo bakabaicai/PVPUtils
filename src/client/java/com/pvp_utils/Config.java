@@ -65,6 +65,7 @@ public class Config {
     public static boolean attackEffectsFlameParticles = false;
     public static boolean attackEffectsBloodParticles = false;
     public static boolean attackEffectsLightning = false;
+    public static boolean hitColor = false;
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
@@ -114,6 +115,10 @@ public class Config {
     public static float attackEffectsFlameMultiplier = 1.0f;
     public static float attackEffectsBloodMultiplier = 1.0f;
     public static int attackEffectsLightningCount = 1;
+    public static int hitColorRed = 255;
+    public static int hitColorGreen = 0;
+    public static int hitColorBlue = 0;
+    public static int hitColorAlpha = 179;
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
     public static float blockCountDisplayScale = 1.0f;
@@ -243,6 +248,7 @@ public class Config {
             attackEffectsFlameParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsFlameParticles", "false"));
             attackEffectsBloodParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsBloodParticles", "false"));
             attackEffectsLightning = Boolean.parseBoolean(prop.getProperty("attackEffectsLightning", "false"));
+            hitColor = Boolean.parseBoolean(prop.getProperty("hitColor", "false"));
             noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
             customCape = Boolean.parseBoolean(prop.getProperty("customCape", "false"));
             chatHudEditQuickEnable = Boolean.parseBoolean(prop.getProperty("chatHudEditQuickEnable", "true"));
@@ -298,6 +304,10 @@ public class Config {
             attackEffectsFlameMultiplier = Float.parseFloat(prop.getProperty("attackEffectsFlameMultiplier", "1.0"));
             attackEffectsBloodMultiplier = Float.parseFloat(prop.getProperty("attackEffectsBloodMultiplier", "1.0"));
             attackEffectsLightningCount = Integer.parseInt(prop.getProperty("attackEffectsLightningCount", "1"));
+            hitColorRed = Integer.parseInt(prop.getProperty("hitColorRed", "255"));
+            hitColorGreen = Integer.parseInt(prop.getProperty("hitColorGreen", "0"));
+            hitColorBlue = Integer.parseInt(prop.getProperty("hitColorBlue", "0"));
+            hitColorAlpha = Integer.parseInt(prop.getProperty("hitColorAlpha", "179"));
             blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
             blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
             blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
@@ -379,6 +389,7 @@ public class Config {
             prop.setProperty("attackEffectsFlameParticles", String.valueOf(attackEffectsFlameParticles));
             prop.setProperty("attackEffectsBloodParticles", String.valueOf(attackEffectsBloodParticles));
             prop.setProperty("attackEffectsLightning", String.valueOf(attackEffectsLightning));
+            prop.setProperty("hitColor", String.valueOf(hitColor));
             prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
             prop.setProperty("customCape", String.valueOf(customCape));
             prop.setProperty("chatHudEditQuickEnable", String.valueOf(chatHudEditQuickEnable));
@@ -434,6 +445,10 @@ public class Config {
             prop.setProperty("attackEffectsFlameMultiplier", String.valueOf(attackEffectsFlameMultiplier));
             prop.setProperty("attackEffectsBloodMultiplier", String.valueOf(attackEffectsBloodMultiplier));
             prop.setProperty("attackEffectsLightningCount", String.valueOf(attackEffectsLightningCount));
+            prop.setProperty("hitColorRed", String.valueOf(hitColorRed));
+            prop.setProperty("hitColorGreen", String.valueOf(hitColorGreen));
+            prop.setProperty("hitColorBlue", String.valueOf(hitColorBlue));
+            prop.setProperty("hitColorAlpha", String.valueOf(hitColorAlpha));
             prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
             prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
             prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
