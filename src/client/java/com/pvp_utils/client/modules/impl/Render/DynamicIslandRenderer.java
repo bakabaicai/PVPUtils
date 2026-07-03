@@ -52,7 +52,7 @@ public class DynamicIslandRenderer {
     private static final String ICON_PERSON = "\uE7FD";
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
-    private static final int TAB_SELF_NAME_COLOR = 0xFF8FD8FF;
+    private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
     private static final int BLUR_TINT = 0x72FFFFFF;
     private static final float BLUR_STRENGTH = 0.85f;
     private static final float SIZE_EASE_SPEED = 13.5f;
