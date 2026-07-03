@@ -26,6 +26,7 @@
     "MinecraftMixin",
     "GuiMixin",
     "PlayerTabOverlayMixin",
+    "ServerReconfigScreenMixin",
     "HotbarSmoothMixin",
     "ClientPacketListenerMixin",
     "ConnectionMixin",
