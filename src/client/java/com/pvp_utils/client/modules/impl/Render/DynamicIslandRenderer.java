@@ -53,6 +53,8 @@ public class DynamicIslandRenderer {
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
     private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
+    private static final int TAB_DEFAULT_NAME_COLOR = 0xFFFFFFFF;
+    private static final int TAB_SPECTATOR_NAME_COLOR = 0xFFAAAAAA;
     private static final int BLUR_TINT = 0x72FFFFFF;
     private static final float BLUR_STRENGTH = 0.85f;
     private static final float SIZE_EASE_SPEED = 13.5f;
@@ -184,7 +186,7 @@ public class DynamicIslandRenderer {
         int rows = Math.max(1, (count + columns - 1) / columns);
         float nameW = 120f;
         for (PlayerInfo player : players) {
-            nameW = Math.max(nameW, measure(getPlayerName(player)));
+            nameW = Math.max(nameW, measure(parseTabName(getPlayerName(player), TAB_DEFAULT_NAME_COLOR).text()));
         }
         float columnW = clamp(nameW + 48f, 150f, 230f);
         float rawWidth = TAB_SIDE_PADDING * 2f + columns * columnW + (columns - 1) * TAB_COLUMN_GAP;
@@ -246,7 +248,10 @@ public class DynamicIslandRenderer {
         StringBuilder key = new StringBuilder("tab:");
         for (int i = 0; i < Math.min(players.size(), 80); i++) {
             PlayerInfo player = players.get(i);
-            key.append(player.getProfile().id()).append('@').append(player.getLatency()).append(';');
+            key.append(player.getProfile().id())
+                    .append(':').append(getPlayerName(player))
+                    .append('@').append(player.getLatency())
+                    .append(';');
         }
         return key.toString();
     }
@@ -322,14 +327,60 @@ public class DynamicIslandRenderer {
             float x = TAB_SIDE_PADDING + column * (columnW + TAB_COLUMN_GAP);
             float y = startY + row * TAB_ROW_HEIGHT;
             PlayerInfo player = players.get(i);
-            String name = trimToWidth(getPlayerName(player), columnW - 46f, TAB_NAME_SIZE);
-            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : player.getGameMode() == GameType.SPECTATOR ? 0xFFAAAAAA : 0xFFFFFFFF;
+            int baseColor = player.getGameMode() == GameType.SPECTATOR ? TAB_SPECTATOR_NAME_COLOR : TAB_DEFAULT_NAME_COLOR;
+            FormattedTabName formattedName = parseTabName(getPlayerName(player), baseColor);
+            String name = trimToWidth(formattedName.text(), columnW - 46f, TAB_NAME_SIZE);
+            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.color();
             FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
 
             String latency = formatLatency(player.getLatency());
             float latencyW = FontRenderer.measureTextWidth(latency, 9f);
             FontRenderer.drawText(canvas, latency, x + columnW - latencyW, y, 9f, withAlpha(latencyColor(player.getLatency()), alpha));
         }
+    }
+
+    private FormattedTabName parseTabName(String rawName, int fallbackColor) {
+        if (rawName == null || rawName.isEmpty()) {
+            return new FormattedTabName("", fallbackColor);
+        }
+
+        StringBuilder cleanName = new StringBuilder(rawName.length());
+        int color = fallbackColor;
+        for (int i = 0; i < rawName.length(); i++) {
+            char current = rawName.charAt(i);
+            if ((current == '\u00A7' || current == '&') && i + 1 < rawName.length()) {
+                Integer parsedColor = minecraftColor(rawName.charAt(++i), fallbackColor);
+                if (parsedColor != null) {
+                    color = parsedColor;
+                }
+                continue;
+            }
+            cleanName.append(current);
+        }
+        return new FormattedTabName(cleanName.toString(), color);
+    }
+
+    private Integer minecraftColor(char code, int fallbackColor) {
+        return switch (Character.toLowerCase(code)) {
+            case '0' -> 0xFF000000;
+            case '1' -> 0xFF0000AA;
+            case '2' -> 0xFF00AA00;
+            case '3' -> 0xFF00AAAA;
+            case '4' -> 0xFFAA0000;
+            case '5' -> 0xFFAA00AA;
+            case '6' -> 0xFFFFAA00;
+            case '7' -> 0xFFAAAAAA;
+            case '8' -> 0xFF555555;
+            case '9' -> 0xFF5555FF;
+            case 'a' -> 0xFF55FF55;
+            case 'b' -> 0xFF55FFFF;
+            case 'c' -> 0xFFFF5555;
+            case 'd' -> 0xFFFF55FF;
+            case 'e' -> 0xFFFFFF55;
+            case 'f' -> 0xFFFFFFFF;
+            case 'r' -> fallbackColor;
+            default -> null;
+        };
     }
 
     private boolean isLocalPlayer(PlayerInfo player) {
@@ -442,5 +493,8 @@ public class DynamicIslandRenderer {
     }
 
     private record IslandLayout(float width, float height, float radius, boolean isTab) {
+    }
+
+    private record FormattedTabName(String text, int color) {
     }
 }
