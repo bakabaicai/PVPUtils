@@ -1,6 +1,9 @@
 package com.pvp_utils.client.render.skia;
 
 import org.lwjgl.opengl.GL;
+import org.lwjgl.BufferUtils;
+
+import java.nio.ByteBuffer;
 
 import static org.lwjgl.opengl.GL45.*;
 
@@ -11,7 +14,13 @@ final class SkiaGlState {
     private final int[] lastTexture = new int[1];
     private final int[] lastSampler = new int[1];
     private final int[] lastArrayBuffer = new int[1];
+    private final int[] lastElementArrayBuffer = new int[1];
+    private final int[] lastUniformBuffer = new int[1];
     private final int[] lastVertexArrayObject = new int[1];
+    private final int[] lastReadFramebuffer = new int[1];
+    private final int[] lastDrawFramebuffer = new int[1];
+    private final int[] lastReadBuffer = new int[1];
+    private final int[] lastDrawBuffer = new int[1];
     private final int[] lastPolygonMode = new int[2];
     private final int[] lastViewport = new int[4];
     private final int[] lastScissorBox = new int[4];
@@ -21,7 +30,12 @@ final class SkiaGlState {
     private final int[] lastBlendDstAlpha = new int[1];
     private final int[] lastBlendEquationRgb = new int[1];
     private final int[] lastBlendEquationAlpha = new int[1];
+    private final int[] lastDepthFunc = new int[1];
+    private final int[] lastCullFaceMode = new int[1];
+    private final int[] lastFrontFace = new int[1];
+    private final ByteBuffer lastColorMask = BufferUtils.createByteBuffer(4);
     private final int[] lastPixelUnpackBufferBinding = new int[1];
+    private final int[] lastPixelPackBufferBinding = new int[1];
     private final int[] lastUnpackAlignment = new int[1];
     private final int[] lastUnpackRowLength = new int[1];
     private final int[] lastUnpackSkipPixels = new int[1];
@@ -59,7 +73,13 @@ final class SkiaGlState {
             glGetIntegerv(GL_SAMPLER_BINDING, lastSampler);
         }
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING, lastArrayBuffer);
+        glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, lastElementArrayBuffer);
+        glGetIntegerv(GL_UNIFORM_BUFFER_BINDING, lastUniformBuffer);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, lastVertexArrayObject);
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, lastReadFramebuffer);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, lastDrawFramebuffer);
+        glGetIntegerv(GL_READ_BUFFER, lastReadBuffer);
+        glGetIntegerv(GL_DRAW_BUFFER, lastDrawBuffer);
         if (glVersion >= 200) {
             glGetIntegerv(GL_POLYGON_MODE, lastPolygonMode);
         }
@@ -71,6 +91,11 @@ final class SkiaGlState {
         glGetIntegerv(GL_BLEND_DST_ALPHA, lastBlendDstAlpha);
         glGetIntegerv(GL_BLEND_EQUATION_RGB, lastBlendEquationRgb);
         glGetIntegerv(GL_BLEND_EQUATION_ALPHA, lastBlendEquationAlpha);
+        glGetIntegerv(GL_DEPTH_FUNC, lastDepthFunc);
+        glGetIntegerv(GL_CULL_FACE_MODE, lastCullFaceMode);
+        glGetIntegerv(GL_FRONT_FACE, lastFrontFace);
+        lastColorMask.clear();
+        glGetBooleanv(GL_COLOR_WRITEMASK, lastColorMask);
         lastEnableBlend = glIsEnabled(GL_BLEND);
         lastEnableCullFace = glIsEnabled(GL_CULL_FACE);
         lastEnableDepthTest = glIsEnabled(GL_DEPTH_TEST);
@@ -82,6 +107,8 @@ final class SkiaGlState {
         lastDepthMask = glGetBoolean(GL_DEPTH_WRITEMASK);
 
         glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, lastPixelUnpackBufferBinding);
+        glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, lastPixelPackBufferBinding);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         glGetIntegerv(GL_PACK_SWAP_BYTES, lastPackSwapBytes);
         glGetIntegerv(GL_PACK_LSB_FIRST, lastPackLsbFirst);
@@ -115,10 +142,20 @@ final class SkiaGlState {
             glBindSampler(0, lastSampler[0]);
         }
         glActiveTexture(lastActiveTexture[0]);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, lastReadFramebuffer[0]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lastDrawFramebuffer[0]);
+        restoreReadBuffer(lastReadFramebuffer[0], lastReadBuffer[0]);
+        restoreDrawBuffer(lastDrawFramebuffer[0], lastDrawBuffer[0]);
         glBindVertexArray(lastVertexArrayObject[0]);
         glBindBuffer(GL_ARRAY_BUFFER, lastArrayBuffer[0]);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lastElementArrayBuffer[0]);
+        glBindBuffer(GL_UNIFORM_BUFFER, lastUniformBuffer[0]);
         glBlendEquationSeparate(lastBlendEquationRgb[0], lastBlendEquationAlpha[0]);
         glBlendFuncSeparate(lastBlendSrcRgb[0], lastBlendDstRgb[0], lastBlendSrcAlpha[0], lastBlendDstAlpha[0]);
+        glDepthFunc(lastDepthFunc[0]);
+        glCullFace(lastCullFaceMode[0]);
+        glFrontFace(lastFrontFace[0]);
+        glColorMask(lastColorMask.get(0) != 0, lastColorMask.get(1) != 0, lastColorMask.get(2) != 0, lastColorMask.get(3) != 0);
         setEnabled(GL_BLEND, lastEnableBlend);
         setEnabled(GL_CULL_FACE, lastEnableCullFace);
         setEnabled(GL_DEPTH_TEST, lastEnableDepthTest);
@@ -138,6 +175,7 @@ final class SkiaGlState {
         glPixelStorei(GL_PACK_SKIP_PIXELS, lastPackSkipPixels[0]);
         glPixelStorei(GL_PACK_SKIP_ROWS, lastPackSkipRows[0]);
         glPixelStorei(GL_PACK_ALIGNMENT, lastPackAlignment[0]);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, lastPixelPackBufferBinding[0]);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, lastPixelUnpackBufferBinding[0]);
         glPixelStorei(GL_UNPACK_SWAP_BYTES, lastUnpackSwapBytes[0]);
         glPixelStorei(GL_UNPACK_LSB_FIRST, lastUnpackLsbFirst[0]);
@@ -157,5 +195,44 @@ final class SkiaGlState {
     private static void setEnabled(int target, boolean enabled) {
         if (enabled) glEnable(target);
         else glDisable(target);
+    }
+
+    private static void restoreReadBuffer(int framebufferId, int readBuffer) {
+        if (readBuffer == GL_NONE) {
+            glReadBuffer(GL_NONE);
+            return;
+        }
+        if (framebufferId == 0) {
+            glReadBuffer(isDefaultFramebufferBuffer(readBuffer) ? readBuffer : GL_BACK);
+            return;
+        }
+        glReadBuffer(isColorAttachmentBuffer(readBuffer) ? readBuffer : GL_COLOR_ATTACHMENT0);
+    }
+
+    private static void restoreDrawBuffer(int framebufferId, int drawBuffer) {
+        if (drawBuffer == GL_NONE) {
+            glDrawBuffer(GL_NONE);
+            return;
+        }
+        if (framebufferId == 0) {
+            glDrawBuffer(isDefaultFramebufferBuffer(drawBuffer) ? drawBuffer : GL_BACK);
+            return;
+        }
+        glDrawBuffer(isColorAttachmentBuffer(drawBuffer) ? drawBuffer : GL_COLOR_ATTACHMENT0);
+    }
+
+    private static boolean isDefaultFramebufferBuffer(int buffer) {
+        return buffer == GL_FRONT
+                || buffer == GL_BACK
+                || buffer == GL_LEFT
+                || buffer == GL_RIGHT
+                || buffer == GL_FRONT_LEFT
+                || buffer == GL_FRONT_RIGHT
+                || buffer == GL_BACK_LEFT
+                || buffer == GL_BACK_RIGHT;
+    }
+
+    private static boolean isColorAttachmentBuffer(int buffer) {
+        return buffer >= GL_COLOR_ATTACHMENT0 && buffer <= GL_COLOR_ATTACHMENT0 + 31;
     }
 }

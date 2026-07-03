@@ -122,17 +122,29 @@ public final class SkiaBlurRenderer {
         int textureId = glGenTextures();
         int resolveFramebufferId = glGenFramebuffers();
         int[] oldTexture = new int[1];
+        int[] oldActiveTexture = new int[1];
+        int[] oldSampler = new int[1];
         int[] oldReadFramebuffer = new int[1];
         int[] oldDrawFramebuffer = new int[1];
         int[] oldReadBuffer = new int[1];
+        int[] oldDrawBuffer = new int[1];
+        int[] oldViewport = new int[4];
+        int[] oldScissorBox = new int[4];
         boolean framebufferSrgb = glIsEnabled(GL_FRAMEBUFFER_SRGB);
+        glGetIntegerv(GL_ACTIVE_TEXTURE, oldActiveTexture);
+        glActiveTexture(GL_TEXTURE0);
         glGetIntegerv(GL_TEXTURE_BINDING_2D, oldTexture);
+        glGetIntegerv(GL_SAMPLER_BINDING, oldSampler);
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, oldReadFramebuffer);
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, oldDrawFramebuffer);
         glGetIntegerv(GL_READ_BUFFER, oldReadBuffer);
+        glGetIntegerv(GL_DRAW_BUFFER, oldDrawBuffer);
+        glGetIntegerv(GL_VIEWPORT, oldViewport);
+        glGetIntegerv(GL_SCISSOR_BOX, oldScissorBox);
         try {
             glDisable(GL_FRAMEBUFFER_SRGB);
             glBindTexture(GL_TEXTURE_2D, textureId);
+            glBindSampler(0, 0);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -141,6 +153,7 @@ public final class SkiaBlurRenderer {
 
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFramebufferId);
             glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
             if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
                 glDeleteFramebuffers(resolveFramebufferId);
                 glDeleteTextures(textureId);
@@ -167,7 +180,13 @@ public final class SkiaBlurRenderer {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFramebuffer[0]);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldDrawFramebuffer[0]);
             restoreReadBuffer(oldReadFramebuffer[0], oldReadBuffer[0]);
+            restoreDrawBuffer(oldDrawFramebuffer[0], oldDrawBuffer[0]);
+            glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
+            glScissor(oldScissorBox[0], oldScissorBox[1], oldScissorBox[2], oldScissorBox[3]);
+            glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, oldTexture[0]);
+            glBindSampler(0, oldSampler[0]);
+            glActiveTexture(oldActiveTexture[0]);
             if (framebufferSrgb) {
                 glEnable(GL_FRAMEBUFFER_SRGB);
             } else {
@@ -205,6 +224,18 @@ public final class SkiaBlurRenderer {
             return;
         }
         glReadBuffer(isColorAttachmentReadBuffer(readBuffer) ? readBuffer : GL_COLOR_ATTACHMENT0);
+    }
+
+    private void restoreDrawBuffer(int framebufferId, int drawBuffer) {
+        if (drawBuffer == GL_NONE) {
+            glDrawBuffer(GL_NONE);
+            return;
+        }
+        if (framebufferId == 0) {
+            glDrawBuffer(isDefaultFramebufferReadBuffer(drawBuffer) ? drawBuffer : GL_BACK);
+            return;
+        }
+        glDrawBuffer(isColorAttachmentReadBuffer(drawBuffer) ? drawBuffer : GL_COLOR_ATTACHMENT0);
     }
 
     private boolean isDefaultFramebufferReadBuffer(int readBuffer) {

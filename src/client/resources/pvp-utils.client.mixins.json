@@ -23,6 +23,7 @@
     "KeyboardInputMixin",
     "MinecraftMixin",
     "GuiMixin",
+    "PlayerTabOverlayMixin",
     "HotbarSmoothMixin",
     "ClientPacketListenerMixin",
     "ConnectionMixin",

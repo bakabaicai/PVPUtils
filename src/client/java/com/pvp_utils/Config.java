@@ -31,6 +31,7 @@ public class Config {
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
+    public static boolean dynamicIsland = false;
     public static boolean skiaBlurCardTest = false;
     public static HudTheme hudTheme = HudTheme.DARK;
     public static float skiaBlurStrength = 1.0f;
@@ -205,6 +206,7 @@ public class Config {
             fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
+            dynamicIsland = Boolean.parseBoolean(prop.getProperty("dynamicIsland", "false"));
             skiaBlurCardTest = Boolean.parseBoolean(prop.getProperty("skiaBlurCardTest", "false"));
             hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
@@ -338,6 +340,7 @@ public class Config {
             prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
+            prop.setProperty("dynamicIsland", String.valueOf(dynamicIsland));
             prop.setProperty("skiaBlurCardTest", String.valueOf(skiaBlurCardTest));
             prop.setProperty("hudTheme", hudTheme.name());
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));

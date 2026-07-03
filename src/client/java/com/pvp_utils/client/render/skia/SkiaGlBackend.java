@@ -46,20 +46,29 @@ public final class SkiaGlBackend {
         var window = Minecraft.getInstance().getWindow();
         int targetW = Math.max(1, window.getWidth());
         int targetH = Math.max(1, window.getHeight());
-        ensureSurface(targetW, targetH, targetFramebufferId);
-        if (surface == null || canvas == null) return null;
-
+        ensureState();
         state.push();
-        glDisable(GL_CULL_FACE);
-        glClearColor(0f, 0f, 0f, 0f);
-        context.reset(RESET_STATES);
+        try {
+            ensureSurface(targetW, targetH, targetFramebufferId);
+            if (surface == null || canvas == null) {
+                state.pop();
+                return null;
+            }
 
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.save();
-        canvas.scale((float) window.getGuiScale(), (float) window.getGuiScale());
-        drawing = true;
-        return canvas;
+            glDisable(GL_CULL_FACE);
+            glClearColor(0f, 0f, 0f, 0f);
+            context.reset(RESET_STATES);
+
+            canvas.restoreToCount(1);
+            canvas.resetMatrix();
+            canvas.save();
+            canvas.scale((float) window.getGuiScale(), (float) window.getGuiScale());
+            drawing = true;
+            return canvas;
+        } catch (RuntimeException e) {
+            state.pop();
+            throw e;
+        }
     }
 
     public void end() {
@@ -144,6 +153,10 @@ public final class SkiaGlBackend {
     private void ensureContext() {
         if (context != null) return;
         context = DirectContext.makeGL();
+    }
+
+    private void ensureState() {
+        if (state != null) return;
         state = new SkiaGlState(readGlVersion());
     }
 

@@ -33,6 +33,7 @@ public class ResetManager {
         Config.fishingRodAssist = false;
         Config.fishingRodAssistUseDelay = 4;
         Config.blockCountDisplay = false;
+        Config.dynamicIsland = false;
         Config.armorHud = false;
         Config.armorHudShowPercentage = true;
         Config.armorHudShowBar = true;
