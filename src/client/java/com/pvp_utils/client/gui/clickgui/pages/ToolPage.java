@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
+import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 
 import java.util.List;
@@ -50,6 +51,13 @@ public class ToolPage extends BasePage {
                                 UiText.t("雷暴", "Thunder")),
                                 () -> Config.weatherMode.ordinal(),
                                 i -> { Config.weatherMode = Config.WeatherMode.values()[i % Config.WeatherMode.values().length]; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("加载本地的自定义皮肤文件", "Load a local custom skin file"),
+                new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))
+                .addSub(UiText.t("打开目录", "Open Folder"), UiText.t("打开自定义披风文件夹", "Open the custom cape folder"),
+                        new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
+                .addSub(UiText.t("切换披风", "Switch Cape"), UiText.t("切换当前使用的披风文件", "Switch the selected cape file"),
+                        new SettingButton(() -> Config.customCapeImage, CustomCapeManager::cycleCape)));
 
         if (Version.DEBUG) {
             modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),

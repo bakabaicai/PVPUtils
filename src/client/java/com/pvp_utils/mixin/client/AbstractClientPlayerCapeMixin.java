@@ -2,6 +2,7 @@ package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.core.ClientAsset;
 import net.minecraft.world.entity.player.PlayerSkin;
@@ -17,6 +18,8 @@ public abstract class AbstractClientPlayerCapeMixin {
     @Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
     private void pvp_utils$customCape(CallbackInfoReturnable<PlayerSkin> cir) {
         if (!Config.customCape) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || (Object) this != client.player) return;
         ClientAsset.Texture cape = CustomCapeManager.texture();
         if (cape == null) return;
         PlayerSkin skin = cir.getReturnValue();

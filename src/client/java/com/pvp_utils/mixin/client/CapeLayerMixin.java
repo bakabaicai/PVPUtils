@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.layers.CapeLayer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
@@ -20,6 +21,8 @@ public abstract class CapeLayerMixin {
     @Inject(method = "submit", at = @At("HEAD"))
     private void pvp_utils$customCape(PoseStack poseStack, SubmitNodeCollector collector, int light, AvatarRenderState state, float limbSwing, float limbSwingAmount, CallbackInfo ci) {
         if (!Config.customCape || state == null) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || state.id != client.player.getId()) return;
         ClientAsset.Texture cape = CustomCapeManager.texture();
         if (cape == null) return;
         PlayerSkin skin = state.skin;

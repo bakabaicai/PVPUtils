@@ -3,7 +3,6 @@ package com.pvp_utils.client.gui.clickgui.pages;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
-import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 
@@ -136,17 +135,8 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("屏蔽原版显示", "Hide Vanilla Effects"), UiText.t("启用后会屏蔽右上角原版药水效果显示", "Hide the vanilla potion effect UI in the top-right while this widget is active"),
                         new SettingToggle(() -> Config.potionStatusHideVanilla, v -> { Config.potionStatusHideVanilla = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("加载本地的自定义皮肤文件", "Load a local custom skin file"),
-                new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))
-                .addSub(UiText.t("打开目录", "Open Folder"), UiText.t("打开自定义披风文件夹", "Open the custom cape folder"),
-                        new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
-                .addSub(UiText.t("切换披风", "Switch Cape"), UiText.t("切换当前使用的披风文件", "Switch the selected cape file"),
-                        new SettingButton(() -> Config.customCapeImage, CustomCapeManager::cycleCape)));
-
         modules.add(new SettingModule(UiText.t("潜行动画调整", "Sneak Animation Adjustment"), UiText.t("调整潜行视角下降效果", "Adjust sneak camera drop effect"),
                 new SettingToggle(() -> Config.noSneakAnimation, v -> { Config.noSneakAnimation = v; Config.save(); }))
-                .addSub(UiText.t("防双潜行", "No Double Sneak"), UiText.t("过滤本地玩家的姿态同步，避免潜行动画重复触发", "Filter local player pose sync to prevent sneak animation from triggering twice"),
-                        new SettingToggle(() -> Config.noDoubleSneak, v -> { Config.noDoubleSneak = v; Config.save(); }))
                 .addSub(UiText.t("下降幅度", "Drop Amount"), UiText.t("潜行时的下降幅度", "Sneak camera drop amount"),
                         new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakDropScale * 100.0, v -> { Config.sneakDropScale = (v.floatValue() / 100.0f); Config.save(); }))
                 .addSub(UiText.t("过渡速度", "Transition Speed"), UiText.t("潜行动画的过渡速度", "Sneak animation transition speed"),
