@@ -105,6 +105,14 @@ public class SettingsScreen extends Screen {
                     Config.gammaValue = 15.0;
                     Config.autoSprint = false;
                     Config.blockCountDisplay = false;
+                    Config.zoom = false;
+                    Config.zoomScroll = true;
+                    Config.zoomAmount = 4;
+                    Config.zoomScrollSteps = 10;
+                    Config.zoomPerStep = 150;
+                    Config.zoomRelativeSensitivity = 100;
+                    Config.zoomInTime = 0.25f;
+                    Config.zoomOutTime = 0.18f;
                     Config.autoChestDeposit = false;
                     Config.autoChestDepositResourcesOnly = true;
                     Config.autoChestDepositDepositDelay = 4;

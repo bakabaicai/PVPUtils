@@ -18,6 +18,7 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
+import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -44,6 +45,7 @@ public class PVPUtilsClient implements ClientModInitializer {
             FishingRodAssistManager.tick(client);
             BlockCountDisplayRenderer.getInstance().tick(client);
             FakePlayerManager.tick(client);
+            ZoomManager.tick(client);
             VersionWarningManager.tick(client);
             Update.tick(client);
         });

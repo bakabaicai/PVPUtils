@@ -39,6 +39,8 @@ public class Config {
     public static float skiaBlurStrength = 1.0f;
     public static boolean timeChange = false;
     public static boolean weatherChange = false;
+    public static boolean zoom = false;
+    public static boolean zoomScroll = true;
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
@@ -139,6 +141,12 @@ public class Config {
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
     public static int clientTime = 6000;
+    public static int zoomAmount = 4;
+    public static int zoomScrollSteps = 10;
+    public static int zoomPerStep = 150;
+    public static int zoomRelativeSensitivity = 100;
+    public static float zoomInTime = 0.25f;
+    public static float zoomOutTime = 0.18f;
     public static WeatherMode weatherMode = WeatherMode.CLEAR;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
@@ -222,6 +230,8 @@ public class Config {
             skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
             timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
             weatherChange = Boolean.parseBoolean(prop.getProperty("weatherChange", "false"));
+            zoom = Boolean.parseBoolean(prop.getProperty("zoom", "false"));
+            zoomScroll = Boolean.parseBoolean(prop.getProperty("zoomScroll", "true"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
             armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
@@ -325,6 +335,12 @@ public class Config {
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
             clientTime = Integer.parseInt(prop.getProperty("clientTime", "6000"));
+            zoomAmount = Integer.parseInt(prop.getProperty("zoomAmount", "4"));
+            zoomScrollSteps = Integer.parseInt(prop.getProperty("zoomScrollSteps", "10"));
+            zoomPerStep = Integer.parseInt(prop.getProperty("zoomPerStep", "150"));
+            zoomRelativeSensitivity = Integer.parseInt(prop.getProperty("zoomRelativeSensitivity", "100"));
+            zoomInTime = Float.parseFloat(prop.getProperty("zoomInTime", "0.25"));
+            zoomOutTime = Float.parseFloat(prop.getProperty("zoomOutTime", "0.18"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -363,6 +379,8 @@ public class Config {
             prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
             prop.setProperty("timeChange", String.valueOf(timeChange));
             prop.setProperty("weatherChange", String.valueOf(weatherChange));
+            prop.setProperty("zoom", String.valueOf(zoom));
+            prop.setProperty("zoomScroll", String.valueOf(zoomScroll));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
             prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
@@ -466,6 +484,12 @@ public class Config {
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
             prop.setProperty("clientTime", String.valueOf(clientTime));
+            prop.setProperty("zoomAmount", String.valueOf(zoomAmount));
+            prop.setProperty("zoomScrollSteps", String.valueOf(zoomScrollSteps));
+            prop.setProperty("zoomPerStep", String.valueOf(zoomPerStep));
+            prop.setProperty("zoomRelativeSensitivity", String.valueOf(zoomRelativeSensitivity));
+            prop.setProperty("zoomInTime", String.valueOf(zoomInTime));
+            prop.setProperty("zoomOutTime", String.valueOf(zoomOutTime));
             prop.store(os, null);
         } catch (IOException e) {
             e.printStackTrace();

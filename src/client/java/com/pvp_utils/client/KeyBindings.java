@@ -8,6 +8,7 @@ import org.lwjgl.glfw.GLFW;
 public class KeyBindings {
 
     public static KeyMapping openSettings;
+    public static KeyMapping zoom;
 
     public static void register() {
         KeyMapping.Category category = KeyMapping.Category.register(
@@ -17,6 +18,12 @@ public class KeyBindings {
         openSettings = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.pvp_utils.open_settings",
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
+                category
+        ));
+
+        zoom = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.pvp_utils.zoom",
+                GLFW.GLFW_KEY_C,
                 category
         ));
     }

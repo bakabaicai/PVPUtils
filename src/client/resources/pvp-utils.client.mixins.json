@@ -38,6 +38,8 @@
     "ScreenEffectRendererMixin",
     "TitleScreenMixin",
     "GameRendererMixin",
+    "ZoomGameRendererMixin",
+    "ZoomMouseHandlerMixin",
     "GameRendererTotemMixin",
     "MotionBlurGameRendererMixin",
     "MotionBlurLevelRendererMixin",

@@ -37,6 +37,14 @@ public class ResetManager {
         Config.itemPhysics = false;
         Config.item2DRender = false;
         Config.itemPhysicsRotationSpeed = 1.0f;
+        Config.zoom = false;
+        Config.zoomScroll = true;
+        Config.zoomAmount = 4;
+        Config.zoomScrollSteps = 10;
+        Config.zoomPerStep = 150;
+        Config.zoomRelativeSensitivity = 100;
+        Config.zoomInTime = 0.25f;
+        Config.zoomOutTime = 0.18f;
         Config.armorHud = false;
         Config.armorHudShowPercentage = true;
         Config.armorHudShowBar = true;
