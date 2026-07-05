@@ -34,7 +34,7 @@ PVPUtils includes many useful features for PVP and survival gameplay. Because th
 
 PVPUtils was created to fill the gap left by the lack of dedicated PVP experience optimization mods for newer Minecraft versions. Existing similar mods or clients are often not open enough to be freely customized around user needs. Feature-focused mods do exist, but many of them are single-purpose and often lack compatibility with each other.
 
-PVPUtils changes this by being a fully open-source client-side mod. You may freely modify and improve it under the terms of the open-source license. It integrates many common PVP and survival assistance and optimization features, allowing one mod to provide an experience that would otherwise require multiple separate mods. As a client-side mod, it can also be combined with other mods to build your own gameplay setup, and PVPUtils continues to adapt to and improve compatibility with mainstream mods.
+PVPUtils changes this by being a source-available client-side mod. You may view, study, and modify it under the terms of the project's non-commercial source-available license. It integrates many common PVP and survival assistance and optimization features, allowing one mod to provide an experience that would otherwise require multiple separate mods. As a client-side mod, it can also be combined with other mods to build your own gameplay setup, and PVPUtils continues to adapt to and improve compatibility with mainstream mods.
 
 ## Compatibility
 
@@ -64,4 +64,4 @@ This is a client-side mod. It does not provide server-side data modification or 
 
 ## License
 
-This project is based on GPLv3 with additional non-commercial and attribution terms. See [LICENSE](./LICENSE) for the full text.
+This project uses the PVPUtils Source-Available Non-Commercial License. Commercial use is not permitted. Derivative works must remain source-available, must credit Nachoneko_miao and PVPUtils contributors, and must clearly document which parts of PVPUtils were used or modified. See [LICENSE](./LICENSE) for the full text.

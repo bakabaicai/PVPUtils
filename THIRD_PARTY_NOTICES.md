@@ -1,5 +1,7 @@
 # Third Party Notices
 
+Third-party components remain under their original licenses. The PVPUtils Source-Available Non-Commercial License applies only to code, assets, and materials owned by Nachoneko_miao and PVPUtils contributors.
+
 ## NoSneakAnim
 
 - Author: chromonym
