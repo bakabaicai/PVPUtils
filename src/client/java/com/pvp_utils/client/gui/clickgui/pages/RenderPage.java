@@ -79,6 +79,19 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
+                new SettingToggle(() -> Config.itemUseStatus, v -> { Config.itemUseStatus = v; Config.save(); }))
+                .addSub(UiText.t("模式", "Mode"), UiText.t("选择物品使用状态显示样式", "Choose the item use status style"),
+                        new SettingCycle(List.of("Lite", "New"),
+                                () -> Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? 1 : 0,
+                                i -> {
+                                    Config.itemUseStatusMode = switch (i) {
+                                        case 1 -> Config.ItemUseStatusMode.NEW;
+                                        default -> Config.ItemUseStatusMode.LITE;
+                                    };
+                                    Config.save();
+                                })));
+
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.dynamicIsland = v; Config.save(); })));
 

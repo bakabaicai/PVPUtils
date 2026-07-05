@@ -39,6 +39,8 @@ public class ResetManager {
         Config.fishingRodAssistUseDelay = 4;
         Config.blockCountDisplay = false;
         Config.dynamicIsland = false;
+        Config.itemUseStatus = false;
+        Config.itemUseStatusMode = Config.ItemUseStatusMode.LITE;
         Config.itemPhysics = false;
         Config.item2DRender = false;
         Config.itemPhysicsRotationSpeed = 1.0f;
@@ -88,6 +90,9 @@ public class ResetManager {
         Config.armorHudX = 0f;
         Config.armorHudY = 0f;
         Config.armorHudScale = 1.0f;
+        Config.itemUseStatusX = 0f;
+        Config.itemUseStatusY = 0f;
+        Config.itemUseStatusScale = 1.0f;
         Config.notificationX = Float.NaN;
         Config.notificationY = Float.NaN;
         Config.notificationScale = 1.0f;

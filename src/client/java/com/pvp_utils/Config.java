@@ -36,6 +36,7 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
+    public static boolean itemUseStatus = false;
     public static boolean itemPhysics = false;
     public static boolean item2DRender = false;
     public static float itemPhysicsRotationSpeed = 1.0f;
@@ -98,6 +99,7 @@ public class Config {
     public static KeystrokesMode keystrokesMode = KeystrokesMode.NEW;
     public static ArmorHudMode armorHudMode = ArmorHudMode.NEW;
     public static ArmorHudLayout armorHudLayout = ArmorHudLayout.SEPARATED;
+    public static ItemUseStatusMode itemUseStatusMode = ItemUseStatusMode.LITE;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
@@ -131,6 +133,9 @@ public class Config {
     public static float armorHudX = 0f;
     public static float armorHudY = 0f;
     public static float armorHudScale = 1.0f;
+    public static float itemUseStatusX = 0f;
+    public static float itemUseStatusY = 0f;
+    public static float itemUseStatusScale = 1.0f;
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
     public static float notificationScale = 1.0f;
@@ -166,6 +171,7 @@ public class Config {
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
+    public enum ItemUseStatusMode { LITE, NEW }
 
     public static int skiaBlurTintColor() {
         return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
@@ -232,6 +238,7 @@ public class Config {
             blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
             blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
             dynamicIsland = Boolean.parseBoolean(prop.getProperty("dynamicIsland", "false"));
+            itemUseStatus = Boolean.parseBoolean(prop.getProperty("itemUseStatus", "false"));
             itemPhysics = Boolean.parseBoolean(prop.getProperty("itemPhysics", "false"));
             item2DRender = Boolean.parseBoolean(prop.getProperty("item2DRender", "false"));
             itemPhysicsRotationSpeed = Float.parseFloat(prop.getProperty("itemPhysicsRotationSpeed", "1.0"));
@@ -294,6 +301,8 @@ public class Config {
             keystrokesMode = KeystrokesMode.valueOf(prop.getProperty("keystrokesMode", "NEW"));
             armorHudMode = ArmorHudMode.valueOf(prop.getProperty("armorHudMode", "NEW"));
             armorHudLayout = ArmorHudLayout.valueOf(prop.getProperty("armorHudLayout", "SEPARATED"));
+            String itemUseStatusModeValue = prop.getProperty("itemUseStatusMode", "LITE");
+            itemUseStatusMode = "BLUR".equals(itemUseStatusModeValue) ? ItemUseStatusMode.NEW : ItemUseStatusMode.valueOf(itemUseStatusModeValue);
             range = Double.parseDouble(prop.getProperty("range", "3.0"));
             animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
             sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
@@ -333,6 +342,9 @@ public class Config {
             armorHudX = Float.parseFloat(prop.getProperty("armorHudX", "0"));
             armorHudY = Float.parseFloat(prop.getProperty("armorHudY", "0"));
             armorHudScale = Float.parseFloat(prop.getProperty("armorHudScale", "1.0"));
+            itemUseStatusX = Float.parseFloat(prop.getProperty("itemUseStatusX", "0"));
+            itemUseStatusY = Float.parseFloat(prop.getProperty("itemUseStatusY", "0"));
+            itemUseStatusScale = Float.parseFloat(prop.getProperty("itemUseStatusScale", "1.0"));
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
@@ -386,6 +398,7 @@ public class Config {
             prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
             prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
             prop.setProperty("dynamicIsland", String.valueOf(dynamicIsland));
+            prop.setProperty("itemUseStatus", String.valueOf(itemUseStatus));
             prop.setProperty("itemPhysics", String.valueOf(itemPhysics));
             prop.setProperty("item2DRender", String.valueOf(item2DRender));
             prop.setProperty("itemPhysicsRotationSpeed", String.valueOf(itemPhysicsRotationSpeed));
@@ -448,6 +461,7 @@ public class Config {
             prop.setProperty("keystrokesMode", keystrokesMode.name());
             prop.setProperty("armorHudMode", armorHudMode.name());
             prop.setProperty("armorHudLayout", armorHudLayout.name());
+            prop.setProperty("itemUseStatusMode", itemUseStatusMode.name());
             prop.setProperty("range", String.valueOf(range));
             prop.setProperty("animSpeed", String.valueOf(animSpeed));
             prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
@@ -487,6 +501,9 @@ public class Config {
             prop.setProperty("armorHudX", String.valueOf(armorHudX));
             prop.setProperty("armorHudY", String.valueOf(armorHudY));
             prop.setProperty("armorHudScale", String.valueOf(armorHudScale));
+            prop.setProperty("itemUseStatusX", String.valueOf(itemUseStatusX));
+            prop.setProperty("itemUseStatusY", String.valueOf(itemUseStatusY));
+            prop.setProperty("itemUseStatusScale", String.valueOf(itemUseStatusScale));
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("notificationScale", String.valueOf(notificationScale));

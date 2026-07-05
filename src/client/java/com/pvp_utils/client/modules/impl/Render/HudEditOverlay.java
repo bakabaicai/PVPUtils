@@ -16,7 +16,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, NOTIFICATION, POTION_STATUS }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, NOTIFICATION, POTION_STATUS }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -39,6 +39,7 @@ public class HudEditOverlay {
     private float keystrokesHoverAlpha = 0f;
     private float blockCountHoverAlpha = 0f;
     private float armorHudHoverAlpha = 0f;
+    private float itemUseStatusHoverAlpha = 0f;
     private float notificationHoverAlpha = 0f;
     private float potionStatusHoverAlpha = 0f;
     private float dashOffset = 0f;
@@ -65,6 +66,7 @@ public class HudEditOverlay {
     private RectState pendingKeystrokes = null;
     private RectState pendingBlockCount = null;
     private RectState pendingArmorHud = null;
+    private RectState pendingItemUseStatus = null;
     private RectState pendingNotification = null;
     private RectState pendingPotionStatus = null;
 
@@ -121,6 +123,7 @@ public class HudEditOverlay {
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
         RectState blockCount = Config.blockCountDisplay ? getBlockCountRect(guiW, guiH) : null;
         RectState armorHud = Config.armorHud ? getArmorHudRect(guiW, guiH) : null;
+        RectState itemUseStatus = Config.itemUseStatus ? getItemUseStatusRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
 
@@ -133,6 +136,7 @@ public class HudEditOverlay {
         boolean keystrokesHovered = keystrokes != null && contains(keystrokes, mx, my, 4f);
         boolean blockCountHovered = blockCount != null && contains(blockCount, mx, my, 4f);
         boolean armorHudHovered = armorHud != null && contains(armorHud, mx, my, 4f);
+        boolean itemUseStatusHovered = itemUseStatus != null && contains(itemUseStatus, mx, my, 4f);
         boolean notificationHovered = contains(notification, mx, my, 4f);
         boolean potionStatusHovered = potionStatus != null && contains(potionStatus, mx, my, 4f);
 
@@ -153,6 +157,10 @@ public class HudEditOverlay {
                 dragTarget = DragTarget.ARMOR_HUD;
                 dragOffsetX = mx - armorHud.x;
                 dragOffsetY = my - armorHud.y;
+            } else if (itemUseStatusHovered) {
+                dragTarget = DragTarget.ITEM_USE_STATUS;
+                dragOffsetX = mx - itemUseStatus.x;
+                dragOffsetY = my - itemUseStatus.y;
             } else if (keystrokesHovered) {
                 dragTarget = DragTarget.KEYSTROKES;
                 dragOffsetX = mx - keystrokes.x;
@@ -198,6 +206,13 @@ public class HudEditOverlay {
             Config.armorHudY = dragged.y - (guiH - renderer.getEditHeight()) + 28f;
             configDirty = true;
             armorHud = dragged;
+        } else if (dragTarget == DragTarget.ITEM_USE_STATUS && itemUseStatus != null) {
+            ItemUseStatusRenderer renderer = ItemUseStatusRenderer.getInstance();
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, itemUseStatus.w, itemUseStatus.h, guiW, guiH), guiW, guiH);
+            Config.itemUseStatusX = dragged.x - (guiW - renderer.getEditWidth()) * 0.5f;
+            Config.itemUseStatusY = dragged.y - renderer.getDefaultY(guiH);
+            configDirty = true;
+            itemUseStatus = dragged;
         } else if (dragTarget == DragTarget.NOTIFICATION) {
             RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, notification.w, notification.h, guiW, guiH), guiW, guiH);
             Config.notificationX = dragged.x + dragged.w - guiW * 0.5f;
@@ -226,6 +241,7 @@ public class HudEditOverlay {
         keystrokesHoverAlpha += (((keystrokesHovered || dragTarget == DragTarget.KEYSTROKES) ? 1f : 0f) - keystrokesHoverAlpha) * Math.min(1f, dt * 14f);
         blockCountHoverAlpha += (((blockCountHovered || dragTarget == DragTarget.BLOCK_COUNT) ? 1f : 0f) - blockCountHoverAlpha) * Math.min(1f, dt * 14f);
         armorHudHoverAlpha += (((armorHudHovered || dragTarget == DragTarget.ARMOR_HUD) ? 1f : 0f) - armorHudHoverAlpha) * Math.min(1f, dt * 14f);
+        itemUseStatusHoverAlpha += (((itemUseStatusHovered || dragTarget == DragTarget.ITEM_USE_STATUS) ? 1f : 0f) - itemUseStatusHoverAlpha) * Math.min(1f, dt * 14f);
         notificationHoverAlpha += (((notificationHovered || dragTarget == DragTarget.NOTIFICATION) ? 1f : 0f) - notificationHoverAlpha) * Math.min(1f, dt * 14f);
         potionStatusHoverAlpha += (((potionStatusHovered || dragTarget == DragTarget.POTION_STATUS) ? 1f : 0f) - potionStatusHoverAlpha) * Math.min(1f, dt * 14f);
         gridAlpha += (((dragTarget != DragTarget.NONE) ? 1f : 0f) - gridAlpha) * Math.min(1f, dt * 12f);
@@ -250,12 +266,13 @@ public class HudEditOverlay {
         pendingKeystrokes = keystrokes;
         pendingBlockCount = blockCount;
         pendingArmorHud = armorHud;
+        pendingItemUseStatus = itemUseStatus;
         pendingNotification = notification;
         pendingPotionStatus = potionStatus;
         pendingFrame = true;
 
         if (canvas != null) {
-            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, notification, potionStatus);
+            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, itemUseStatus, notification, potionStatus);
         }
     }
 
@@ -271,7 +288,7 @@ public class HudEditOverlay {
         Canvas canvas = glBackend.begin();
         if (canvas == null) return;
         try {
-            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingNotification, pendingPotionStatus);
+            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingItemUseStatus, pendingNotification, pendingPotionStatus);
         } finally {
             glBackend.end();
             pendingFrame = false;
@@ -288,6 +305,7 @@ public class HudEditOverlay {
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
         RectState blockCount = Config.blockCountDisplay ? getBlockCountRect(guiW, guiH) : null;
         RectState armorHud = Config.armorHud ? getArmorHudRect(guiW, guiH) : null;
+        RectState itemUseStatus = Config.itemUseStatus ? getItemUseStatusRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
 
@@ -312,6 +330,11 @@ public class HudEditOverlay {
         }
         if (armorHud != null && contains(armorHud, mx, my, 4f)) {
             Config.armorHudScale = clampScale(Config.armorHudScale + delta);
+            Config.save();
+            return true;
+        }
+        if (itemUseStatus != null && contains(itemUseStatus, mx, my, 4f)) {
+            Config.itemUseStatusScale = clampScale(Config.itemUseStatusScale + delta);
             Config.save();
             return true;
         }
@@ -361,7 +384,7 @@ public class HudEditOverlay {
     }
 
     private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, RectState targetHud, RectState keystrokes,
-                             RectState blockCount, RectState armorHud, RectState notification, RectState potionStatus) {
+                             RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState notification, RectState potionStatus) {
         if (gridAlpha > 0.01f) {
             drawGrid(canvas, guiW, guiH, progress);
         }
@@ -376,6 +399,9 @@ public class HudEditOverlay {
         }
         if (armorHud != null) {
             drawOutline(canvas, armorHud.x, armorHud.y, armorHud.w, armorHud.h, "Armor HUD", armorHudHoverAlpha, progress);
+        }
+        if (itemUseStatus != null) {
+            drawOutline(canvas, itemUseStatus.x, itemUseStatus.y, itemUseStatus.w, itemUseStatus.h, "Item Use Status", itemUseStatusHoverAlpha, progress);
         }
         if (potionStatus != null) {
             drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
@@ -457,6 +483,13 @@ public class HudEditOverlay {
 
     private RectState getArmorHudRect(int guiW, int guiH) {
         ArmorHudRenderer renderer = ArmorHudRenderer.getInstance();
+        float w = renderer.getEditWidth();
+        float h = renderer.getEditHeight();
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);
+    }
+
+    private RectState getItemUseStatusRect(int guiW, int guiH) {
+        ItemUseStatusRenderer renderer = ItemUseStatusRenderer.getInstance();
         float w = renderer.getEditWidth();
         float h = renderer.getEditHeight();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);

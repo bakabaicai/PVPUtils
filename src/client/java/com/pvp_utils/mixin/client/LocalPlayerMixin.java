@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -27,5 +28,10 @@ public class LocalPlayerMixin {
                 }
             }
         }
+    }
+
+    @Inject(method = "aiStep", at = @At("TAIL"))
+    private void pvp_utils$captureItemUseStatus(CallbackInfo ci) {
+        ItemUseStatusRenderer.getInstance().captureFromMixin((LocalPlayer) (Object) this);
     }
 }

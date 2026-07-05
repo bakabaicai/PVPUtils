@@ -2,11 +2,14 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.mixin.client.MultiPlayerGameModeAccessor;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Locale;
 
@@ -61,13 +64,33 @@ public class DiggingStatusRenderer {
         int percent = Math.max(1, Math.min(99, Math.round(progress * 100.0f)));
         float seconds = Math.max(0.0f, (1.0f - progress) / speedPerSecond);
         String text = percent + "%(" + formatSeconds(seconds) + "s)";
+        ToolMatch toolMatch = getToolMatch(client, pos);
 
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
-        int textX = (screenW - client.font.width(text)) / 2;
+        Component toolSymbol = toolMatch.matched() ? Component.literal(toolMatch.correct() ? "√" : "×").withStyle(ChatFormatting.BOLD) : null;
+        int symbolW = toolSymbol == null ? 0 : client.font.width(toolSymbol);
+        int gap = 3;
+        int textW = client.font.width(text);
+        int prefixW = toolSymbol == null ? 0 : symbolW + gap;
+        int textX = (screenW - prefixW - textW) / 2;
         int textY = screenH / 2 + 18;
 
-        graphics.drawString(client.font, Component.literal(text), textX, textY, getProgressColor(progress), true);
+        if (toolSymbol != null) {
+            int symbolColor = toolMatch.correct() ? 0xFF55FF55 : 0xFFFF5555;
+            graphics.drawString(client.font, toolSymbol, textX, textY, symbolColor, true);
+            // Draw once more one pixel to the side so the marker stays visibly bold with all font renderers.
+            graphics.drawString(client.font, toolSymbol, textX + 1, textY, symbolColor, true);
+        }
+        graphics.drawString(client.font, Component.literal(text), textX + prefixW, textY, getProgressColor(progress), true);
+    }
+
+    private ToolMatch getToolMatch(Minecraft client, BlockPos pos) {
+        BlockState state = client.level.getBlockState(pos);
+        ItemStack stack = client.player.getMainHandItem();
+        return state.requiresCorrectToolForDrops()
+                ? new ToolMatch(true, stack.isCorrectToolForDrops(state))
+                : new ToolMatch(false, false);
     }
 
     private void updateSpeed(BlockPos pos, float progress) {
@@ -118,4 +141,6 @@ public class DiggingStatusRenderer {
         lastSampleTime = 0L;
         speedPerSecond = 0.0f;
     }
+
+    private record ToolMatch(boolean matched, boolean correct) {}
 }

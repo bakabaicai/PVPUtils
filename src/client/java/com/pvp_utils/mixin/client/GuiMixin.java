@@ -12,6 +12,7 @@ import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
 import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
+import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
@@ -61,6 +62,7 @@ public class GuiMixin {
         }
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
+        ItemUseStatusRenderer.getInstance().render(guiGraphics);
         DynamicIslandRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
