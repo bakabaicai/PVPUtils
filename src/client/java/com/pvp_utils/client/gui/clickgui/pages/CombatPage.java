@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.SettingCycle;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
+import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
 
 import java.util.List;
@@ -11,6 +12,15 @@ import java.util.List;
 public class CombatPage extends BasePage {
 
     public CombatPage() {
+        modules.add(new SettingModule(UiText.t("主手辅助", "Main Hand Assist"), UiText.t("在合适的时候自动切换主手手持的物品", "Automatically switch the main-hand item at suitable moments"),
+                new SettingToggle(() -> Config.mainHandAssist, v -> { Config.mainHandAssist = v; Config.save(); }))
+                .addSub(UiText.t("近战武器辅助", "Melee Weapon Assist"), UiText.t("在手持武器时，长按右键可自动切换至物品栏内的血量回复道具", "When holding a weapon, hold right click to switch to a hotbar healing item"),
+                        new SettingToggle(() -> Config.mainHandAssistMeleeWeapon, v -> { Config.mainHandAssistMeleeWeapon = v; Config.save(); }))
+                .addSub(UiText.t("执行完毕后切回原先槽位", "Switch Back After Use"), UiText.t("使用完成或松开右键后切回原先槽位", "Switch back to the original slot after use or after releasing right click"),
+                        new SettingToggle(() -> Config.mainHandAssistSwitchBack, v -> { Config.mainHandAssistSwitchBack = v; Config.save(); }))
+                .addSub(UiText.t("切换延迟(tick)", "Switch Delay (tick)"), UiText.t("控制按下右键后切换到目标物品或切换回去的延迟", "Delay before switching to the target item or switching back"),
+                        new SettingSlider(0.0, 20.0, "%.0f", () -> (double) Config.mainHandAssistSwitchDelayTicks, v -> { Config.mainHandAssistSwitchDelayTicks = v.intValue(); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("让鞘翅的使用更加便捷", "Make elytra usage more convenient"),
                 new SettingToggle(() -> Config.elytraAssist, v -> { Config.elytraAssist = v; Config.save(); }))
                 .addSub(UiText.t("自动展开鞘翅", "Auto Deploy Elytra"), UiText.t("跳起时自动展开身上的鞘翅", "Automatically deploy equipped elytra when jumping"),

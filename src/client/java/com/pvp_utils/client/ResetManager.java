@@ -19,6 +19,10 @@ public class ResetManager {
         Config.autoScreenshot = false;
         Config.hitMarker = false;
         Config.hitSound = false;
+        Config.mainHandAssist = false;
+        Config.mainHandAssistMeleeWeapon = false;
+        Config.mainHandAssistSwitchBack = true;
+        Config.mainHandAssistSwitchDelayTicks = 2;
         Config.elytraAssist = false;
         Config.elytraAutoDeploy = true;
         Config.elytraAutoFirework = true;

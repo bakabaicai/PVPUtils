@@ -10,6 +10,7 @@ import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
 import com.pvp_utils.client.modules.impl.Combat.ElytraAssistManager;
+import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
@@ -41,6 +42,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);
             ElytraAssistManager.tick(client);
+            MainHandAssistManager.tick(client);
             InputMethodFix.tick(client);
             FishingRodAssistManager.tick(client);
             BlockCountDisplayRenderer.getInstance().tick(client);

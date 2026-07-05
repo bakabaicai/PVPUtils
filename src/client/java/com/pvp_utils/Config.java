@@ -18,6 +18,9 @@ public class Config {
     public static boolean autoScreenshot = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = false;
+    public static boolean mainHandAssist = false;
+    public static boolean mainHandAssistMeleeWeapon = false;
+    public static boolean mainHandAssistSwitchBack = true;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
     public static boolean elytraAutoFirework = true;
@@ -138,6 +141,7 @@ public class Config {
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
     public static int fishingRodAssistUseDelay = 0;
+    public static int mainHandAssistSwitchDelayTicks = 2;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
     public static int clientTime = 6000;
@@ -209,6 +213,9 @@ public class Config {
             autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
             hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
             hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "false"));
+            mainHandAssist = Boolean.parseBoolean(prop.getProperty("mainHandAssist", "false"));
+            mainHandAssistMeleeWeapon = Boolean.parseBoolean(prop.getProperty("mainHandAssistMeleeWeapon", "false"));
+            mainHandAssistSwitchBack = Boolean.parseBoolean(prop.getProperty("mainHandAssistSwitchBack", "true"));
             elytraAssist = Boolean.parseBoolean(prop.getProperty("elytraAssist", "false"));
             elytraAutoDeploy = Boolean.parseBoolean(prop.getProperty("elytraAutoDeploy", "true"));
             elytraAutoFirework = Boolean.parseBoolean(prop.getProperty("elytraAutoFirework", "true"));
@@ -332,6 +339,7 @@ public class Config {
             potionStatusScale = Float.parseFloat(prop.getProperty("potionStatusScale", "1.0"));
             gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
             fishingRodAssistUseDelay = Integer.parseInt(prop.getProperty("fishingRodAssistUseDelay", "0"));
+            mainHandAssistSwitchDelayTicks = Integer.parseInt(prop.getProperty("mainHandAssistSwitchDelayTicks", "2"));
             autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
             autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
             clientTime = Integer.parseInt(prop.getProperty("clientTime", "6000"));
@@ -358,6 +366,9 @@ public class Config {
             prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
             prop.setProperty("hitMarker", String.valueOf(hitMarker));
             prop.setProperty("hitSound", String.valueOf(hitSound));
+            prop.setProperty("mainHandAssist", String.valueOf(mainHandAssist));
+            prop.setProperty("mainHandAssistMeleeWeapon", String.valueOf(mainHandAssistMeleeWeapon));
+            prop.setProperty("mainHandAssistSwitchBack", String.valueOf(mainHandAssistSwitchBack));
             prop.setProperty("elytraAssist", String.valueOf(elytraAssist));
             prop.setProperty("elytraAutoDeploy", String.valueOf(elytraAutoDeploy));
             prop.setProperty("elytraAutoFirework", String.valueOf(elytraAutoFirework));
@@ -481,6 +492,7 @@ public class Config {
             prop.setProperty("potionStatusScale", String.valueOf(potionStatusScale));
             prop.setProperty("gammaValue", String.valueOf(gammaValue));
             prop.setProperty("fishingRodAssistUseDelay", String.valueOf(fishingRodAssistUseDelay));
+            prop.setProperty("mainHandAssistSwitchDelayTicks", String.valueOf(mainHandAssistSwitchDelayTicks));
             prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
             prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
             prop.setProperty("clientTime", String.valueOf(clientTime));
