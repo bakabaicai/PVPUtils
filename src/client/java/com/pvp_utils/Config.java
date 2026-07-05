@@ -136,6 +136,9 @@ public class Config {
     public static float itemUseStatusX = 0f;
     public static float itemUseStatusY = 0f;
     public static float itemUseStatusScale = 1.0f;
+    public static float dynamicIslandX = 0f;
+    public static float dynamicIslandY = 0f;
+    public static float dynamicIslandScale = 1.0f;
     public static float notificationX = Float.NaN;
     public static float notificationY = Float.NaN;
     public static float notificationScale = 1.0f;
@@ -345,6 +348,9 @@ public class Config {
             itemUseStatusX = Float.parseFloat(prop.getProperty("itemUseStatusX", "0"));
             itemUseStatusY = Float.parseFloat(prop.getProperty("itemUseStatusY", "0"));
             itemUseStatusScale = Float.parseFloat(prop.getProperty("itemUseStatusScale", "1.0"));
+            dynamicIslandX = Float.parseFloat(prop.getProperty("dynamicIslandX", "0"));
+            dynamicIslandY = Float.parseFloat(prop.getProperty("dynamicIslandY", "0"));
+            dynamicIslandScale = Float.parseFloat(prop.getProperty("dynamicIslandScale", "1.0"));
             notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
             notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
             notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
@@ -504,6 +510,9 @@ public class Config {
             prop.setProperty("itemUseStatusX", String.valueOf(itemUseStatusX));
             prop.setProperty("itemUseStatusY", String.valueOf(itemUseStatusY));
             prop.setProperty("itemUseStatusScale", String.valueOf(itemUseStatusScale));
+            prop.setProperty("dynamicIslandX", String.valueOf(dynamicIslandX));
+            prop.setProperty("dynamicIslandY", String.valueOf(dynamicIslandY));
+            prop.setProperty("dynamicIslandScale", String.valueOf(dynamicIslandScale));
             prop.setProperty("notificationX", String.valueOf(notificationX));
             prop.setProperty("notificationY", String.valueOf(notificationY));
             prop.setProperty("notificationScale", String.valueOf(notificationScale));

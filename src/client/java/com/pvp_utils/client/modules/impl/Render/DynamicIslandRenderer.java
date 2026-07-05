@@ -85,6 +85,28 @@ public class DynamicIslandRenderer {
         return INSTANCE;
     }
 
+    public float getEditWidth() {
+        return getBaseEditWidth() * getScale();
+    }
+
+    public float getEditHeight() {
+        return getBaseEditHeight() * getScale();
+    }
+
+    public float getDefaultY() {
+        return TOP;
+    }
+
+    public float getRenderX(int screenW) {
+        float w = getEditWidth();
+        return clamp((screenW - w) * 0.5f + Config.dynamicIslandX, 0f, Math.max(0f, screenW - w));
+    }
+
+    public float getRenderY(int screenH) {
+        float h = getEditHeight();
+        return clamp(getDefaultY() + Config.dynamicIslandY, 0f, Math.max(0f, screenH - h));
+    }
+
     public void requestTabListFrame() {
         lastTabRequestTime = System.currentTimeMillis();
     }
@@ -109,13 +131,19 @@ public class DynamicIslandRenderer {
         List<PlayerInfo> tabPlayers = tabOpen ? getTabPlayers(client) : List.of();
         IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : measureLayout(client, content);
         IslandLayout layout = updateAnimatedLayout(targetLayout);
-        float x = (client.getWindow().getGuiScaledWidth() - layout.width) * 0.5f;
-        float y = TOP;
+        float islandScale = getScale();
+        float x = getRenderX(client.getWindow().getGuiScaledWidth());
+        float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
-        SkiaBlurRenderer.getInstance().render(client, x, y, layout.width, layout.height, layout.radius, BLUR_TINT, BLUR_STRENGTH);
+        SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, BLUR_TINT, BLUR_STRENGTH);
         renderTextTexture(client, content, tabPlayers, layout, tabOpen);
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().scale(islandScale, islandScale);
+        graphics.pose().translate(-x, -y);
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f,
                 Math.round(layout.width), Math.round(layout.height), textureRegionW, textureRegionH, textureW, textureH);
+        graphics.pose().popMatrix();
     }
 
     private boolean isTabOpen() {
@@ -606,6 +634,18 @@ public class DynamicIslandRenderer {
         tabContentFade = 0f;
         lastAnimationTime = 0L;
         lastTabRequestTime = 0L;
+    }
+
+    private float getBaseEditWidth() {
+        return animatedWidth > 0f ? animatedWidth : MIN_WIDTH;
+    }
+
+    private float getBaseEditHeight() {
+        return animatedHeight > 0f ? animatedHeight : HEIGHT;
+    }
+
+    private float getScale() {
+        return Math.max(0.5f, Config.dynamicIslandScale);
     }
 
     private float clamp(float value, float min, float max) {

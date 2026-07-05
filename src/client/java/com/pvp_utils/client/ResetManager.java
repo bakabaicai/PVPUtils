@@ -93,6 +93,9 @@ public class ResetManager {
         Config.itemUseStatusX = 0f;
         Config.itemUseStatusY = 0f;
         Config.itemUseStatusScale = 1.0f;
+        Config.dynamicIslandX = 0f;
+        Config.dynamicIslandY = 0f;
+        Config.dynamicIslandScale = 1.0f;
         Config.notificationX = Float.NaN;
         Config.notificationY = Float.NaN;
         Config.notificationScale = 1.0f;
