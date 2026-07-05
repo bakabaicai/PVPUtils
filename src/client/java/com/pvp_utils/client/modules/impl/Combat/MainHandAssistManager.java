@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -46,7 +47,7 @@ public final class MainHandAssistManager {
                 if (Config.mainHandAssistMeleeWeapon && isMeleeWeapon(held)) {
                     nextTargetSlot = findBestRecoverySlot(player);
                 }
-                if (nextTargetSlot < 0 && Config.mainHandAssistShield) {
+                if (nextTargetSlot < 0 && Config.mainHandAssistShield && !hasRightClickUtility(held)) {
                     nextTargetSlot = findShieldSlot(player);
                 }
                 if (nextTargetSlot < 0) {
@@ -162,7 +163,7 @@ public final class MainHandAssistManager {
             return false;
         }
         Item item = stack.getItem();
-        return item != Items.BOW && item != Items.CROSSBOW && item != Items.TRIDENT;
+        return item != Items.BOW && item != Items.CROSSBOW && item != Items.TRIDENT && !stack.is(ItemTags.SPEARS);
     }
 
     private static boolean hasRightClickUtility(ItemStack stack) {
@@ -177,6 +178,7 @@ public final class MainHandAssistManager {
                 || stack.is(Items.BOW)
                 || stack.is(Items.CROSSBOW)
                 || stack.is(Items.TRIDENT)
+                || stack.is(ItemTags.SPEARS)
                 || stack.is(Items.POTION)
                 || stack.is(Items.SPLASH_POTION)
                 || stack.is(Items.LINGERING_POTION)

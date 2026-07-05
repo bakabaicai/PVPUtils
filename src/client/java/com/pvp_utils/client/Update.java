@@ -224,7 +224,15 @@ public final class Update {
     }
 
     private static String currentTypedVersion() {
-        return "v" + Version.VERSION + "-" + Version.typeName() + "." + Version.REVISION;
+        String type = Version.typeName();
+        if (type.isEmpty()) {
+            return "v" + Version.VERSION;
+        }
+        String version = "v" + Version.VERSION + "-" + type;
+        if (Version.REVISION > 0) {
+            version += "." + Version.REVISION;
+        }
+        return version;
     }
 
     private static void deliverToPlayer(MutableComponent message) {
