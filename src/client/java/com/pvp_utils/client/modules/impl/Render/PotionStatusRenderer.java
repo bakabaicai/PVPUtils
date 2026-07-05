@@ -43,6 +43,7 @@ public class PotionStatusRenderer {
     private static final float ITEM_RADIUS = 8f;
     private static final int MAX_EFFECTS = 64;
     private static final long HIDE_DELAY_MS = 260L;
+    private static final String INFINITE_ICON = "\uE6D5";
 
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint itemPaint = new Paint().setAntiAlias(true);
@@ -325,14 +326,26 @@ public class PotionStatusRenderer {
         canvas.drawRRect(RRect.makeXYWH(drawX, rowY, drawW, ROW_H, ITEM_RADIUS), itemOverlayPaint);
 
         String name = truncate(Component.translatable(effect.getDescriptionId()).getString(), 70f, 10f);
-        String time = formatDuration(visual);
         String amp = amplifier(effect.getAmplifier());
         if (showCountdown) {
             FontRenderer.drawText(canvas, name, drawX + ICON + 10f, rowY + 11f, 10f, withAlpha(0xF6FFFFFF, alpha));
-            FontRenderer.drawText(canvas, amp.isEmpty() ? time : amp + "  " + time, drawX + ICON + 10f, rowY + 22f, 8f, withAlpha(0xCFFFFFFF, alpha));
+            drawDurationLine(canvas, visual, amp, drawX + ICON + 10f, rowY + 22f, withAlpha(0xCFFFFFFF, alpha));
         } else {
             FontRenderer.drawText(canvas, name, drawX + ICON + 10f, rowY + 17f, 10f, withAlpha(0xF6FFFFFF, alpha));
         }
+    }
+
+    private void drawDurationLine(Canvas canvas, EffectVisual visual, String amp, float x, float y, int color) {
+        if (visual.effect != null && (visual.effect.isInfiniteDuration() || visual.displayDurationTicks < 0f)) {
+            if (!amp.isEmpty()) {
+                FontRenderer.drawText(canvas, amp, x, y, 8f, color);
+                x += FontRenderer.measureTextWidth(amp, 8f) + 5f;
+            }
+            FontRenderer.drawText(canvas, INFINITE_ICON, x, y + 1.5f, 10f, color, FontRenderer.MATERIAL_SYMBOLS);
+            return;
+        }
+        String time = formatDuration(visual);
+        FontRenderer.drawText(canvas, amp.isEmpty() ? time : amp + "  " + time, x, y, 8f, color);
     }
 
     private void drawIcons(Minecraft client, Canvas canvas, List<EffectVisual> visuals) {
@@ -378,7 +391,7 @@ public class PotionStatusRenderer {
     private String formatDuration(EffectVisual visual) {
         MobEffectInstance effect = visual.effect;
         if (effect == null) return "";
-        if (effect.isInfiniteDuration() || visual.displayDurationTicks < 0f) return "inf";
+        if (effect.isInfiniteDuration() || visual.displayDurationTicks < 0f) return "";
         int totalSeconds = Math.max(0, Math.round(visual.displayDurationTicks / 20f));
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;

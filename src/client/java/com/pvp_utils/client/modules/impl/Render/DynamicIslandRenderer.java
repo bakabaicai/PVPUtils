@@ -8,6 +8,7 @@ import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -15,8 +16,11 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.scores.PlayerTeam;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
@@ -186,7 +190,7 @@ public class DynamicIslandRenderer {
         int rows = Math.max(1, (count + columns - 1) / columns);
         float nameW = 120f;
         for (PlayerInfo player : players) {
-            nameW = Math.max(nameW, measure(parseTabName(getPlayerName(player), TAB_DEFAULT_NAME_COLOR).text()));
+            nameW = Math.max(nameW, measure(resolveTabName(player, TAB_DEFAULT_NAME_COLOR).text()));
         }
         float columnW = clamp(nameW + 48f, 150f, 230f);
         float rawWidth = TAB_SIDE_PADDING * 2f + columns * columnW + (columns - 1) * TAB_COLUMN_GAP;
@@ -328,7 +332,7 @@ public class DynamicIslandRenderer {
             float y = startY + row * TAB_ROW_HEIGHT;
             PlayerInfo player = players.get(i);
             int baseColor = player.getGameMode() == GameType.SPECTATOR ? TAB_SPECTATOR_NAME_COLOR : TAB_DEFAULT_NAME_COLOR;
-            FormattedTabName formattedName = parseTabName(getPlayerName(player), baseColor);
+            FormattedTabName formattedName = resolveTabName(player, baseColor);
             String name = trimToWidth(formattedName.text(), columnW - 46f, TAB_NAME_SIZE);
             int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.color();
             FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
@@ -339,7 +343,57 @@ public class DynamicIslandRenderer {
         }
     }
 
-    private FormattedTabName parseTabName(String rawName, int fallbackColor) {
+    private FormattedTabName resolveTabName(PlayerInfo player, int fallbackColor) {
+        Component displayName = player.getTabListDisplayName();
+        int teamColor = teamColor(player, fallbackColor);
+        if (displayName != null) {
+            FormattedTabName componentName = parseComponentTabName(displayName, teamColor);
+            if (!componentName.text().isBlank()) {
+                return componentName;
+            }
+        }
+
+        PlayerTeam team = player.getTeam();
+        if (team != null) {
+            Component formatted = team.getFormattedName(Component.literal(player.getProfile().name()));
+            FormattedTabName teamName = parseComponentTabName(formatted, teamColor);
+            if (!teamName.text().isBlank()) {
+                return teamName;
+            }
+        }
+
+        return parseLegacyTabName(player.getProfile().name(), teamColor);
+    }
+
+    private FormattedTabName parseComponentTabName(Component component, int fallbackColor) {
+        if (component == null) {
+            return new FormattedTabName("", fallbackColor);
+        }
+
+        StringBuilder cleanName = new StringBuilder();
+        int[] color = { fallbackColor };
+        boolean[] sawExplicitColor = { false };
+        component.visit((style, text) -> {
+            Integer parsedColor = styleColor(style);
+            if (parsedColor != null && !sawExplicitColor[0] && containsVisibleText(text)) {
+                color[0] = parsedColor;
+                sawExplicitColor[0] = true;
+            }
+            FormattedTabName parsedText = parseLegacyTabName(text, sawExplicitColor[0] ? color[0] : fallbackColor);
+            if (!sawExplicitColor[0] && parsedText.color() != fallbackColor && containsVisibleText(parsedText.text())) {
+                color[0] = parsedText.color();
+                sawExplicitColor[0] = true;
+            }
+            cleanName.append(parsedText.text());
+            return java.util.Optional.empty();
+        }, component.getStyle() == null ? Style.EMPTY : component.getStyle());
+        if (cleanName.isEmpty()) {
+            return parseLegacyTabName(component.getString(), fallbackColor);
+        }
+        return new FormattedTabName(cleanName.toString(), color[0]);
+    }
+
+    private FormattedTabName parseLegacyTabName(String rawName, int fallbackColor) {
         if (rawName == null || rawName.isEmpty()) {
             return new FormattedTabName("", fallbackColor);
         }
@@ -349,6 +403,14 @@ public class DynamicIslandRenderer {
         for (int i = 0; i < rawName.length(); i++) {
             char current = rawName.charAt(i);
             if ((current == '\u00A7' || current == '&') && i + 1 < rawName.length()) {
+                if (Character.toLowerCase(rawName.charAt(i + 1)) == 'x') {
+                    Integer hexColor = parseHexColor(rawName, i);
+                    if (hexColor != null) {
+                        color = hexColor;
+                        i += 13;
+                        continue;
+                    }
+                }
                 Integer parsedColor = minecraftColor(rawName.charAt(++i), fallbackColor);
                 if (parsedColor != null) {
                     color = parsedColor;
@@ -358,6 +420,82 @@ public class DynamicIslandRenderer {
             cleanName.append(current);
         }
         return new FormattedTabName(cleanName.toString(), color);
+    }
+
+    private Integer parseHexColor(String rawName, int sectionIndex) {
+        if (sectionIndex + 13 >= rawName.length()) return null;
+        char marker = rawName.charAt(sectionIndex);
+        StringBuilder hex = new StringBuilder(6);
+        for (int i = 0; i < 6; i++) {
+            int prefix = sectionIndex + 2 + i * 2;
+            int value = prefix + 1;
+            if (rawName.charAt(prefix) != marker || !isHex(rawName.charAt(value))) {
+                return null;
+            }
+            hex.append(rawName.charAt(value));
+        }
+        try {
+            return 0xFF000000 | Integer.parseInt(hex.toString(), 16);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean isHex(char value) {
+        return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f') || (value >= 'A' && value <= 'F');
+    }
+
+    private boolean containsVisibleText(String text) {
+        if (text == null || text.isEmpty()) return false;
+        return !parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR).text().isBlank();
+    }
+
+    private Integer styleColor(Style style) {
+        if (style == null || style.getColor() == null) {
+            return null;
+        }
+        return 0xFF000000 | (style.getColor().getValue() & 0x00FFFFFF);
+    }
+
+    private int teamColor(PlayerInfo player, int fallbackColor) {
+        PlayerTeam team = player.getTeam();
+        if (team == null) {
+            return fallbackColor;
+        }
+        Integer prefixColor = firstComponentColor(team.getPlayerPrefix());
+        if (prefixColor != null) {
+            return prefixColor;
+        }
+        ChatFormatting formatting = team.getColor();
+        if (formatting != null && formatting.isColor() && formatting.getColor() != null) {
+            return 0xFF000000 | (formatting.getColor() & 0x00FFFFFF);
+        }
+        return fallbackColor;
+    }
+
+    private Integer firstComponentColor(Component component) {
+        if (component == null) {
+            return null;
+        }
+        int[] color = { 0 };
+        boolean[] found = { false };
+        component.visit((style, text) -> {
+            if (!found[0] && containsVisibleText(text)) {
+                Integer styleColor = styleColor(style);
+                if (styleColor != null) {
+                    color[0] = styleColor;
+                    found[0] = true;
+                } else {
+                    FormattedTabName parsed = parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR);
+                    if (parsed.color() != TAB_DEFAULT_NAME_COLOR) {
+                        color[0] = parsed.color();
+                        found[0] = true;
+                    }
+                }
+            }
+            return java.util.Optional.empty();
+        }, component.getStyle() == null ? Style.EMPTY : component.getStyle());
+        return found[0] ? color[0] : null;
     }
 
     private Integer minecraftColor(char code, int fallbackColor) {
