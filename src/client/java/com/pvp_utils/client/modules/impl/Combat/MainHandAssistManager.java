@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -20,7 +21,7 @@ public final class MainHandAssistManager {
     private MainHandAssistManager() {}
 
     public static void tick(Minecraft client) {
-        if (!Config.mainHandAssist || !Config.mainHandAssistMeleeWeapon || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
+        if (!Config.mainHandAssist || (!Config.mainHandAssistMeleeWeapon && !Config.mainHandAssistShield) || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
             reset();
             return;
         }
@@ -36,13 +37,24 @@ public final class MainHandAssistManager {
                 return;
             }
             if (originalSlot < 0) {
+                if (hasRightClickUtility(player.getOffhandItem())) {
+                    reset();
+                    return;
+                }
                 ItemStack held = inventory.getItem(selectedSlot);
-                if (!isMeleeWeapon(held)) {
+                int nextTargetSlot = -1;
+                if (Config.mainHandAssistMeleeWeapon && isMeleeWeapon(held)) {
+                    nextTargetSlot = findBestRecoverySlot(player);
+                }
+                if (nextTargetSlot < 0 && Config.mainHandAssistShield) {
+                    nextTargetSlot = findShieldSlot(player);
+                }
+                if (nextTargetSlot < 0) {
                     reset();
                     return;
                 }
                 originalSlot = selectedSlot;
-                targetSlot = findBestRecoverySlot(player);
+                targetSlot = nextTargetSlot;
                 pressTicks = 0;
             }
             if (targetSlot < 0 || targetSlot == originalSlot) {
@@ -98,6 +110,16 @@ public final class MainHandAssistManager {
         return bestSlot;
     }
 
+    private static int findShieldSlot(LocalPlayer player) {
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+            if (inventory.getItem(slot).is(Items.SHIELD)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
     private static int recoveryPriority(ItemStack stack, boolean canUseEnchantedApple) {
         if (stack.isEmpty()) {
             return -1;
@@ -136,11 +158,32 @@ public final class MainHandAssistManager {
     }
 
     private static boolean isMeleeWeapon(ItemStack stack) {
-        if (stack.isEmpty() || stack.get(DataComponents.WEAPON) == null) {
+        if (stack.isEmpty() || stack.get(DataComponents.WEAPON) == null || hasRightClickUtility(stack)) {
             return false;
         }
         Item item = stack.getItem();
         return item != Items.BOW && item != Items.CROSSBOW && item != Items.TRIDENT;
+    }
+
+    private static boolean hasRightClickUtility(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        Item item = stack.getItem();
+        return item instanceof BlockItem
+                || stack.get(DataComponents.FOOD) != null
+                || stack.get(DataComponents.CONSUMABLE) != null
+                || stack.is(Items.SHIELD)
+                || stack.is(Items.BOW)
+                || stack.is(Items.CROSSBOW)
+                || stack.is(Items.TRIDENT)
+                || stack.is(Items.POTION)
+                || stack.is(Items.SPLASH_POTION)
+                || stack.is(Items.LINGERING_POTION)
+                || stack.is(Items.ENDER_PEARL)
+                || stack.is(Items.FISHING_ROD)
+                || stack.is(Items.FIREWORK_ROCKET)
+                || stack.is(Items.WIND_CHARGE);
     }
 
     private static int delayTicks() {

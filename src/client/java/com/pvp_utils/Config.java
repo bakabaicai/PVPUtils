@@ -20,6 +20,7 @@ public class Config {
     public static boolean hitSound = false;
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
+    public static boolean mainHandAssistShield = false;
     public static boolean mainHandAssistSwitchBack = true;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
@@ -215,6 +216,7 @@ public class Config {
             hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "false"));
             mainHandAssist = Boolean.parseBoolean(prop.getProperty("mainHandAssist", "false"));
             mainHandAssistMeleeWeapon = Boolean.parseBoolean(prop.getProperty("mainHandAssistMeleeWeapon", "false"));
+            mainHandAssistShield = Boolean.parseBoolean(prop.getProperty("mainHandAssistShield", "false"));
             mainHandAssistSwitchBack = Boolean.parseBoolean(prop.getProperty("mainHandAssistSwitchBack", "true"));
             elytraAssist = Boolean.parseBoolean(prop.getProperty("elytraAssist", "false"));
             elytraAutoDeploy = Boolean.parseBoolean(prop.getProperty("elytraAutoDeploy", "true"));
@@ -368,6 +370,7 @@ public class Config {
             prop.setProperty("hitSound", String.valueOf(hitSound));
             prop.setProperty("mainHandAssist", String.valueOf(mainHandAssist));
             prop.setProperty("mainHandAssistMeleeWeapon", String.valueOf(mainHandAssistMeleeWeapon));
+            prop.setProperty("mainHandAssistShield", String.valueOf(mainHandAssistShield));
             prop.setProperty("mainHandAssistSwitchBack", String.valueOf(mainHandAssistSwitchBack));
             prop.setProperty("elytraAssist", String.valueOf(elytraAssist));
             prop.setProperty("elytraAutoDeploy", String.valueOf(elytraAutoDeploy));
