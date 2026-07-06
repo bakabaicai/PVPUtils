@@ -52,6 +52,9 @@ public class ResetManager {
         Config.zoomRelativeSensitivity = 100;
         Config.zoomInTime = 0.25f;
         Config.zoomOutTime = 0.18f;
+        Config.freelook = false;
+        Config.freelookTriggerMode = Config.FreelookTriggerMode.HOLD;
+        Config.freelookSensitivity = 100;
         Config.armorHud = false;
         Config.armorHudShowPercentage = true;
         Config.armorHudShowBar = true;

@@ -52,6 +52,18 @@ public class ToolPage extends BasePage {
                                 () -> Config.weatherMode.ordinal(),
                                 i -> { Config.weatherMode = Config.WeatherMode.values()[i % Config.WeatherMode.values().length]; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("自由视角", "Freelook"), UiText.t("开启功能后，使用按键进行触发（默认Mouse 5），可以自由观看四周而不影响原本视角朝向。", "Use a keybind to activate freelook (default Mouse 5), allowing you to look around freely without changing your original view direction."),
+                new SettingToggle(() -> Config.freelook, v -> { Config.freelook = v; Config.save(); }))
+                .addSub(UiText.t("触发模式", "Trigger Mode"), UiText.t("选择自由视角按键的触发方式", "Choose how the freelook key activates"),
+                        new SettingCycle(List.of(
+                                UiText.t("长按", "Hold"),
+                                UiText.t("切换", "Toggle")),
+                                () -> Config.freelookTriggerMode == Config.FreelookTriggerMode.HOLD ? 0 : 1,
+                                i -> { Config.freelookTriggerMode = i == 0 ? Config.FreelookTriggerMode.HOLD : Config.FreelookTriggerMode.TOGGLE; Config.save(); }))
+                .addSub(UiText.t("灵敏度", "Sensitivity"), "",
+                        new SettingSlider(1.0, 100.0, "%.0f%%", () -> (double) Config.freelookSensitivity,
+                                v -> { Config.freelookSensitivity = Math.max(1, Math.min(100, v.intValue())); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("缩放", "Zoom"), UiText.t("使用快捷键进行缩放，在设置中可以调整键位", "Use a keybind to zoom. The key can be changed in controls"),
                 new SettingToggle(() -> Config.zoom, v -> { Config.zoom = v; Config.save(); }))
                 .addSub(UiText.t("缩放倍率", "Zoom Amount"), UiText.t("按下缩放键时的初始缩放倍率", "Initial zoom multiplier while holding the zoom key"),

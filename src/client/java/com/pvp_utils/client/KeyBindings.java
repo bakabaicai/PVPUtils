@@ -1,5 +1,6 @@
 package com.pvp_utils.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
@@ -9,6 +10,7 @@ public class KeyBindings {
 
     public static KeyMapping openSettings;
     public static KeyMapping zoom;
+    public static KeyMapping freelook;
 
     public static void register() {
         KeyMapping.Category category = KeyMapping.Category.register(
@@ -24,6 +26,13 @@ public class KeyBindings {
         zoom = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.pvp_utils.zoom",
                 GLFW.GLFW_KEY_C,
+                category
+        ));
+
+        freelook = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.pvp_utils.freelook",
+                InputConstants.Type.MOUSE,
+                GLFW.GLFW_MOUSE_BUTTON_4,
                 category
         ));
     }

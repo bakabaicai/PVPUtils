@@ -1,6 +1,7 @@
 {
   "key.pvp_utils.open_settings": "PVPUtils 设置",
   "key.pvp_utils.zoom": "缩放",
+  "key.pvp_utils.freelook": "自由视角",
   "key.category.pvp_utils.pvp_utils": "PVPUtils",
   "key.categories.pvp_utils.pvp_utils": "PVPUtils"
 }

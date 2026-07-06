@@ -46,6 +46,7 @@ public class Config {
     public static boolean weatherChange = false;
     public static boolean zoom = false;
     public static boolean zoomScroll = true;
+    public static boolean freelook = false;
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
@@ -158,9 +159,11 @@ public class Config {
     public static int zoomScrollSteps = 10;
     public static int zoomPerStep = 150;
     public static int zoomRelativeSensitivity = 100;
+    public static int freelookSensitivity = 100;
     public static float zoomInTime = 0.25f;
     public static float zoomOutTime = 0.18f;
     public static WeatherMode weatherMode = WeatherMode.CLEAR;
+    public static FreelookTriggerMode freelookTriggerMode = FreelookTriggerMode.HOLD;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
@@ -175,6 +178,7 @@ public class Config {
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, NEW }
+    public enum FreelookTriggerMode { HOLD, TOGGLE }
 
     public static int skiaBlurTintColor() {
         return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
@@ -251,6 +255,7 @@ public class Config {
             weatherChange = Boolean.parseBoolean(prop.getProperty("weatherChange", "false"));
             zoom = Boolean.parseBoolean(prop.getProperty("zoom", "false"));
             zoomScroll = Boolean.parseBoolean(prop.getProperty("zoomScroll", "true"));
+            freelook = Boolean.parseBoolean(prop.getProperty("freelook", "false"));
             armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
             armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
             armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
@@ -313,6 +318,7 @@ public class Config {
             animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
             motionBlurAlgorithm = MotionBlurAlgorithm.valueOf(prop.getProperty("motionBlurAlgorithm", "VELOCITY_BASED"));
             weatherMode = WeatherMode.valueOf(prop.getProperty("weatherMode", "CLEAR"));
+            freelookTriggerMode = FreelookTriggerMode.valueOf(prop.getProperty("freelookTriggerMode", "HOLD"));
             offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
             offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
             offsetZ = Float.parseFloat(prop.getProperty("offsetZ", "0"));
@@ -367,6 +373,7 @@ public class Config {
             zoomScrollSteps = Integer.parseInt(prop.getProperty("zoomScrollSteps", "10"));
             zoomPerStep = Integer.parseInt(prop.getProperty("zoomPerStep", "150"));
             zoomRelativeSensitivity = Integer.parseInt(prop.getProperty("zoomRelativeSensitivity", "100"));
+            freelookSensitivity = Integer.parseInt(prop.getProperty("freelookSensitivity", "100"));
             zoomInTime = Float.parseFloat(prop.getProperty("zoomInTime", "0.25"));
             zoomOutTime = Float.parseFloat(prop.getProperty("zoomOutTime", "0.18"));
         } catch (IOException e) {
@@ -414,6 +421,7 @@ public class Config {
             prop.setProperty("weatherChange", String.valueOf(weatherChange));
             prop.setProperty("zoom", String.valueOf(zoom));
             prop.setProperty("zoomScroll", String.valueOf(zoomScroll));
+            prop.setProperty("freelook", String.valueOf(freelook));
             prop.setProperty("armorHud", String.valueOf(armorHud));
             prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
             prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
@@ -475,6 +483,7 @@ public class Config {
             prop.setProperty("animationMode", animationMode.name());
             prop.setProperty("motionBlurAlgorithm", motionBlurAlgorithm.name());
             prop.setProperty("weatherMode", weatherMode.name());
+            prop.setProperty("freelookTriggerMode", freelookTriggerMode.name());
             prop.setProperty("offsetX", String.valueOf(offsetX));
             prop.setProperty("offsetY", String.valueOf(offsetY));
             prop.setProperty("offsetZ", String.valueOf(offsetZ));
@@ -529,6 +538,7 @@ public class Config {
             prop.setProperty("zoomScrollSteps", String.valueOf(zoomScrollSteps));
             prop.setProperty("zoomPerStep", String.valueOf(zoomPerStep));
             prop.setProperty("zoomRelativeSensitivity", String.valueOf(zoomRelativeSensitivity));
+            prop.setProperty("freelookSensitivity", String.valueOf(freelookSensitivity));
             prop.setProperty("zoomInTime", String.valueOf(zoomInTime));
             prop.setProperty("zoomOutTime", String.valueOf(zoomOutTime));
             prop.store(os, null);

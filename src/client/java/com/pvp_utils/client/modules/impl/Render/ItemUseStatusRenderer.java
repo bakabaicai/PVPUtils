@@ -58,9 +58,6 @@ public final class ItemUseStatusRenderer {
     private long appearTime;
     private long lastActiveTime;
     private long lastMixinSampleTime;
-    private long lastLogTime;
-    private long lastEntryLogTime;
-    private long lastRenderLogTime;
     private boolean visible;
     private boolean mixinActive;
     private float lastProgress;
@@ -114,18 +111,15 @@ public final class ItemUseStatusRenderer {
         if (player == null || client == null || client.player != player) return;
 
         boolean enabled = Config.itemUseStatus;
-        boolean keyUseDown = client.options != null && client.options.keyUse.isDown();
         boolean using = player.isUsingItem();
         ItemStack stack = player.getUseItem();
         int remaining = using ? player.getUseItemRemainingTicks() : 0;
         int rawDuration = !stack.isEmpty() ? stack.getUseDuration(player) : 0;
         boolean eligible = !stack.isEmpty() && shouldDisplay(stack);
         int displayDuration = !stack.isEmpty() ? getDisplayDuration(stack, player) : 0;
-        int kineticDuration = !stack.isEmpty() ? getKineticUseDuration(stack) : 0;
 
         if (!enabled || !using || stack.isEmpty() || !eligible || displayDuration <= 0 || remaining < 0) {
             mixinActive = false;
-            logCapture(enabled, keyUseDown, using, stack, remaining, rawDuration, displayDuration, kineticDuration, 0, rejectReason(enabled, using, stack, eligible, displayDuration, remaining));
             return;
         }
 
@@ -133,13 +127,11 @@ public final class ItemUseStatusRenderer {
         mixinProgress = calculateProgress(stack, usedTicks, displayDuration, rawDuration);
         mixinActive = true;
         lastMixinSampleTime = System.currentTimeMillis();
-        logCapture(true, keyUseDown, true, stack, remaining, rawDuration, displayDuration, kineticDuration, usedTicks, "active progress=" + Math.round(mixinProgress * 100.0f) + "%");
     }
 
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
         long now = System.currentTimeMillis();
-        logRenderEntry(client, now);
         UseState state = currentUseState(client, now);
         boolean activeNow = state != null;
 
@@ -178,7 +170,6 @@ public final class ItemUseStatusRenderer {
             return;
         }
 
-        logRender(client, animatedProgress, alpha);
         if (Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW) {
             renderNew(graphics, client, animatedProgress, alpha);
         } else {
@@ -462,51 +453,6 @@ public final class ItemUseStatusRenderer {
         return ((alpha & 0xFF) << 24) | (r << 16) | (g << 8);
     }
 
-    private String rejectReason(boolean enabled, boolean using, ItemStack stack, boolean eligible, int displayDuration, int remaining) {
-        if (!enabled) return "disabled";
-        if (!using) return "not_using";
-        if (stack.isEmpty()) return "empty_use_stack";
-        if (!eligible) return "filtered_item";
-        if (displayDuration <= 0) return "invalid_display_duration";
-        if (remaining < 0) return "invalid_remaining";
-        return "unknown";
-    }
-
-    private void logCapture(boolean enabled, boolean keyUseDown, boolean using, ItemStack stack, int remaining, int rawDuration, int displayDuration, int kineticDuration, int usedTicks, String reason) {
-        long now = System.currentTimeMillis();
-        if (now - lastLogTime < 250L) return;
-        lastLogTime = now;
-        String item = stack == null || stack.isEmpty() ? "empty" : stack.getItem().toString();
-        System.out.println("[PVPUtils][ItemUseStatus] enabled=" + enabled
-                + " keyUse=" + keyUseDown
-                + " using=" + using
-                + " item=" + item
-                + " remaining=" + remaining
-                + " rawDuration=" + rawDuration
-                + " displayDuration=" + displayDuration
-                + " kineticDuration=" + kineticDuration
-                + " usedTicks=" + usedTicks
-                + " reason=" + reason);
-    }
-
-    private void logRender(Minecraft client, float progress, float alpha) {
-        long now = System.currentTimeMillis();
-        if (now - lastRenderLogTime < 250L) return;
-        lastRenderLogTime = now;
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
-        int x = Math.round(getRenderX(screenW));
-        int y = Math.round(getRenderY(screenH));
-        System.out.println("[PVPUtils][ItemUseStatus][Render] mode=" + Config.itemUseStatusMode
-                + " visible=" + visible
-                + " mixinActive=" + mixinActive
-                + " progress=" + Math.round(progress * 100.0f) + "%"
-                + " alpha=" + Math.round(alpha * 100.0f) + "%"
-                + " pos=" + x + "," + y
-                + " size=" + BAR_W + "x" + BAR_H
-                + " screen=" + screenW + "x" + screenH);
-    }
-
     private float getBaseWidth() {
         return Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? NEW_W : BAR_W;
     }
@@ -521,20 +467,6 @@ public final class ItemUseStatusRenderer {
 
     private float clamp(float value, float min, float max) {
         return Math.max(min, Math.min(max, value));
-    }
-
-    private void logRenderEntry(Minecraft client, long now) {
-        if (!Config.itemUseStatus || now - lastEntryLogTime < 500L) return;
-        lastEntryLogTime = now;
-        String screen = client == null || client.screen == null ? "none" : client.screen.getClass().getSimpleName();
-        System.out.println("[PVPUtils][ItemUseStatus][RenderEntry] player=" + (client != null && client.player != null)
-                + " level=" + (client != null && client.level != null)
-                + " screen=" + screen
-                + " visible=" + visible
-                + " mixinActive=" + mixinActive
-                + " sampleAgeMs=" + (lastMixinSampleTime <= 0 ? -1 : now - lastMixinSampleTime)
-                + " lastProgress=" + Math.round(lastProgress * 100.0f) + "%"
-                + " mixinProgress=" + Math.round(mixinProgress * 100.0f) + "%");
     }
 
     private record UseState(float progress) {}

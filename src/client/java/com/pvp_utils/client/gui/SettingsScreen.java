@@ -113,6 +113,9 @@ public class SettingsScreen extends Screen {
                     Config.zoomRelativeSensitivity = 100;
                     Config.zoomInTime = 0.25f;
                     Config.zoomOutTime = 0.18f;
+                    Config.freelook = false;
+                    Config.freelookTriggerMode = Config.FreelookTriggerMode.HOLD;
+                    Config.freelookSensitivity = 100;
                     Config.autoChestDeposit = false;
                     Config.autoChestDepositResourcesOnly = true;
                     Config.autoChestDepositDepositDelay = 4;

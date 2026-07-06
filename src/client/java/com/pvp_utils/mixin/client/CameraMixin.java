@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Tool.Freelook.FreelookManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -12,8 +13,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArgs;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(Camera.class)
 public abstract class CameraMixin {
@@ -49,6 +52,15 @@ public abstract class CameraMixin {
         }
 
         return Config.sneakAnimationSpeed >= 1.0f ? 0.0f : getSneakAnimationModifier();
+    }
+
+    @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V"))
+    private void applyFreelookRotation(Args args) {
+        Minecraft client = Minecraft.getInstance();
+        if (FreelookManager.isActive() && this.entity == client.player) {
+            args.set(0, FreelookManager.getYaw());
+            args.set(1, FreelookManager.getPitch());
+        }
     }
 
     private float getCustomEyeHeight(LocalPlayer player, Pose pose) {
