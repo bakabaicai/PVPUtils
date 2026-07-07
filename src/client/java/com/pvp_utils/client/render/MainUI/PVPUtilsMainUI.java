@@ -99,6 +99,7 @@ public class PVPUtilsMainUI extends Screen {
     protected void init() {
         if (shader != null) shader.close();
         shader = fixedShaderPath == null ? MainUIShader.random() : MainUIShader.named(fixedShaderPath);
+        MainUISharedBackground.setActiveShader(shader.fragmentPath());
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         invalidateTextTexture();
         refreshThemeFromBackground();
@@ -470,6 +471,7 @@ public class PVPUtilsMainUI extends Screen {
     private void refreshShader() {
         if (shader != null) shader.close();
         shader = MainUIShader.random();
+        MainUISharedBackground.setActiveShader(shader.fragmentPath());
     }
 
     private PVPUtilsMainUI returnParent() {

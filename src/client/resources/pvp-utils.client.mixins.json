@@ -38,6 +38,7 @@
     "FogRendererMixin",
     "ScreenEffectRendererMixin",
     "TitleScreenMixin",
+    "ScreenMixin",
     "GameRendererMixin",
     "ZoomGameRendererMixin",
     "ZoomMouseHandlerMixin",
