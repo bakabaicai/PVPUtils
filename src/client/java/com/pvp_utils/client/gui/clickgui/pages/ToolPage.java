@@ -15,6 +15,12 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("在你胜利时自动截图并保存至桌面", "Automatically take a screenshot when you win and save it to the desktop"),
                 new SettingToggle(() -> Config.autoScreenshot, v -> { Config.autoScreenshot = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("自动GG", "Auto GG"), UiText.t("在获胜后自动发送文字", "Automatically send text after winning"),
+                new SettingToggle(() -> Config.autoGG, v -> { Config.autoGG = v; Config.save(); }))
+                .addSub(UiText.t("发送延迟(tick)", "Send Delay (tick)"), "",
+                        new SettingSlider(0, 100, "%.0f", () -> (double) Config.autoGGDelayTicks,
+                                v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
 

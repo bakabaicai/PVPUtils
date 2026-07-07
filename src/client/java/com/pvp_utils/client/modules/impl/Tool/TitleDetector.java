@@ -9,6 +9,7 @@ public class TitleDetector {
         if (matches(title) || matches(subtitle)) {
             VictoryScreenshot.tryCapture();
             VictorySound.play();
+            AutoGGManager.onVictoryDetected();
         }
     }
 

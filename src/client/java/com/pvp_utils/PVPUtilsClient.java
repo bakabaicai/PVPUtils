@@ -17,6 +17,7 @@ import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Render.CustomEnchantmentGlint;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
+import com.pvp_utils.client.modules.impl.Tool.AutoGGManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
@@ -43,6 +44,7 @@ public class PVPUtilsClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);
+            AutoGGManager.tick(client);
             ElytraAssistManager.tick(client);
             MainHandAssistManager.tick(client);
             InputMethodFix.tick(client);

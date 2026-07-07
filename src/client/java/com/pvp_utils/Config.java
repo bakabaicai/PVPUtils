@@ -24,6 +24,7 @@ public class Config {
     public static boolean noDoubleSneak = true;
     public static boolean isChinese = defaultChinese();
     public static boolean autoScreenshot = false;
+    public static boolean autoGG = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = false;
     public static boolean mainHandAssist = false;
@@ -109,6 +110,7 @@ public class Config {
     public static boolean termsRead = false;
     public static boolean fullMode = false;
     public static String clientName = "PVPUtils";
+    public static String autoGGText = "gg";
     public static String mainUIBackgroundImage = "1.png";
     public static String mainUIVideoBackground = "background.mp4";
     public static String customCapeImage = "default.png";
@@ -169,6 +171,7 @@ public class Config {
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
     public static int fishingRodAssistUseDelay = 4;
+    public static int autoGGDelayTicks = 20;
     public static int mainHandAssistSwitchDelayTicks = 2;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
@@ -580,6 +583,7 @@ public class Config {
             new ModuleRule("RemoveAttackCooldownAnimation", "noAttackCooldownAnimation", "noAttackCooldownAnimation"),
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
+            new ModuleRule("AutoGG", "autoGG", "autoGG"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
             new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),

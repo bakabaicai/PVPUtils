@@ -14,8 +14,8 @@ public final class HelpCommand {
         return ClientCommandManager.literal("help")
                 .executes(context -> {
                     ChatUtils.send(Config.isChinese
-                            ? "可用命令：/PVPUtils update，/PVPUtils clientname <名称>"
-                            : "Available commands: /PVPUtils update, /PVPUtils clientname <name>");
+                            ? "可用命令：/PVPUtils update，/PVPUtils clientname <名称>，/PVPUtils autogg <文本>"
+                            : "Available commands: /PVPUtils update, /PVPUtils clientname <name>, /PVPUtils autogg <text>");
                     return 1;
                 });
     }

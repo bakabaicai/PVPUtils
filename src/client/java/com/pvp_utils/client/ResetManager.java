@@ -17,6 +17,7 @@ public class ResetManager {
         Config.sneakDropScale = 0.5f;
         Config.sneakAnimationSpeed = 1.0f;
         Config.autoScreenshot = false;
+        Config.autoGG = false;
         Config.hitMarker = false;
         Config.hitSound = false;
         Config.mainHandAssist = false;
@@ -38,6 +39,7 @@ public class ResetManager {
         Config.autoSprint = false;
         Config.fishingRodAssist = false;
         Config.fishingRodAssistUseDelay = 4;
+        Config.autoGGDelayTicks = 20;
         Config.blockCountDisplay = false;
         Config.blockCountDisplayMode = Config.BlockCountDisplayMode.NEW;
         Config.dynamicIsland = false;
@@ -159,6 +161,7 @@ public class ResetManager {
         Config.termsRead = false;
         Config.fullMode = false;
         Config.clientName = "PVPUtils";
+        Config.autoGGText = "gg";
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.LITE;
