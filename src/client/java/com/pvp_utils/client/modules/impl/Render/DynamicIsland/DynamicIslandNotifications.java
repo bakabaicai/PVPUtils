@@ -32,7 +32,8 @@ public final class DynamicIslandNotifications {
     }
 
     private static void show(String title, String icon, String message, int accentColor) {
-        current = new DynamicIslandNotificationCard(true, icon, title, message, accentColor);
-        expireAt = System.currentTimeMillis() + DISPLAY_MS;
+        long now = System.currentTimeMillis();
+        current = new DynamicIslandNotificationCard(true, icon, title, message, accentColor, now);
+        expireAt = now + DISPLAY_MS;
     }
 }

@@ -10,6 +10,7 @@ public class LowHealthHandler {
     private static String lastTitle = "";
     private static String lastMessage = "";
     private static String lastIcon = "";
+    private static long lastShownAtMs = 0L;
 
     public static void onHealthUpdate(Minecraft client, float health) {
         boolean islandEnabled = Config.dynamicIsland && Config.dynamicIslandLowHealthWarning;
@@ -36,13 +37,14 @@ public class LowHealthHandler {
         if (!Config.dynamicIsland || !Config.dynamicIslandLowHealthWarning || lastStage == 0 || lastTitle.isEmpty()) {
             return Snapshot.EMPTY;
         }
-        return new Snapshot(true, lastStage, lastIcon, lastTitle, lastMessage);
+        return new Snapshot(true, lastStage, lastIcon, lastTitle, lastMessage, lastShownAtMs);
     }
 
     private static void showStage(String message, String icon, int color) {
         lastTitle = "Low Health Warning";
         lastMessage = message;
         lastIcon = icon;
+        lastShownAtMs = System.currentTimeMillis();
         if (Config.lowHealthNotify && (!Config.dynamicIsland || !Config.dynamicIslandLowHealthWarning)) {
             NotificationOverlay.getInstance().showPersistentSymbol(message, color, icon, color);
         }
@@ -55,6 +57,7 @@ public class LowHealthHandler {
             lastTitle = "";
             lastMessage = "";
             lastIcon = "";
+            lastShownAtMs = 0L;
         }
     }
 
@@ -73,7 +76,7 @@ public class LowHealthHandler {
     public static void tick(Minecraft client) {
     }
 
-    public record Snapshot(boolean visible, int stage, String icon, String title, String message) {
-        public static final Snapshot EMPTY = new Snapshot(false, 0, "", "", "");
+    public record Snapshot(boolean visible, int stage, String icon, String title, String message, long createdAtMs) {
+        public static final Snapshot EMPTY = new Snapshot(false, 0, "", "", "", 0L);
     }
 }

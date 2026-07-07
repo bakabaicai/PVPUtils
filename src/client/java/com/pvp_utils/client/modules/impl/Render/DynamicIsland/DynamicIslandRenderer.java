@@ -74,6 +74,7 @@ public class DynamicIslandRenderer {
     private static final String ICON_BLOCK = "\uF720";
     private static final String ICON_BLOCK_ALT = "\uE934";
     private static final String ICON_ITEM_USE = "\uE425";
+    private static final long NOTIFICATION_ICON_ANIMATION_MS = 520L;
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
     private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
@@ -376,12 +377,12 @@ public class DynamicIslandRenderer {
 
     private String alertKey(LowHealthHandler.Snapshot snapshot, boolean alertOpen) {
         if (!alertOpen || !snapshot.visible()) return "alert:none";
-        return "alert:" + snapshot.stage() + "|" + snapshot.icon() + "|" + snapshot.title() + "|" + snapshot.message();
+        return "alert:" + snapshot.stage() + "|" + snapshot.icon() + "|" + snapshot.title() + "|" + snapshot.message() + "|" + timedIconAnimationFrame(snapshot.createdAtMs());
     }
 
     private String notificationKey(DynamicIslandNotificationCard card, boolean notificationOpen) {
         if (!notificationOpen || !card.visible()) return "notification:none";
-        return "notification:" + card.icon() + "|" + card.title() + "|" + card.message() + "|" + card.accentColor();
+        return "notification:" + card.icon() + "|" + card.title() + "|" + card.message() + "|" + card.accentColor() + "|" + timedIconAnimationFrame(card.createdAtMs());
     }
 
     private String blockDetail(BlockCountDisplayRenderer.Snapshot snapshot) {
@@ -503,14 +504,14 @@ public class DynamicIslandRenderer {
     }
 
     private void drawAlertContent(Canvas canvas, LowHealthHandler.Snapshot snapshot, IslandLayout layout) {
-        drawNotificationLikeContent(canvas, snapshot.icon(), snapshot.title(), snapshot.message(), 0xFFFFFFFF, layout);
+        drawNotificationLikeContent(canvas, snapshot.icon(), snapshot.title(), snapshot.message(), 0xFFFFFFFF, layout, timedIconAnimationProgress(snapshot.createdAtMs()), true);
     }
 
     private void drawNotificationContent(Canvas canvas, DynamicIslandNotificationCard card, IslandLayout layout) {
-        drawNotificationLikeContent(canvas, card.icon(), card.title(), card.message(), card.accentColor(), layout);
+        drawNotificationLikeContent(canvas, card.icon(), card.title(), card.message(), card.accentColor(), layout, timedIconAnimationProgress(card.createdAtMs()), true);
     }
 
-    private void drawNotificationLikeContent(Canvas canvas, String icon, String title, String message, int accentColor, IslandLayout layout) {
+    private void drawNotificationLikeContent(Canvas canvas, String icon, String title, String message, int accentColor, IslandLayout layout, float iconProgress, boolean animateIcon) {
         int alpha = 255;
         Paint iconBg = new Paint().setAntiAlias(true);
         iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
@@ -519,12 +520,54 @@ public class DynamicIslandRenderer {
         float iconSize = 23f;
         float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 40.8f, iconSize, withAlpha(accentColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        if (animateIcon) {
+            drawAnimatedNotificationIcon(canvas, icon, iconX + 0.2f, 40.8f, iconSize, accentColor, iconProgress);
+        } else {
+            FontRenderer.drawText(canvas, icon, iconX + 0.2f, 40.8f, iconSize, withAlpha(accentColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        }
 
         String trimmedTitle = trimToWidth(title, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String trimmedMessage = trimToWidth(message, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 11f);
         FontRenderer.drawText(canvas, trimmedTitle, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(accentColor, alpha));
         FontRenderer.drawText(canvas, trimmedMessage, BLOCK_TEXT_X, 41f, 11f, withAlpha(0xE8FFFFFF, alpha));
+    }
+
+    private int timedIconAnimationFrame(long createdAtMs) {
+        if (createdAtMs <= 0L) {
+            return 24;
+        }
+        long elapsed = System.currentTimeMillis() - createdAtMs;
+        if (elapsed >= NOTIFICATION_ICON_ANIMATION_MS) {
+            return 24;
+        }
+        return Math.round(clamp(elapsed / (float) NOTIFICATION_ICON_ANIMATION_MS, 0f, 1f) * 24f);
+    }
+
+    private float timedIconAnimationProgress(long createdAtMs) {
+        if (createdAtMs <= 0L) {
+            return 1f;
+        }
+        float raw = clamp((System.currentTimeMillis() - createdAtMs) / (float) NOTIFICATION_ICON_ANIMATION_MS, 0f, 1f);
+        return easeOutCubic(raw);
+    }
+
+    private float easeOutCubic(float value) {
+        float t = 1f - clamp(value, 0f, 1f);
+        return 1f - t * t * t;
+    }
+
+    private void drawAnimatedNotificationIcon(Canvas canvas, String icon, float iconX, float iconY, float iconSize, int accentColor, float progress) {
+        float p = clamp(progress, 0f, 1f);
+        int animatedAlpha = Math.round(255f * p);
+        canvas.save();
+        float cx = BLOCK_ICON_X + BLOCK_ICON_BOX * 0.5f;
+        float cy = 8f + BLOCK_ICON_BOX * 0.5f;
+        float scale = 0.82f + 0.18f * p;
+        canvas.translate(cx, cy);
+        canvas.scale(scale, scale);
+        canvas.translate(-cx, -cy);
+        FontRenderer.drawText(canvas, icon, iconX, iconY, iconSize, withAlpha(accentColor, animatedAlpha), FontRenderer.MATERIAL_SYMBOLS);
+        canvas.restore();
     }
 
     private List<PlayerInfo> getTabPlayers(Minecraft client) {
