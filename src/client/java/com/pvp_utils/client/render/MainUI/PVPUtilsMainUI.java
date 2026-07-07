@@ -55,6 +55,7 @@ public class PVPUtilsMainUI extends Screen {
     private Surface textSurface;
     private DynamicTexture textTexture;
     private DynamicTexture backgroundTexture;
+    private MainUIVideoBackground videoBackground;
     private int textX;
     private int textY;
     private int textW;
@@ -154,7 +155,7 @@ public class PVPUtilsMainUI extends Screen {
         }
         if (settingsOpen && event.button() == 0) {
             if (isInsideBackgroundModeCustom((float) event.x(), (float) event.y())) {
-                Config.mainUICustomBackground = true;
+                setBackgroundMode(Config.MainUIBackgroundMode.IMAGE);
                 Config.save();
                 refreshThemeFromBackground();
                 playClickSound();
@@ -162,26 +163,40 @@ public class PVPUtilsMainUI extends Screen {
                 return true;
             }
             if (isInsideBackgroundModeBuiltin((float) event.x(), (float) event.y())) {
-                Config.mainUICustomBackground = false;
+                setBackgroundMode(Config.MainUIBackgroundMode.GLSL);
                 Config.save();
                 lightSettingsTheme = true;
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (Config.mainUICustomBackground && isInsideOpenBackgroundFolder((float) event.x(), (float) event.y())) {
+            if (isInsideBackgroundModeVideo((float) event.x(), (float) event.y())) {
+                setBackgroundMode(Config.MainUIBackgroundMode.VIDEO);
+                ensureSelectedVideo();
+                Config.save();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if ((isImageBackground() || isVideoBackground()) && isInsideOpenBackgroundFolder((float) event.x(), (float) event.y())) {
                 MainUIBackgrounds.openFolder();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (Config.mainUICustomBackground && isInsideBackgroundImageSelect((float) event.x(), (float) event.y())) {
+            if (isImageBackground() && isInsideBackgroundImageSelect((float) event.x(), (float) event.y())) {
                 cycleBackgroundImage();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
             }
-            if (Config.mainUICustomBackground && isInsideMouseEffectToggle((float) event.x(), (float) event.y())) {
+            if (isVideoBackground() && isInsideBackgroundVideoSelect((float) event.x(), (float) event.y())) {
+                cycleBackgroundVideo();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (isImageBackground() && isInsideMouseEffectToggle((float) event.x(), (float) event.y())) {
                 Config.mainUIMouseEffect = !Config.mainUIMouseEffect;
                 Config.save();
                 playClickSound();
@@ -262,7 +277,16 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!Config.mainUICustomBackground) {
+        if (isVideoBackground()) {
+            ensureSelectedVideo();
+            ensureVideoBackground();
+            if (videoBackground.render(graphics, Config.mainUIVideoBackground)) {
+                return;
+            }
+            renderVideoUnavailable(graphics);
+            return;
+        }
+        if (!isImageBackground()) {
             shader.render(graphics, mouseX, mouseY);
             return;
         }
@@ -306,6 +330,26 @@ public class PVPUtilsMainUI extends Screen {
         int x = Math.round((this.width - drawW) * 0.5f + backgroundOffsetX);
         int y = Math.round((this.height - drawH) * 0.5f + backgroundOffsetY);
         graphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND_TEXTURE_ID, x, y, 0f, 0f, Math.round(drawW), Math.round(drawH), backgroundTextureW, backgroundTextureH, backgroundTextureW, backgroundTextureH);
+    }
+
+    private void ensureVideoBackground() {
+        if (videoBackground == null) {
+            videoBackground = new MainUIVideoBackground();
+        }
+    }
+
+    private void renderVideoUnavailable(GuiGraphics graphics) {
+        graphics.fill(0, 0, this.width, this.height, 0xFF05070A);
+        String title = Config.isChinese ? "视频背景不可用" : "Video background unavailable";
+        String reason = videoBackground == null || videoBackground.getLastError().isBlank()
+                ? (Config.isChinese ? "视频文件无法解码" : "Video file could not be decoded")
+                : videoBackground.getLastError();
+        int titleW = this.minecraft.font.width(title);
+        int reasonW = this.minecraft.font.width(reason);
+        int cx = this.width / 2;
+        int cy = this.height / 2;
+        graphics.drawString(this.minecraft.font, title, cx - titleW / 2, cy - 12, 0xFFFFD176, true);
+        graphics.drawString(this.minecraft.font, reason, cx - reasonW / 2, cy + 4, 0xFFE5E7EB, true);
     }
 
     private void ensureBackgroundTexture() {
@@ -458,6 +502,7 @@ public class PVPUtilsMainUI extends Screen {
         }
         destroyTextTexture();
         destroyBackgroundTexture();
+        closeVideoBackground();
         lastWindowPixelW = -1;
         lastWindowPixelH = -1;
     }
@@ -488,9 +533,35 @@ public class PVPUtilsMainUI extends Screen {
         refreshThemeFromBackground();
     }
 
+    private void cycleBackgroundVideo() {
+        List<String> files = MainUIBackgrounds.listMp4s();
+        if (files.isEmpty()) {
+            Config.mainUIVideoBackground = "";
+            Config.save();
+            closeVideoBackground();
+            return;
+        }
+        int index = files.indexOf(Config.mainUIVideoBackground);
+        Config.mainUIVideoBackground = files.get((index + 1 + files.size()) % files.size());
+        Config.save();
+        closeVideoBackground();
+    }
+
+    private void ensureSelectedVideo() {
+        List<String> files = MainUIBackgrounds.listMp4s();
+        if (files.isEmpty()) {
+            Config.mainUIVideoBackground = "";
+            return;
+        }
+        if (Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank() || !files.contains(Config.mainUIVideoBackground)) {
+            Config.mainUIVideoBackground = files.get(0);
+            Config.save();
+        }
+    }
+
     private void refreshThemeFromBackground() {
         lightSettingsTheme = true;
-        if (!Config.mainUICustomBackground) return;
+        if (!isImageBackground()) return;
         String selected = Config.mainUIBackgroundImage == null || Config.mainUIBackgroundImage.isBlank() ? "1.png" : Config.mainUIBackgroundImage;
         Path path = MainUIBackgrounds.resolve(selected);
         if (!Files.exists(path)) return;
@@ -585,7 +656,7 @@ public class PVPUtilsMainUI extends Screen {
         float y = getSettingsY();
         float fade = 1f - easeOutCubic(settingsPanelProgress);
         if (fade <= 0.01f) return;
-        int alpha = Math.round((Config.mainUICustomBackground ? 47f : 190f) + 40f * settingsHoverProgress);
+        int alpha = Math.round((isImageBackground() ? 47f : 190f) + 40f * settingsHoverProgress);
         boolean lightTheme = isLightTheme();
         int baseColor = lightTheme ? 0x111111 : 0xFFFFFF;
         int accentColor = lightTheme ? 0xD17600 : 0xFFD176;
@@ -613,7 +684,7 @@ public class PVPUtilsMainUI extends Screen {
         float x = getSettingsX() + SETTINGS_SIZE - w;
         float y = getSettingsY();
         boolean lightTheme = isLightTheme();
-        int alpha = Math.round((!Config.mainUICustomBackground ? 196f : (lightTheme ? 118f : 70f)) * t);
+        int alpha = Math.round((!isImageBackground() ? 196f : (lightTheme ? 118f : 70f)) * t);
         try (Paint bg = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor((alpha << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF));
@@ -630,14 +701,17 @@ public class PVPUtilsMainUI extends Screen {
 
         float rowY = y + 72f;
         FontRenderer.drawText(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, rowY, 12f, secondary);
-        renderChoice(canvas, contentX, rowY + 18f, 112f, Config.isChinese ? "\u5185\u7f6eGLSL" : "Built-in GLSL", !Config.mainUICustomBackground, textAlpha);
-        renderChoice(canvas, contentX + 122f, rowY + 18f, 148f, Config.isChinese ? "\u81ea\u5b9a\u4e49\u80cc\u666f\u56fe" : "Custom Image", Config.mainUICustomBackground, textAlpha);
+        renderChoice(canvas, contentX, rowY + 18f, 82f, Config.isChinese ? "\u5185\u7f6eGLSL" : "GLSL", isGlslBackground(), textAlpha);
+        renderChoice(canvas, contentX + 92f, rowY + 18f, 92f, Config.isChinese ? "\u56fe\u7247" : "Image", isImageBackground(), textAlpha);
+        renderChoice(canvas, contentX + 194f, rowY + 18f, 76f, Config.isChinese ? "\u89c6\u9891" : "Video", isVideoBackground(), textAlpha);
 
-        if (Config.mainUICustomBackground) {
+        if (isImageBackground() || isVideoBackground()) {
             float folderY = y + 148f;
             FontRenderer.drawText(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, folderY, 12f, secondary);
             renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
+        }
 
+        if (isImageBackground()) {
             float imageY = y + 184f;
             FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, imageY, 12f, secondary);
             renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
@@ -645,6 +719,13 @@ public class PVPUtilsMainUI extends Screen {
             float effectY = y + 220f;
             FontRenderer.drawText(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, effectY, 12f, secondary);
             renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
+        } else if (isVideoBackground()) {
+            float videoY = y + 184f;
+            FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, videoY, 12f, secondary);
+            String label = Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank()
+                    ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
+                    : Config.mainUIVideoBackground;
+            renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
         }
     }
 
@@ -772,13 +853,19 @@ public class PVPUtilsMainUI extends Screen {
     private boolean isInsideBackgroundModeBuiltin(float mx, float my) {
         float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
         float y = getSettingsY() + 90f;
-        return mx >= x && mx <= x + 112f && my >= y && my <= y + 28f;
+        return mx >= x && mx <= x + 82f && my >= y && my <= y + 28f;
     }
 
     private boolean isInsideBackgroundModeCustom(float mx, float my) {
-        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 144f;
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 114f;
         float y = getSettingsY() + 90f;
-        return mx >= x && mx <= x + 148f && my >= y && my <= y + 28f;
+        return mx >= x && mx <= x + 92f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideBackgroundModeVideo(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 216f;
+        float y = getSettingsY() + 90f;
+        return mx >= x && mx <= x + 76f && my >= y && my <= y + 28f;
     }
 
     private boolean isInsideOpenBackgroundFolder(float mx, float my) {
@@ -793,6 +880,10 @@ public class PVPUtilsMainUI extends Screen {
         return mx >= x && mx <= x + 158f && my >= y && my <= y + 28f;
     }
 
+    private boolean isInsideBackgroundVideoSelect(float mx, float my) {
+        return isInsideBackgroundImageSelect(mx, my);
+    }
+
     private boolean isInsideMouseEffectToggle(float mx, float my) {
         float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
         float y = getSettingsY() + 238f;
@@ -804,11 +895,34 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private float getSettingsPanelHeight() {
-        return Config.mainUICustomBackground ? 276f : 146f;
+        return isImageBackground() ? 276f : isVideoBackground() ? 220f : 146f;
     }
 
     private float getSettingsPanelMaxHeight() {
         return 276f;
+    }
+
+    private void setBackgroundMode(Config.MainUIBackgroundMode mode) {
+        Config.mainUIBackgroundMode = mode == null ? Config.MainUIBackgroundMode.GLSL : mode;
+        Config.mainUICustomBackground = Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE;
+        if (!isVideoBackground()) {
+            closeVideoBackground();
+        }
+        if (!isImageBackground()) {
+            destroyBackgroundTexture();
+        }
+    }
+
+    private boolean isGlslBackground() {
+        return !isImageBackground() && !isVideoBackground();
+    }
+
+    private boolean isImageBackground() {
+        return Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE || Config.mainUICustomBackground;
+    }
+
+    private boolean isVideoBackground() {
+        return Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO;
     }
 
     private float easeOutCubic(float value) {
@@ -837,6 +951,13 @@ public class PVPUtilsMainUI extends Screen {
         backgroundTextureW = -1;
         backgroundTextureH = -1;
         loadedBackground = "";
+    }
+
+    private void closeVideoBackground() {
+        if (videoBackground != null) {
+            videoBackground.close();
+            videoBackground = null;
+        }
     }
 
     private class MenuButton {
@@ -913,12 +1034,12 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private int mainTextColor(int alpha) {
-        boolean darkText = Config.mainUICustomBackground && lightSettingsTheme;
+        boolean darkText = isImageBackground() && lightSettingsTheme;
         return (Math.max(0, Math.min(255, alpha)) << 24) | (darkText ? 0x111111 : 0xFFFFFF);
     }
 
     private boolean isLightTheme() {
-        return !Config.mainUICustomBackground || lightSettingsTheme;
+        return !isImageBackground() || lightSettingsTheme;
     }
 
     private float clamp(float value, float min, float max) {

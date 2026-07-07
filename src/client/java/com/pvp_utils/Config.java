@@ -103,12 +103,14 @@ public class Config {
     public static int betterChatInputFadeTime = 170;
     public static int hotbarRollover = 0;
     public static boolean useMainUI = false;
+    public static MainUIBackgroundMode mainUIBackgroundMode = MainUIBackgroundMode.GLSL;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
     public static boolean termsRead = false;
     public static boolean fullMode = false;
     public static String clientName = "PVPUtils";
     public static String mainUIBackgroundImage = "1.png";
+    public static String mainUIVideoBackground = "background.mp4";
     public static String customCapeImage = "default.png";
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
@@ -195,6 +197,7 @@ public class Config {
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, NEW }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
+    public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
 
     public static int skiaBlurTintColor() {
         return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;

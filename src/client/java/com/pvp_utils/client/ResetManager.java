@@ -153,6 +153,8 @@ public class ResetManager {
         Config.hotbarRollover = 0;
         Config.hudTheme = Config.HudTheme.LIGHT;
         Config.skiaBlurStrength = 1.0f;
+        Config.mainUIBackgroundMode = Config.MainUIBackgroundMode.GLSL;
+        Config.mainUIVideoBackground = "background.mp4";
         Config.applyGameLanguageDefault();
         Config.termsRead = false;
         Config.fullMode = false;
