@@ -28,6 +28,7 @@ public class ResetManager {
         Config.elytraAutoDeploy = true;
         Config.elytraAutoFirework = true;
         Config.lowHealthNotify = false;
+        Config.damageNumbers = false;
         Config.targetHud = false;
         Config.diggingStatus = false;
         Config.fallDamagePredict = false;

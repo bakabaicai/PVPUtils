@@ -236,6 +236,9 @@ public class RenderPage extends BasePage {
                     Config.save();
                 })));
 
+        modules.add(new SettingModule(UiText.t("伤害数值显示", "Damage Numbers"), UiText.t("显示目标血量变化", "Show target health changes"),
+                new SettingToggle(() -> Config.damageNumbers, v -> { Config.damageNumbers = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
                 .addSub(UiText.t("选择目标 HUD 样式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),

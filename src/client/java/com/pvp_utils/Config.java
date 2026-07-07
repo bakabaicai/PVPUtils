@@ -34,6 +34,7 @@ public class Config {
     public static boolean elytraAutoDeploy = true;
     public static boolean elytraAutoFirework = true;
     public static boolean lowHealthNotify = false;
+    public static boolean damageNumbers = false;
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
     public static boolean fallDamagePredict = false;
@@ -577,6 +578,7 @@ public class Config {
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
+            new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),

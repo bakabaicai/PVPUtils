@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
+import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
@@ -25,6 +26,21 @@ public class ClientPacketListenerMixin {
     @Redirect(method = "handleSetEntityData", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundSetEntityDataPacket;packedItems()Ljava/util/List;", ordinal = 0))
     private List<SynchedEntityData.DataValue<?>> fixLocalPlayerPoseTracker(ClientboundSetEntityDataPacket packet) {
         Minecraft client = Minecraft.getInstance();
+        if (client.level != null) {
+            Entity entity = client.level.getEntity(packet.id());
+            if (entity instanceof LivingEntity living) {
+                float oldHealth = living.getHealth();
+                float maxHealth = living.getMaxHealth();
+                for (SynchedEntityData.DataValue<?> value : packet.packedItems()) {
+                    if (value.serializer().equals(EntityDataSerializers.FLOAT) && value.value() instanceof Float newHealth) {
+                        if (newHealth >= 0.0f && newHealth <= maxHealth + 0.01f && Math.abs(newHealth - oldHealth) >= 0.05f) {
+                            DamageNumberRenderer.getInstance().syncHealth(living, newHealth);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         if (Config.noDoubleSneak && client.level != null && client.player != null) {
             Entity entity = client.level.getEntity(packet.id());
             if (entity == client.player) {

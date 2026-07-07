@@ -8,6 +8,7 @@ import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
+import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -33,6 +34,7 @@ public class MinecraftMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void pvp_utils$tickToolOverrides(CallbackInfo ci) {
         TimeWeatherChanger.tick((Minecraft) (Object) this);
+        DamageNumberRenderer.getInstance().tick((Minecraft) (Object) this);
     }
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
@@ -77,6 +79,7 @@ public class MinecraftMixin {
         if (Config.attackEffectsLightning) {
             spawnAttackLightning(client, target);
         }
+        DamageNumberRenderer.getInstance().watchAttack(target);
     }
 
     private void spawnAttackParticles(Minecraft client, Entity target, ParticleOptions particle, float multiplier) {

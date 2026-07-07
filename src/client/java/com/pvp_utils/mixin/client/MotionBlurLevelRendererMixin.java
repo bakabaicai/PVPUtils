@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.motionblur.MotionBlurManager;
 import net.minecraft.client.Camera;
 import net.minecraft.client.CameraType;
@@ -33,6 +34,7 @@ public class MotionBlurLevelRendererMixin {
 
     @Inject(method = "renderLevel", at = @At("HEAD"))
     private void pvp_utils$onRenderLevelHead(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, Matrix4f frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
+        DamageNumberRenderer.getInstance().captureCamera(modelViewMatrix, projectionMatrix, camera);
         boolean blurActive = MotionBlurManager.shouldRun();
         var camPos = camera.position();
         double cx = camPos.x();
