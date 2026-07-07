@@ -49,6 +49,7 @@ public class Config {
     public static boolean dynamicIslandBlockCountAltIcon = false;
     public static boolean dynamicIslandItemUseStatus = false;
     public static boolean dynamicIslandItemUseStatusRestoresItemUseStatus = false;
+    public static boolean dynamicIslandLowHealthWarning = false;
     public static boolean itemUseStatus = false;
     public static boolean itemPhysics = false;
     public static boolean item2DRender = false;

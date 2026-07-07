@@ -112,6 +112,12 @@ public class RenderPage extends BasePage {
                         new SettingToggle(() -> Config.dynamicIslandItemUseStatus, v -> {
                             Config.setDynamicIslandItemUseStatus(v);
                             Config.save();
+                        }))
+                .addSub(UiText.t("低血量提示", "Low Health Warning"), "",
+                        new SettingToggle(() -> Config.dynamicIslandLowHealthWarning, v -> {
+                            Config.dynamicIslandLowHealthWarning = v;
+                            if (v) Config.lowHealthNotify = false;
+                            Config.save();
                         })));
 
         modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物以更加物理的方式掉落", "Make dropped items fall in a more physical way"),
@@ -224,7 +230,11 @@ public class RenderPage extends BasePage {
                         new SettingToggle(() -> Config.hideHurtShake, v -> { Config.hideHurtShake = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("低血量提示", "Low Health Warning"), UiText.t("血量过低时显示警告", "Show a warning when health is low"),
-                new SettingToggle(() -> Config.lowHealthNotify, v -> { Config.lowHealthNotify = v; Config.save(); })));
+                new SettingToggle(() -> Config.lowHealthNotify, v -> {
+                    Config.lowHealthNotify = v;
+                    if (v) Config.dynamicIslandLowHealthWarning = false;
+                    Config.save();
+                })));
 
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))

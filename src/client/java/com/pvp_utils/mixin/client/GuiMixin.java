@@ -10,7 +10,7 @@ import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
 import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
-import com.pvp_utils.client.modules.impl.Render.DynamicIslandRenderer;
+import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;

@@ -1,9 +1,11 @@
-package com.pvp_utils.client.modules.impl.Render;
+package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
+import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class DynamicIslandRenderer {
     private static final DynamicIslandRenderer INSTANCE = new DynamicIslandRenderer();
@@ -47,6 +50,7 @@ public class DynamicIslandRenderer {
     private static final float SEPARATOR_GAP = 8f;
     private static final float BLOCK_MIN_WIDTH = 206f;
     private static final float BLOCK_HEIGHT = 72f;
+    private static final float ALERT_HEIGHT = 58f;
     private static final float BLOCK_ICON_X = 12f;
     private static final float BLOCK_ICON_Y = 10f;
     private static final float BLOCK_ICON_BOX = 42f;
@@ -151,16 +155,20 @@ public class DynamicIslandRenderer {
         ItemUseStatusRenderer.Snapshot itemUseSnapshot = Config.dynamicIslandItemUseStatus
                 ? ItemUseStatusRenderer.getInstance().snapshot(client)
                 : ItemUseStatusRenderer.Snapshot.EMPTY;
-        boolean itemUseOpen = !tabOpen && itemUseSnapshot.visible();
-        boolean blockOpen = !tabOpen && !itemUseOpen && blockSnapshot.visible();
-        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
+        DynamicIslandNotificationCard notificationCard = DynamicIslandNotifications.snapshot();
+        LowHealthHandler.Snapshot alertSnapshot = LowHealthHandler.snapshot();
+        boolean notificationOpen = !tabOpen && notificationCard.visible();
+        boolean alertOpen = !tabOpen && !notificationOpen && alertSnapshot.visible();
+        boolean itemUseOpen = !tabOpen && !notificationOpen && !alertOpen && itemUseSnapshot.visible();
+        boolean blockOpen = !tabOpen && !notificationOpen && !alertOpen && !itemUseOpen && blockSnapshot.visible();
+        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : notificationOpen ? measureNotificationLayout(client, notificationCard) : alertOpen ? measureAlertLayout(client, alertSnapshot) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
         IslandLayout layout = updateAnimatedLayout(targetLayout);
         float islandScale = getScale();
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
         SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, BLUR_TINT, BLUR_STRENGTH);
-        renderTextTexture(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, layout, tabOpen, blockOpen, itemUseOpen);
+        renderTextTexture(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen);
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(islandScale, islandScale);
@@ -254,13 +262,27 @@ public class DynamicIslandRenderer {
         return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
     }
 
+    private IslandLayout measureAlertLayout(Minecraft client, LowHealthHandler.Snapshot snapshot) {
+        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(snapshot.title(), 13.5f), measureBlockText(snapshot.message(), 11f)) + BLOCK_RIGHT_PADDING;
+        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
+        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
+        return new IslandLayout(width, ALERT_HEIGHT, 14f, false);
+    }
+
+    private IslandLayout measureNotificationLayout(Minecraft client, DynamicIslandNotificationCard card) {
+        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(card.title(), 13.5f), measureBlockText(card.message(), 11f)) + BLOCK_RIGHT_PADDING;
+        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
+        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
+        return new IslandLayout(width, ALERT_HEIGHT, 14f, false);
+    }
+
     private IslandLayout measureTabLayout(Minecraft client, List<PlayerInfo> players) {
         int count = Math.max(1, players.size());
         int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
         int rows = Math.max(1, (count + columns - 1) / columns);
         float nameW = 120f;
         for (PlayerInfo player : players) {
-            nameW = Math.max(nameW, measure(resolveTabName(player, TAB_DEFAULT_NAME_COLOR).text()));
+            nameW = Math.max(nameW, measure(resolveTabName(player, TAB_DEFAULT_NAME_COLOR).getKey()));
         }
         float columnW = clamp(nameW + 48f, 150f, 230f);
         float rawWidth = TAB_SIDE_PADDING * 2f + columns * columnW + (columns - 1) * TAB_COLUMN_GAP;
@@ -279,12 +301,12 @@ public class DynamicIslandRenderer {
         return FontRenderer.measureTextWidth(text, size);
     }
 
-    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen) {
+    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, LowHealthHandler.Snapshot alertSnapshot, DynamicIslandNotificationCard notificationCard, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen, boolean alertOpen, boolean notificationOpen) {
         ensureNativeLoaded();
         float scale = Math.max(1f, (float) client.getWindow().getGuiScale());
         int targetW = Math.max(1, Math.round(layout.width * scale));
         int targetH = Math.max(1, Math.round(layout.height * scale));
-        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
+        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + alertKey(alertSnapshot, alertOpen) + "|" + notificationKey(notificationCard, notificationOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
         if (texture != null && targetW == textureW && targetH == textureH && key.equals(lastContentKey) && scale == lastScale) {
             return;
         }
@@ -310,6 +332,10 @@ public class DynamicIslandRenderer {
         canvas.scale(scale, scale);
         if (tabOpen || tabContentFade > 0f) {
             drawTabContent(canvas, tabPlayers, layout, tabContentFade);
+        } else if (notificationOpen) {
+            drawNotificationContent(canvas, notificationCard, layout);
+        } else if (alertOpen) {
+            drawAlertContent(canvas, alertSnapshot, layout);
         } else if (itemUseOpen) {
             drawItemUseContent(canvas, itemUseSnapshot, layout);
         } else if (blockOpen) {
@@ -346,6 +372,16 @@ public class DynamicIslandRenderer {
     private String itemUseKey(ItemUseStatusRenderer.Snapshot snapshot, boolean itemUseOpen) {
         if (!itemUseOpen || !snapshot.visible()) return "itemuse:none";
         return "itemuse:" + snapshot.itemName() + "|" + Math.round(snapshot.progress() * 220f) + "|" + Math.round(snapshot.alpha() * 255f);
+    }
+
+    private String alertKey(LowHealthHandler.Snapshot snapshot, boolean alertOpen) {
+        if (!alertOpen || !snapshot.visible()) return "alert:none";
+        return "alert:" + snapshot.stage() + "|" + snapshot.icon() + "|" + snapshot.title() + "|" + snapshot.message();
+    }
+
+    private String notificationKey(DynamicIslandNotificationCard card, boolean notificationOpen) {
+        if (!notificationOpen || !card.visible()) return "notification:none";
+        return "notification:" + card.icon() + "|" + card.title() + "|" + card.message() + "|" + card.accentColor();
     }
 
     private String blockDetail(BlockCountDisplayRenderer.Snapshot snapshot) {
@@ -466,6 +502,31 @@ public class DynamicIslandRenderer {
         canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
     }
 
+    private void drawAlertContent(Canvas canvas, LowHealthHandler.Snapshot snapshot, IslandLayout layout) {
+        drawNotificationLikeContent(canvas, snapshot.icon(), snapshot.title(), snapshot.message(), 0xFFFFFFFF, layout);
+    }
+
+    private void drawNotificationContent(Canvas canvas, DynamicIslandNotificationCard card, IslandLayout layout) {
+        drawNotificationLikeContent(canvas, card.icon(), card.title(), card.message(), card.accentColor(), layout);
+    }
+
+    private void drawNotificationLikeContent(Canvas canvas, String icon, String title, String message, int accentColor, IslandLayout layout) {
+        int alpha = 255;
+        Paint iconBg = new Paint().setAntiAlias(true);
+        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, 8f, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
+
+        float iconSize = 23f;
+        float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
+        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 40.8f, iconSize, withAlpha(accentColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
+
+        String trimmedTitle = trimToWidth(title, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
+        String trimmedMessage = trimToWidth(message, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 11f);
+        FontRenderer.drawText(canvas, trimmedTitle, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(accentColor, alpha));
+        FontRenderer.drawText(canvas, trimmedMessage, BLOCK_TEXT_X, 41f, 11f, withAlpha(0xE8FFFFFF, alpha));
+    }
+
     private List<PlayerInfo> getTabPlayers(Minecraft client) {
         if (client.getConnection() == null) return List.of();
         List<PlayerInfo> players = new ArrayList<>(client.getConnection().getListedOnlinePlayers());
@@ -494,9 +555,9 @@ public class DynamicIslandRenderer {
             float y = startY + row * TAB_ROW_HEIGHT;
             PlayerInfo player = players.get(i);
             int baseColor = player.getGameMode() == GameType.SPECTATOR ? TAB_SPECTATOR_NAME_COLOR : TAB_DEFAULT_NAME_COLOR;
-            FormattedTabName formattedName = resolveTabName(player, baseColor);
-            String name = trimToWidth(formattedName.text(), columnW - 46f, TAB_NAME_SIZE);
-            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.color();
+            Map.Entry<String, Integer> formattedName = resolveTabName(player, baseColor);
+            String name = trimToWidth(formattedName.getKey(), columnW - 46f, TAB_NAME_SIZE);
+            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.getValue();
             FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
 
             String latency = formatLatency(player.getLatency());
@@ -505,12 +566,12 @@ public class DynamicIslandRenderer {
         }
     }
 
-    private FormattedTabName resolveTabName(PlayerInfo player, int fallbackColor) {
+    private Map.Entry<String, Integer> resolveTabName(PlayerInfo player, int fallbackColor) {
         Component displayName = player.getTabListDisplayName();
         int teamColor = teamColor(player, fallbackColor);
         if (displayName != null) {
-            FormattedTabName componentName = parseComponentTabName(displayName, teamColor);
-            if (!componentName.text().isBlank()) {
+            Map.Entry<String, Integer> componentName = parseComponentTabName(displayName, teamColor);
+            if (!componentName.getKey().isBlank()) {
                 return componentName;
             }
         }
@@ -518,8 +579,8 @@ public class DynamicIslandRenderer {
         PlayerTeam team = player.getTeam();
         if (team != null) {
             Component formatted = team.getFormattedName(Component.literal(player.getProfile().name()));
-            FormattedTabName teamName = parseComponentTabName(formatted, teamColor);
-            if (!teamName.text().isBlank()) {
+            Map.Entry<String, Integer> teamName = parseComponentTabName(formatted, teamColor);
+            if (!teamName.getKey().isBlank()) {
                 return teamName;
             }
         }
@@ -527,9 +588,9 @@ public class DynamicIslandRenderer {
         return parseLegacyTabName(player.getProfile().name(), teamColor);
     }
 
-    private FormattedTabName parseComponentTabName(Component component, int fallbackColor) {
+    private Map.Entry<String, Integer> parseComponentTabName(Component component, int fallbackColor) {
         if (component == null) {
-            return new FormattedTabName("", fallbackColor);
+            return Map.entry("", fallbackColor);
         }
 
         StringBuilder cleanName = new StringBuilder();
@@ -541,23 +602,23 @@ public class DynamicIslandRenderer {
                 color[0] = parsedColor;
                 sawExplicitColor[0] = true;
             }
-            FormattedTabName parsedText = parseLegacyTabName(text, sawExplicitColor[0] ? color[0] : fallbackColor);
-            if (!sawExplicitColor[0] && parsedText.color() != fallbackColor && containsVisibleText(parsedText.text())) {
-                color[0] = parsedText.color();
+            Map.Entry<String, Integer> parsedText = parseLegacyTabName(text, sawExplicitColor[0] ? color[0] : fallbackColor);
+            if (!sawExplicitColor[0] && parsedText.getValue() != fallbackColor && containsVisibleText(parsedText.getKey())) {
+                color[0] = parsedText.getValue();
                 sawExplicitColor[0] = true;
             }
-            cleanName.append(parsedText.text());
+            cleanName.append(parsedText.getKey());
             return java.util.Optional.empty();
         }, component.getStyle() == null ? Style.EMPTY : component.getStyle());
         if (cleanName.isEmpty()) {
             return parseLegacyTabName(component.getString(), fallbackColor);
         }
-        return new FormattedTabName(cleanName.toString(), color[0]);
+        return Map.entry(cleanName.toString(), color[0]);
     }
 
-    private FormattedTabName parseLegacyTabName(String rawName, int fallbackColor) {
+    private Map.Entry<String, Integer> parseLegacyTabName(String rawName, int fallbackColor) {
         if (rawName == null || rawName.isEmpty()) {
-            return new FormattedTabName("", fallbackColor);
+            return Map.entry("", fallbackColor);
         }
 
         StringBuilder cleanName = new StringBuilder(rawName.length());
@@ -581,7 +642,7 @@ public class DynamicIslandRenderer {
             }
             cleanName.append(current);
         }
-        return new FormattedTabName(cleanName.toString(), color);
+        return Map.entry(cleanName.toString(), color);
     }
 
     private Integer parseHexColor(String rawName, int sectionIndex) {
@@ -609,7 +670,7 @@ public class DynamicIslandRenderer {
 
     private boolean containsVisibleText(String text) {
         if (text == null || text.isEmpty()) return false;
-        return !parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR).text().isBlank();
+        return !parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR).getKey().isBlank();
     }
 
     private Integer styleColor(Style style) {
@@ -648,9 +709,9 @@ public class DynamicIslandRenderer {
                     color[0] = styleColor;
                     found[0] = true;
                 } else {
-                    FormattedTabName parsed = parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR);
-                    if (parsed.color() != TAB_DEFAULT_NAME_COLOR) {
-                        color[0] = parsed.color();
+                    Map.Entry<String, Integer> parsed = parseLegacyTabName(text, TAB_DEFAULT_NAME_COLOR);
+                    if (parsed.getValue() != TAB_DEFAULT_NAME_COLOR) {
+                        color[0] = parsed.getValue();
                         found[0] = true;
                     }
                 }
@@ -827,8 +888,5 @@ public class DynamicIslandRenderer {
     }
 
     private record IslandLayout(float width, float height, float radius, boolean isTab) {
-    }
-
-    private record FormattedTabName(String text, int color) {
     }
 }

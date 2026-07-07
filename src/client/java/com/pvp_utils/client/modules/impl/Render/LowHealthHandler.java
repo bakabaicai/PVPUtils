@@ -7,33 +7,44 @@ import net.minecraft.sounds.SoundEvents;
 
 public class LowHealthHandler {
     private static int lastStage = 0;
+    private static String lastTitle = "";
+    private static String lastMessage = "";
+    private static String lastIcon = "";
 
     public static void onHealthUpdate(Minecraft client, float health) {
-        if (!Config.lowHealthNotify || client.player == null || !client.player.isAlive()) {
+        boolean islandEnabled = Config.dynamicIsland && Config.dynamicIslandLowHealthWarning;
+        boolean notifyEnabled = Config.lowHealthNotify || islandEnabled;
+        if (!notifyEnabled || client.player == null || !client.player.isAlive()) {
             reset(500);
             return;
         }
 
-        int currentStage = 0;
-        if (health <= 6.0f) {
-            currentStage = 2;
-        } else if (health <= 10.0f) {
-            currentStage = 1;
-        }
+        int currentStage = health <= 10.0f ? 1 : 0;
 
         if (currentStage != lastStage) {
             if (currentStage == 0) {
                 reset(1000);
-            } else if (currentStage == 1) {
-                String msg = Config.isChinese ? "低血量警告，请及时补充血量" : "Low health warning, please replenish health";
-                NotificationOverlay.getInstance().showPersistentSymbol(msg, 0xFFFF55, "\uE001", 0xFFFF55);
+            } else {
+                showStage(Config.isChinese ? "低血量警告，请及时补充血量" : "Low health warning, please replenish health", "\uF22F", 0xFFFF55);
                 playAnvil(client, 1);
-            } else if (currentStage == 2) {
-                String msg = Config.isChinese ? "极低生命值警告，请及时补充血量！！！" : "CRITICAL health warning, replenish health NOW!!!";
-                NotificationOverlay.getInstance().showPersistentSymbol(msg, 0xFF5555, "\uE002", 0xFF5555);
-                playAnvil(client, 3);
             }
             lastStage = currentStage;
+        }
+    }
+
+    public static Snapshot snapshot() {
+        if (!Config.dynamicIsland || !Config.dynamicIslandLowHealthWarning || lastStage == 0 || lastTitle.isEmpty()) {
+            return Snapshot.EMPTY;
+        }
+        return new Snapshot(true, lastStage, lastIcon, lastTitle, lastMessage);
+    }
+
+    private static void showStage(String message, String icon, int color) {
+        lastTitle = "Low Health Warning";
+        lastMessage = message;
+        lastIcon = icon;
+        if (Config.lowHealthNotify && (!Config.dynamicIsland || !Config.dynamicIslandLowHealthWarning)) {
+            NotificationOverlay.getInstance().showPersistentSymbol(message, color, icon, color);
         }
     }
 
@@ -41,6 +52,9 @@ public class LowHealthHandler {
         if (lastStage != 0) {
             NotificationOverlay.getInstance().stopPersistent(delay);
             lastStage = 0;
+            lastTitle = "";
+            lastMessage = "";
+            lastIcon = "";
         }
     }
 
@@ -48,14 +62,18 @@ public class LowHealthHandler {
         new Thread(() -> {
             try {
                 for (int i = 0; i < count; i++) {
-                    client.execute(() -> {
-                        client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ANVIL_LAND, 1.0f));
-                    });
+                    client.execute(() -> client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.ANVIL_LAND, 1.0f)));
                     if (count > 1) Thread.sleep(160);
                 }
-            } catch (InterruptedException ignored) {}
-        }).start();
+            } catch (InterruptedException ignored) {
+            }
+        }, "pvp-utils-low-health-sound").start();
     }
 
-    public static void tick(Minecraft client) {}
+    public static void tick(Minecraft client) {
+    }
+
+    public record Snapshot(boolean visible, int stage, String icon, String title, String message) {
+        public static final Snapshot EMPTY = new Snapshot(false, 0, "", "", "");
+    }
 }

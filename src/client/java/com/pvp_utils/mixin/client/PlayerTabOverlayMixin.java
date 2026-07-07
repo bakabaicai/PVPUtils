@@ -1,7 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.modules.impl.Render.DynamicIslandRenderer;
+import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.world.scores.Objective;
