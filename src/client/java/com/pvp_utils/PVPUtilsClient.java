@@ -14,6 +14,7 @@ import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
+import com.pvp_utils.client.modules.impl.Render.CustomEnchantmentGlint;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
@@ -47,6 +48,7 @@ public class PVPUtilsClient implements ClientModInitializer {
             InputMethodFix.tick(client);
             FishingRodAssistManager.tick(client);
             BlockCountDisplayRenderer.getInstance().tick(client);
+            CustomEnchantmentGlint.tick(client);
             FakePlayerManager.tick(client);
             ZoomManager.tick(client);
             FreelookManager.tick(client);

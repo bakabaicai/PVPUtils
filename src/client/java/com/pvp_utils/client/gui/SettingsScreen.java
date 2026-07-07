@@ -136,6 +136,7 @@ public class SettingsScreen extends Screen {
                     Config.hitColorGreen = 0;
                     Config.hitColorBlue = 0;
                     Config.hitColorAlpha = 179;
+                    Config.customEnchantmentGlint = false;
                     Config.armorHud = false;
                     Config.potionStatus = false;
                     Config.blockCountDisplayX = 0f;

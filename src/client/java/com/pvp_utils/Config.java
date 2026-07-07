@@ -74,6 +74,7 @@ public class Config {
     public static boolean attackEffectsBloodParticles = false;
     public static boolean attackEffectsLightning = false;
     public static boolean hitColor = false;
+    public static boolean customEnchantmentGlint = false;
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
@@ -283,6 +284,7 @@ public class Config {
             attackEffectsBloodParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsBloodParticles", "false"));
             attackEffectsLightning = Boolean.parseBoolean(prop.getProperty("attackEffectsLightning", "false"));
             hitColor = Boolean.parseBoolean(prop.getProperty("hitColor", "false"));
+            customEnchantmentGlint = Boolean.parseBoolean(prop.getProperty("customEnchantmentGlint", "false"));
             noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
             customCape = Boolean.parseBoolean(prop.getProperty("customCape", "false"));
             chatHudEditQuickEnable = Boolean.parseBoolean(prop.getProperty("chatHudEditQuickEnable", "true"));
@@ -449,6 +451,7 @@ public class Config {
             prop.setProperty("attackEffectsBloodParticles", String.valueOf(attackEffectsBloodParticles));
             prop.setProperty("attackEffectsLightning", String.valueOf(attackEffectsLightning));
             prop.setProperty("hitColor", String.valueOf(hitColor));
+            prop.setProperty("customEnchantmentGlint", String.valueOf(customEnchantmentGlint));
             prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
             prop.setProperty("customCape", String.valueOf(customCape));
             prop.setProperty("chatHudEditQuickEnable", String.valueOf(chatHudEditQuickEnable));

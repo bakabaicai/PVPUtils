@@ -68,6 +68,9 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示当前受击覆盖颜色", "Preview the current hit overlay color"),
                         new SettingColorPreview(() -> hitColorArgb())));
 
+        modules.add(new SettingModule(UiText.t("彩虹附魔光效", "Rainbow Enchantment Glint"), UiText.t("将附魔光效更改为彩虹色", "Change the enchantment glint to rainbow colors"),
+                new SettingToggle(() -> Config.customEnchantmentGlint, v -> { Config.customEnchantmentGlint = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("自动格挡", "Auto Block"), UiText.t("自动触发格挡动作", "Automatically trigger blocking"),
                 new SettingToggle(() -> Config.autoMode, v -> { Config.autoMode = v; Config.save(); }))
                 .addSub(UiText.t("触发距离", "Trigger Range"), UiText.t("自定义近战触发距离", "Customize melee trigger range"),

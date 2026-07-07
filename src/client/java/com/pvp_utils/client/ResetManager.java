@@ -87,6 +87,7 @@ public class ResetManager {
         Config.hitColorGreen = 0;
         Config.hitColorBlue = 0;
         Config.hitColorAlpha = 179;
+        Config.customEnchantmentGlint = false;
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;
