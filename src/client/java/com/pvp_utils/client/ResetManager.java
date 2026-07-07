@@ -43,6 +43,8 @@ public class ResetManager {
         Config.dynamicIslandBlockCount = false;
         Config.dynamicIslandBlockCountRestoresBlockCount = false;
         Config.dynamicIslandBlockCountAltIcon = false;
+        Config.dynamicIslandItemUseStatus = false;
+        Config.dynamicIslandItemUseStatusRestoresItemUseStatus = false;
         Config.itemUseStatus = false;
         Config.itemUseStatusMode = Config.ItemUseStatusMode.LITE;
         Config.itemPhysics = false;

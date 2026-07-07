@@ -83,7 +83,7 @@ public class RenderPage extends BasePage {
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
-                new SettingToggle(() -> Config.itemUseStatus, v -> { Config.itemUseStatus = v; Config.save(); }))
+                new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); }))
                 .addSub(UiText.t("模式", "Mode"), UiText.t("选择物品使用状态显示样式", "Choose the item use status style"),
                         new SettingCycle(List.of("Lite", "New"),
                                 () -> Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? 1 : 0,
@@ -107,7 +107,12 @@ public class RenderPage extends BasePage {
                             Config.dynamicIslandBlockCountAltIcon = v;
                             Config.save();
                         }),
-                        () -> Config.dynamicIslandBlockCount));
+                        () -> Config.dynamicIslandBlockCount)
+                .addSub(UiText.t("物品使用状态", "Item Use Status"), "",
+                        new SettingToggle(() -> Config.dynamicIslandItemUseStatus, v -> {
+                            Config.setDynamicIslandItemUseStatus(v);
+                            Config.save();
+                        })));
 
         modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物以更加物理的方式掉落", "Make dropped items fall in a more physical way"),
                 new SettingToggle(() -> Config.itemPhysics, v -> {

@@ -63,6 +63,7 @@ public final class ItemUseStatusRenderer {
     private float lastProgress;
     private float mixinProgress;
     private float animatedProgress;
+    private String lastItemName = "Item";
     private long lastFrameTime;
     private Surface newSurface;
     private DynamicTexture newTexture;
@@ -110,7 +111,7 @@ public final class ItemUseStatusRenderer {
         Minecraft client = Minecraft.getInstance();
         if (player == null || client == null || client.player != player) return;
 
-        boolean enabled = Config.itemUseStatus;
+        boolean enabled = Config.itemUseStatus || (Config.dynamicIsland && Config.dynamicIslandItemUseStatus);
         boolean using = player.isUsingItem();
         ItemStack stack = player.getUseItem();
         int remaining = using ? player.getUseItemRemainingTicks() : 0;
@@ -131,14 +132,25 @@ public final class ItemUseStatusRenderer {
 
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
+        if (!Config.itemUseStatus) {
+            if (!(Config.dynamicIsland && Config.dynamicIslandItemUseStatus)) {
+                visible = false;
+                lastProgress = 0.0f;
+                animatedProgress = 0.0f;
+                lastItemName = "Item";
+                lastFrameTime = 0L;
+            }
+            return;
+        }
         long now = System.currentTimeMillis();
         UseState state = currentUseState(client, now);
         boolean activeNow = state != null;
 
-        if (!Config.itemUseStatus || client.player == null || client.level == null || state == null) {
-            if (!Config.itemUseStatus || client.player == null || client.level == null) {
+        if (client.player == null || client.level == null || state == null) {
+            if (client.player == null || client.level == null) {
                 visible = false;
                 lastProgress = 0.0f;
+                lastItemName = "Item";
                 return;
             }
         }
@@ -151,6 +163,7 @@ public final class ItemUseStatusRenderer {
             }
             lastActiveTime = now;
             lastProgress = state.progress();
+            lastItemName = state.itemName();
         }
 
         if (!visible) return;
@@ -165,6 +178,7 @@ public final class ItemUseStatusRenderer {
                 visible = false;
                 lastProgress = 0.0f;
                 animatedProgress = 0.0f;
+                lastItemName = "Item";
                 lastFrameTime = 0L;
             }
             return;
@@ -177,13 +191,64 @@ public final class ItemUseStatusRenderer {
         }
     }
 
+    public Snapshot snapshot(Minecraft client) {
+        if (!Config.dynamicIsland || !Config.dynamicIslandItemUseStatus || client == null) {
+            return Snapshot.EMPTY;
+        }
+        long now = System.currentTimeMillis();
+        UseState state = currentUseState(client, now);
+        boolean activeNow = state != null;
+
+        if (client.player == null || client.level == null) {
+            visible = false;
+            lastProgress = 0.0f;
+            animatedProgress = 0.0f;
+            lastItemName = "Item";
+            lastFrameTime = 0L;
+            return Snapshot.EMPTY;
+        }
+
+        if (state != null) {
+            if (!visible) {
+                appearTime = now;
+                visible = true;
+                animatedProgress = state.progress();
+            }
+            lastActiveTime = now;
+            lastProgress = state.progress();
+            lastItemName = state.itemName();
+        }
+
+        if (!visible) return Snapshot.EMPTY;
+        updateAnimatedProgress(now);
+
+        float fadeIn = (now - appearTime) / (float) ANIM_DURATION_MS;
+        float fadeOut = 1.0f - (now - (lastActiveTime + HIDE_DELAY_MS)) / (float) ANIM_DURATION_MS;
+        float alpha = easeOutCubic(Mth.clamp(Math.min(fadeIn, fadeOut), 0.0f, 1.0f));
+        if (alpha <= 0.0f) {
+            if (!activeNow) {
+                visible = false;
+                lastProgress = 0.0f;
+                animatedProgress = 0.0f;
+                lastItemName = "Item";
+                lastFrameTime = 0L;
+            }
+            return Snapshot.EMPTY;
+        }
+
+        String itemName = state != null ? state.itemName() : lastItemName;
+        return new Snapshot(true, alpha, itemName, animatedProgress);
+    }
+
     private UseState currentUseState(Minecraft client, long now) {
         if (client == null || client.player == null || client.level == null || client.gameMode == null) return null;
         Screen screen = client.screen;
         if (screen != null) return null;
 
         if (mixinActive && now - lastMixinSampleTime < 250L) {
-            return new UseState(mixinProgress);
+            ItemStack stack = client.player.getUseItem();
+            String itemName = stack.isEmpty() ? "Item" : stack.getHoverName().getString();
+            return new UseState(mixinProgress, itemName);
         }
 
         if (!client.player.isUsingItem()) return null;
@@ -198,7 +263,7 @@ public final class ItemUseStatusRenderer {
         int rawDuration = stack.getUseDuration(client.player);
         int usedTicks = getUsedTicks(stack, remaining, duration, rawDuration);
         float progress = calculateProgress(stack, usedTicks, duration, rawDuration);
-        return new UseState(progress);
+        return new UseState(progress, stack.getHoverName().getString());
     }
 
     private boolean shouldDisplay(ItemStack stack) {
@@ -469,5 +534,9 @@ public final class ItemUseStatusRenderer {
         return Math.max(min, Math.min(max, value));
     }
 
-    private record UseState(float progress) {}
+    public record Snapshot(boolean visible, float alpha, String itemName, float progress) {
+        public static final Snapshot EMPTY = new Snapshot(false, 0f, "", 0f);
+    }
+
+    private record UseState(float progress, String itemName) {}
 }

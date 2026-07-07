@@ -69,6 +69,7 @@ public class DynamicIslandRenderer {
     private static final String ICON_PERSON = "\uE7FD";
     private static final String ICON_BLOCK = "\uF720";
     private static final String ICON_BLOCK_ALT = "\uE934";
+    private static final String ICON_ITEM_USE = "\uE425";
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
     private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
@@ -147,15 +148,19 @@ public class DynamicIslandRenderer {
         BlockCountDisplayRenderer.Snapshot blockSnapshot = Config.dynamicIslandBlockCount
                 ? BlockCountDisplayRenderer.getInstance().snapshot(client)
                 : BlockCountDisplayRenderer.Snapshot.EMPTY;
-        boolean blockOpen = !tabOpen && blockSnapshot.visible();
-        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
+        ItemUseStatusRenderer.Snapshot itemUseSnapshot = Config.dynamicIslandItemUseStatus
+                ? ItemUseStatusRenderer.getInstance().snapshot(client)
+                : ItemUseStatusRenderer.Snapshot.EMPTY;
+        boolean itemUseOpen = !tabOpen && itemUseSnapshot.visible();
+        boolean blockOpen = !tabOpen && !itemUseOpen && blockSnapshot.visible();
+        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
         IslandLayout layout = updateAnimatedLayout(targetLayout);
         float islandScale = getScale();
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
         SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, BLUR_TINT, BLUR_STRENGTH);
-        renderTextTexture(client, content, tabPlayers, blockSnapshot, layout, tabOpen, blockOpen);
+        renderTextTexture(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, layout, tabOpen, blockOpen, itemUseOpen);
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(islandScale, islandScale);
@@ -240,6 +245,15 @@ public class DynamicIslandRenderer {
         return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
     }
 
+    private IslandLayout measureItemUseLayout(Minecraft client, ItemUseStatusRenderer.Snapshot snapshot) {
+        String title = itemUseTitle(snapshot);
+        String detail = itemUseDetail(snapshot);
+        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(title, 13.5f), measureBlockText(detail, 11f)) + BLOCK_RIGHT_PADDING;
+        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
+        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
+        return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
+    }
+
     private IslandLayout measureTabLayout(Minecraft client, List<PlayerInfo> players) {
         int count = Math.max(1, players.size());
         int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
@@ -265,12 +279,12 @@ public class DynamicIslandRenderer {
         return FontRenderer.measureTextWidth(text, size);
     }
 
-    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, IslandLayout layout, boolean tabOpen, boolean blockOpen) {
+    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen) {
         ensureNativeLoaded();
         float scale = Math.max(1f, (float) client.getWindow().getGuiScale());
         int targetW = Math.max(1, Math.round(layout.width * scale));
         int targetH = Math.max(1, Math.round(layout.height * scale));
-        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
+        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
         if (texture != null && targetW == textureW && targetH == textureH && key.equals(lastContentKey) && scale == lastScale) {
             return;
         }
@@ -296,6 +310,8 @@ public class DynamicIslandRenderer {
         canvas.scale(scale, scale);
         if (tabOpen || tabContentFade > 0f) {
             drawTabContent(canvas, tabPlayers, layout, tabContentFade);
+        } else if (itemUseOpen) {
+            drawItemUseContent(canvas, itemUseSnapshot, layout);
         } else if (blockOpen) {
             drawBlockCountContent(canvas, blockSnapshot, layout);
         } else {
@@ -327,8 +343,21 @@ public class DynamicIslandRenderer {
         return "block:" + snapshot.itemName() + "|" + snapshot.blocksLeft() + "|" + snapshot.blocksPerSecond() + "|" + Math.round(snapshot.progress() * 160f) + "|" + Math.round(snapshot.alpha() * 255f);
     }
 
+    private String itemUseKey(ItemUseStatusRenderer.Snapshot snapshot, boolean itemUseOpen) {
+        if (!itemUseOpen || !snapshot.visible()) return "itemuse:none";
+        return "itemuse:" + snapshot.itemName() + "|" + Math.round(snapshot.progress() * 220f) + "|" + Math.round(snapshot.alpha() * 255f);
+    }
+
     private String blockDetail(BlockCountDisplayRenderer.Snapshot snapshot) {
         return snapshot.blocksLeft() + " blocks left - " + String.format(Locale.ROOT, "%.2f block/s", snapshot.blocksPerSecond());
+    }
+
+    private String itemUseTitle(ItemUseStatusRenderer.Snapshot snapshot) {
+        return "Using " + snapshot.itemName();
+    }
+
+    private String itemUseDetail(ItemUseStatusRenderer.Snapshot snapshot) {
+        return Math.round(clamp(snapshot.progress(), 0f, 1f) * 100f) + "%";
     }
 
     private void drawCenteredContent(Canvas canvas, IslandContent content, IslandLayout layout) {
@@ -403,6 +432,37 @@ public class DynamicIslandRenderer {
         float fillW = Math.max(BLOCK_PROGRESS_H, progressW * clamp(snapshot.progress(), 0f, 1f));
         Paint fill = new Paint().setAntiAlias(true);
         fill.setColor(progressColor(snapshot.progress(), alpha));
+        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
+    }
+
+    private void drawItemUseContent(Canvas canvas, ItemUseStatusRenderer.Snapshot snapshot, IslandLayout layout) {
+        int alpha = Math.round(clamp(snapshot.alpha(), 0f, 1f) * 255f);
+        if (alpha <= 0) return;
+
+        Paint iconBg = new Paint().setAntiAlias(true);
+        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
+        float iconSize = 23f;
+        float iconW = FontRenderer.measureTextWidth(ICON_ITEM_USE, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
+        FontRenderer.drawText(canvas, ICON_ITEM_USE, iconX + 0.2f, 42.8f, iconSize, withAlpha(0xFFFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+
+        String title = trimToWidth(itemUseTitle(snapshot), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
+        String detail = itemUseDetail(snapshot);
+        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(0xFFFFFFFF, alpha));
+        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(0xE8FFFFFF, alpha));
+
+        float progressX = BLOCK_PROGRESS_X;
+        float progressW = Math.max(80f, layout.width - progressX * 2f);
+
+        Paint track = new Paint().setAntiAlias(true);
+        track.setColor(multiplyAlpha(0x55FFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
+
+        float progress = clamp(snapshot.progress(), 0f, 1f);
+        float fillW = Math.max(BLOCK_PROGRESS_H, progressW * progress);
+        Paint fill = new Paint().setAntiAlias(true);
+        fill.setColor(progressColor(progress, alpha));
         canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
     }
 

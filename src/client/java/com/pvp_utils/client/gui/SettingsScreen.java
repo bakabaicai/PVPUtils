@@ -107,6 +107,8 @@ public class SettingsScreen extends Screen {
                     Config.blockCountDisplay = false;
                     Config.dynamicIslandBlockCountRestoresBlockCount = false;
                     Config.dynamicIslandBlockCountAltIcon = false;
+                    Config.dynamicIslandItemUseStatus = false;
+                    Config.dynamicIslandItemUseStatusRestoresItemUseStatus = false;
                     Config.zoom = false;
                     Config.zoomScroll = true;
                     Config.zoomAmount = 4;

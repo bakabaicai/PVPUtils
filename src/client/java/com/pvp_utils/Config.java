@@ -47,6 +47,8 @@ public class Config {
     public static boolean dynamicIslandBlockCount = false;
     public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
     public static boolean dynamicIslandBlockCountAltIcon = false;
+    public static boolean dynamicIslandItemUseStatus = false;
+    public static boolean dynamicIslandItemUseStatusRestoresItemUseStatus = false;
     public static boolean itemUseStatus = false;
     public static boolean itemPhysics = false;
     public static boolean item2DRender = false;
@@ -218,8 +220,12 @@ public class Config {
             if (dynamicIslandBlockCount) {
                 applyDynamicIslandBlockCountOverride();
             }
+            if (dynamicIslandItemUseStatus) {
+                applyDynamicIslandItemUseStatusOverride();
+            }
         } else {
             restoreBlockCountDisplayFromDynamicIsland();
+            restoreItemUseStatusFromDynamicIsland();
         }
     }
 
@@ -242,11 +248,35 @@ public class Config {
         }
     }
 
+    public static void setDynamicIslandItemUseStatus(boolean value) {
+        dynamicIslandItemUseStatus = value;
+        if (value) {
+            if (dynamicIsland) {
+                applyDynamicIslandItemUseStatusOverride();
+            }
+        } else {
+            restoreItemUseStatusFromDynamicIsland();
+        }
+    }
+
+    public static void setItemUseStatus(boolean value) {
+        itemUseStatus = value;
+        if (value) {
+            dynamicIslandItemUseStatus = false;
+            dynamicIslandItemUseStatusRestoresItemUseStatus = false;
+        }
+    }
+
     private static void normalizeDynamicIslandBlockCountState() {
         if (dynamicIsland && dynamicIslandBlockCount) {
             applyDynamicIslandBlockCountOverride();
         } else {
             restoreBlockCountDisplayFromDynamicIsland();
+        }
+        if (dynamicIsland && dynamicIslandItemUseStatus) {
+            applyDynamicIslandItemUseStatusOverride();
+        } else {
+            restoreItemUseStatusFromDynamicIsland();
         }
     }
 
@@ -261,6 +291,20 @@ public class Config {
         if (dynamicIslandBlockCountRestoresBlockCount) {
             blockCountDisplay = true;
             dynamicIslandBlockCountRestoresBlockCount = false;
+        }
+    }
+
+    private static void applyDynamicIslandItemUseStatusOverride() {
+        if (itemUseStatus) {
+            itemUseStatus = false;
+            dynamicIslandItemUseStatusRestoresItemUseStatus = true;
+        }
+    }
+
+    private static void restoreItemUseStatusFromDynamicIsland() {
+        if (dynamicIslandItemUseStatusRestoresItemUseStatus) {
+            itemUseStatus = true;
+            dynamicIslandItemUseStatusRestoresItemUseStatus = false;
         }
     }
 
