@@ -96,7 +96,18 @@ public class RenderPage extends BasePage {
                                 })));
 
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
-                new SettingToggle(() -> Config.dynamicIsland, v -> { Config.dynamicIsland = v; Config.save(); })));
+                new SettingToggle(() -> Config.dynamicIsland, v -> { Config.setDynamicIsland(v); Config.save(); }))
+                .addSub(UiText.t("方块数量显示", "Block Count Display"), "",
+                        new SettingToggle(() -> Config.dynamicIslandBlockCount, v -> {
+                            Config.setDynamicIslandBlockCount(v);
+                            Config.save();
+                        }))
+                .addSub("???", "",
+                        new SettingToggle(() -> Config.dynamicIslandBlockCountAltIcon, v -> {
+                            Config.dynamicIslandBlockCountAltIcon = v;
+                            Config.save();
+                        }),
+                        () -> Config.dynamicIslandBlockCount));
 
         modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物以更加物理的方式掉落", "Make dropped items fall in a more physical way"),
                 new SettingToggle(() -> Config.itemPhysics, v -> {

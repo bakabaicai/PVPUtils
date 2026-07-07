@@ -29,7 +29,10 @@ public class ToolPage extends BasePage {
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、放置速度和点击速度", "Show block count, placement speed, and click speed while right-clicking blocks"),
-                new SettingToggle(() -> Config.blockCountDisplay, v -> { Config.blockCountDisplay = v; Config.save(); }))
+                new SettingToggle(() -> Config.blockCountDisplay, v -> {
+                    Config.setBlockCountDisplay(v);
+                    Config.save();
+                }))
                 .addSub(UiText.t("样式", "Mode"), UiText.t("选择方块数量显示样式", "Choose the Block Count Display style"),
                         new SettingCycle(List.of("New", "Blur"),
                                 () -> Config.blockCountDisplayMode == Config.BlockCountDisplayMode.NEW ? 0 : 1,

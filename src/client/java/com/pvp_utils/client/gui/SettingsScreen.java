@@ -105,6 +105,8 @@ public class SettingsScreen extends Screen {
                     Config.gammaValue = 15.0;
                     Config.autoSprint = false;
                     Config.blockCountDisplay = false;
+                    Config.dynamicIslandBlockCountRestoresBlockCount = false;
+                    Config.dynamicIslandBlockCountAltIcon = false;
                     Config.zoom = false;
                     Config.zoomScroll = true;
                     Config.zoomAmount = 4;

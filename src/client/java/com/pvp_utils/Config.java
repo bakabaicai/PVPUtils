@@ -1,12 +1,20 @@
 package com.pvp_utils;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.Properties;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class Config {
     public static boolean autoMode = false;
@@ -36,11 +44,14 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
+    public static boolean dynamicIslandBlockCount = false;
+    public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
+    public static boolean dynamicIslandBlockCountAltIcon = false;
     public static boolean itemUseStatus = false;
     public static boolean itemPhysics = false;
     public static boolean item2DRender = false;
     public static float itemPhysicsRotationSpeed = 1.0f;
-    public static HudTheme hudTheme = HudTheme.DARK;
+    public static HudTheme hudTheme = HudTheme.LIGHT;
     public static float skiaBlurStrength = 1.0f;
     public static boolean timeChange = false;
     public static boolean weatherChange = false;
@@ -97,9 +108,9 @@ public class Config {
     public static String customCapeImage = "default.png";
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
     public static HitSoundCondition hitSoundCondition = HitSoundCondition.BOTH;
-    public static TargetHudMode targetHudMode = TargetHudMode.NEW;
-    public static KeystrokesMode keystrokesMode = KeystrokesMode.NEW;
-    public static ArmorHudMode armorHudMode = ArmorHudMode.NEW;
+    public static TargetHudMode targetHudMode = TargetHudMode.LITE;
+    public static KeystrokesMode keystrokesMode = KeystrokesMode.LITE;
+    public static ArmorHudMode armorHudMode = ArmorHudMode.LITE;
     public static ArmorHudLayout armorHudLayout = ArmorHudLayout.SEPARATED;
     public static ItemUseStatusMode itemUseStatusMode = ItemUseStatusMode.LITE;
     public static double range = 3.0;
@@ -151,7 +162,7 @@ public class Config {
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
     public static double gammaValue = 15.0;
-    public static int fishingRodAssistUseDelay = 0;
+    public static int fishingRodAssistUseDelay = 4;
     public static int mainHandAssistSwitchDelayTicks = 2;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
@@ -201,354 +212,374 @@ public class Config {
         return hudTheme == HudTheme.LIGHT ? 0x55111827 : 0x55FFFFFF;
     }
 
+    public static void setDynamicIsland(boolean value) {
+        dynamicIsland = value;
+        if (value) {
+            if (dynamicIslandBlockCount) {
+                applyDynamicIslandBlockCountOverride();
+            }
+        } else {
+            restoreBlockCountDisplayFromDynamicIsland();
+        }
+    }
+
+    public static void setDynamicIslandBlockCount(boolean value) {
+        dynamicIslandBlockCount = value;
+        if (value) {
+            if (dynamicIsland) {
+                applyDynamicIslandBlockCountOverride();
+            }
+        } else {
+            restoreBlockCountDisplayFromDynamicIsland();
+        }
+    }
+
+    public static void setBlockCountDisplay(boolean value) {
+        blockCountDisplay = value;
+        if (value) {
+            dynamicIslandBlockCount = false;
+            dynamicIslandBlockCountRestoresBlockCount = false;
+        }
+    }
+
+    private static void normalizeDynamicIslandBlockCountState() {
+        if (dynamicIsland && dynamicIslandBlockCount) {
+            applyDynamicIslandBlockCountOverride();
+        } else {
+            restoreBlockCountDisplayFromDynamicIsland();
+        }
+    }
+
+    private static void applyDynamicIslandBlockCountOverride() {
+        if (blockCountDisplay) {
+            blockCountDisplay = false;
+            dynamicIslandBlockCountRestoresBlockCount = true;
+        }
+    }
+
+    private static void restoreBlockCountDisplayFromDynamicIsland() {
+        if (dynamicIslandBlockCountRestoresBlockCount) {
+            blockCountDisplay = true;
+            dynamicIslandBlockCountRestoresBlockCount = false;
+        }
+    }
+
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
 
     private static final Path CONFIG_DIRECTORY = FabricLoader.getInstance().getGameDir().resolve("PVPUtils");
     private static final Path CONFIG_FILE = CONFIG_DIRECTORY.resolve("Config.cfg");
-    private static final Path LEGACY_CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("pvp_utils.properties");
+    private static final Path HUD_CONFIG_FILE = CONFIG_DIRECTORY.resolve("Hud.cfg");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static void load() {
         ensureConfigDirectory();
-        migrateLegacyConfigIfNeeded();
         if (!Files.exists(CONFIG_FILE)) {
             applyGameLanguageDefault();
+            if (Files.exists(HUD_CONFIG_FILE)) {
+                loadHudConfig(HUD_CONFIG_FILE);
+            }
             save();
             return;
         }
-        try (InputStream is = Files.newInputStream(CONFIG_FILE)) {
-            Properties prop = new Properties();
-            prop.load(is);
-            autoMode = Boolean.parseBoolean(prop.getProperty("autoMode", "false"));
-            swordBlock = Boolean.parseBoolean(prop.getProperty("swordBlock", "false"));
-            useSwing = Boolean.parseBoolean(prop.getProperty("useSwing", "false"));
-            noSneakAnimation = Boolean.parseBoolean(prop.getProperty("noSneakAnimation", "false"));
-            noDoubleSneak = true;
-            isChinese = Boolean.parseBoolean(prop.getProperty("isChinese", String.valueOf(defaultChinese())));
-            autoScreenshot = Boolean.parseBoolean(prop.getProperty("autoScreenshot", "false"));
-            hitMarker = Boolean.parseBoolean(prop.getProperty("hitMarker", "false"));
-            hitSound = Boolean.parseBoolean(prop.getProperty("hitSound", "false"));
-            mainHandAssist = Boolean.parseBoolean(prop.getProperty("mainHandAssist", "false"));
-            mainHandAssistMeleeWeapon = Boolean.parseBoolean(prop.getProperty("mainHandAssistMeleeWeapon", "false"));
-            mainHandAssistShield = Boolean.parseBoolean(prop.getProperty("mainHandAssistShield", "false"));
-            mainHandAssistSwitchBack = Boolean.parseBoolean(prop.getProperty("mainHandAssistSwitchBack", "true"));
-            elytraAssist = Boolean.parseBoolean(prop.getProperty("elytraAssist", "false"));
-            elytraAutoDeploy = Boolean.parseBoolean(prop.getProperty("elytraAutoDeploy", "true"));
-            elytraAutoFirework = Boolean.parseBoolean(prop.getProperty("elytraAutoFirework", "true"));
-            lowHealthNotify = Boolean.parseBoolean(prop.getProperty("lowHealthNotify", "false"));
-            targetHud = Boolean.parseBoolean(prop.getProperty("targetHud", "false"));
-            diggingStatus = Boolean.parseBoolean(prop.getProperty("diggingStatus", "false"));
-            fallDamagePredict = Boolean.parseBoolean(prop.getProperty("fallDamagePredict", "false"));
-            victorySound = Boolean.parseBoolean(prop.getProperty("victorySound", "false"));
-            gammaOverride = Boolean.parseBoolean(prop.getProperty("gammaOverride", "false"));
-            autoSprint = Boolean.parseBoolean(prop.getProperty("autoSprint", "false"));
-            fishingRodAssist = Boolean.parseBoolean(prop.getProperty("fishingRodAssist", "false"));
-            blockCountDisplay = Boolean.parseBoolean(prop.getProperty("blockCountDisplay", "false"));
-            blockCountDisplayMode = BlockCountDisplayMode.valueOf(prop.getProperty("blockCountDisplayMode", "NEW"));
-            dynamicIsland = Boolean.parseBoolean(prop.getProperty("dynamicIsland", "false"));
-            itemUseStatus = Boolean.parseBoolean(prop.getProperty("itemUseStatus", "false"));
-            itemPhysics = Boolean.parseBoolean(prop.getProperty("itemPhysics", "false"));
-            item2DRender = Boolean.parseBoolean(prop.getProperty("item2DRender", "false"));
-            itemPhysicsRotationSpeed = Float.parseFloat(prop.getProperty("itemPhysicsRotationSpeed", "1.0"));
-            hudTheme = parseHudTheme(prop.getProperty("hudTheme", prop.getProperty("skiaBlurColor", "DARK")));
-            skiaBlurStrength = Float.parseFloat(prop.getProperty("skiaBlurStrength", "1.0"));
-            timeChange = Boolean.parseBoolean(prop.getProperty("timeChange", "false"));
-            weatherChange = Boolean.parseBoolean(prop.getProperty("weatherChange", "false"));
-            zoom = Boolean.parseBoolean(prop.getProperty("zoom", "false"));
-            zoomScroll = Boolean.parseBoolean(prop.getProperty("zoomScroll", "true"));
-            freelook = Boolean.parseBoolean(prop.getProperty("freelook", "false"));
-            armorHud = Boolean.parseBoolean(prop.getProperty("armorHud", "false"));
-            armorHudShowPercentage = Boolean.parseBoolean(prop.getProperty("armorHudShowPercentage", prop.getProperty("armorHudLitePercentage", "true")));
-            armorHudShowBar = Boolean.parseBoolean(prop.getProperty("armorHudShowBar", prop.getProperty("armorHudLiteBar", "true")));
-            armorHudDisplayMode = ArmorHudDisplayMode.valueOf(prop.getProperty("armorHudDisplayMode", "BOTH"));
-            potionStatus = Boolean.parseBoolean(prop.getProperty("potionStatus", "false"));
-            potionStatusBackground = Boolean.parseBoolean(prop.getProperty("potionStatusBackground", "true"));
-            potionStatusCountdown = Boolean.parseBoolean(prop.getProperty("potionStatusCountdown", "true"));
-            potionStatusHideVanilla = Boolean.parseBoolean(prop.getProperty("potionStatusHideVanilla", "true"));
-            autoChestDeposit = Boolean.parseBoolean(prop.getProperty("autoChestDeposit", "false"));
-            autoChestDepositResourcesOnly = Boolean.parseBoolean(prop.getProperty("autoChestDepositResourcesOnly", "true"));
-            keystrokes = Boolean.parseBoolean(prop.getProperty("keystrokes", "false"));
-            disableImeInGame = Boolean.parseBoolean(prop.getProperty("disableImeInGame", "false"));
-            hideSignText = Boolean.parseBoolean(prop.getProperty("hideSignText", "false"));
-            hideEnchantTableBook = Boolean.parseBoolean(prop.getProperty("hideEnchantTableBook", "false"));
-            hideFireOverlay = Boolean.parseBoolean(prop.getProperty("hideFireOverlay", "false"));
-            hideHurtShake = Boolean.parseBoolean(prop.getProperty("hideHurtShake", "false"));
-            hideTotemAnimation = Boolean.parseBoolean(prop.getProperty("hideTotemAnimation", "false"));
-            hideExplosionParticles = Boolean.parseBoolean(prop.getProperty("hideExplosionParticles", "false"));
-            hideRainParticles = Boolean.parseBoolean(prop.getProperty("hideRainParticles", "false"));
-            hideVignette = Boolean.parseBoolean(prop.getProperty("hideVignette", "false"));
-            hideFog = Boolean.parseBoolean(prop.getProperty("hideFog", "false"));
-            attackEffectsCritParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsCritParticles", "false"));
-            attackEffectsSharpnessParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsSharpnessParticles", "false"));
-            attackEffectsFlameParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsFlameParticles", "false"));
-            attackEffectsBloodParticles = Boolean.parseBoolean(prop.getProperty("attackEffectsBloodParticles", "false"));
-            attackEffectsLightning = Boolean.parseBoolean(prop.getProperty("attackEffectsLightning", "false"));
-            hitColor = Boolean.parseBoolean(prop.getProperty("hitColor", "false"));
-            customEnchantmentGlint = Boolean.parseBoolean(prop.getProperty("customEnchantmentGlint", "false"));
-            noAttackCooldownAnimation = Boolean.parseBoolean(prop.getProperty("noAttackCooldownAnimation", "false"));
-            customCape = Boolean.parseBoolean(prop.getProperty("customCape", "false"));
-            chatHudEditQuickEnable = Boolean.parseBoolean(prop.getProperty("chatHudEditQuickEnable", "true"));
-            betterChat = Boolean.parseBoolean(prop.getProperty("betterChat", "false"));
-            betterChatMessageAnimation = Boolean.parseBoolean(prop.getProperty("betterChatMessageAnimation", "true"));
-            betterChatInputAnimation = Boolean.parseBoolean(prop.getProperty("betterChatInputAnimation", "true"));
-            betterChatAvatar = Boolean.parseBoolean(prop.getProperty("betterChatAvatar", "true"));
-            smoothHotbarScrolling = Boolean.parseBoolean(prop.getProperty("smoothHotbarScrolling", "false"));
-            smoothHotbarAnimationSpeed = Float.parseFloat(prop.getProperty("smoothHotbarAnimationSpeed", "0.55"));
-            betterChatMessageFadeTime = Integer.parseInt(prop.getProperty("betterChatMessageFadeTime", "170"));
-            betterChatInputFadeTime = Integer.parseInt(prop.getProperty("betterChatInputFadeTime", "170"));
-            hotbarRollover = Integer.parseInt(prop.getProperty("hotbarRollover", "0"));
-            useMainUI = Boolean.parseBoolean(prop.getProperty("useMainUI", "false"));
-            mainUICustomBackground = Boolean.parseBoolean(prop.getProperty("mainUICustomBackground", "false"));
-            mainUIMouseEffect = Boolean.parseBoolean(prop.getProperty("mainUIMouseEffect", "false"));
-            termsRead = Boolean.parseBoolean(prop.getProperty("termsRead", "false"));
-            fullMode = Boolean.parseBoolean(prop.getProperty("fullMode", "false"));
-            clientName = prop.getProperty("clientName", "PVPUtils");
-            mainUIBackgroundImage = prop.getProperty("mainUIBackgroundImage", "1.png");
-            customCapeImage = prop.getProperty("customCapeImage", "default.png");
-            hitSoundType = HitSoundType.valueOf(prop.getProperty("hitSoundType", "NETHERITE"));
-            hitSoundCondition = HitSoundCondition.valueOf(prop.getProperty("hitSoundCondition", "BOTH"));
-            targetHudMode = TargetHudMode.valueOf(prop.getProperty("targetHudMode", "NEW"));
-            keystrokesMode = KeystrokesMode.valueOf(prop.getProperty("keystrokesMode", "NEW"));
-            armorHudMode = ArmorHudMode.valueOf(prop.getProperty("armorHudMode", "NEW"));
-            armorHudLayout = ArmorHudLayout.valueOf(prop.getProperty("armorHudLayout", "SEPARATED"));
-            String itemUseStatusModeValue = prop.getProperty("itemUseStatusMode", "LITE");
-            itemUseStatusMode = "BLUR".equals(itemUseStatusModeValue) ? ItemUseStatusMode.NEW : ItemUseStatusMode.valueOf(itemUseStatusModeValue);
-            range = Double.parseDouble(prop.getProperty("range", "3.0"));
-            animSpeed = Float.parseFloat(prop.getProperty("animSpeed", "1.0"));
-            sneakDropScale = Float.parseFloat(prop.getProperty("sneakDropScale", "0.5"));
-            sneakAnimationSpeed = Float.parseFloat(prop.getProperty("sneakAnimationSpeed", "1.0"));
-            animationMode = AnimMode.valueOf(prop.getProperty("animationMode", "MODE_1_7"));
-            motionBlurAlgorithm = MotionBlurAlgorithm.valueOf(prop.getProperty("motionBlurAlgorithm", "VELOCITY_BASED"));
-            weatherMode = WeatherMode.valueOf(prop.getProperty("weatherMode", "CLEAR"));
-            freelookTriggerMode = FreelookTriggerMode.valueOf(prop.getProperty("freelookTriggerMode", "HOLD"));
-            offsetX = Float.parseFloat(prop.getProperty("offsetX", "0"));
-            offsetY = Float.parseFloat(prop.getProperty("offsetY", "0"));
-            offsetZ = Float.parseFloat(prop.getProperty("offsetZ", "0"));
-            targetHudX = Float.parseFloat(prop.getProperty("targetHudX", "-300"));
-            targetHudY = Float.parseFloat(prop.getProperty("targetHudY", "-100"));
-            targetHudZ = Float.parseFloat(prop.getProperty("targetHudZ", "0"));
-            targetHudScale = Float.parseFloat(prop.getProperty("targetHudScale", "1.0"));
-            keystrokesX = Float.parseFloat(prop.getProperty("keystrokesX", "-170"));
-            keystrokesY = Float.parseFloat(prop.getProperty("keystrokesY", "70"));
-            keystrokesScale = Float.parseFloat(prop.getProperty("keystrokesScale", "1.0"));
-            nameTag = Boolean.parseBoolean(prop.getProperty("nameTag", "false"));
-            nameTagScale = Float.parseFloat(prop.getProperty("nameTagScale", "1.0"));
-            nameTagDynamicScale = Boolean.parseBoolean(prop.getProperty("nameTagDynamicScale", "false"));
-            nameTagOnlyPlayer = Boolean.parseBoolean(prop.getProperty("nameTagOnlyPlayer", "false"));
-            dynamicMotionBlur = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlur", "false"));
-            dynamicMotionBlurStrength = Float.parseFloat(prop.getProperty("dynamicMotionBlurStrength", "1.0"));
-            dynamicMotionBlurRefreshRateScaling = Boolean.parseBoolean(prop.getProperty("dynamicMotionBlurRefreshRateScaling", "true"));
-            attackEffectsCritMultiplier = Float.parseFloat(prop.getProperty("attackEffectsCritMultiplier", "1.0"));
-            attackEffectsSharpnessMultiplier = Float.parseFloat(prop.getProperty("attackEffectsSharpnessMultiplier", "1.0"));
-            attackEffectsFlameMultiplier = Float.parseFloat(prop.getProperty("attackEffectsFlameMultiplier", "1.0"));
-            attackEffectsBloodMultiplier = Float.parseFloat(prop.getProperty("attackEffectsBloodMultiplier", "1.0"));
-            attackEffectsLightningCount = Integer.parseInt(prop.getProperty("attackEffectsLightningCount", "1"));
-            hitColorRed = Integer.parseInt(prop.getProperty("hitColorRed", "255"));
-            hitColorGreen = Integer.parseInt(prop.getProperty("hitColorGreen", "0"));
-            hitColorBlue = Integer.parseInt(prop.getProperty("hitColorBlue", "0"));
-            hitColorAlpha = Integer.parseInt(prop.getProperty("hitColorAlpha", "179"));
-            blockCountDisplayX = Float.parseFloat(prop.getProperty("blockCountDisplayX", "0"));
-            blockCountDisplayY = Float.parseFloat(prop.getProperty("blockCountDisplayY", "0"));
-            blockCountDisplayScale = Float.parseFloat(prop.getProperty("blockCountDisplayScale", "1.0"));
-            armorHudX = Float.parseFloat(prop.getProperty("armorHudX", "0"));
-            armorHudY = Float.parseFloat(prop.getProperty("armorHudY", "0"));
-            armorHudScale = Float.parseFloat(prop.getProperty("armorHudScale", "1.0"));
-            itemUseStatusX = Float.parseFloat(prop.getProperty("itemUseStatusX", "0"));
-            itemUseStatusY = Float.parseFloat(prop.getProperty("itemUseStatusY", "0"));
-            itemUseStatusScale = Float.parseFloat(prop.getProperty("itemUseStatusScale", "1.0"));
-            dynamicIslandX = Float.parseFloat(prop.getProperty("dynamicIslandX", "0"));
-            dynamicIslandY = Float.parseFloat(prop.getProperty("dynamicIslandY", "0"));
-            dynamicIslandScale = Float.parseFloat(prop.getProperty("dynamicIslandScale", "1.0"));
-            notificationX = Float.parseFloat(prop.getProperty("notificationX", "NaN"));
-            notificationY = Float.parseFloat(prop.getProperty("notificationY", "NaN"));
-            notificationScale = Float.parseFloat(prop.getProperty("notificationScale", "1.0"));
-            potionStatusX = Float.parseFloat(prop.getProperty("potionStatusX", "0"));
-            potionStatusY = Float.parseFloat(prop.getProperty("potionStatusY", "0"));
-            potionStatusScale = Float.parseFloat(prop.getProperty("potionStatusScale", "1.0"));
-            gammaValue = Double.parseDouble(prop.getProperty("gammaValue", "15.0"));
-            fishingRodAssistUseDelay = Integer.parseInt(prop.getProperty("fishingRodAssistUseDelay", "0"));
-            mainHandAssistSwitchDelayTicks = Integer.parseInt(prop.getProperty("mainHandAssistSwitchDelayTicks", "2"));
-            autoChestDepositDepositDelay = Integer.parseInt(prop.getProperty("autoChestDepositDepositDelay", "4"));
-            autoChestDepositCloseDelay = Integer.parseInt(prop.getProperty("autoChestDepositCloseDelay", "4"));
-            clientTime = Integer.parseInt(prop.getProperty("clientTime", "6000"));
-            zoomAmount = Integer.parseInt(prop.getProperty("zoomAmount", "4"));
-            zoomScrollSteps = Integer.parseInt(prop.getProperty("zoomScrollSteps", "10"));
-            zoomPerStep = Integer.parseInt(prop.getProperty("zoomPerStep", "150"));
-            zoomRelativeSensitivity = Integer.parseInt(prop.getProperty("zoomRelativeSensitivity", "100"));
-            freelookSensitivity = Integer.parseInt(prop.getProperty("freelookSensitivity", "100"));
-            zoomInTime = Float.parseFloat(prop.getProperty("zoomInTime", "0.25"));
-            zoomOutTime = Float.parseFloat(prop.getProperty("zoomOutTime", "0.18"));
-        } catch (IOException e) {
-            e.printStackTrace();
+        loadJsonConfig(CONFIG_FILE);
+        if (Files.exists(HUD_CONFIG_FILE)) {
+            loadHudConfig(HUD_CONFIG_FILE);
         }
+        normalizeDynamicIslandBlockCountState();
+        save();
     }
 
     public static void save() {
         ensureConfigDirectory();
-        try (OutputStream os = Files.newOutputStream(CONFIG_FILE)) {
-            Properties prop = new Properties();
-            prop.setProperty("autoMode", String.valueOf(autoMode));
-            prop.setProperty("swordBlock", String.valueOf(swordBlock));
-            prop.setProperty("useSwing", String.valueOf(useSwing));
-            prop.setProperty("noSneakAnimation", String.valueOf(noSneakAnimation));
-            prop.setProperty("isChinese", String.valueOf(isChinese));
-            prop.setProperty("autoScreenshot", String.valueOf(autoScreenshot));
-            prop.setProperty("hitMarker", String.valueOf(hitMarker));
-            prop.setProperty("hitSound", String.valueOf(hitSound));
-            prop.setProperty("mainHandAssist", String.valueOf(mainHandAssist));
-            prop.setProperty("mainHandAssistMeleeWeapon", String.valueOf(mainHandAssistMeleeWeapon));
-            prop.setProperty("mainHandAssistShield", String.valueOf(mainHandAssistShield));
-            prop.setProperty("mainHandAssistSwitchBack", String.valueOf(mainHandAssistSwitchBack));
-            prop.setProperty("elytraAssist", String.valueOf(elytraAssist));
-            prop.setProperty("elytraAutoDeploy", String.valueOf(elytraAutoDeploy));
-            prop.setProperty("elytraAutoFirework", String.valueOf(elytraAutoFirework));
-            prop.setProperty("lowHealthNotify", String.valueOf(lowHealthNotify));
-            prop.setProperty("targetHud", String.valueOf(targetHud));
-            prop.setProperty("diggingStatus", String.valueOf(diggingStatus));
-            prop.setProperty("fallDamagePredict", String.valueOf(fallDamagePredict));
-            prop.setProperty("victorySound", String.valueOf(victorySound));
-            prop.setProperty("gammaOverride", String.valueOf(gammaOverride));
-            prop.setProperty("autoSprint", String.valueOf(autoSprint));
-            prop.setProperty("fishingRodAssist", String.valueOf(fishingRodAssist));
-            prop.setProperty("blockCountDisplay", String.valueOf(blockCountDisplay));
-            prop.setProperty("blockCountDisplayMode", blockCountDisplayMode.name());
-            prop.setProperty("dynamicIsland", String.valueOf(dynamicIsland));
-            prop.setProperty("itemUseStatus", String.valueOf(itemUseStatus));
-            prop.setProperty("itemPhysics", String.valueOf(itemPhysics));
-            prop.setProperty("item2DRender", String.valueOf(item2DRender));
-            prop.setProperty("itemPhysicsRotationSpeed", String.valueOf(itemPhysicsRotationSpeed));
-            prop.setProperty("hudTheme", hudTheme.name());
-            prop.setProperty("skiaBlurStrength", String.valueOf(skiaBlurStrength));
-            prop.setProperty("timeChange", String.valueOf(timeChange));
-            prop.setProperty("weatherChange", String.valueOf(weatherChange));
-            prop.setProperty("zoom", String.valueOf(zoom));
-            prop.setProperty("zoomScroll", String.valueOf(zoomScroll));
-            prop.setProperty("freelook", String.valueOf(freelook));
-            prop.setProperty("armorHud", String.valueOf(armorHud));
-            prop.setProperty("armorHudShowPercentage", String.valueOf(armorHudShowPercentage));
-            prop.setProperty("armorHudShowBar", String.valueOf(armorHudShowBar));
-            prop.setProperty("armorHudDisplayMode", armorHudDisplayMode.name());
-            prop.setProperty("potionStatus", String.valueOf(potionStatus));
-            prop.setProperty("potionStatusBackground", String.valueOf(potionStatusBackground));
-            prop.setProperty("potionStatusCountdown", String.valueOf(potionStatusCountdown));
-            prop.setProperty("potionStatusHideVanilla", String.valueOf(potionStatusHideVanilla));
-            prop.setProperty("autoChestDeposit", String.valueOf(autoChestDeposit));
-            prop.setProperty("autoChestDepositResourcesOnly", String.valueOf(autoChestDepositResourcesOnly));
-            prop.setProperty("keystrokes", String.valueOf(keystrokes));
-            prop.setProperty("disableImeInGame", String.valueOf(disableImeInGame));
-            prop.setProperty("hideSignText", String.valueOf(hideSignText));
-            prop.setProperty("hideEnchantTableBook", String.valueOf(hideEnchantTableBook));
-            prop.setProperty("hideFireOverlay", String.valueOf(hideFireOverlay));
-            prop.setProperty("hideHurtShake", String.valueOf(hideHurtShake));
-            prop.setProperty("hideTotemAnimation", String.valueOf(hideTotemAnimation));
-            prop.setProperty("hideExplosionParticles", String.valueOf(hideExplosionParticles));
-            prop.setProperty("hideRainParticles", String.valueOf(hideRainParticles));
-            prop.setProperty("hideVignette", String.valueOf(hideVignette));
-            prop.setProperty("hideFog", String.valueOf(hideFog));
-            prop.setProperty("attackEffectsCritParticles", String.valueOf(attackEffectsCritParticles));
-            prop.setProperty("attackEffectsSharpnessParticles", String.valueOf(attackEffectsSharpnessParticles));
-            prop.setProperty("attackEffectsFlameParticles", String.valueOf(attackEffectsFlameParticles));
-            prop.setProperty("attackEffectsBloodParticles", String.valueOf(attackEffectsBloodParticles));
-            prop.setProperty("attackEffectsLightning", String.valueOf(attackEffectsLightning));
-            prop.setProperty("hitColor", String.valueOf(hitColor));
-            prop.setProperty("customEnchantmentGlint", String.valueOf(customEnchantmentGlint));
-            prop.setProperty("noAttackCooldownAnimation", String.valueOf(noAttackCooldownAnimation));
-            prop.setProperty("customCape", String.valueOf(customCape));
-            prop.setProperty("chatHudEditQuickEnable", String.valueOf(chatHudEditQuickEnable));
-            prop.setProperty("betterChat", String.valueOf(betterChat));
-            prop.setProperty("betterChatMessageAnimation", String.valueOf(betterChatMessageAnimation));
-            prop.setProperty("betterChatInputAnimation", String.valueOf(betterChatInputAnimation));
-            prop.setProperty("betterChatAvatar", String.valueOf(betterChatAvatar));
-            prop.setProperty("smoothHotbarScrolling", String.valueOf(smoothHotbarScrolling));
-            prop.setProperty("smoothHotbarAnimationSpeed", String.valueOf(smoothHotbarAnimationSpeed));
-            prop.setProperty("betterChatMessageFadeTime", String.valueOf(betterChatMessageFadeTime));
-            prop.setProperty("betterChatInputFadeTime", String.valueOf(betterChatInputFadeTime));
-            prop.setProperty("hotbarRollover", String.valueOf(hotbarRollover));
-            prop.setProperty("useMainUI", String.valueOf(useMainUI));
-            prop.setProperty("mainUICustomBackground", String.valueOf(mainUICustomBackground));
-            prop.setProperty("mainUIMouseEffect", String.valueOf(mainUIMouseEffect));
-            prop.setProperty("termsRead", String.valueOf(termsRead));
-            prop.setProperty("fullMode", String.valueOf(fullMode));
-            prop.setProperty("clientName", clientName);
-            prop.setProperty("mainUIBackgroundImage", mainUIBackgroundImage);
-            prop.setProperty("customCapeImage", customCapeImage);
-            prop.setProperty("hitSoundType", hitSoundType.name());
-            prop.setProperty("hitSoundCondition", hitSoundCondition.name());
-            prop.setProperty("targetHudMode", targetHudMode.name());
-            prop.setProperty("keystrokesMode", keystrokesMode.name());
-            prop.setProperty("armorHudMode", armorHudMode.name());
-            prop.setProperty("armorHudLayout", armorHudLayout.name());
-            prop.setProperty("itemUseStatusMode", itemUseStatusMode.name());
-            prop.setProperty("range", String.valueOf(range));
-            prop.setProperty("animSpeed", String.valueOf(animSpeed));
-            prop.setProperty("sneakDropScale", String.valueOf(sneakDropScale));
-            prop.setProperty("sneakAnimationSpeed", String.valueOf(sneakAnimationSpeed));
-            prop.setProperty("animationMode", animationMode.name());
-            prop.setProperty("motionBlurAlgorithm", motionBlurAlgorithm.name());
-            prop.setProperty("weatherMode", weatherMode.name());
-            prop.setProperty("freelookTriggerMode", freelookTriggerMode.name());
-            prop.setProperty("offsetX", String.valueOf(offsetX));
-            prop.setProperty("offsetY", String.valueOf(offsetY));
-            prop.setProperty("offsetZ", String.valueOf(offsetZ));
-            prop.setProperty("targetHudX", String.valueOf(targetHudX));
-            prop.setProperty("targetHudY", String.valueOf(targetHudY));
-            prop.setProperty("targetHudZ", String.valueOf(targetHudZ));
-            prop.setProperty("targetHudScale", String.valueOf(targetHudScale));
-            prop.setProperty("keystrokesX", String.valueOf(keystrokesX));
-            prop.setProperty("keystrokesY", String.valueOf(keystrokesY));
-            prop.setProperty("keystrokesScale", String.valueOf(keystrokesScale));
-            prop.setProperty("nameTag", String.valueOf(nameTag));
-            prop.setProperty("nameTagScale", String.valueOf(nameTagScale));
-            prop.setProperty("nameTagDynamicScale", String.valueOf(nameTagDynamicScale));
-            prop.setProperty("nameTagOnlyPlayer", String.valueOf(nameTagOnlyPlayer));
-            prop.setProperty("dynamicMotionBlur", String.valueOf(dynamicMotionBlur));
-            prop.setProperty("dynamicMotionBlurStrength", String.valueOf(dynamicMotionBlurStrength));
-            prop.setProperty("dynamicMotionBlurRefreshRateScaling", String.valueOf(dynamicMotionBlurRefreshRateScaling));
-            prop.setProperty("attackEffectsCritMultiplier", String.valueOf(attackEffectsCritMultiplier));
-            prop.setProperty("attackEffectsSharpnessMultiplier", String.valueOf(attackEffectsSharpnessMultiplier));
-            prop.setProperty("attackEffectsFlameMultiplier", String.valueOf(attackEffectsFlameMultiplier));
-            prop.setProperty("attackEffectsBloodMultiplier", String.valueOf(attackEffectsBloodMultiplier));
-            prop.setProperty("attackEffectsLightningCount", String.valueOf(attackEffectsLightningCount));
-            prop.setProperty("hitColorRed", String.valueOf(hitColorRed));
-            prop.setProperty("hitColorGreen", String.valueOf(hitColorGreen));
-            prop.setProperty("hitColorBlue", String.valueOf(hitColorBlue));
-            prop.setProperty("hitColorAlpha", String.valueOf(hitColorAlpha));
-            prop.setProperty("blockCountDisplayX", String.valueOf(blockCountDisplayX));
-            prop.setProperty("blockCountDisplayY", String.valueOf(blockCountDisplayY));
-            prop.setProperty("blockCountDisplayScale", String.valueOf(blockCountDisplayScale));
-            prop.setProperty("armorHudX", String.valueOf(armorHudX));
-            prop.setProperty("armorHudY", String.valueOf(armorHudY));
-            prop.setProperty("armorHudScale", String.valueOf(armorHudScale));
-            prop.setProperty("itemUseStatusX", String.valueOf(itemUseStatusX));
-            prop.setProperty("itemUseStatusY", String.valueOf(itemUseStatusY));
-            prop.setProperty("itemUseStatusScale", String.valueOf(itemUseStatusScale));
-            prop.setProperty("dynamicIslandX", String.valueOf(dynamicIslandX));
-            prop.setProperty("dynamicIslandY", String.valueOf(dynamicIslandY));
-            prop.setProperty("dynamicIslandScale", String.valueOf(dynamicIslandScale));
-            prop.setProperty("notificationX", String.valueOf(notificationX));
-            prop.setProperty("notificationY", String.valueOf(notificationY));
-            prop.setProperty("notificationScale", String.valueOf(notificationScale));
-            prop.setProperty("potionStatusX", String.valueOf(potionStatusX));
-            prop.setProperty("potionStatusY", String.valueOf(potionStatusY));
-            prop.setProperty("potionStatusScale", String.valueOf(potionStatusScale));
-            prop.setProperty("gammaValue", String.valueOf(gammaValue));
-            prop.setProperty("fishingRodAssistUseDelay", String.valueOf(fishingRodAssistUseDelay));
-            prop.setProperty("mainHandAssistSwitchDelayTicks", String.valueOf(mainHandAssistSwitchDelayTicks));
-            prop.setProperty("autoChestDepositDepositDelay", String.valueOf(autoChestDepositDepositDelay));
-            prop.setProperty("autoChestDepositCloseDelay", String.valueOf(autoChestDepositCloseDelay));
-            prop.setProperty("clientTime", String.valueOf(clientTime));
-            prop.setProperty("zoomAmount", String.valueOf(zoomAmount));
-            prop.setProperty("zoomScrollSteps", String.valueOf(zoomScrollSteps));
-            prop.setProperty("zoomPerStep", String.valueOf(zoomPerStep));
-            prop.setProperty("zoomRelativeSensitivity", String.valueOf(zoomRelativeSensitivity));
-            prop.setProperty("freelookSensitivity", String.valueOf(freelookSensitivity));
-            prop.setProperty("zoomInTime", String.valueOf(zoomInTime));
-            prop.setProperty("zoomOutTime", String.valueOf(zoomOutTime));
-            prop.store(os, null);
+        try {
+            Files.writeString(CONFIG_FILE, GSON.toJson(toJsonConfig()), StandardCharsets.UTF_8);
+            Files.writeString(HUD_CONFIG_FILE, GSON.toJson(toHudJsonConfig()), StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
+    private static void loadJsonConfig(Path path) {
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            JsonElement element = JsonParser.parseReader(reader);
+            if (!element.isJsonObject()) {
+                return;
+            }
+            applyJsonConfig(element.getAsJsonObject());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static JsonObject toJsonConfig() {
+        JsonObject root = new JsonObject();
+        for (Field field : configFields().values()) {
+            if (isHudField(field.getName())) {
+                continue;
+            }
+            ConfigPath path = pathForField(field.getName());
+            JsonObject module = root.has(path.module()) && root.get(path.module()).isJsonObject()
+                    ? root.getAsJsonObject(path.module())
+                    : new JsonObject();
+            writeJsonValue(module, path.key(), field);
+            root.add(path.module(), module);
+        }
+        return root;
+    }
+
+    private static void applyJsonConfig(JsonObject root) {
+        Map<String, Field> fields = configFields();
+        for (Field field : fields.values()) {
+            if (isHudField(field.getName())) {
+                continue;
+            }
+            ConfigPath path = pathForField(field.getName());
+            JsonObject module = root.has(path.module()) && root.get(path.module()).isJsonObject()
+                    ? root.getAsJsonObject(path.module())
+                    : null;
+            JsonElement value = module != null ? module.get(path.key()) : root.get(field.getName());
+            if (value == null || value.isJsonNull()) {
+                continue;
+            }
+            readJsonValue(field, value);
+        }
+    }
+
+    private static void loadHudConfig(Path path) {
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            JsonElement element = JsonParser.parseReader(reader);
+            if (!element.isJsonObject()) {
+                return;
+            }
+            applyHudJsonConfig(element.getAsJsonObject());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static JsonObject toHudJsonConfig() {
+        JsonObject root = new JsonObject();
+        Map<String, Field> fields = configFields();
+        for (HudComponent component : HUD_COMPONENTS) {
+            JsonObject object = new JsonObject();
+            for (String fieldName : component.fields()) {
+                Field field = fields.get(fieldName);
+                if (field != null) {
+                    writeJsonValue(object, hudKeyForField(component, fieldName), field);
+                }
+            }
+            root.add(component.name(), object);
+        }
+        return root;
+    }
+
+    private static void applyHudJsonConfig(JsonObject root) {
+        Map<String, Field> fields = configFields();
+        for (HudComponent component : HUD_COMPONENTS) {
+            JsonObject object = root.has(component.name()) && root.get(component.name()).isJsonObject()
+                    ? root.getAsJsonObject(component.name())
+                    : null;
+            if (object == null) {
+                continue;
+            }
+            for (String fieldName : component.fields()) {
+                Field field = fields.get(fieldName);
+                JsonElement value = field != null ? object.get(hudKeyForField(component, fieldName)) : null;
+                if (field != null && value != null && !value.isJsonNull()) {
+                    readJsonValue(field, value);
+                }
+            }
+        }
+    }
+
+    private static Map<String, Field> configFields() {
+        Map<String, Field> fields = new LinkedHashMap<>();
+        for (Field field : Config.class.getFields()) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers)) {
+                continue;
+            }
+            fields.put(field.getName(), field);
+        }
+        return fields;
+    }
+
+    private static void writeJsonValue(JsonObject object, String key, Field field) {
+        try {
+            Class<?> type = field.getType();
+            if (type == boolean.class) {
+                object.addProperty(key, field.getBoolean(null));
+            } else if (type == int.class) {
+                object.addProperty(key, field.getInt(null));
+            } else if (type == float.class) {
+                object.addProperty(key, field.getFloat(null));
+            } else if (type == double.class) {
+                object.addProperty(key, field.getDouble(null));
+            } else if (type == String.class) {
+                object.addProperty(key, (String) field.get(null));
+            } else if (type.isEnum()) {
+                Object value = field.get(null);
+                object.addProperty(key, value == null ? "" : ((Enum<?>) value).name());
+            }
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void readJsonValue(Field field, JsonElement value) {
+        try {
+            Class<?> type = field.getType();
+            if (type == boolean.class) {
+                field.setBoolean(null, value.getAsBoolean());
+            } else if (type == int.class) {
+                field.setInt(null, value.getAsInt());
+            } else if (type == float.class) {
+                field.setFloat(null, value.getAsFloat());
+            } else if (type == double.class) {
+                field.setDouble(null, value.getAsDouble());
+            } else if (type == String.class) {
+                field.set(null, value.getAsString());
+            } else if (type.isEnum()) {
+                field.set(null, Enum.valueOf((Class<? extends Enum>) type, value.getAsString()));
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static ConfigPath pathForField(String fieldName) {
+        ModuleRule rule = moduleRuleFor(fieldName);
+        if (rule == null) {
+            return new ConfigPath("Global", toKebabCase(fieldName));
+        }
+        if (fieldName.equals(rule.toggleField())) {
+            return new ConfigPath(rule.module(), "toggled");
+        }
+        String keySource = fieldName;
+        if (!rule.prefix().isEmpty() && fieldName.startsWith(rule.prefix())) {
+            keySource = fieldName.substring(rule.prefix().length());
+            if (keySource.isEmpty()) {
+                keySource = fieldName;
+            } else {
+                keySource = Character.toLowerCase(keySource.charAt(0)) + keySource.substring(1);
+            }
+        }
+        return new ConfigPath(rule.module(), toKebabCase(keySource));
+    }
+
+    private static ModuleRule moduleRuleFor(String fieldName) {
+        for (ModuleRule rule : MODULE_RULES) {
+            if (fieldName.equals(rule.toggleField()) || (!rule.prefix().isEmpty() && fieldName.startsWith(rule.prefix()))) {
+                return rule;
+            }
+            for (String extra : rule.extraFields()) {
+                if (fieldName.equals(extra)) {
+                    return rule;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isHudField(String fieldName) {
+        for (HudComponent component : HUD_COMPONENTS) {
+            for (String hudField : component.fields()) {
+                if (hudField.equals(fieldName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String hudKeyForField(HudComponent component, String fieldName) {
+        String key = fieldName;
+        if (!component.prefix().isEmpty() && fieldName.startsWith(component.prefix())) {
+            key = fieldName.substring(component.prefix().length());
+            if (!key.isEmpty()) {
+                key = Character.toLowerCase(key.charAt(0)) + key.substring(1);
+            }
+        }
+        return toKebabCase(key);
+    }
+
+    private static String toKebabCase(String value) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isUpperCase(c)) {
+                if (i > 0) {
+                    out.append('-');
+                }
+                out.append(Character.toLowerCase(c));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    private static final ModuleRule[] MODULE_RULES = new ModuleRule[] {
+            new ModuleRule("AutoMainHand", "mainHandAssist", "mainHandAssist"),
+            new ModuleRule("ElytraImprovements", "elytra", "elytraAssist"),
+            new ModuleRule("HitMarker", "hitMarker", "hitMarker"),
+            new ModuleRule("HitSound", "hitSound", "hitSound"),
+            new ModuleRule("SwordBlockingAnimation", "swordBlock", "swordBlock", "offsetX", "offsetY", "offsetZ", "animSpeed", "animationMode"),
+            new ModuleRule("AutoBlock", "autoMode", "autoMode", "range"),
+            new ModuleRule("UseAnimation", "useSwing", "useSwing"),
+            new ModuleRule("RemoveAttackCooldownAnimation", "noAttackCooldownAnimation", "noAttackCooldownAnimation"),
+            new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
+            new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
+            new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
+            new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
+            new ModuleRule("VictorySound", "victorySound", "victorySound"),
+            new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
+            new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
+            new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
+            new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
+            new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
+            new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),
+            new ModuleRule("ItemPhysics", "itemPhysics", "itemPhysics"),
+            new ModuleRule("DroppedItem2DRender", "item2DRender", "item2DRender"),
+            new ModuleRule("TimeChange", "timeChange", "timeChange", "clientTime"),
+            new ModuleRule("WeatherChange", "weatherChange", "weatherChange", "weatherMode"),
+            new ModuleRule("Zoom", "zoom", "zoom"),
+            new ModuleRule("Freelook", "freelook", "freelook"),
+            new ModuleRule("ArmorHUD", "armorHud", "armorHud"),
+            new ModuleRule("PotionStatus", "potionStatus", "potionStatus"),
+            new ModuleRule("QuickDeposit", "autoChestDeposit", "autoChestDeposit"),
+            new ModuleRule("Keystrokes", "keystrokes", "keystrokes"),
+            new ModuleRule("InputMethodFix", "disableImeInGame", "disableImeInGame"),
+            new ModuleRule("RenderControl", "hide", ""),
+            new ModuleRule("AttackEffects", "attackEffects", ""),
+            new ModuleRule("HitColor", "hitColor", "hitColor"),
+            new ModuleRule("RainbowEnchantmentGlint", "customEnchantmentGlint", "customEnchantmentGlint"),
+            new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
+            new ModuleRule("BetterChat", "betterChat", "betterChat"),
+            new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
+            new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage"),
+            new ModuleRule("TargetHUD", "targetHud", "targetHud"),
+            new ModuleRule("NameTags", "nameTag", "nameTag"),
+            new ModuleRule("DynamicMotionBlur", "dynamicMotionBlur", "dynamicMotionBlur", "motionBlurAlgorithm"),
+            new ModuleRule("HUDTheme", "hud", "", "skiaBlurStrength"),
+            new ModuleRule("Notification", "notification", ""),
+    };
+
+    private record ModuleRule(String module, String prefix, String toggleField, String... extraFields) {}
+    private record ConfigPath(String module, String key) {}
+    private record HudComponent(String name, String prefix, String... fields) {}
+
+    private static final HudComponent[] HUD_COMPONENTS = new HudComponent[] {
+            new HudComponent("TargetHUD", "targetHud", "targetHudX", "targetHudY", "targetHudZ", "targetHudScale"),
+            new HudComponent("Keystrokes", "keystrokes", "keystrokesX", "keystrokesY", "keystrokesScale"),
+            new HudComponent("BlockCountDisplay", "blockCountDisplay", "blockCountDisplayX", "blockCountDisplayY", "blockCountDisplayScale"),
+            new HudComponent("ArmorHUD", "armorHud", "armorHudX", "armorHudY", "armorHudScale"),
+            new HudComponent("ItemUseStatus", "itemUseStatus", "itemUseStatusX", "itemUseStatusY", "itemUseStatusScale"),
+            new HudComponent("DynamicIsland", "dynamicIsland", "dynamicIslandX", "dynamicIslandY", "dynamicIslandScale"),
+            new HudComponent("Notification", "notification", "notificationX", "notificationY", "notificationScale"),
+            new HudComponent("PotionStatus", "potionStatus", "potionStatusX", "potionStatusY", "potionStatusScale"),
+    };
 
     private static boolean defaultChinese() {
         try {
@@ -586,14 +617,4 @@ public class Config {
         }
     }
 
-    private static void migrateLegacyConfigIfNeeded() {
-        if (Files.exists(CONFIG_FILE) || !Files.exists(LEGACY_CONFIG_FILE)) {
-            return;
-        }
-        try {
-            Files.copy(LEGACY_CONFIG_FILE, CONFIG_FILE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to migrate legacy config to: " + CONFIG_FILE, e);
-        }
-    }
 }

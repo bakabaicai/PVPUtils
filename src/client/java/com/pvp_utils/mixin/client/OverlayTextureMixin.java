@@ -14,13 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(OverlayTexture.class)
 public abstract class OverlayTextureMixin {
-    @Unique private static final int VANILLA_HIT_COLOR = 0xB3000000;
+    @Unique private static final int VANILLA_HIT_COLOR = 0xB2FF0000;
     @Unique private int pvp_utils$lastHitColor = Integer.MIN_VALUE;
 
     @Shadow private DynamicTexture texture;
 
     @Inject(method = "getTextureView", at = @At("HEAD"))
     private void pvp_utils$updateHitColor(CallbackInfoReturnable<GpuTextureView> cir) {
+        if (!Config.hitColor && pvp_utils$lastHitColor == Integer.MIN_VALUE) return;
         int color = Config.hitColor ? hitColorArgb() : VANILLA_HIT_COLOR;
         if (pvp_utils$lastHitColor == color) return;
         NativeImage pixels = texture.getPixels();

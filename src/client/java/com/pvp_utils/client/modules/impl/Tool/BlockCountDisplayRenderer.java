@@ -52,6 +52,7 @@ public class BlockCountDisplayRenderer {
     private boolean nativeLoaded = false;
     private float scale = 0f;
     private float ringProgress = 0f;
+    private float closingRingProgress = 0f;
     private String lastTextureName = "";
     private String lastTextureSpeed = "";
     private int lastTextureProgress = -1;
@@ -102,7 +103,7 @@ public class BlockCountDisplayRenderer {
     }
 
     public void tick(Minecraft client) {
-        if (!Config.blockCountDisplay) {
+        if (!isFeatureActive()) {
             reset();
             return;
         }
@@ -139,7 +140,7 @@ public class BlockCountDisplayRenderer {
     }
 
     public void triggerUse(Minecraft client) {
-        if (!Config.blockCountDisplay || HudEditOverlay.getInstance().isActive()) return;
+        if (!isFeatureActive() || HudEditOverlay.getInstance().isActive()) return;
         LocalPlayer player = client.player;
         if (player == null || client.level == null || client.screen != null) return;
         ItemStack stack = player.getMainHandItem();
@@ -156,7 +157,7 @@ public class BlockCountDisplayRenderer {
     }
 
     public void recordPlacement(Minecraft client) {
-        if (!Config.blockCountDisplay || HudEditOverlay.getInstance().isActive()) return;
+        if (!isFeatureActive() || HudEditOverlay.getInstance().isActive()) return;
         LocalPlayer player = client.player;
         if (player == null || client.level == null || client.screen != null) return;
         ItemStack stack = player.getMainHandItem();
@@ -173,9 +174,14 @@ public class BlockCountDisplayRenderer {
     }
 
     public void render(GuiGraphics graphics, Canvas canvas) {
-        if (!Config.blockCountDisplay) {
+        if (!isFeatureActive()) {
             destroyTexture(Minecraft.getInstance());
             reset();
+            return;
+        }
+        if (!Config.blockCountDisplay) {
+            destroyTexture(Minecraft.getInstance());
+            updateScale(System.currentTimeMillis());
             return;
         }
 
@@ -272,6 +278,29 @@ public class BlockCountDisplayRenderer {
         // Kept for the shared frame-end hook. BlockCount renders through GuiGraphics to keep item layering correct.
     }
 
+    public Snapshot snapshot(Minecraft client) {
+        if (!isFeatureActive() || client == null) return Snapshot.EMPTY;
+        long now = System.currentTimeMillis();
+        updateScale(now);
+        if (scale <= 0.01f || displayStack.isEmpty()) return Snapshot.EMPTY;
+        float blocksPerSecond = (float) client.player.getDeltaMovement().horizontalDistance() * 20.0f;
+        float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
+        if (!closing) {
+            ringProgress += (ratio - ringProgress) * 0.18f;
+        }
+        String name = displayStack.getHoverName().getString();
+        float displayProgress = closing ? closingRingProgress : ringProgress;
+        return new Snapshot(true, easeOutCubic(scale), name, displayStack.getCount(), blocksPerSecond, displayProgress);
+    }
+
+    private boolean isFeatureActive() {
+        return Config.blockCountDisplay || (Config.dynamicIsland && Config.dynamicIslandBlockCount);
+    }
+
+    public record Snapshot(boolean visible, float alpha, String itemName, int blocksLeft, float blocksPerSecond, float progress) {
+        public static final Snapshot EMPTY = new Snapshot(false, 0f, "", 0, 0, 0f);
+    }
+
     private void updateScale(long now) {
         if (visible) {
             scale = clamp((now - appearanceTime) / (float) ANIM_DURATION, 0f, 1f);
@@ -307,10 +336,12 @@ public class BlockCountDisplayRenderer {
         }
         visible = true;
         closing = false;
+        closingRingProgress = 0f;
     }
 
     private void close() {
         if (visible) {
+            closingRingProgress = ringProgress;
             closeTime = System.currentTimeMillis() - Math.round((1f - scale) * ANIM_DURATION);
         }
         visible = false;
@@ -327,6 +358,7 @@ public class BlockCountDisplayRenderer {
         appearanceTime = 0L;
         closeTime = 0L;
         ringProgress = 0f;
+        closingRingProgress = 0f;
         lastSlot = -1;
         lastCount = -1;
         displayStack = ItemStack.EMPTY;

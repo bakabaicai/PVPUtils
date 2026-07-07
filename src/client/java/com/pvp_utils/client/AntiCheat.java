@@ -11,7 +11,7 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class AntiCheat {
-    public static final boolean ENABLED = true;
+    public static final boolean ENABLED = false;
     private static final List<ClientSignature> SIGNATURES = List.of(
             new ClientSignature(
                     "Meteor Client",

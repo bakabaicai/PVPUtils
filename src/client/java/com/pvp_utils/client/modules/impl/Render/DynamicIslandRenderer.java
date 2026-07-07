@@ -4,10 +4,12 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
+import io.github.humbleui.types.RRect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -27,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public class DynamicIslandRenderer {
     private static final DynamicIslandRenderer INSTANCE = new DynamicIslandRenderer();
@@ -42,6 +45,16 @@ public class DynamicIslandRenderer {
     private static final float ICON_GAP = 4f;
     private static final float ICON_Y_OFFSET = 3.0f;
     private static final float SEPARATOR_GAP = 8f;
+    private static final float BLOCK_MIN_WIDTH = 206f;
+    private static final float BLOCK_HEIGHT = 72f;
+    private static final float BLOCK_ICON_X = 12f;
+    private static final float BLOCK_ICON_Y = 10f;
+    private static final float BLOCK_ICON_BOX = 42f;
+    private static final float BLOCK_TEXT_X = 68f;
+    private static final float BLOCK_PROGRESS_X = 16f;
+    private static final float BLOCK_PROGRESS_Y = 59f;
+    private static final float BLOCK_PROGRESS_H = 9f;
+    private static final float BLOCK_RIGHT_PADDING = 18f;
     private static final float TAB_MIN_WIDTH = 340f;
     private static final float TAB_MAX_WIDTH_MARGIN = 34f;
     private static final float TAB_TOP_PADDING = 16f;
@@ -54,6 +67,8 @@ public class DynamicIslandRenderer {
     private static final String ICON_LINK = "\uE157";
     private static final String ICON_COMPUTER = "\uE30C";
     private static final String ICON_PERSON = "\uE7FD";
+    private static final String ICON_BLOCK = "\uF720";
+    private static final String ICON_BLOCK_ALT = "\uE934";
     private static final int TEXT_COLOR = 0xF2111827;
     private static final int SEPARATOR_COLOR = 0x8A111827;
     private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
@@ -129,14 +144,18 @@ public class DynamicIslandRenderer {
         IslandContent content = buildContent(client);
         boolean tabOpen = isTabOpen();
         List<PlayerInfo> tabPlayers = tabOpen ? getTabPlayers(client) : List.of();
-        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : measureLayout(client, content);
+        BlockCountDisplayRenderer.Snapshot blockSnapshot = Config.dynamicIslandBlockCount
+                ? BlockCountDisplayRenderer.getInstance().snapshot(client)
+                : BlockCountDisplayRenderer.Snapshot.EMPTY;
+        boolean blockOpen = !tabOpen && blockSnapshot.visible();
+        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
         IslandLayout layout = updateAnimatedLayout(targetLayout);
         float islandScale = getScale();
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
         SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, BLUR_TINT, BLUR_STRENGTH);
-        renderTextTexture(client, content, tabPlayers, layout, tabOpen);
+        renderTextTexture(client, content, tabPlayers, blockSnapshot, layout, tabOpen, blockOpen);
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(islandScale, islandScale);
@@ -212,6 +231,15 @@ public class DynamicIslandRenderer {
         return new IslandLayout(width, HEIGHT, Math.min(HEIGHT * 0.5f, 16f), false);
     }
 
+    private IslandLayout measureBlockLayout(Minecraft client, BlockCountDisplayRenderer.Snapshot snapshot) {
+        String title = snapshot.itemName();
+        String detail = blockDetail(snapshot);
+        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(title, 13.5f), measureBlockText(detail, 11f)) + BLOCK_RIGHT_PADDING;
+        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
+        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
+        return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
+    }
+
     private IslandLayout measureTabLayout(Minecraft client, List<PlayerInfo> players) {
         int count = Math.max(1, players.size());
         int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
@@ -233,12 +261,16 @@ public class DynamicIslandRenderer {
         return FontRenderer.measureTextWidth(text, TEXT_SIZE);
     }
 
-    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, IslandLayout layout, boolean tabOpen) {
+    private float measureBlockText(String text, float size) {
+        return FontRenderer.measureTextWidth(text, size);
+    }
+
+    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, IslandLayout layout, boolean tabOpen, boolean blockOpen) {
         ensureNativeLoaded();
         float scale = Math.max(1f, (float) client.getWindow().getGuiScale());
         int targetW = Math.max(1, Math.round(layout.width * scale));
         int targetH = Math.max(1, Math.round(layout.height * scale));
-        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
+        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
         if (texture != null && targetW == textureW && targetH == textureH && key.equals(lastContentKey) && scale == lastScale) {
             return;
         }
@@ -264,6 +296,8 @@ public class DynamicIslandRenderer {
         canvas.scale(scale, scale);
         if (tabOpen || tabContentFade > 0f) {
             drawTabContent(canvas, tabPlayers, layout, tabContentFade);
+        } else if (blockOpen) {
+            drawBlockCountContent(canvas, blockSnapshot, layout);
         } else {
             drawCenteredContent(canvas, content, layout);
         }
@@ -286,6 +320,15 @@ public class DynamicIslandRenderer {
                     .append(';');
         }
         return key.toString();
+    }
+
+    private String blockKey(BlockCountDisplayRenderer.Snapshot snapshot, boolean blockOpen) {
+        if (!blockOpen || !snapshot.visible()) return "block:none";
+        return "block:" + snapshot.itemName() + "|" + snapshot.blocksLeft() + "|" + snapshot.blocksPerSecond() + "|" + Math.round(snapshot.progress() * 160f) + "|" + Math.round(snapshot.alpha() * 255f);
+    }
+
+    private String blockDetail(BlockCountDisplayRenderer.Snapshot snapshot) {
+        return snapshot.blocksLeft() + " blocks left - " + String.format(Locale.ROOT, "%.2f block/s", snapshot.blocksPerSecond());
     }
 
     private void drawCenteredContent(Canvas canvas, IslandContent content, IslandLayout layout) {
@@ -330,6 +373,37 @@ public class DynamicIslandRenderer {
         x += SEPARATOR_GAP;
         FontRenderer.drawText(canvas, "|", x, y, TEXT_SIZE, SEPARATOR_COLOR);
         return x + measure("|") + SEPARATOR_GAP;
+    }
+
+    private void drawBlockCountContent(Canvas canvas, BlockCountDisplayRenderer.Snapshot snapshot, IslandLayout layout) {
+        int alpha = Math.round(clamp(snapshot.alpha(), 0f, 1f) * 255f);
+        if (alpha <= 0) return;
+
+        Paint iconBg = new Paint().setAntiAlias(true);
+        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
+        String icon = Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
+        float iconSize = 23f;
+        float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
+        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 42.8f, iconSize, withAlpha(0xFFFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+
+        String title = trimToWidth(snapshot.itemName(), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
+        String detail = blockDetail(snapshot);
+        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(0xFFFFFFFF, alpha));
+        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(0xE8FFFFFF, alpha));
+
+        float progressX = BLOCK_PROGRESS_X;
+        float progressW = Math.max(80f, layout.width - progressX * 2f);
+
+        Paint track = new Paint().setAntiAlias(true);
+        track.setColor(multiplyAlpha(0x55FFFFFF, alpha));
+        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
+
+        float fillW = Math.max(BLOCK_PROGRESS_H, progressW * clamp(snapshot.progress(), 0f, 1f));
+        Paint fill = new Paint().setAntiAlias(true);
+        fill.setColor(progressColor(snapshot.progress(), alpha));
+        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
     }
 
     private List<PlayerInfo> getTabPlayers(Minecraft client) {
@@ -585,8 +659,30 @@ public class DynamicIslandRenderer {
         return 0xFFFF6B6B;
     }
 
+    private int progressColor(float progress, int alpha) {
+        progress = clamp(progress, 0f, 1f);
+        int r;
+        int g;
+        if (progress < 0.5f) {
+            float t = progress * 2.0f;
+            r = 255;
+            g = Math.round(255.0f * t);
+        } else {
+            float t = (progress - 0.5f) * 2.0f;
+            r = Math.round(255.0f * (1.0f - t));
+            g = 255;
+        }
+        return ((alpha & 0xFF) << 24) | (r << 16) | (g << 8);
+    }
+
     private int withAlpha(int argb, int alpha) {
         return (argb & 0x00FFFFFF) | (clamp(alpha, 0, 255) << 24);
+    }
+
+    private int multiplyAlpha(int argb, int alpha) {
+        int baseAlpha = (argb >>> 24) & 0xFF;
+        int finalAlpha = Math.round(baseAlpha * (clamp(alpha, 0, 255) / 255f));
+        return (argb & 0x00FFFFFF) | (finalAlpha << 24);
     }
 
     private void ensureNativeLoaded() {
