@@ -75,13 +75,9 @@ public class DynamicIslandRenderer {
     private static final String ICON_BLOCK_ALT = "\uE934";
     private static final String ICON_ITEM_USE = "\uE425";
     private static final long NOTIFICATION_ICON_ANIMATION_MS = 520L;
-    private static final int TEXT_COLOR = 0xF2111827;
-    private static final int SEPARATOR_COLOR = 0x8A111827;
     private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
     private static final int TAB_DEFAULT_NAME_COLOR = 0xFFFFFFFF;
     private static final int TAB_SPECTATOR_NAME_COLOR = 0xFFAAAAAA;
-    private static final int BLUR_TINT = 0x72FFFFFF;
-    private static final float BLUR_STRENGTH = 0.85f;
     private static final float SIZE_EASE_SPEED = 13.5f;
     private static final float TAB_FADE_EASE_SPEED = 9.0f;
     private static final long TAB_REQUEST_TTL_MS = 120L;
@@ -168,7 +164,7 @@ public class DynamicIslandRenderer {
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
-        SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, BLUR_TINT, BLUR_STRENGTH);
+        SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
         renderTextTexture(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen);
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
@@ -307,7 +303,7 @@ public class DynamicIslandRenderer {
         float scale = Math.max(1f, (float) client.getWindow().getGuiScale());
         int targetW = Math.max(1, Math.round(layout.width * scale));
         int targetH = Math.max(1, Math.round(layout.height * scale));
-        String key = content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + alertKey(alertSnapshot, alertOpen) + "|" + notificationKey(notificationCard, notificationOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
+        String key = Config.hudTheme.name() + "|" + content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + alertKey(alertSnapshot, alertOpen) + "|" + notificationKey(notificationCard, notificationOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
         if (texture != null && targetW == textureW && targetH == textureH && key.equals(lastContentKey) && scale == lastScale) {
             return;
         }
@@ -416,14 +412,14 @@ public class DynamicIslandRenderer {
     }
 
     private float drawSegment(Canvas canvas, String text, float x, float y) {
-        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, TEXT_COLOR);
+        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, compactTextColor());
         return x + measure(text);
     }
 
     private float drawIconSegment(Canvas canvas, String icon, String text, float x, float y) {
-        FontRenderer.drawText(canvas, icon, x, y + ICON_Y_OFFSET, ICON_SIZE, TEXT_COLOR, FontRenderer.MATERIAL_SYMBOLS);
+        FontRenderer.drawText(canvas, icon, x, y + ICON_Y_OFFSET, ICON_SIZE, compactTextColor(), FontRenderer.MATERIAL_SYMBOLS);
         x += measureIcon() + ICON_GAP;
-        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, TEXT_COLOR);
+        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, compactTextColor());
         return x + measure(text);
     }
 
@@ -437,7 +433,7 @@ public class DynamicIslandRenderer {
 
     private float drawSeparator(Canvas canvas, float x, float y) {
         x += SEPARATOR_GAP;
-        FontRenderer.drawText(canvas, "|", x, y, TEXT_SIZE, SEPARATOR_COLOR);
+        FontRenderer.drawText(canvas, "|", x, y, TEXT_SIZE, separatorColor());
         return x + measure("|") + SEPARATOR_GAP;
     }
 
@@ -446,24 +442,24 @@ public class DynamicIslandRenderer {
         if (alpha <= 0) return;
 
         Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        iconBg.setColor(iconChipColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
         String icon = Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
         float iconSize = 23f;
         float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 42.8f, iconSize, withAlpha(0xFFFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 42.8f, iconSize, withAlpha(detailPrimaryTextColor(), alpha), FontRenderer.MATERIAL_SYMBOLS);
 
         String title = trimToWidth(snapshot.itemName(), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String detail = blockDetail(snapshot);
-        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(0xFFFFFFFF, alpha));
-        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(0xE8FFFFFF, alpha));
+        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(detailPrimaryTextColor(), alpha));
+        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
 
         float progressX = BLOCK_PROGRESS_X;
         float progressW = Math.max(80f, layout.width - progressX * 2f);
 
         Paint track = new Paint().setAntiAlias(true);
-        track.setColor(multiplyAlpha(0x55FFFFFF, alpha));
+        track.setColor(progressTrackColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
 
         float fillW = Math.max(BLOCK_PROGRESS_H, progressW * clamp(snapshot.progress(), 0f, 1f));
@@ -477,23 +473,23 @@ public class DynamicIslandRenderer {
         if (alpha <= 0) return;
 
         Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        iconBg.setColor(iconChipColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
         float iconSize = 23f;
         float iconW = FontRenderer.measureTextWidth(ICON_ITEM_USE, iconSize, FontRenderer.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        FontRenderer.drawText(canvas, ICON_ITEM_USE, iconX + 0.2f, 42.8f, iconSize, withAlpha(0xFFFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        FontRenderer.drawText(canvas, ICON_ITEM_USE, iconX + 0.2f, 42.8f, iconSize, withAlpha(detailPrimaryTextColor(), alpha), FontRenderer.MATERIAL_SYMBOLS);
 
         String title = trimToWidth(itemUseTitle(snapshot), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String detail = itemUseDetail(snapshot);
-        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(0xFFFFFFFF, alpha));
-        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(0xE8FFFFFF, alpha));
+        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(detailPrimaryTextColor(), alpha));
+        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
 
         float progressX = BLOCK_PROGRESS_X;
         float progressW = Math.max(80f, layout.width - progressX * 2f);
 
         Paint track = new Paint().setAntiAlias(true);
-        track.setColor(multiplyAlpha(0x55FFFFFF, alpha));
+        track.setColor(progressTrackColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
 
         float progress = clamp(snapshot.progress(), 0f, 1f);
@@ -514,7 +510,7 @@ public class DynamicIslandRenderer {
     private void drawNotificationLikeContent(Canvas canvas, String icon, String title, String message, int accentColor, IslandLayout layout, float iconProgress, boolean animateIcon) {
         int alpha = 255;
         Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(multiplyAlpha(0x40FFFFFF, alpha));
+        iconBg.setColor(iconChipColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, 8f, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
 
         float iconSize = 23f;
@@ -529,7 +525,41 @@ public class DynamicIslandRenderer {
         String trimmedTitle = trimToWidth(title, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String trimmedMessage = trimToWidth(message, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 11f);
         FontRenderer.drawText(canvas, trimmedTitle, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(accentColor, alpha));
-        FontRenderer.drawText(canvas, trimmedMessage, BLOCK_TEXT_X, 41f, 11f, withAlpha(0xE8FFFFFF, alpha));
+        FontRenderer.drawText(canvas, trimmedMessage, BLOCK_TEXT_X, 41f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
+    }
+
+    private int blurTint() {
+        return Config.skiaBlurTintColor();
+    }
+
+    private float blurStrength() {
+        return Config.skiaBlurStrength;
+    }
+
+    private int compactTextColor() {
+        return Config.hudPrimaryTextColor();
+    }
+
+    private int separatorColor() {
+        return Config.hudSecondaryTextColor();
+    }
+
+    private int detailPrimaryTextColor() {
+        return Config.hudPrimaryTextColor();
+    }
+
+    private int detailSecondaryTextColor() {
+        return Config.hudSecondaryTextColor();
+    }
+
+    private int iconChipColor(int alpha) {
+        int base = Config.hudTheme == Config.HudTheme.LIGHT ? 0x40FFFFFF : 0x332A3345;
+        return multiplyAlpha(base, alpha);
+    }
+
+    private int progressTrackColor(int alpha) {
+        int base = Config.hudTheme == Config.HudTheme.LIGHT ? 0x55FFFFFF : 0x55A8B3CF;
+        return multiplyAlpha(base, alpha);
     }
 
     private int timedIconAnimationFrame(long createdAtMs) {

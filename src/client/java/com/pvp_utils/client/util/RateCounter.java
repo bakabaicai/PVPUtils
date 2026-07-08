@@ -1,5 +1,7 @@
 package com.pvp_utils.client.util;
 
+import net.minecraft.client.Minecraft;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -54,6 +56,13 @@ public class RateCounter {
     public void clear() {
         events.clear();
         wasPressed = false;
+    }
+
+    public static float horizontalBlocksPerSecond(Minecraft client) {
+        if (client == null || client.player == null) {
+            return 0f;
+        }
+        return (float) client.player.getDeltaMovement().horizontalDistance() * 20.0f;
     }
 
     private void trim(long now) {

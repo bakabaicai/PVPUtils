@@ -241,7 +241,7 @@ public class BlockCountDisplayRenderer {
             }
             name += "...";
         }
-        String speed = String.format(Locale.ROOT, "%dBPS\\%dCPS", placements.count(now), rightCps);
+        String speed = String.format(Locale.ROOT, "%.2fBPS\\%dCPS", RateCounter.horizontalBlocksPerSecond(client), rightCps);
 
         float ringCx = x + (WIDTH - 32f) * userScale;
         float ringCy = y + HEIGHT * 0.5f * userScale;
@@ -283,7 +283,7 @@ public class BlockCountDisplayRenderer {
         long now = System.currentTimeMillis();
         updateScale(now);
         if (scale <= 0.01f || displayStack.isEmpty()) return Snapshot.EMPTY;
-        float blocksPerSecond = (float) client.player.getDeltaMovement().horizontalDistance() * 20.0f;
+        float blocksPerSecond = RateCounter.horizontalBlocksPerSecond(client);
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         if (!closing) {
             ringProgress += (ratio - ringProgress) * 0.18f;

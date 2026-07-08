@@ -83,17 +83,7 @@ public class RenderPage extends BasePage {
                 new SettingToggle(() -> Config.diggingStatus, v -> { Config.diggingStatus = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
-                new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); }))
-                .addSub(UiText.t("模式", "Mode"), UiText.t("选择物品使用状态显示样式", "Choose the item use status style"),
-                        new SettingCycle(List.of("Lite", "New"),
-                                () -> Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? 1 : 0,
-                                i -> {
-                                    Config.itemUseStatusMode = switch (i) {
-                                        case 1 -> Config.ItemUseStatusMode.NEW;
-                                        default -> Config.ItemUseStatusMode.LITE;
-                                    };
-                                    Config.save();
-                                })));
+                new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.setDynamicIsland(v); Config.save(); }))
@@ -141,16 +131,6 @@ public class RenderPage extends BasePage {
                 UiText.t("盔甲 HUD", "Armor HUD"),
                 UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
                 new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); }))
-                .addSub(UiText.t("模式", "Mode"), UiText.t("在 new 和 lite 之间切换", "Switch between new and lite"),
-                        new SettingCycle(List.of("New", "Lite"),
-                                () -> Config.armorHudMode == Config.ArmorHudMode.NEW ? 0 : 1,
-                                i -> {
-                                    Config.armorHudMode = i == 0 ? Config.ArmorHudMode.NEW : Config.ArmorHudMode.LITE;
-                                    if (Config.armorHudMode == Config.ArmorHudMode.LITE && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
-                                        Config.armorHudLayout = Config.ArmorHudLayout.HORIZONTAL;
-                                    }
-                                    Config.save();
-                                }))
                 .addSub(UiText.t("布局", "Layout"), UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
                         new SettingCycle(List.of(
                                         UiText.t("分离式", "Separated"),
@@ -243,18 +223,10 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
-                .addSub(UiText.t("选择目标 HUD 样式", "Mode"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
-                        new SettingCycle(List.of("New", "Blur", "Lite"),
-                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : Config.targetHudMode == Config.TargetHudMode.BLUR ? 1 : 2,
-                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : i == 1 ? Config.TargetHudMode.BLUR : Config.TargetHudMode.LITE; Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
-                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); }))
-                .addSub(UiText.t("选择按键显示样式", "Mode"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
-                        new SettingCycle(List.of("New", "Lite"),
-                                () -> Config.keystrokesMode == Config.KeystrokesMode.NEW ? 0 : 1,
-                                i -> { Config.keystrokesMode = i == 0 ? Config.KeystrokesMode.NEW : Config.KeystrokesMode.LITE; Config.save(); })));
+                new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("名称标签", "Name Tags"), UiText.t("调整原版实体名称标签显示效果", "Adjust vanilla entity name tag rendering"),
                 new SettingToggle(() -> Config.nameTag, v -> { Config.nameTag = v; Config.save(); }))

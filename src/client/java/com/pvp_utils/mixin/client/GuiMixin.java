@@ -59,6 +59,13 @@ public class GuiMixin {
             }
         }
 
+        if (mc.options.hideGui) {
+            if (canvas != null) {
+                SkiaRenderer.endRegion(guiGraphics);
+            }
+            return;
+        }
+
         if (!skiaScreenOpen) {
             NotificationOverlay.getInstance().render(guiGraphics, canvas);
         }
