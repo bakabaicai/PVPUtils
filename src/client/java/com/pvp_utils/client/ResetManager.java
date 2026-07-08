@@ -18,6 +18,7 @@ public class ResetManager {
         Config.sneakAnimationSpeed = 1.0f;
         Config.autoScreenshot = false;
         Config.autoGG = false;
+        Config.foodInfo = false;
         Config.hitMarker = false;
         Config.hitSound = false;
         Config.mainHandAssist = false;

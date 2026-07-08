@@ -21,6 +21,7 @@ import com.pvp_utils.client.modules.impl.Tool.AutoGGManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
+import com.pvp_utils.client.modules.impl.Tool.FoodInfo.FoodInfoHudOverlay;
 import com.pvp_utils.client.modules.impl.Tool.Freelook.FreelookManager;
 import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.fabricmc.api.ClientModInitializer;
@@ -49,6 +50,7 @@ public class PVPUtilsClient implements ClientModInitializer {
             MainHandAssistManager.tick(client);
             InputMethodFix.tick(client);
             FishingRodAssistManager.tick(client);
+            FoodInfoHudOverlay.getInstance().tick(client);
             BlockCountDisplayRenderer.getInstance().tick(client);
             CustomEnchantmentGlint.tick(client);
             FakePlayerManager.tick(client);

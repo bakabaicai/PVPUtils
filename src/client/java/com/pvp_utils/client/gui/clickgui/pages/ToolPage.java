@@ -21,6 +21,9 @@ public class ToolPage extends BasePage {
                         new SettingSlider(0, 100, "%.0f", () -> (double) Config.autoGGDelayTicks,
                                 v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
+                new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
 

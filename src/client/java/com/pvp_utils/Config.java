@@ -25,6 +25,7 @@ public class Config {
     public static boolean isChinese = defaultChinese();
     public static boolean autoScreenshot = false;
     public static boolean autoGG = false;
+    public static boolean foodInfo = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = false;
     public static boolean mainHandAssist = false;
@@ -584,6 +585,7 @@ public class Config {
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
             new ModuleRule("AutoGG", "autoGG", "autoGG"),
+            new ModuleRule("FoodInfo", "foodInfo", "foodInfo"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
             new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
