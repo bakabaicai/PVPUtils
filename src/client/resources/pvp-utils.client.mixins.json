@@ -33,6 +33,7 @@
     "ClientPacketListenerMixin",
     "ConnectionMixin",
     "ConnectScreenMixin",
+    "DisconnectedScreenMixin",
     "FoodInfoFoodDataMixin",
     "FoodInfoGuiMixin",
     "FoodInfoItemStackMixin",
