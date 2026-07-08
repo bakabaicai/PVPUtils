@@ -50,7 +50,7 @@ public final class MainHandAssistManager {
                 ItemStack held = inventory.getItem(selectedSlot);
                 int nextTargetSlot = -1;
 
-                if (Config.mainHandAssistQuickUse && usePressed && player.getOffhandItem().isEmpty()) {
+                if (Config.mainHandAssistQuickUse && usePressed && player.getOffhandItem().isEmpty() && !hasRightClickUtility(held)) {
                     nextTargetSlot = findQuickUseSlot(player);
                     quickUse = nextTargetSlot >= 0;
                 }
