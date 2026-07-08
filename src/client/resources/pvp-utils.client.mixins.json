@@ -32,6 +32,7 @@
     "HotbarSmoothMixin",
     "ClientPacketListenerMixin",
     "ConnectionMixin",
+    "ConnectScreenMixin",
     "FoodInfoFoodDataMixin",
     "FoodInfoGuiMixin",
     "FoodInfoItemStackMixin",
