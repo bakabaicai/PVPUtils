@@ -183,7 +183,7 @@ public final class BetterScoreboardManager {
         }
         final boolean[] nativeRender = {false};
         component.visit((Style style, String text) -> {
-            if (containsNativeSymbols(text) || hasFormatting(style)) {
+            if (containsNativeSymbols(text) || hasCustomFont(style)) {
                 nativeRender[0] = true;
                 return java.util.Optional.of(Boolean.TRUE);
             }
@@ -248,14 +248,8 @@ public final class BetterScoreboardManager {
         return false;
     }
 
-    private static boolean hasFormatting(Style style) {
-        return style != null && (style.getColor() != null
-                || style.isBold()
-                || style.isItalic()
-                || style.isUnderlined()
-                || style.isStrikethrough()
-                || style.isObfuscated()
-                || style.getFont() != null && !style.getFont().equals(Style.EMPTY.getFont()));
+    private static boolean hasCustomFont(Style style) {
+        return style != null && style.getFont() != null && !style.getFont().equals(Style.EMPTY.getFont());
     }
 
     private static boolean hasHexColor(String text, int sectionIndex) {
