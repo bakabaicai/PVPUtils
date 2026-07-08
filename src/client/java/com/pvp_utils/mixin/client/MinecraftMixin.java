@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
@@ -35,6 +36,11 @@ public class MinecraftMixin {
     private void pvp_utils$tickToolOverrides(CallbackInfo ci) {
         TimeWeatherChanger.tick((Minecraft) (Object) this);
         DamageNumberRenderer.getInstance().tick((Minecraft) (Object) this);
+    }
+
+    @Inject(method = "startUseItem", at = @At("HEAD"))
+    private void pvp_utils$prepareQuickUseMainHand(CallbackInfo ci) {
+        MainHandAssistManager.beforeStartUseItem((Minecraft) (Object) this);
     }
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
