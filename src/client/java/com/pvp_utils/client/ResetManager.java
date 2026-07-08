@@ -155,6 +155,7 @@ public class ResetManager {
         Config.betterChatAvatar = true;
         Config.betterScoreboard = false;
         Config.betterScoreboardHideScores = false;
+        Config.betterScoreboardVisualImprovement = false;
         Config.betterChatMessageFadeTime = 170;
         Config.betterChatInputFadeTime = 170;
         Config.smoothHotbarScrolling = false;

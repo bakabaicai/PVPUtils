@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.numbers.NumberFormat;
 import net.minecraft.network.chat.numbers.StyledFormat;
 import net.minecraft.world.scores.DisplaySlot;
@@ -103,6 +104,42 @@ public final class BetterScoreboardManager {
         return new Rect(resolvedGuiW - width - RIGHT_MARGIN - 2, (resolvedGuiH - height) * 0.5f, width, height);
     }
 
+    public static List<Row> getRows(Objective objective) {
+        if (objective == null) {
+            return List.of();
+        }
+        Scoreboard scoreboard = objective.getScoreboard();
+        NumberFormat numberFormat = objective.numberFormatOrDefault(StyledFormat.SIDEBAR_DEFAULT);
+        return scoreboard.listPlayerScores(objective).stream()
+                .filter(entry -> !entry.isHidden())
+                .sorted(Comparator.comparingInt(PlayerScoreEntry::value).reversed().thenComparing(PlayerScoreEntry::owner))
+                .limit(15)
+                .map(entry -> {
+                    PlayerTeam team = scoreboard.getPlayersTeam(entry.owner());
+                    Component name = PlayerTeam.formatNameForTeam(team, entry.ownerName());
+                    Component score = entry.formatValue(numberFormat);
+                    return new Row(encodeStyled(name), encodeStyled(score), name, score,
+                            needsNativeRendering(name),
+                            needsNativeRendering(score));
+                })
+                .toList();
+    }
+
+    public static String encodeStyled(Component component) {
+        if (component == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        component.visit((Style style, String text) -> {
+            if (style != null && style.getColor() != null) {
+                appendHexColor(builder, style.getColor().getValue());
+            }
+            builder.append(text);
+            return java.util.Optional.empty();
+        }, Style.EMPTY);
+        return builder.toString();
+    }
+
     private static Rect measure(GuiGraphics graphics, Objective objective) {
         return measure(Minecraft.getInstance().gui.getFont(), graphics.guiWidth(), graphics.guiHeight(), objective);
     }
@@ -112,22 +149,14 @@ public final class BetterScoreboardManager {
             return new Rect(guiW - FALLBACK_WIDTH - RIGHT_MARGIN - 2, (guiH - FALLBACK_HEIGHT) * 0.5f, FALLBACK_WIDTH, FALLBACK_HEIGHT);
         }
 
-        Scoreboard scoreboard = objective.getScoreboard();
-        NumberFormat numberFormat = objective.numberFormatOrDefault(StyledFormat.SIDEBAR_DEFAULT);
-        List<PlayerScoreEntry> entries = scoreboard.listPlayerScores(objective).stream()
-                .filter(entry -> !entry.isHidden())
-                .sorted(Comparator.comparingInt(PlayerScoreEntry::value).reversed().thenComparing(PlayerScoreEntry::owner))
-                .limit(15)
-                .toList();
+        List<Row> entries = getRows(objective);
 
         int titleWidth = font.width(objective.getDisplayName());
         int width = titleWidth;
         int colonWidth = font.width(":");
-        for (PlayerScoreEntry entry : entries) {
-            PlayerTeam team = scoreboard.getPlayersTeam(entry.owner());
-            Component name = PlayerTeam.formatNameForTeam(team, entry.ownerName());
-            int scoreWidth = font.width(entry.formatValue(numberFormat));
-            int rowWidth = font.width(name) + (scoreWidth > 0 ? colonWidth + scoreWidth : 0);
+        for (Row entry : entries) {
+            int scoreWidth = font.width(stripLegacyCodes(entry.score()));
+            int rowWidth = font.width(stripLegacyCodes(entry.name())) + (scoreWidth > 0 ? colonWidth + scoreWidth : 0);
             width = Math.max(width, rowWidth);
         }
 
@@ -140,5 +169,109 @@ public final class BetterScoreboardManager {
     }
 
     public record Rect(float x, float y, float w, float h) {
+    }
+
+    public record Row(String name, String score, Component nameComponent, Component scoreComponent, boolean nameFormatted, boolean scoreFormatted) {
+        public Row(String name, String score) {
+            this(name, score, Component.literal(name), Component.literal(score), containsNativeSymbols(name), containsNativeSymbols(score));
+        }
+    }
+
+    public static boolean needsNativeRendering(Component component) {
+        if (component == null) {
+            return false;
+        }
+        final boolean[] nativeRender = {false};
+        component.visit((Style style, String text) -> {
+            if (containsNativeSymbols(text) || hasFormatting(style)) {
+                nativeRender[0] = true;
+                return java.util.Optional.of(Boolean.TRUE);
+            }
+            return java.util.Optional.empty();
+        }, Style.EMPTY);
+        return nativeRender[0];
+    }
+
+    private static void appendHexColor(StringBuilder builder, int rgb) {
+        String hex = String.format(java.util.Locale.ROOT, "%06X", rgb & 0xFFFFFF);
+        builder.append('\u00A7').append('x');
+        for (int i = 0; i < hex.length(); i++) {
+            builder.append('\u00A7').append(hex.charAt(i));
+        }
+    }
+
+    private static String stripLegacyCodes(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        StringBuilder clean = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if ((ch == '\u00A7' || ch == '&') && i + 1 < text.length()) {
+                if (Character.toLowerCase(text.charAt(i + 1)) == 'x' && hasHexColor(text, i)) {
+                    i += 13;
+                } else {
+                    i++;
+                }
+                continue;
+            }
+            clean.append(ch);
+        }
+        return clean.toString();
+    }
+
+    public static boolean containsLegacyCodes(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i + 1 < text.length(); i++) {
+            char ch = text.charAt(i);
+            if ((ch == '\u00A7' || ch == '&')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean containsNativeSymbols(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        for (int offset = 0; offset < text.length(); ) {
+            int cp = text.codePointAt(offset);
+            if (Character.isSupplementaryCodePoint(cp)
+                    || Character.UnicodeBlock.of(cp) == Character.UnicodeBlock.PRIVATE_USE_AREA) {
+                return true;
+            }
+            offset += Character.charCount(cp);
+        }
+        return false;
+    }
+
+    private static boolean hasFormatting(Style style) {
+        return style != null && (style.getColor() != null
+                || style.isBold()
+                || style.isItalic()
+                || style.isUnderlined()
+                || style.isStrikethrough()
+                || style.isObfuscated()
+                || style.getFont() != null && !style.getFont().equals(Style.EMPTY.getFont()));
+    }
+
+    private static boolean hasHexColor(String text, int sectionIndex) {
+        if (sectionIndex + 13 >= text.length()) return false;
+        char marker = text.charAt(sectionIndex);
+        for (int i = 0; i < 6; i++) {
+            int prefix = sectionIndex + 2 + i * 2;
+            int value = prefix + 1;
+            if (text.charAt(prefix) != marker || !isHex(text.charAt(value))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isHex(char value) {
+        return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'f') || (value >= 'A' && value <= 'F');
     }
 }

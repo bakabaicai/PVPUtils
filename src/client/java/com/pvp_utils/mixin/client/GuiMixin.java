@@ -15,6 +15,7 @@ import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRende
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
+import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboardRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
@@ -71,6 +72,7 @@ public class GuiMixin {
         KeystrokesRenderer.getInstance().render(guiGraphics);
         ArmorHudRenderer.getInstance().render(guiGraphics);
         PotionStatusRenderer.getInstance().render(guiGraphics);
+        BetterScoreboardRenderer.getInstance().render(guiGraphics);
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {

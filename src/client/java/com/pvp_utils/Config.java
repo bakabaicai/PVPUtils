@@ -102,6 +102,7 @@ public class Config {
     public static boolean betterChatAvatar = true;
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
+    public static boolean betterScoreboardVisualImprovement = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;

@@ -31,7 +31,9 @@ public class OptimizePage extends BasePage {
                 UiText.t("开启后可在 HUD 编辑器中拖动和缩放计分板", "Allows moving and scaling the scoreboard in the HUD editor"),
                 new SettingToggle(() -> Config.betterScoreboard, v -> { Config.betterScoreboard = v; Config.save(); }))
                 .addSub(UiText.t("隐藏红色数字", "Hide Red Numbers"), "",
-                        new SettingToggle(() -> Config.betterScoreboardHideScores, v -> { Config.betterScoreboardHideScores = v; Config.save(); })));
+                        new SettingToggle(() -> Config.betterScoreboardHideScores, v -> { Config.betterScoreboardHideScores = v; Config.save(); }))
+                .addSub(UiText.t("视觉改进", "Visual Improvement"), "",
+                        new SettingToggle(() -> Config.betterScoreboardVisualImprovement, v -> { Config.betterScoreboardVisualImprovement = v; Config.save(); })));
 
         modules.add(new SettingModule(
                 UiText.t("平滑快捷栏", "Smooth Hotbar"),

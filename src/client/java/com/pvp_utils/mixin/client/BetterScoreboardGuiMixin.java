@@ -15,8 +15,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Gui.class)
 public class BetterScoreboardGuiMixin {
-    @Inject(method = "displayScoreboardSidebar", at = @At("HEAD"))
+    @Inject(method = "displayScoreboardSidebar", at = @At("HEAD"), cancellable = true)
     private void pvp_utils$betterScoreboardPush(GuiGraphics graphics, Objective objective, CallbackInfo ci) {
+        if (Config.betterScoreboard && Config.betterScoreboardVisualImprovement) {
+            ci.cancel();
+            return;
+        }
         BetterScoreboardManager.pushTransform(graphics, objective);
     }
 

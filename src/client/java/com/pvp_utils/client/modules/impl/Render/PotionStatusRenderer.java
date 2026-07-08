@@ -43,7 +43,7 @@ public class PotionStatusRenderer {
     private static final float ITEM_RADIUS = 8f;
     private static final int MAX_EFFECTS = 64;
     private static final long HIDE_DELAY_MS = 260L;
-    private static final String INFINITE_ICON = "\uE6D5";
+    private static final String INFINITE_ICON = "\uE90D";
 
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint itemPaint = new Paint().setAntiAlias(true);

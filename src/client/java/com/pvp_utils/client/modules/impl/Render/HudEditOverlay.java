@@ -253,9 +253,11 @@ public class HudEditOverlay {
             potionStatus = dragged;
         } else if (dragTarget == DragTarget.BETTER_SCOREBOARD && betterScoreboard != null) {
             BetterScoreboardManager.Rect baseRect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
+            float pad = Config.betterScoreboardVisualImprovement ? 7.0f * BetterScoreboardManager.getScale() : 0.0f;
+            float visualYOffset = Config.betterScoreboardVisualImprovement ? 3.0f * BetterScoreboardManager.getScale() : 0.0f;
             RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, betterScoreboard.w, betterScoreboard.h, guiW, guiH), guiW, guiH);
-            Config.betterScoreboardX = dragged.x - baseRect.x();
-            Config.betterScoreboardY = dragged.y - baseRect.y();
+            Config.betterScoreboardX = dragged.x + pad - baseRect.x();
+            Config.betterScoreboardY = dragged.y + pad - visualYOffset - baseRect.y();
             configDirty = true;
             betterScoreboard = dragged;
         }
@@ -565,11 +567,14 @@ public class HudEditOverlay {
 
     private RectState getBetterScoreboardRect(int guiW, int guiH) {
         BetterScoreboardManager.Rect rect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
+        float scale = BetterScoreboardManager.getScale();
+        float pad = Config.betterScoreboardVisualImprovement ? 7.0f * scale : 0.0f;
+        float visualYOffset = Config.betterScoreboardVisualImprovement ? 3.0f * scale : 0.0f;
         return clampRect(
-                rect.x() + Config.betterScoreboardX,
-                rect.y() + Config.betterScoreboardY,
-                rect.w() * BetterScoreboardManager.getScale(),
-                rect.h() * BetterScoreboardManager.getScale(),
+                rect.x() + Config.betterScoreboardX - pad,
+                rect.y() + Config.betterScoreboardY + visualYOffset - pad,
+                rect.w() * scale + pad * 2.0f,
+                rect.h() * scale + pad * 2.0f,
                 guiW,
                 guiH
         );
