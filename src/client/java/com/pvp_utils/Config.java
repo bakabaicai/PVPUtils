@@ -75,6 +75,7 @@ public class Config {
     public static boolean potionStatusHideVanilla = true;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
+    public static boolean removeContainerBackground = false;
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
     public static boolean hideSignText = false;
@@ -614,6 +615,7 @@ public class Config {
             new ModuleRule("ArmorHUD", "armorHud", "armorHud"),
             new ModuleRule("PotionStatus", "potionStatus", "potionStatus"),
             new ModuleRule("QuickDeposit", "autoChestDeposit", "autoChestDeposit"),
+            new ModuleRule("RemoveContainerBackground", "removeContainerBackground", "removeContainerBackground"),
             new ModuleRule("Keystrokes", "keystrokes", "keystrokes"),
             new ModuleRule("InputMethodFix", "disableImeInGame", "disableImeInGame"),
             new ModuleRule("RenderControl", "hide", ""),

@@ -83,6 +83,7 @@ public class ResetManager {
         Config.autoChestDepositResourcesOnly = true;
         Config.autoChestDepositDepositDelay = 4;
         Config.autoChestDepositCloseDelay = 4;
+        Config.removeContainerBackground = false;
         Config.targetHudX = -300f;
         Config.targetHudY = -100f;
         Config.targetHudZ = 0f;

@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
+import com.pvp_utils.client.modules.impl.Tool.RemoveContainerBackgroundManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,6 +23,13 @@ public abstract class ScreenMixin {
     private void pvp_utils$mainUiMenuBackground(GuiGraphics guiGraphics, CallbackInfo ci) {
         if (MainUISharedBackground.shouldReplace((Screen) (Object) this)) {
             MainUISharedBackground.render(guiGraphics, 0, 0);
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "renderTransparentBackground", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$removeContainerTransparentBackground(GuiGraphics guiGraphics, CallbackInfo ci) {
+        if (RemoveContainerBackgroundManager.shouldRemove((Screen) (Object) this)) {
             ci.cancel();
         }
     }
