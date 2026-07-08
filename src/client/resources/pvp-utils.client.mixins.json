@@ -64,6 +64,7 @@
     "BetterChatLineRenderMixin",
     "BetterChatTextCollectorMixin",
     "BetterChatPlayerChatMessageMixin",
+    "BetterScoreboardGuiMixin",
     "ChatComponentAccessor",
     "ChatComponentDrawingBackgroundGraphicsAccessor",
     "ChatComponentDrawingFocusedGraphicsAccessor",

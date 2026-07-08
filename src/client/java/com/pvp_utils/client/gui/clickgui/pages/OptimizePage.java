@@ -27,6 +27,13 @@ public class OptimizePage extends BasePage {
                         new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatInputFadeTime, v -> { Config.betterChatInputFadeTime = v.intValue(); Config.save(); })));
 
         modules.add(new SettingModule(
+                UiText.t("更好的计分板", "Better Scoreboard"),
+                UiText.t("开启后可在 HUD 编辑器中拖动和缩放计分板", "Allows moving and scaling the scoreboard in the HUD editor"),
+                new SettingToggle(() -> Config.betterScoreboard, v -> { Config.betterScoreboard = v; Config.save(); }))
+                .addSub(UiText.t("隐藏红色数字", "Hide Red Numbers"), "",
+                        new SettingToggle(() -> Config.betterScoreboardHideScores, v -> { Config.betterScoreboardHideScores = v; Config.save(); })));
+
+        modules.add(new SettingModule(
                 UiText.t("平滑快捷栏", "Smooth Hotbar"),
                 UiText.t("让快捷栏滚轮切换时带有平滑过渡", "Make hotbar scrolling smooth"),
                 new SettingToggle(() -> Config.smoothHotbarScrolling, v -> { Config.smoothHotbarScrolling = v; Config.save(); }))

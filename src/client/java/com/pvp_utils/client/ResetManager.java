@@ -131,6 +131,9 @@ public class ResetManager {
         Config.potionStatusX = 0f;
         Config.potionStatusY = 0f;
         Config.potionStatusScale = 1.0f;
+        Config.betterScoreboardX = 0f;
+        Config.betterScoreboardY = 0f;
+        Config.betterScoreboardScale = 1.0f;
         Config.disableImeInGame = false;
         Config.hideSignText = false;
         Config.hideEnchantTableBook = false;
@@ -150,6 +153,8 @@ public class ResetManager {
         Config.betterChatMessageAnimation = true;
         Config.betterChatInputAnimation = true;
         Config.betterChatAvatar = true;
+        Config.betterScoreboard = false;
+        Config.betterScoreboardHideScores = false;
         Config.betterChatMessageFadeTime = 170;
         Config.betterChatInputFadeTime = 170;
         Config.smoothHotbarScrolling = false;

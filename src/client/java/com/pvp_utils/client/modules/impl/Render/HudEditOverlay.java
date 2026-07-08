@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboardManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
@@ -17,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, NOTIFICATION, POTION_STATUS }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, NOTIFICATION, POTION_STATUS, BETTER_SCOREBOARD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -44,6 +45,7 @@ public class HudEditOverlay {
     private float dynamicIslandHoverAlpha = 0f;
     private float notificationHoverAlpha = 0f;
     private float potionStatusHoverAlpha = 0f;
+    private float betterScoreboardHoverAlpha = 0f;
     private float dashOffset = 0f;
     private float targetVisualX = Float.NaN;
     private float targetVisualY = Float.NaN;
@@ -72,6 +74,7 @@ public class HudEditOverlay {
     private RectState pendingDynamicIsland = null;
     private RectState pendingNotification = null;
     private RectState pendingPotionStatus = null;
+    private RectState pendingBetterScoreboard = null;
 
     public static HudEditOverlay getInstance() {
         return INSTANCE;
@@ -130,6 +133,7 @@ public class HudEditOverlay {
         RectState dynamicIsland = Config.dynamicIsland ? getDynamicIslandRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
+        RectState betterScoreboard = Config.betterScoreboard ? getBetterScoreboardRect(guiW, guiH) : null;
 
         if (targetHud != null && Float.isNaN(targetVisualX)) {
             targetVisualX = targetHud.x;
@@ -144,6 +148,7 @@ public class HudEditOverlay {
         boolean dynamicIslandHovered = dynamicIsland != null && contains(dynamicIsland, mx, my, 4f);
         boolean notificationHovered = contains(notification, mx, my, 4f);
         boolean potionStatusHovered = potionStatus != null && contains(potionStatus, mx, my, 4f);
+        boolean betterScoreboardHovered = betterScoreboard != null && contains(betterScoreboard, mx, my, 4f);
 
         if (mouseDown && !wasMouseDown) {
             if (potionStatusHovered) {
@@ -154,6 +159,10 @@ public class HudEditOverlay {
                 dragTarget = DragTarget.NOTIFICATION;
                 dragOffsetX = mx - notification.x;
                 dragOffsetY = my - notification.y;
+            } else if (betterScoreboardHovered) {
+                dragTarget = DragTarget.BETTER_SCOREBOARD;
+                dragOffsetX = mx - betterScoreboard.x;
+                dragOffsetY = my - betterScoreboard.y;
             } else if (blockCountHovered) {
                 dragTarget = DragTarget.BLOCK_COUNT;
                 dragOffsetX = mx - blockCount.x;
@@ -242,6 +251,13 @@ public class HudEditOverlay {
             Config.potionStatusY = dragged.y - (guiH - dragged.h) * 0.5f;
             configDirty = true;
             potionStatus = dragged;
+        } else if (dragTarget == DragTarget.BETTER_SCOREBOARD && betterScoreboard != null) {
+            BetterScoreboardManager.Rect baseRect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, betterScoreboard.w, betterScoreboard.h, guiW, guiH), guiW, guiH);
+            Config.betterScoreboardX = dragged.x - baseRect.x();
+            Config.betterScoreboardY = dragged.y - baseRect.y();
+            configDirty = true;
+            betterScoreboard = dragged;
         }
 
         if (targetHud != null) {
@@ -261,6 +277,7 @@ public class HudEditOverlay {
         dynamicIslandHoverAlpha += (((dynamicIslandHovered || dragTarget == DragTarget.DYNAMIC_ISLAND) ? 1f : 0f) - dynamicIslandHoverAlpha) * Math.min(1f, dt * 14f);
         notificationHoverAlpha += (((notificationHovered || dragTarget == DragTarget.NOTIFICATION) ? 1f : 0f) - notificationHoverAlpha) * Math.min(1f, dt * 14f);
         potionStatusHoverAlpha += (((potionStatusHovered || dragTarget == DragTarget.POTION_STATUS) ? 1f : 0f) - potionStatusHoverAlpha) * Math.min(1f, dt * 14f);
+        betterScoreboardHoverAlpha += (((betterScoreboardHovered || dragTarget == DragTarget.BETTER_SCOREBOARD) ? 1f : 0f) - betterScoreboardHoverAlpha) * Math.min(1f, dt * 14f);
         gridAlpha += (((dragTarget != DragTarget.NONE) ? 1f : 0f) - gridAlpha) * Math.min(1f, dt * 12f);
         snapXAlpha += (((snapXLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapXAlpha) * Math.min(1f, dt * 18f);
         snapYAlpha += (((snapYLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapYAlpha) * Math.min(1f, dt * 18f);
@@ -287,10 +304,11 @@ public class HudEditOverlay {
         pendingDynamicIsland = dynamicIsland;
         pendingNotification = notification;
         pendingPotionStatus = potionStatus;
+        pendingBetterScoreboard = betterScoreboard;
         pendingFrame = true;
 
         if (canvas != null) {
-            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus);
+            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
         }
     }
 
@@ -306,7 +324,7 @@ public class HudEditOverlay {
         Canvas canvas = glBackend.begin();
         if (canvas == null) return;
         try {
-            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingItemUseStatus, pendingDynamicIsland, pendingNotification, pendingPotionStatus);
+            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingItemUseStatus, pendingDynamicIsland, pendingNotification, pendingPotionStatus, pendingBetterScoreboard);
         } finally {
             glBackend.end();
             pendingFrame = false;
@@ -327,6 +345,7 @@ public class HudEditOverlay {
         RectState dynamicIsland = Config.dynamicIsland ? getDynamicIslandRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
+        RectState betterScoreboard = Config.betterScoreboard ? getBetterScoreboardRect(guiW, guiH) : null;
 
         float mx = (float) mouseX;
         float my = (float) mouseY;
@@ -339,6 +358,11 @@ public class HudEditOverlay {
         }
         if (potionStatus != null && contains(potionStatus, mx, my, 4f)) {
             Config.potionStatusScale = clampScale(Config.potionStatusScale + delta);
+            Config.save();
+            return true;
+        }
+        if (betterScoreboard != null && contains(betterScoreboard, mx, my, 4f)) {
+            Config.betterScoreboardScale = clampScale(Config.betterScoreboardScale + delta);
             Config.save();
             return true;
         }
@@ -408,7 +432,7 @@ public class HudEditOverlay {
     }
 
     private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, RectState targetHud, RectState keystrokes,
-                             RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState dynamicIsland, RectState notification, RectState potionStatus) {
+                             RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState dynamicIsland, RectState notification, RectState potionStatus, RectState betterScoreboard) {
         if (gridAlpha > 0.01f) {
             drawGrid(canvas, guiW, guiH, progress);
         }
@@ -432,6 +456,9 @@ public class HudEditOverlay {
         }
         if (potionStatus != null) {
             drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
+        }
+        if (betterScoreboard != null) {
+            drawOutline(canvas, betterScoreboard.x, betterScoreboard.y, betterScoreboard.w, betterScoreboard.h, "Better Scoreboard", betterScoreboardHoverAlpha, progress);
         }
         if (notification != null) {
             drawOutline(canvas, notification.x, notification.y, notification.w, notification.h, "Notification", notificationHoverAlpha, progress);
@@ -534,6 +561,18 @@ public class HudEditOverlay {
         float w = renderer.getEditWidth();
         float h = renderer.getEditHeight();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);
+    }
+
+    private RectState getBetterScoreboardRect(int guiW, int guiH) {
+        BetterScoreboardManager.Rect rect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
+        return clampRect(
+                rect.x() + Config.betterScoreboardX,
+                rect.y() + Config.betterScoreboardY,
+                rect.w() * BetterScoreboardManager.getScale(),
+                rect.h() * BetterScoreboardManager.getScale(),
+                guiW,
+                guiH
+        );
     }
 
     private RectState clampRect(float x, float y, float w, float h, int guiW, int guiH) {

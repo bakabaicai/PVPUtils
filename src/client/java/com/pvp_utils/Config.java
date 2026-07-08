@@ -100,6 +100,8 @@ public class Config {
     public static boolean betterChatMessageAnimation = true;
     public static boolean betterChatInputAnimation = true;
     public static boolean betterChatAvatar = true;
+    public static boolean betterScoreboard = false;
+    public static boolean betterScoreboardHideScores = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;
@@ -168,6 +170,9 @@ public class Config {
     public static float potionStatusX = 0f;
     public static float potionStatusY = 0f;
     public static float potionStatusScale = 1.0f;
+    public static float betterScoreboardX = 0f;
+    public static float betterScoreboardY = 0f;
+    public static float betterScoreboardScale = 1.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -614,6 +619,7 @@ public class Config {
             new ModuleRule("RainbowEnchantmentGlint", "customEnchantmentGlint", "customEnchantmentGlint"),
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
+            new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
             new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage"),
             new ModuleRule("TargetHUD", "targetHud", "targetHud"),
@@ -636,6 +642,7 @@ public class Config {
             new HudComponent("DynamicIsland", "dynamicIsland", "dynamicIslandX", "dynamicIslandY", "dynamicIslandScale"),
             new HudComponent("Notification", "notification", "notificationX", "notificationY", "notificationScale"),
             new HudComponent("PotionStatus", "potionStatus", "potionStatusX", "potionStatusY", "potionStatusScale"),
+            new HudComponent("BetterScoreboard", "betterScoreboard", "betterScoreboardX", "betterScoreboardY", "betterScoreboardScale"),
     };
 
     private static boolean defaultChinese() {
