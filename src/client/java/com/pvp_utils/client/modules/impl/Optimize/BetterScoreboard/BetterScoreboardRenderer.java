@@ -1,4 +1,4 @@
-package com.pvp_utils.client.modules.impl.Optimize;
+package com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
