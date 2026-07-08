@@ -24,6 +24,7 @@ public class ResetManager {
         Config.mainHandAssist = false;
         Config.mainHandAssistMeleeWeapon = false;
         Config.mainHandAssistShield = false;
+        Config.mainHandAssistQuickUse = false;
         Config.mainHandAssistSwitchBack = true;
         Config.mainHandAssistSwitchDelayTicks = 2;
         Config.elytraAssist = false;

@@ -5,11 +5,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
 
 public final class MainHandAssistManager {
     private static int originalSlot = -1;
@@ -18,17 +22,22 @@ public final class MainHandAssistManager {
     private static int returnTicks;
     private static boolean switched;
     private static boolean targetUseStarted;
+    private static boolean quickUse;
+    private static boolean quickUseInvoked;
+    private static boolean wasUseDown;
 
     private MainHandAssistManager() {}
 
     public static void tick(Minecraft client) {
-        if (!Config.mainHandAssist || (!Config.mainHandAssistMeleeWeapon && !Config.mainHandAssistShield) || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
+        if (!Config.mainHandAssist || (!Config.mainHandAssistQuickUse && !Config.mainHandAssistMeleeWeapon && !Config.mainHandAssistShield) || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
             reset();
             return;
         }
 
         LocalPlayer player = client.player;
         boolean useDown = client.options.keyUse.isDown();
+        boolean usePressed = useDown && !wasUseDown;
+        wasUseDown = useDown;
         Inventory inventory = player.getInventory();
         int selectedSlot = inventory.getSelectedSlot();
 
@@ -38,17 +47,25 @@ public final class MainHandAssistManager {
                 return;
             }
             if (originalSlot < 0) {
-                if (hasRightClickUtility(player.getOffhandItem())) {
+                ItemStack held = inventory.getItem(selectedSlot);
+                int nextTargetSlot = -1;
+
+                if (Config.mainHandAssistQuickUse && usePressed && player.getOffhandItem().isEmpty()) {
+                    nextTargetSlot = findQuickUseSlot(player);
+                    quickUse = nextTargetSlot >= 0;
+                }
+
+                if (nextTargetSlot < 0 && hasRightClickUtility(player.getOffhandItem())) {
                     reset();
                     return;
                 }
-                ItemStack held = inventory.getItem(selectedSlot);
-                int nextTargetSlot = -1;
-                if (Config.mainHandAssistMeleeWeapon && isMeleeWeapon(held)) {
+                if (nextTargetSlot < 0 && Config.mainHandAssistMeleeWeapon && isMeleeWeapon(held)) {
                     nextTargetSlot = findBestRecoverySlot(player);
+                    quickUse = false;
                 }
                 if (nextTargetSlot < 0 && Config.mainHandAssistShield && !hasRightClickUtility(held)) {
                     nextTargetSlot = findShieldSlot(player);
+                    quickUse = false;
                 }
                 if (nextTargetSlot < 0) {
                     reset();
@@ -58,13 +75,23 @@ public final class MainHandAssistManager {
                 targetSlot = nextTargetSlot;
                 pressTicks = 0;
             }
-            if (targetSlot < 0 || targetSlot == originalSlot) {
+            if (targetSlot < 0) {
+                return;
+            }
+            if (targetSlot == originalSlot && quickUse) {
+                switched = true;
+                quickUseInvoked = false;
+                returnTicks = 0;
+                return;
+            }
+            if (targetSlot == originalSlot) {
                 return;
             }
             if (++pressTicks >= delayTicks()) {
                 inventory.setSelectedSlot(targetSlot);
                 switched = true;
                 targetUseStarted = false;
+                quickUseInvoked = false;
                 returnTicks = 0;
             }
             return;
@@ -72,6 +99,24 @@ public final class MainHandAssistManager {
 
         if (selectedSlot != targetSlot) {
             reset();
+            return;
+        }
+
+        if (quickUse) {
+            if (!quickUseInvoked) {
+                if (++returnTicks >= delayTicks()) {
+                    client.gameMode.useItem(player, InteractionHand.MAIN_HAND);
+                    quickUseInvoked = true;
+                    returnTicks = 0;
+                }
+                return;
+            }
+            if (++returnTicks >= delayTicks()) {
+                if (originalSlot >= 0 && originalSlot < Inventory.getSelectionSize()) {
+                    inventory.setSelectedSlot(originalSlot);
+                }
+                reset();
+            }
             return;
         }
 
@@ -119,6 +164,71 @@ public final class MainHandAssistManager {
             }
         }
         return -1;
+    }
+
+    private static int findQuickUseSlot(LocalPlayer player) {
+        Inventory inventory = player.getInventory();
+        int bestSlot = -1;
+        int bestPriority = Integer.MAX_VALUE;
+        for (int slot = 0; slot < Inventory.getSelectionSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            int priority = quickUsePriority(player, stack);
+            if (priority >= 0 && priority < bestPriority) {
+                bestPriority = priority;
+                bestSlot = slot;
+            }
+        }
+        return bestSlot;
+    }
+
+    private static int quickUsePriority(LocalPlayer player, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return -1;
+        }
+        if (isPotion(stack) && hasMissingUsefulPotionEffect(player, stack)) {
+            return stack.is(Items.SPLASH_POTION) ? 0 : stack.is(Items.LINGERING_POTION) ? 1 : 2;
+        }
+        if (isPotion(stack) && hasInstantHealing(stack)) {
+            return stack.is(Items.SPLASH_POTION) ? 3 : stack.is(Items.LINGERING_POTION) ? 4 : 5;
+        }
+        if (stack.is(Items.MUSHROOM_STEW) || stack.is(Items.SUSPICIOUS_STEW)) {
+            return 6;
+        }
+        if (stack.is(Items.SPLASH_POTION)) {
+            return 7;
+        }
+        if (stack.is(Items.LINGERING_POTION)) {
+            return 8;
+        }
+        return -1;
+    }
+
+    private static boolean isPotion(ItemStack stack) {
+        return stack.is(Items.POTION) || stack.is(Items.SPLASH_POTION) || stack.is(Items.LINGERING_POTION);
+    }
+
+    private static Iterable<MobEffectInstance> potionEffects(ItemStack stack) {
+        PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+        return contents == null ? java.util.List.of() : contents.getAllEffects();
+    }
+
+    private static boolean hasMissingUsefulPotionEffect(LocalPlayer player, ItemStack stack) {
+        for (MobEffectInstance effect : potionEffects(stack)) {
+            MobEffect mobEffect = effect.getEffect().value();
+            if (!mobEffect.isInstantenous() && mobEffect.isBeneficial() && !player.hasEffect(effect.getEffect())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasInstantHealing(ItemStack stack) {
+        for (MobEffectInstance effect : potionEffects(stack)) {
+            if (effect.getEffect().value().isInstantenous() && effect.getEffect().value().isBeneficial()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int recoveryPriority(ItemStack stack, boolean canUseEnchantedApple) {
@@ -189,7 +299,7 @@ public final class MainHandAssistManager {
     }
 
     private static int delayTicks() {
-        return Math.max(0, Config.mainHandAssistSwitchDelayTicks);
+        return Math.max(2, Config.mainHandAssistSwitchDelayTicks);
     }
 
     private static void reset() {
@@ -199,5 +309,7 @@ public final class MainHandAssistManager {
         returnTicks = 0;
         switched = false;
         targetUseStarted = false;
+        quickUse = false;
+        quickUseInvoked = false;
     }
 }

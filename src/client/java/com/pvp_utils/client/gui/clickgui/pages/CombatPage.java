@@ -18,10 +18,12 @@ public class CombatPage extends BasePage {
                         new SettingToggle(() -> Config.mainHandAssistMeleeWeapon, v -> { Config.mainHandAssistMeleeWeapon = v; Config.save(); }))
                 .addSub(UiText.t("盾牌", "Shield"), UiText.t("右键自动使用盾牌", "Automatically switch to a shield when right clicking"),
                         new SettingToggle(() -> Config.mainHandAssistShield, v -> { Config.mainHandAssistShield = v; Config.save(); }))
+                .addSub(UiText.t("快速使用", "Quick Use"), UiText.t("为PotPVP、职业战争等需要快速补充状态的模式设计的的功能，单击右键即可快速执行。", "Designed for PotPVP, Career War and similar modes that need fast status refills. Click right mouse once to execute quickly."),
+                        new SettingToggle(() -> Config.mainHandAssistQuickUse, v -> { Config.mainHandAssistQuickUse = v; Config.save(); }))
                 .addSub(UiText.t("执行完毕后切回原先槽位", "Switch Back After Use"), UiText.t("使用完成或松开右键后切回原先槽位", "Switch back to the original slot after use or after releasing right click"),
                         new SettingToggle(() -> Config.mainHandAssistSwitchBack, v -> { Config.mainHandAssistSwitchBack = v; Config.save(); }))
                 .addSub(UiText.t("切换延迟(tick)", "Switch Delay (tick)"), UiText.t("控制按下右键后切换到目标物品或切换回去的延迟", "Delay before switching to the target item or switching back"),
-                        new SettingSlider(0.0, 20.0, "%.0f", () -> (double) Config.mainHandAssistSwitchDelayTicks, v -> { Config.mainHandAssistSwitchDelayTicks = v.intValue(); Config.save(); }))
+                        new SettingSlider(2.0, 20.0, "%.0f", () -> (double) Math.max(2, Config.mainHandAssistSwitchDelayTicks), v -> { Config.mainHandAssistSwitchDelayTicks = Math.max(2, v.intValue()); Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("让鞘翅的使用更加便捷", "Make elytra usage more convenient"),

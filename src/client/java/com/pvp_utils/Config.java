@@ -31,6 +31,7 @@ public class Config {
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
     public static boolean mainHandAssistShield = false;
+    public static boolean mainHandAssistQuickUse = false;
     public static boolean mainHandAssistSwitchBack = true;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
