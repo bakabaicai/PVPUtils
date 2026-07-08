@@ -226,6 +226,8 @@ public class RenderPage extends BasePage {
                         new SettingToggle(() -> Config.hideExplosionParticles, v -> { Config.hideExplosionParticles = v; Config.save(); }))
                 .addSub(UiText.t("雨滴粒子", "Rain Particles"), UiText.t("隐藏雨天时的雨滴效果", "Hide raindrop effects during rainy weather"),
                         new SettingToggle(() -> Config.hideRainParticles, v -> { Config.hideRainParticles = v; Config.save(); }))
+                .addSub(UiText.t("隐藏Boss血条", "Boss Bar"), UiText.t("隐藏屏幕上方的 Boss 血条", "Hide the boss health bar at the top of the screen"),
+                        new SettingToggle(() -> Config.hideBossBar, v -> { Config.hideBossBar = v; Config.save(); }))
                 .addSub(UiText.t("受伤抖动", "Hurt Shake"), UiText.t("隐藏受到伤害时的视角抖动", "Disable camera shake when hurt"),
                         new SettingToggle(() -> Config.hideHurtShake, v -> { Config.hideHurtShake = v; Config.save(); })));
 

@@ -83,6 +83,7 @@ public class Config {
     public static boolean hideTotemAnimation = false;
     public static boolean hideExplosionParticles = false;
     public static boolean hideRainParticles = false;
+    public static boolean hideBossBar = false;
     public static boolean hideVignette = false;
     public static boolean hideFog = false;
     public static boolean attackEffectsCritParticles = false;

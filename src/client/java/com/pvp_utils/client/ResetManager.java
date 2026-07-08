@@ -139,6 +139,7 @@ public class ResetManager {
         Config.hideTotemAnimation = false;
         Config.hideExplosionParticles = false;
         Config.hideRainParticles = false;
+        Config.hideBossBar = false;
         Config.hideVignette = false;
         Config.hideFog = false;
         Config.noAttackCooldownAnimation = false;

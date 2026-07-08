@@ -93,4 +93,11 @@ public class GuiMixin {
             ci.cancel();
         }
     }
+
+    @Inject(method = "renderBossOverlay", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$hideBossBar(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        if (Config.hideBossBar) {
+            ci.cancel();
+        }
+    }
 }
