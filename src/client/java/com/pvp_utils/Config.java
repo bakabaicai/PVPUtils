@@ -104,6 +104,7 @@ public class Config {
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
+    public static boolean betterMouseLogic = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;
@@ -622,6 +623,7 @@ public class Config {
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
+            new ModuleRule("BetterMouseLogic", "betterMouseLogic", "betterMouseLogic"),
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
             new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage"),
             new ModuleRule("TargetHUD", "targetHud", "targetHud"),

@@ -65,6 +65,8 @@
     "BetterChatTextCollectorMixin",
     "BetterChatPlayerChatMessageMixin",
     "BetterScoreboardGuiMixin",
+    "BetterMouseLogicContainerAccessor",
+    "BetterMouseLogicContainerMixin",
     "ChatComponentAccessor",
     "ChatComponentDrawingBackgroundGraphicsAccessor",
     "ChatComponentDrawingFocusedGraphicsAccessor",
