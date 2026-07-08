@@ -41,11 +41,7 @@ public class ToolPage extends BasePage {
                 new SettingToggle(() -> Config.blockCountDisplay, v -> {
                     Config.setBlockCountDisplay(v);
                     Config.save();
-                }))
-                .addSub(UiText.t("样式", "Mode"), UiText.t("选择方块数量显示样式", "Choose the Block Count Display style"),
-                        new SettingCycle(List.of("New", "Blur"),
-                                () -> Config.blockCountDisplayMode == Config.BlockCountDisplayMode.NEW ? 0 : 1,
-                                i -> { Config.blockCountDisplayMode = i == 0 ? Config.BlockCountDisplayMode.NEW : Config.BlockCountDisplayMode.BLUR; Config.save(); })));
+                })));
 
         modules.add(new SettingModule(UiText.t("改变客户端时间", "Time Change"), UiText.t("强制修改客户端显示的世界时间", "Force the client-side world time"),
                 new SettingToggle(() -> Config.timeChange, v -> { Config.timeChange = v; Config.save(); }))

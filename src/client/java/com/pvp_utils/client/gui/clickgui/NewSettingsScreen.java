@@ -23,10 +23,10 @@ public class NewSettingsScreen extends SkiaScreen {
 
     private final List<BasePage> pages;
 
-    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE3A9", "\uE121", "\uE900"};
-    private static final String[] TAB_ICON_FONTS = {FontRenderer.ICON, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.ICON};
-    private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "主题", "优化", "其他"};
-    private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Theme", "Optimize", "Misc"};
+    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900", "\uE3A9"};
+    private static final String[] TAB_ICON_FONTS = {FontRenderer.ICON, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS};
+    private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他", "主题"};
+    private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc", "Theme"};
 
     private int selectedTab = 0;
     private int hoveredTab = -1;
@@ -84,7 +84,7 @@ public class NewSettingsScreen extends SkiaScreen {
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
-        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new ThemePage(), new OptimizePage(), new MiscPage()));
+        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage()));
     }
 
     private float[] layout(int width, int height) {
@@ -572,9 +572,9 @@ public class NewSettingsScreen extends SkiaScreen {
                     case 0 -> new CombatPage();
                     case 1 -> new RenderPage();
                     case 2 -> new ToolPage();
-                    case 3 -> new ThemePage();
-                    case 4 -> new OptimizePage();
-                    default -> new MiscPage();
+                    case 3 -> new OptimizePage();
+                    case 4 -> new MiscPage();
+                    default -> new ThemePage();
                 });
             } else {
                 resetConfirm = true;
