@@ -38,6 +38,7 @@ public class Config {
     public static boolean elytraAutoFirework = true;
     public static boolean lowHealthNotify = false;
     public static boolean damageNumbers = false;
+    public static boolean arraylist = false;
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
     public static boolean fallDamagePredict = false;
@@ -177,6 +178,19 @@ public class Config {
     public static float betterScoreboardX = 0f;
     public static float betterScoreboardY = 0f;
     public static float betterScoreboardScale = 1.0f;
+    public static float arraylistX = 0f;
+    public static float arraylistY = 0f;
+    public static float arraylistScale = 1.0f;
+    public static int arraylistColorRed = 80;
+    public static int arraylistColorGreen = 255;
+    public static int arraylistColorBlue = 255;
+    public static boolean arraylistGradient = false;
+    public static int arraylistGradientRed = 80;
+    public static int arraylistGradientGreen = 150;
+    public static int arraylistGradientBlue = 255;
+    public static float arraylistGradientSpeed = 1.0f;
+    public static boolean arraylistBorder = false;
+    public static float arraylistBorderWidth = 1.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -605,6 +619,7 @@ public class Config {
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
+            new ModuleRule("Arraylist", "arraylist", "arraylist"),
             new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),
             new ModuleRule("ItemPhysics", "itemPhysics", "itemPhysics"),
             new ModuleRule("DroppedItem2DRender", "item2DRender", "item2DRender"),

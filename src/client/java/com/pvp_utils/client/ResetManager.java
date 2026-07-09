@@ -32,6 +32,7 @@ public class ResetManager {
         Config.elytraAutoFirework = true;
         Config.lowHealthNotify = false;
         Config.damageNumbers = false;
+        Config.arraylist = false;
         Config.targetHud = false;
         Config.diggingStatus = false;
         Config.fallDamagePredict = false;
@@ -136,6 +137,19 @@ public class ResetManager {
         Config.betterScoreboardX = 0f;
         Config.betterScoreboardY = 0f;
         Config.betterScoreboardScale = 1.0f;
+        Config.arraylistX = 0f;
+        Config.arraylistY = 0f;
+        Config.arraylistScale = 1.0f;
+        Config.arraylistColorRed = 80;
+        Config.arraylistColorGreen = 255;
+        Config.arraylistColorBlue = 255;
+        Config.arraylistGradient = false;
+        Config.arraylistGradientRed = 80;
+        Config.arraylistGradientGreen = 150;
+        Config.arraylistGradientBlue = 255;
+        Config.arraylistGradientSpeed = 1.0f;
+        Config.arraylistBorder = false;
+        Config.arraylistBorderWidth = 1.0f;
         Config.disableImeInGame = false;
         Config.hideSignText = false;
         Config.hideEnchantTableBook = false;

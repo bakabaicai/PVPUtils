@@ -85,6 +85,31 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
                 new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("功能列表", "Arraylist"), UiText.t("在HUD上显示当前启用的功能。", "Show currently enabled modules on the HUD."),
+                new SettingToggle(() -> Config.arraylist, v -> { Config.arraylist = v; Config.save(); }))
+                .addSub("R", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorRed, v -> { Config.arraylistColorRed = clampColor(v); Config.save(); }))
+                .addSub("G", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorGreen, v -> { Config.arraylistColorGreen = clampColor(v); Config.save(); }))
+                .addSub("B", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorBlue, v -> { Config.arraylistColorBlue = clampColor(v); Config.save(); }))
+                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示 Arraylist 当前文字颜色", "Preview the current Arraylist text color"),
+                        new SettingColorPreview(() -> arraylistColorArgb(), () -> arraylistGradientColorArgb(), () -> Config.arraylistGradient))
+                .addSub(UiText.t("渐变", "Gradient"), "",
+                        new SettingToggle(() -> Config.arraylistGradient, v -> { Config.arraylistGradient = v; Config.save(); }))
+                .addSubWhen(() -> Config.arraylistGradient, "R2", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientRed, v -> { Config.arraylistGradientRed = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.arraylistGradient, "G2", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientGreen, v -> { Config.arraylistGradientGreen = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.arraylistGradient, "B2", "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientBlue, v -> { Config.arraylistGradientBlue = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.arraylistGradient, UiText.t("渐变速度", "Gradient Speed"), "",
+                        new SettingSlider(0.0, 5.0, "%.1fx", () -> (double) Config.arraylistGradientSpeed, v -> { Config.arraylistGradientSpeed = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("边框", "Border"), "",
+                        new SettingToggle(() -> Config.arraylistBorder, v -> { Config.arraylistBorder = v; Config.save(); }))
+                .addSubWhen(() -> Config.arraylistBorder, UiText.t("边框粗细", "Border Width"), "",
+                        new SettingSlider(1.0, 4.0, "%.1f", () -> (double) Config.arraylistBorderWidth, v -> { Config.arraylistBorderWidth = v.floatValue(); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.setDynamicIsland(v); Config.save(); }))
                 .addSub(UiText.t("方块数量显示", "Block Count Display"), "",
@@ -260,5 +285,19 @@ public class RenderPage extends BasePage {
                 | ((Config.hitColorRed & 0xFF) << 16)
                 | ((Config.hitColorGreen & 0xFF) << 8)
                 | (Config.hitColorBlue & 0xFF);
+    }
+
+    private static int arraylistColorArgb() {
+        return 0xFF000000
+                | ((Config.arraylistColorRed & 0xFF) << 16)
+                | ((Config.arraylistColorGreen & 0xFF) << 8)
+                | (Config.arraylistColorBlue & 0xFF);
+    }
+
+    private static int arraylistGradientColorArgb() {
+        return 0xFF000000
+                | ((Config.arraylistGradientRed & 0xFF) << 16)
+                | ((Config.arraylistGradientGreen & 0xFF) << 8)
+                | (Config.arraylistGradientBlue & 0xFF);
     }
 }
