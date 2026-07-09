@@ -31,6 +31,7 @@ public class Config {
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
     public static boolean mainHandAssistShield = false;
+    public static boolean mainHandAssistQuickUse = false;
     public static boolean mainHandAssistSwitchBack = true;
     public static boolean elytraAssist = false;
     public static boolean elytraAutoDeploy = true;
@@ -74,6 +75,7 @@ public class Config {
     public static boolean potionStatusHideVanilla = true;
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
+    public static boolean removeContainerBackground = false;
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
     public static boolean hideSignText = false;
@@ -103,6 +105,7 @@ public class Config {
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
+    public static boolean betterMouseLogic = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
     public static int betterChatMessageFadeTime = 170;
@@ -612,6 +615,7 @@ public class Config {
             new ModuleRule("ArmorHUD", "armorHud", "armorHud"),
             new ModuleRule("PotionStatus", "potionStatus", "potionStatus"),
             new ModuleRule("QuickDeposit", "autoChestDeposit", "autoChestDeposit"),
+            new ModuleRule("RemoveContainerBackground", "removeContainerBackground", "removeContainerBackground"),
             new ModuleRule("Keystrokes", "keystrokes", "keystrokes"),
             new ModuleRule("InputMethodFix", "disableImeInGame", "disableImeInGame"),
             new ModuleRule("RenderControl", "hide", ""),
@@ -621,6 +625,7 @@ public class Config {
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
+            new ModuleRule("BetterMouseLogic", "betterMouseLogic", "betterMouseLogic"),
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
             new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage"),
             new ModuleRule("TargetHUD", "targetHud", "targetHud"),

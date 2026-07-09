@@ -1,7 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboardManager;
+import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardManager;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;

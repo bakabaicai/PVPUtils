@@ -24,6 +24,7 @@ public class ResetManager {
         Config.mainHandAssist = false;
         Config.mainHandAssistMeleeWeapon = false;
         Config.mainHandAssistShield = false;
+        Config.mainHandAssistQuickUse = false;
         Config.mainHandAssistSwitchBack = true;
         Config.mainHandAssistSwitchDelayTicks = 2;
         Config.elytraAssist = false;
@@ -82,6 +83,7 @@ public class ResetManager {
         Config.autoChestDepositResourcesOnly = true;
         Config.autoChestDepositDepositDelay = 4;
         Config.autoChestDepositCloseDelay = 4;
+        Config.removeContainerBackground = false;
         Config.targetHudX = -300f;
         Config.targetHudY = -100f;
         Config.targetHudZ = 0f;
@@ -156,6 +158,7 @@ public class ResetManager {
         Config.betterScoreboard = false;
         Config.betterScoreboardHideScores = false;
         Config.betterScoreboardVisualImprovement = false;
+        Config.betterMouseLogic = false;
         Config.betterChatMessageFadeTime = 170;
         Config.betterChatInputFadeTime = 170;
         Config.smoothHotbarScrolling = false;

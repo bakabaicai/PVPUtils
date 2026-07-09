@@ -13,7 +13,7 @@ public class OptimizePage extends BasePage {
 
         modules.add(new SettingModule(
                 UiText.t("更好的聊天栏", "Better Chat"),
-                UiText.t("对与聊天栏的优化与改进", "Optimizations and improvements for the chat bar"),
+                UiText.t("对于聊天栏的优化与改进", "Optimizations and improvements for the chat bar"),
                 new SettingToggle(() -> Config.betterChat, v -> { Config.betterChat = v; Config.save(); }))
                 .addSub(UiText.t("消息入场动画", "Message Animation"), UiText.t("新消息出现时滑入", "Slide in new chat messages"),
                         new SettingToggle(() -> Config.betterChatMessageAnimation, v -> { Config.betterChatMessageAnimation = v; Config.save(); }))
@@ -34,6 +34,11 @@ public class OptimizePage extends BasePage {
                         new SettingToggle(() -> Config.betterScoreboardHideScores, v -> { Config.betterScoreboardHideScores = v; Config.save(); }))
                 .addSub(UiText.t("视觉改进", "Visual Improvement"), "",
                         new SettingToggle(() -> Config.betterScoreboardVisualImprovement, v -> { Config.betterScoreboardVisualImprovement = v; Config.save(); })));
+
+        modules.add(new SettingModule(
+                UiText.t("更好的鼠标逻辑", "Better Mouse Logic"),
+                UiText.t("改进鼠标指针的工作逻辑，让他更加简洁易用。（这只针对于物品栏）", "Improve how the mouse cursor works, making it cleaner and easier to use. (Inventory only)"),
+                new SettingToggle(() -> Config.betterMouseLogic, v -> { Config.betterMouseLogic = v; Config.save(); })));
 
         modules.add(new SettingModule(
                 UiText.t("平滑快捷栏", "Smooth Hotbar"),

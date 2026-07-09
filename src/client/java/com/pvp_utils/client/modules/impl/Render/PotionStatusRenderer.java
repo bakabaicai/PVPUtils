@@ -44,10 +44,9 @@ public class PotionStatusRenderer {
     private static final float ITEM_RADIUS = 8f;
     private static final int MAX_EFFECTS = 64;
     private static final long HIDE_DELAY_MS = 260L;
-    private static final String INFINITE_ICON = "\uE90D";
+    private static final String INFINITE_ICON = "\uEB3D";
     private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "potion_status");
     private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
-
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint itemPaint = new Paint().setAntiAlias(true);
     private final Paint itemFillPaint = new Paint().setAntiAlias(true);
