@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>PVPUtils WebGUI</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      color-scheme: dark;
+      --accent: #8cf06f;
+      --accent-2: #58d7ff;
+      --success: #54e88f;
+      --danger: #ff6464;
+      --bg: #06090b;
+      --surface: rgba(12, 18, 22, .86);
+      --panel: rgba(18, 26, 31, .92);
+      --card: rgba(21, 31, 37, .86);
+      --border: rgba(140, 240, 111, .16);
+      --border-strong: rgba(140, 240, 111, .32);
+      --text: #edf7ee;
+      --muted: #82908a;
+      --faint: rgba(255, 255, 255, .055);
+      --font-display: "Trebuchet MS", "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+      --font-body: "Verdana", "Microsoft YaHei UI", sans-serif;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+      font-family: var(--font-body);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(140, 240, 111, .20), transparent 28rem),
+        radial-gradient(circle at 80% 8%, rgba(88, 215, 255, .16), transparent 24rem),
+        radial-gradient(circle at 50% 100%, rgba(140, 240, 111, .08), transparent 26rem),
+        linear-gradient(135deg, #030506, var(--bg));
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 4px;
+    }
+
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: .42;
+    }
+
+    #topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      height: 58px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(5, 9, 11, .82);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(22px) saturate(1.35);
+      animation: topbar-in .55s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    @keyframes topbar-in {
+      from {
+        opacity: 0;
+        transform: translateY(-100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      transition: background .16s ease, color .16s ease, transform .16s ease;
+    }
+
+    .icon-btn:hover {
+      color: var(--text);
+      background: var(--faint);
+    }
+
+    .icon-btn:active {
+      transform: scale(.92);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      color: #07100a;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 15px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 0 28px rgba(140, 240, 111, .16);
+      animation: logo-pulse 3s ease-in-out infinite;
+    }
+
+    .logo-mark::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .35), transparent 58%);
+    }
+
+    @keyframes logo-pulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(140, 240, 111, 0), 0 0 28px rgba(140, 240, 111, .16);
+      }
+      50% {
+        box-shadow: 0 0 0 7px rgba(140, 240, 111, .10), 0 0 40px rgba(88, 215, 255, .18);
+      }
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 15px;
+      letter-spacing: .08em;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .brand-subtitle {
+      margin-top: 4px;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: .18em;
+      line-height: 1;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+    }
+
+    #conn-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background .25s ease, box-shadow .25s ease;
+    }
+
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 25;
+      width: 232px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: rgba(10, 15, 18, .96);
+      border-right: 1px solid var(--border);
+      transform: translateX(-100%);
+      transition: transform .35s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    #sidebar.open {
+      transform: translateX(0);
+    }
+
+    #sidebar-head {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+    }
+
+    #category {
+      list-style: none;
+      padding: 12px 9px;
+      margin: 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-height: 34px;
+      padding: 8px 11px;
+      border-radius: 10px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 12px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: color .16s ease, background .16s ease;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: var(--text);
+      background: rgba(140, 240, 111, .08);
+    }
+
+    .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 24;
+      background: rgba(0, 0, 0, .58);
+      backdrop-filter: blur(2px);
+    }
+
+    #sidebar-overlay.open {
+      display: block;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 78px 22px 44px;
+    }
+
+    #cat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      opacity: 0;
+      transform: translateX(-10px);
+      animation: header-in .45s ease .15s forwards;
+    }
+
+    @keyframes header-in {
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .header-line {
+      width: 3px;
+      height: 24px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    }
+
+    h1 {
+      margin: 0;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+
+    #module-count {
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: var(--faint);
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .1em;
+    }
+
+    #point {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+      gap: 14px;
+    }
+
+    .module-card {
+      min-height: 142px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--card);
+      position: relative;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(18px);
+      animation: card-in .45s cubic-bezier(.22, 1, .36, 1) forwards;
+      transition: border-color .22s ease, transform .22s ease, box-shadow .22s ease;
+    }
+
+    .module-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 35%, rgba(140, 240, 111, .08) 50%, transparent 65%);
+      background-size: 220% 100%;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+
+    .module-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-strong);
+      box-shadow: 0 14px 38px rgba(0, 0, 0, .32);
+    }
+
+    .module-card.enabled:hover::before {
+      opacity: 1;
+      animation: shimmer 2.6s linear infinite;
+    }
+
+    @keyframes card-in {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes shimmer {
+      from {
+        background-position: 220% 0;
+      }
+      to {
+        background-position: -220% 0;
+      }
+    }
+
+    .module-title {
+      position: relative;
+      z-index: 1;
+      margin-bottom: 8px;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: .035em;
+    }
+
+    .module-desc {
+      position: relative;
+      z-index: 1;
+      min-height: 40px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .card-footer {
+      position: absolute;
+      z-index: 1;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .settings-btn {
+      position: absolute;
+      z-index: 2;
+      top: 12px;
+      right: 12px;
+      width: 34px;
+      height: 34px;
+      box-sizing: border-box;
+      border: 0;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .035);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, color .18s ease, background .18s ease;
+    }
+
+    .module-card:hover .settings-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .settings-btn:hover {
+      color: var(--text);
+      background: var(--faint);
+    }
+
+    .settings-btn svg {
+      pointer-events: none;
+    }
+
+    .status-pill {
+      border-radius: 999px;
+      padding: 4px 9px;
+      background: var(--faint);
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .status-pill.on {
+      color: var(--accent);
+      background: rgba(140, 240, 111, .10);
+    }
+
+    .toggle-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .toggle-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-track {
+      width: 40px;
+      height: 22px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--faint);
+      cursor: pointer;
+      position: relative;
+      transition: background .22s ease, border-color .22s ease;
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform .24s cubic-bezier(.34, 1.56, .64, 1), background .22s ease;
+    }
+
+    .toggle-input:checked ~ .toggle-track {
+      border-color: var(--accent);
+      background: rgba(140, 240, 111, .16);
+    }
+
+    .toggle-input:checked ~ .toggle-track .toggle-thumb {
+      transform: translateX(18px);
+      background: var(--accent);
+    }
+
+    #toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 60;
+      max-width: 300px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 15px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, .62);
+      backdrop-filter: blur(8px);
+    }
+
+    #modal-backdrop.open {
+      display: flex;
+    }
+
+    #modal {
+      width: min(430px, 100%);
+      max-height: min(650px, calc(100vh - 36px));
+      border: 1px solid var(--border-strong);
+      border-radius: 22px;
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      animation: modal-in .28s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    @keyframes modal-in {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-eyebrow {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    #modal-title {
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    #modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 18px 20px 20px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .setting-row {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .command-card {
+      min-height: 170px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .command-input {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px 12px;
+      color: var(--text);
+      background: rgba(0, 0, 0, .24);
+      outline: none;
+      font-family: var(--font-body);
+      margin-top: 12px;
+      margin-bottom: 16px;
+    }
+
+    .command-input:focus {
+      border-color: var(--border-strong);
+      outline: none;
+    }
+
+    .command-button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 14px;
+      color: #07100a;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .16s ease, opacity .16s ease;
+    }
+
+    .command-button:hover {
+      opacity: .9;
+      transform: translateY(-1px);
+    }
+
+    .command-button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .command-card .card-footer {
+      position: relative;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      margin-top: auto;
+    }
+
+    .setting-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .setting-name {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .setting-value {
+      color: var(--accent);
+      font-size: 11px;
+      letter-spacing: .06em;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      outline: none;
+      appearance: none;
+      background: var(--faint);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(140, 240, 111, .14);
+      cursor: pointer;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 11px;
+      color: var(--text);
+      background: rgba(0, 0, 0, .24);
+      outline: none;
+      font-family: var(--font-body);
+    }
+
+    @media (max-width: 640px) {
+      #topbar {
+        padding: 0 12px;
+      }
+
+      .connection {
+        display: none;
+      }
+
+      main {
+        padding-inline: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <div id="topbar">
+    <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle sidebar">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <line x1="2" y1="4" x2="14" y2="4"></line>
+        <line x1="2" y1="8" x2="11" y2="8"></line>
+        <line x1="2" y1="12" x2="14" y2="12"></line>
+      </svg>
+    </button>
+    <div class="brand">
+      <div class="logo-mark">P</div>
+      <div>
+        <div class="brand-title">PVPUtils</div>
+        <div class="brand-subtitle">WEBGUI</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="connection">
+      <div id="conn-dot"></div>
+      <span id="conn-text">connecting</span>
+    </div>
+    <button class="icon-btn" onclick="refreshStatus()" aria-label="Refresh">
+      <svg id="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+        <path d="M3 3v5h5"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <nav id="sidebar">
+    <div id="sidebar-head">Categories</div>
+    <ul id="category"></ul>
+    <div style="padding:14px 18px;border-top:1px solid var(--border);color:var(--muted);font-size:10px;letter-spacing:.12em">PVPUtils · WEBGUI</div>
+  </nav>
+
+  <main>
+    <div id="cat-header">
+      <div class="header-line"></div>
+      <h1 id="cat-title">PVPUtils</h1>
+      <span id="module-count">test shell</span>
+    </div>
+    <div id="point"></div>
+  </main>
+
+  <div id="toast"></div>
+
+  <div id="modal-backdrop">
+    <div id="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-eyebrow">Module Settings</div>
+          <div id="modal-title"></div>
+        </div>
+        <button class="icon-btn" onclick="closeModal()" aria-label="Close">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <line x1="2" y1="2" x2="13" y2="13"></line>
+            <line x1="13" y1="2" x2="2" y2="13"></line>
+          </svg>
+        </button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = new URLSearchParams(location.search).get('token') || '';
+    let currentCategory = 'Combat';
+    let categories = [];
+    let categorySignature = '';
+
+    function openSidebar() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebar-overlay').classList.add('open');
+    }
+
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-overlay').classList.remove('open');
+    }
+
+    document.getElementById('sidebar-toggle').onclick = () => {
+      document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+    };
+
+    function toast(message, danger = false) {
+      const node = document.getElementById('toast');
+      node.textContent = message;
+      node.style.borderColor = danger ? 'rgba(255, 100, 100, .4)' : 'var(--border)';
+      node.style.color = danger ? 'var(--danger)' : 'var(--text)';
+      node.classList.add('show');
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => node.classList.remove('show'), 2600);
+    }
+
+    function setConnected(connected) {
+      document.getElementById('conn-dot').style.background = connected ? 'var(--success)' : 'var(--danger)';
+      document.getElementById('conn-dot').style.boxShadow = connected ? '0 0 12px rgba(84, 232, 143, .45)' : '0 0 12px rgba(255, 100, 100, .35)';
+      document.getElementById('conn-text').textContent = connected ? 'connected' : 'disconnected';
+      document.getElementById('conn-text').style.color = connected ? 'var(--success)' : 'var(--danger)';
+    }
+
+    function refreshStatus() {
+      const icon = document.getElementById('refresh-icon');
+      icon.style.transition = 'transform .45s ease';
+      icon.style.transform = 'rotate(360deg)';
+      setTimeout(() => icon.style.transform = 'rotate(0deg)', 460);
+      ping();
+    }
+
+    function addCategory(category) {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.className = 'nav-link';
+      link.href = '#' + category.id;
+      link.dataset.cat = category.id;
+      link.innerHTML = '<span class="nav-dot"></span><span>' + category.name + '</span>';
+      link.onclick = event => {
+        event.preventDefault();
+        renderCategory(category.id);
+        closeSidebar();
+      };
+      item.appendChild(link);
+      document.getElementById('category').appendChild(item);
+    }
+
+    function renderCategory(name, animate = true) {
+      currentCategory = name;
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.cat === name);
+      });
+      const category = categories.find(item => item.id === name);
+      document.getElementById('cat-title').textContent = category ? category.name : name;
+      const grid = document.getElementById('point');
+      grid.innerHTML = '';
+      if (name === 'Command') {
+        renderCommandPage(animate);
+        return;
+      }
+      fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(name))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) {
+            toast(value.reason || 'Failed to load modules.', true);
+            return;
+          }
+          const list = value.result || [];
+          document.getElementById('module-count').textContent = list.length + ' modules';
+          grid.innerHTML = '';
+          list.forEach((mod, index) => {
+            grid.appendChild(buildModuleCard(mod, index, animate));
+          });
+        })
+        .catch(() => {
+          setConnected(false);
+          toast('Failed to load modules.', true);
+        });
+    }
+
+    function renderCommandPage(animate = true) {
+      const grid = document.getElementById('point');
+      fetch('/api/commandsList?token=' + encodeURIComponent(token))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) {
+            toast(value.reason || 'Failed to load commands.', true);
+            return;
+          }
+          const list = value.result || [];
+          document.getElementById('module-count').textContent = list.length + ' commands';
+          grid.innerHTML = '';
+          list.forEach((command, index) => grid.appendChild(buildCommandCard(command, index, animate)));
+        })
+        .catch(() => {
+          setConnected(false);
+          toast('Failed to load commands.', true);
+        });
+    }
+
+    function buildCommandCard(command, index, animate = true) {
+      const card = document.createElement('section');
+      card.className = 'module-card command-card';
+      if (animate) {
+        card.style.animationDelay = (index * 45) + 'ms';
+      } else {
+        card.style.animation = 'none';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }
+      const input = command.requiresInput
+        ? '<input class="command-input" type="' + escapeHtml(command.inputType || 'text') + '" value="' + escapeHtml(command.value || '') + '" placeholder="' + escapeHtml(command.placeholder || '') + '">'
+        : '';
+      card.innerHTML =
+        '<div class="module-title">' + escapeHtml(command.name) + '</div>' +
+        '<div class="module-desc">' + escapeHtml(command.desc || '') + '</div>' +
+        input +
+        '<div class="card-footer"><span class="status-pill">command</span><button class="command-button">Execute</button></div>';
+      const button = card.querySelector('.command-button');
+      const inputNode = card.querySelector('.command-input');
+      if (inputNode) {
+        inputNode.onkeydown = event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            button.click();
+          }
+        };
+      }
+      button.onclick = () => {
+        executeWebCommand(command.id, inputNode ? inputNode.value : '', button);
+      };
+      return card;
+    }
+
+    function executeWebCommand(id, value, button) {
+      button.disabled = true;
+      fetch('/api/executeCommand?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(id) + '&value=' + encodeURIComponent(value))
+        .then(response => response.json())
+        .then(result => {
+          if (!result.success) {
+            toast(result.reason || 'Failed to execute command.', true);
+            return;
+          }
+          toast('Command sent successfully!');
+        })
+        .catch(() => {
+          setConnected(false);
+          toast('Failed to execute command.', true);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
+    }
+
+    function buildModuleCard(mod, index, animate = true) {
+      const card = document.createElement('section');
+      card.className = 'module-card' + (mod.state ? ' enabled' : '');
+      if (animate) {
+        card.style.animationDelay = (index * 45) + 'ms';
+      } else {
+        card.style.animation = 'none';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }
+      card.dataset.module = mod.id;
+      const footer = mod.toggleable === false
+        ? '<div class="card-footer"><span class="status-pill">settings</span></div>'
+        : '<div class="card-footer">' +
+        '<span class="status-pill ' + (mod.state ? 'on' : 'off') + '">' + (mod.state ? 'enabled' : 'disabled') + '</span>' +
+        '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (mod.state ? 'checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+        '</div>';
+      card.innerHTML =
+        (mod.settings ? '<button class="settings-btn" aria-label="Settings" data-settings="' + escapeHtml(mod.id) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>' : '') +
+        '<div class="module-title">' + escapeHtml(mod.name) + '</div>' +
+        '<div class="module-desc">' + escapeHtml(mod.desc || '') + '</div>' +
+        footer;
+      const input = card.querySelector('.toggle-input');
+      if (input) input.onchange = () => setModuleState(card, mod.id, input.checked);
+      const settings = card.querySelector('[data-settings]');
+      if (settings) {
+        settings.onclick = event => {
+          event.preventDefault();
+          event.stopPropagation();
+          openSettings(mod.id, mod.name);
+        };
+      }
+      return card;
+    }
+
+    function setModuleState(card, moduleId, state) {
+      const input = card.querySelector('.toggle-input');
+      const pill = card.querySelector('.status-pill');
+      input.disabled = true;
+      fetch('/api/setStatus?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&state=' + encodeURIComponent(state))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) {
+            input.checked = !state;
+            toast(value.reason || 'Failed to update module.', true);
+            return;
+          }
+          const enabled = !!value.result;
+          input.checked = enabled;
+          card.classList.toggle('enabled', enabled);
+          pill.className = 'status-pill ' + (enabled ? 'on' : 'off');
+          pill.textContent = enabled ? 'enabled' : 'disabled';
+        })
+        .catch(() => {
+          input.checked = !state;
+          setConnected(false);
+          toast('Failed to update module.', true);
+        })
+        .finally(() => {
+          input.disabled = false;
+        });
+    }
+
+    function updateModuleCard(card, mod) {
+      card.querySelector('.module-title').textContent = mod.name;
+      card.querySelector('.module-desc').textContent = mod.desc || '';
+      const input = card.querySelector('.toggle-input');
+      const pill = card.querySelector('.status-pill');
+      if (!input) {
+        return;
+      }
+      const enabled = !!mod.state;
+      input.checked = enabled;
+      card.classList.toggle('enabled', enabled);
+      pill.className = 'status-pill ' + (enabled ? 'on' : 'off');
+      pill.textContent = enabled ? 'enabled' : 'disabled';
+    }
+
+    function openSettings(moduleId, moduleName) {
+      document.getElementById('modal-title').textContent = moduleName;
+      const body = document.getElementById('modal-body');
+      body.innerHTML = '<div class="setting-name">Loading...</div>';
+      document.getElementById('modal-backdrop').classList.add('open');
+      fetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) {
+            body.innerHTML = '';
+            toast(value.reason || 'Failed to load settings.', true);
+            return;
+          }
+          const settings = value.result || [];
+          if (!settings.length) {
+            body.innerHTML = '<div class="setting-name">No settings available.</div>';
+            return;
+          }
+          body.innerHTML = '';
+          settings.forEach(setting => body.appendChild(buildSettingControl(moduleId, setting)));
+        })
+        .catch(() => {
+          body.innerHTML = '';
+          setConnected(false);
+          toast('Failed to load settings.', true);
+        });
+    }
+
+    function closeModal() {
+      document.getElementById('modal-backdrop').classList.remove('open');
+    }
+
+    document.getElementById('modal-backdrop').onclick = event => {
+      if (event.target === event.currentTarget) closeModal();
+    };
+
+    function buildSettingControl(moduleId, setting) {
+      const row = document.createElement('div');
+      row.className = 'setting-row';
+      if (setting.type === 'checkbox') {
+        row.innerHTML =
+          '<div class="setting-line">' +
+          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
+          '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (setting.value ? 'checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+          '</div>';
+        const input = row.querySelector('input');
+        input.onchange = () => setSettingValue(moduleId, setting.name, input.checked, input);
+      } else if (setting.type === 'slider') {
+        row.innerHTML =
+          '<div class="setting-line">' +
+          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
+          '<span class="setting-value">' + escapeHtml(setting.value) + '</span>' +
+          '</div>' +
+          '<input type="range" min="' + setting.min + '" max="' + setting.max + '" step="' + setting.step + '" value="' + setting.value + '">';
+        const input = row.querySelector('input');
+        const value = row.querySelector('.setting-value');
+        input.oninput = () => value.textContent = input.value;
+        input.onchange = () => setSettingValue(moduleId, setting.name, input.value, input);
+      } else if (setting.type === 'selection') {
+        row.innerHTML =
+          '<div class="setting-line"><span class="setting-name">' + escapeHtml(setting.displayName) + '</span></div>' +
+          '<select>' + (setting.values || []).map(option => '<option value="' + escapeHtml(option) + '"' + (option === setting.value ? ' selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select>';
+        const select = row.querySelector('select');
+        select.onchange = () => setSettingValue(moduleId, setting.name, select.value, select);
+      }
+      return row;
+    }
+
+    function setSettingValue(moduleId, name, value, input) {
+      input.disabled = true;
+      fetch('/api/setModuleSettingValue?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&name=' + encodeURIComponent(name) + '&value=' + encodeURIComponent(value))
+        .then(response => response.json())
+        .then(result => {
+          if (!result.success) {
+            toast(result.reason || 'Failed to update setting.', true);
+            return;
+          }
+          syncCurrentCategory();
+          openSettings(moduleId, document.getElementById('modal-title').textContent);
+        })
+        .catch(() => {
+          setConnected(false);
+          toast('Failed to update setting.', true);
+        })
+        .finally(() => {
+          input.disabled = false;
+        });
+    }
+
+    function syncCurrentCategory() {
+      if (currentCategory === 'Command') {
+        if (document.activeElement && document.activeElement.classList.contains('command-input')) {
+          return;
+        }
+        renderCommandPage(false);
+        return;
+      }
+      fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(currentCategory))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) return;
+          const list = value.result || [];
+          document.getElementById('module-count').textContent = list.length + ' modules';
+          const grid = document.getElementById('point');
+          const existing = new Map(Array.from(grid.querySelectorAll('.module-card')).map(card => [card.dataset.module, card]));
+          const currentIds = Array.from(existing.keys()).join('|');
+          const nextIds = list.map(mod => mod.id).join('|');
+          if (currentIds !== nextIds) {
+            grid.innerHTML = '';
+            list.forEach((mod, index) => grid.appendChild(buildModuleCard(mod, index, false)));
+            return;
+          }
+          list.forEach(mod => {
+            const card = existing.get(mod.id);
+            if (card) updateModuleCard(card, mod);
+          });
+        })
+        .catch(() => setConnected(false));
+    }
+
+    function loadCategories(silent = false) {
+      fetch('/api/categoriesList?token=' + encodeURIComponent(token))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success) {
+            if (!silent) toast(value.reason || 'Failed to load categories.', true);
+            return;
+          }
+          const previousCategory = currentCategory;
+          categories = value.result || [];
+          const nextSignature = categories.map(item => item.id + ':' + item.name).join('|');
+          if (nextSignature !== categorySignature) {
+            categorySignature = nextSignature;
+            const list = document.getElementById('category');
+            list.innerHTML = '';
+            categories.forEach(addCategory);
+          }
+          currentCategory = categories.some(item => item.id === previousCategory)
+            ? previousCategory
+            : (categories[0] ? categories[0].id : 'Combat');
+          const category = categories.find(item => item.id === currentCategory);
+          document.getElementById('cat-title').textContent = category ? category.name : currentCategory;
+          document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.toggle('active', link.dataset.cat === currentCategory);
+          });
+          if (silent) {
+            syncCurrentCategory();
+          } else {
+            renderCategory(currentCategory, true);
+          }
+        })
+        .catch(() => {
+          setConnected(false);
+          if (!silent) toast('Failed to load categories.', true);
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function ping() {
+      fetch('/api/ping?token=' + encodeURIComponent(token))
+        .then(response => response.json())
+        .then(value => {
+          setConnected(!!value.ok);
+          if (value.ok) {
+            toast('Connected to PVPUtils local service.');
+            loadCategories(false);
+          }
+        })
+        .catch(() => {
+          setConnected(false);
+          toast('Failed to connect to local service.', true);
+        });
+    }
+
+    function initParticles() {
+      const canvas = document.getElementById('bg-canvas');
+      const ctx = canvas.getContext('2d');
+      let width = 0;
+      let height = 0;
+      let points = [];
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        points = Array.from({ length: 56 }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - .5) * .32,
+          vy: (Math.random() - .5) * .32,
+          r: Math.random() * 1.4 + .5
+        }));
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, width, height);
+        for (const point of points) {
+          point.x += point.vx;
+          point.y += point.vy;
+          if (point.x < 0) point.x = width;
+          if (point.x > width) point.x = 0;
+          if (point.y < 0) point.y = height;
+          if (point.y > height) point.y = 0;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, point.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(140, 240, 111, .55)';
+          ctx.fill();
+        }
+        for (let i = 0; i < points.length; i++) {
+          for (let j = i + 1; j < points.length; j++) {
+            const dx = points[i].x - points[j].x;
+            const dy = points[i].y - points[j].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 120) {
+              ctx.beginPath();
+              ctx.moveTo(points[i].x, points[i].y);
+              ctx.lineTo(points[j].x, points[j].y);
+              ctx.strokeStyle = 'rgba(88, 215, 255,' + (.13 * (1 - distance / 120)) + ')';
+              ctx.lineWidth = .55;
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+
+      resize();
+      frame();
+      window.addEventListener('resize', resize);
+    }
+
+    initParticles();
+    ping();
+    setInterval(() => loadCategories(true), 2500);
+  </script>
+</body>
+</html>

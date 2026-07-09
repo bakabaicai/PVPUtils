@@ -16,7 +16,9 @@ public abstract class BasePage {
     public abstract String getTitle();
     public abstract String getSubtitle();
 
-    public List<SettingModule> getModules() { return modules; }
+    public List<SettingModule> getModules() {
+        return modules;
+    }
 
     public float getTotalHeight() {
         ensureLayoutCache();

@@ -7,6 +7,8 @@ import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
+import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
+import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -129,6 +131,8 @@ public class MinecraftMixin {
             )
     )
     private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
+        PotionStatusRenderer.getInstance().renderFrameEnd();
+        KeystrokesRenderer.getInstance().renderFrameEnd();
         HudEditOverlay.getInstance().renderFrameEnd();
     }
 }

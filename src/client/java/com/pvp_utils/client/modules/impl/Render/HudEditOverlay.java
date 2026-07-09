@@ -18,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, NOTIFICATION, POTION_STATUS, BETTER_SCOREBOARD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, BETTER_SCOREBOARD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -45,6 +45,7 @@ public class HudEditOverlay {
     private float armorHudHoverAlpha = 0f;
     private float itemUseStatusHoverAlpha = 0f;
     private float dynamicIslandHoverAlpha = 0f;
+    private float arraylistHoverAlpha = 0f;
     private float notificationHoverAlpha = 0f;
     private float potionStatusHoverAlpha = 0f;
     private float betterScoreboardHoverAlpha = 0f;
@@ -74,6 +75,7 @@ public class HudEditOverlay {
     private RectState pendingArmorHud = null;
     private RectState pendingItemUseStatus = null;
     private RectState pendingDynamicIsland = null;
+    private RectState pendingArraylist = null;
     private RectState pendingNotification = null;
     private RectState pendingPotionStatus = null;
     private RectState pendingBetterScoreboard = null;
@@ -135,6 +137,7 @@ public class HudEditOverlay {
         RectState armorHud = Config.armorHud ? getArmorHudRect(guiW, guiH) : null;
         RectState itemUseStatus = Config.itemUseStatus ? getItemUseStatusRect(guiW, guiH) : null;
         RectState dynamicIsland = Config.dynamicIsland ? getDynamicIslandRect(guiW, guiH) : null;
+        RectState arraylist = Config.arraylist ? getArraylistRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
         RectState betterScoreboard = Config.betterScoreboard ? getBetterScoreboardRect(guiW, guiH) : null;
@@ -150,6 +153,7 @@ public class HudEditOverlay {
         boolean armorHudHovered = armorHud != null && contains(armorHud, mx, my, 4f);
         boolean itemUseStatusHovered = itemUseStatus != null && contains(itemUseStatus, mx, my, 4f);
         boolean dynamicIslandHovered = dynamicIsland != null && contains(dynamicIsland, mx, my, 4f);
+        boolean arraylistHovered = arraylist != null && contains(arraylist, mx, my, 4f);
         boolean notificationHovered = contains(notification, mx, my, 4f);
         boolean potionStatusHovered = potionStatus != null && contains(potionStatus, mx, my, 4f);
         boolean betterScoreboardHovered = betterScoreboard != null && contains(betterScoreboard, mx, my, 4f);
@@ -183,6 +187,10 @@ public class HudEditOverlay {
                 dragTarget = DragTarget.DYNAMIC_ISLAND;
                 dragOffsetX = mx - dynamicIsland.x;
                 dragOffsetY = my - dynamicIsland.y;
+            } else if (arraylistHovered) {
+                dragTarget = DragTarget.ARRAYLIST;
+                dragOffsetX = mx - arraylist.x;
+                dragOffsetY = my - arraylist.y;
             } else if (keystrokesHovered) {
                 dragTarget = DragTarget.KEYSTROKES;
                 dragOffsetX = mx - keystrokes.x;
@@ -242,6 +250,13 @@ public class HudEditOverlay {
             Config.dynamicIslandY = dragged.y - renderer.getDefaultY();
             configDirty = true;
             dynamicIsland = dragged;
+        } else if (dragTarget == DragTarget.ARRAYLIST && arraylist != null) {
+            ArraylistRenderer renderer = ArraylistRenderer.getInstance();
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, arraylist.w, arraylist.h, guiW, guiH), guiW, guiH);
+            Config.arraylistX = dragged.x - renderer.getDefaultX(guiW);
+            Config.arraylistY = dragged.y - renderer.getDefaultY();
+            configDirty = true;
+            arraylist = dragged;
         } else if (dragTarget == DragTarget.NOTIFICATION) {
             RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, notification.w, notification.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.NOTIFICATION, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.notificationX = dragged.x + dragged.w - guiW * 0.5f;
@@ -281,6 +296,7 @@ public class HudEditOverlay {
         armorHudHoverAlpha += (((armorHudHovered || dragTarget == DragTarget.ARMOR_HUD) ? 1f : 0f) - armorHudHoverAlpha) * Math.min(1f, dt * 14f);
         itemUseStatusHoverAlpha += (((itemUseStatusHovered || dragTarget == DragTarget.ITEM_USE_STATUS) ? 1f : 0f) - itemUseStatusHoverAlpha) * Math.min(1f, dt * 14f);
         dynamicIslandHoverAlpha += (((dynamicIslandHovered || dragTarget == DragTarget.DYNAMIC_ISLAND) ? 1f : 0f) - dynamicIslandHoverAlpha) * Math.min(1f, dt * 14f);
+        arraylistHoverAlpha += (((arraylistHovered || dragTarget == DragTarget.ARRAYLIST) ? 1f : 0f) - arraylistHoverAlpha) * Math.min(1f, dt * 14f);
         notificationHoverAlpha += (((notificationHovered || dragTarget == DragTarget.NOTIFICATION) ? 1f : 0f) - notificationHoverAlpha) * Math.min(1f, dt * 14f);
         potionStatusHoverAlpha += (((potionStatusHovered || dragTarget == DragTarget.POTION_STATUS) ? 1f : 0f) - potionStatusHoverAlpha) * Math.min(1f, dt * 14f);
         betterScoreboardHoverAlpha += (((betterScoreboardHovered || dragTarget == DragTarget.BETTER_SCOREBOARD) ? 1f : 0f) - betterScoreboardHoverAlpha) * Math.min(1f, dt * 14f);
@@ -308,13 +324,14 @@ public class HudEditOverlay {
         pendingArmorHud = armorHud;
         pendingItemUseStatus = itemUseStatus;
         pendingDynamicIsland = dynamicIsland;
+        pendingArraylist = arraylist;
         pendingNotification = notification;
         pendingPotionStatus = potionStatus;
         pendingBetterScoreboard = betterScoreboard;
         pendingFrame = true;
 
         if (canvas != null) {
-            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
+            drawOverlay(canvas, guiW, guiH, progress, pendingTargetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, arraylist, notification, potionStatus, betterScoreboard);
         }
     }
 
@@ -330,7 +347,7 @@ public class HudEditOverlay {
         Canvas canvas = glBackend.begin();
         if (canvas == null) return;
         try {
-            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingItemUseStatus, pendingDynamicIsland, pendingNotification, pendingPotionStatus, pendingBetterScoreboard);
+            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingTargetHud, pendingKeystrokes, pendingBlockCount, pendingArmorHud, pendingItemUseStatus, pendingDynamicIsland, pendingArraylist, pendingNotification, pendingPotionStatus, pendingBetterScoreboard);
         } finally {
             glBackend.end();
             pendingFrame = false;
@@ -349,6 +366,7 @@ public class HudEditOverlay {
         RectState armorHud = Config.armorHud ? getArmorHudRect(guiW, guiH) : null;
         RectState itemUseStatus = Config.itemUseStatus ? getItemUseStatusRect(guiW, guiH) : null;
         RectState dynamicIsland = Config.dynamicIsland ? getDynamicIslandRect(guiW, guiH) : null;
+        RectState arraylist = Config.arraylist ? getArraylistRect(guiW, guiH) : null;
         RectState notification = getNotificationRect(guiW, guiH);
         RectState potionStatus = Config.potionStatus ? getPotionStatusRect(guiW, guiH) : null;
         RectState betterScoreboard = Config.betterScoreboard ? getBetterScoreboardRect(guiW, guiH) : null;
@@ -389,6 +407,11 @@ public class HudEditOverlay {
         }
         if (dynamicIsland != null && contains(dynamicIsland, mx, my, 4f)) {
             Config.dynamicIslandScale = clampScale(Config.dynamicIslandScale + delta);
+            Config.save();
+            return true;
+        }
+        if (arraylist != null && contains(arraylist, mx, my, 4f)) {
+            Config.arraylistScale = clampScale(Config.arraylistScale + delta);
             Config.save();
             return true;
         }
@@ -438,7 +461,7 @@ public class HudEditOverlay {
     }
 
     private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, RectState targetHud, RectState keystrokes,
-                             RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState dynamicIsland, RectState notification, RectState potionStatus, RectState betterScoreboard) {
+                             RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState dynamicIsland, RectState arraylist, RectState notification, RectState potionStatus, RectState betterScoreboard) {
         if (gridAlpha > 0.01f) {
             drawGrid(canvas, guiW, guiH, progress);
         }
@@ -459,6 +482,9 @@ public class HudEditOverlay {
         }
         if (dynamicIsland != null) {
             drawOutline(canvas, dynamicIsland.x, dynamicIsland.y, dynamicIsland.w, dynamicIsland.h, "Dynamic Island", dynamicIslandHoverAlpha, progress);
+        }
+        if (arraylist != null) {
+            drawOutline(canvas, arraylist.x, arraylist.y, arraylist.w, arraylist.h, "Arraylist", arraylistHoverAlpha, progress);
         }
         if (potionStatus != null) {
             drawOutline(canvas, potionStatus.x, potionStatus.y, potionStatus.w, potionStatus.h, "Potion Status", potionStatusHoverAlpha, progress);
@@ -557,6 +583,13 @@ public class HudEditOverlay {
 
     private RectState getDynamicIslandRect(int guiW, int guiH) {
         DynamicIslandRenderer renderer = DynamicIslandRenderer.getInstance();
+        float w = renderer.getEditWidth();
+        float h = renderer.getEditHeight();
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);
+    }
+
+    private RectState getArraylistRect(int guiW, int guiH) {
+        ArraylistRenderer renderer = ArraylistRenderer.getInstance();
         float w = renderer.getEditWidth();
         float h = renderer.getEditHeight();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), w, h, guiW, guiH);

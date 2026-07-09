@@ -1,19 +1,21 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
-import io.github.humbleui.skija.*;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Paint;
+import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
@@ -28,9 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.nio.ByteBuffer;
-
-import org.lwjgl.system.MemoryUtil;
 
 public class PotionStatusRenderer {
     private static final PotionStatusRenderer INSTANCE = new PotionStatusRenderer();
@@ -45,8 +44,7 @@ public class PotionStatusRenderer {
     private static final int MAX_EFFECTS = 64;
     private static final long HIDE_DELAY_MS = 260L;
     private static final String INFINITE_ICON = "\uEB3D";
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "potion_status");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
+
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint itemPaint = new Paint().setAntiAlias(true);
     private final Paint itemFillPaint = new Paint().setAntiAlias(true);
@@ -54,12 +52,16 @@ public class PotionStatusRenderer {
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1f);
     private final Map<String, EffectVisual> visuals = new HashMap<>();
     private final Map<String, Image> iconCache = new HashMap<>();
-    private Surface surface;
-    private DynamicTexture dynamicTexture;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
     private long lastFrameMs = 0L;
-    private int textureW = -1;
-    private int textureH = -1;
+    private List<EffectVisual> pendingVisuals = List.of();
+    private boolean pendingFrame = false;
+    private float pendingX = 0f;
+    private float pendingY = 0f;
+    private float pendingScale = 1f;
+    private float pendingBgProgress = 0f;
+    private float pendingBaseH = 0f;
 
     public static PotionStatusRenderer getInstance() {
         return INSTANCE;
@@ -71,9 +73,11 @@ public class PotionStatusRenderer {
             destroyTexture(client);
             visuals.clear();
             lastFrameMs = 0L;
+            clearPendingFrame();
             return;
         }
-        if (client.player == null || client.level == null || shouldSkipHudRender(client)) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen) {
+            clearPendingFrame();
             return;
         }
 
@@ -84,6 +88,7 @@ public class PotionStatusRenderer {
         List<EffectVisual> renderVisuals = updateVisuals(effects, dt, now);
         if (renderVisuals.isEmpty()) {
             destroyTexture(client);
+            clearPendingFrame();
             return;
         }
 
@@ -92,18 +97,29 @@ public class PotionStatusRenderer {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float scale = getScale();
+        float w = WIDTH * scale;
         float h = baseH * scale;
         float x = getRenderX(screenW, WIDTH * scale);
         float y = getRenderY(screenH, Math.max(h, ROW_H * scale));
 
-        float easedBg = easeOutCubic(bgProgress);
-        renderTexture(client, renderVisuals, bgProgress, baseH, easedBg);
-        if (dynamicTexture == null) return;
+        pendingVisuals = List.copyOf(renderVisuals);
+        pendingFrame = true;
+        pendingX = x;
+        pendingY = y;
+        pendingScale = scale;
+        pendingBgProgress = bgProgress;
+        pendingBaseH = baseH;
+    }
 
-        float drawW = WIDTH * scale * easedBg;
-        float drawH = baseH * scale * easedBg;
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f,
-                Math.round(drawW), Math.round(drawH), textureW, textureH, textureW, textureH);
+    public void renderFrameEnd() {
+        if (!pendingFrame) return;
+        Minecraft client = Minecraft.getInstance();
+        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkiaScreen) {
+            clearPendingFrame();
+            return;
+        }
+        renderGl(client, pendingVisuals, pendingX, pendingY, pendingScale, pendingBgProgress, pendingBaseH);
+        clearPendingFrame();
     }
 
     public float getEditWidth() {
@@ -135,12 +151,8 @@ public class PotionStatusRenderer {
     public boolean shouldHideVanillaEffects() {
         if (!Config.potionStatus || !Config.potionStatusHideVanilla) return false;
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || shouldSkipHudRender(client)) return false;
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen) return false;
         return HudEditOverlay.getInstance().isActive() || !visibleEffects(client).isEmpty();
-    }
-
-    private boolean shouldSkipHudRender(Minecraft client) {
-        return client.options.hideGui || client.screen instanceof SkiaScreen;
     }
 
     private float getRenderX(int screenW, float w) {
@@ -249,34 +261,33 @@ public class PotionStatusRenderer {
         return ordered;
     }
 
-    private void renderTexture(Minecraft client, List<EffectVisual> visuals, float bgProgress, float baseH, float easedBg) {
+    private void renderGl(Minecraft client, List<EffectVisual> visuals, float x, float y, float userScale, float bgProgress, float baseH) {
         ensureNativeLoaded();
-        float guiScale = Math.max(1f, (float) client.getWindow().getGuiScale());
-        int targetW = Math.max(1, Math.round(WIDTH * easedBg * guiScale));
-        int targetH = Math.max(1, Math.round(baseH * easedBg * guiScale));
-        if (surface == null || dynamicTexture == null || textureW != targetW || textureH != targetH) {
-            destroyTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:potion_status", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            textureW = targetW;
-            textureH = targetH;
+        Canvas canvas = glBackend.begin(mainFramebufferId(client));
+        if (canvas == null) return;
+        try {
+            float easedBg = easeOutCubic(bgProgress);
+            canvas.save();
+            canvas.translate(x, y);
+            canvas.scale(userScale * easedBg, userScale * easedBg);
+            drawBackground(canvas, baseH, bgProgress);
+            for (EffectVisual visual : visuals) {
+                if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
+                drawEffect(canvas, visual);
+            }
+            drawIcons(client, canvas, visuals);
+            canvas.restore();
+        } finally {
+            glBackend.end();
         }
+    }
 
-        Canvas canvas = surface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(guiScale * easedBg, guiScale * easedBg);
-        drawBackground(canvas, baseH, bgProgress);
-        for (EffectVisual visual : visuals) {
-            if (visual.slide <= 0.01f && visual.rowAlpha <= 0.01f) continue;
-            drawEffect(canvas, visual);
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-        drawIcons(client, canvas, visuals);
-        canvas.restore();
-        uploadSurface(surface, dynamicTexture, textureW, textureH);
+        return 0;
     }
 
     private void drawBackground(Canvas canvas, float baseH, float bgProgress) {
@@ -478,35 +489,17 @@ public class PotionStatusRenderer {
     }
 
     private void destroyTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
+        glBackend.destroy();
         for (Image image : iconCache.values()) {
             image.close();
         }
         iconCache.clear();
+        clearPendingFrame();
     }
 
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) return;
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
-        }
+    private void clearPendingFrame() {
+        pendingVisuals = List.of();
+        pendingFrame = false;
     }
 
     private float clamp(float value, float min, float max) {
