@@ -4,12 +4,16 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
+import com.pvp_utils.client.web.WebGUIServer;
 
 import java.util.List;
 
 public class MiscPage extends BasePage {
 
     public MiscPage() {
+        modules.add(new SettingModule(UiText.t("打开 WebGUI", "Open WebGUI"), UiText.t("打开 WebHUD", "Open WebHUD"),
+                new SettingToggle(WebGUIServer::isEnabled, WebGUIServer::setEnabled)));
+
         modules.add(new SettingModule(UiText.t("胜利音效", "Victory Sound"), UiText.t("在你胜利时播放自定义音效", "Play a custom sound when you win"),
                 new SettingToggle(() -> Config.victorySound, v -> { Config.victorySound = v; Config.save(); }))
                 .addSub(UiText.t("打开自定义音效文件夹", "Open custom sound folder"), "", new SettingButton(UiText.t("打开", "Open"), VictorySound::openSoundsFolder)));
