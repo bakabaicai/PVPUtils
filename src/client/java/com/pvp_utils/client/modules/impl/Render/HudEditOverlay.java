@@ -31,6 +31,8 @@ public class HudEditOverlay {
     private static final float DASH_PERIOD = DASH_LEN + DASH_GAP;
     private static final float ANIM_DURATION = 0.2f;
     private static final float SNAP_THRESHOLD = 10f;
+    private static final float WEAK_SNAP_THRESHOLD = 4f;
+    private static final float ELEMENT_SNAP_PROXIMITY = 48f;
     private static final float HINT_TEXT_SIZE = 11f;
 
     private DragTarget dragTarget = DragTarget.NONE;
@@ -126,6 +128,8 @@ public class HudEditOverlay {
         float mx = (float) (rawX[0] / guiScale);
         float my = (float) (rawY[0] / guiScale);
         boolean mouseDown = GLFW.glfwGetMouseButton(windowHandle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        boolean weakSnap = GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
 
         RectState targetHud = Config.targetHud ? getTargetHudRect(guiW, guiH) : null;
         RectState keystrokes = Config.keystrokes ? getKeystrokesRect(guiW, guiH) : null;
@@ -207,41 +211,41 @@ public class HudEditOverlay {
         wasMouseDown = mouseDown;
 
         if (dragTarget == DragTarget.TARGET_HUD && targetHud != null) {
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, targetHud.w, targetHud.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, targetHud.w, targetHud.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.TARGET_HUD, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.targetHudX = dragged.x - guiW * 0.5f;
             Config.targetHudY = dragged.y - guiH * 0.5f;
             configDirty = true;
             targetHud = dragged;
         } else if (dragTarget == DragTarget.KEYSTROKES && keystrokes != null) {
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, keystrokes.w, keystrokes.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, keystrokes.w, keystrokes.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.KEYSTROKES, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.keystrokesX = dragged.x - guiW * 0.5f;
             Config.keystrokesY = dragged.y - guiH * 0.5f;
             configDirty = true;
             keystrokes = dragged;
         } else if (dragTarget == DragTarget.BLOCK_COUNT && blockCount != null) {
             BlockCountDisplayRenderer renderer = BlockCountDisplayRenderer.getInstance();
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, blockCount.w, blockCount.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, blockCount.w, blockCount.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.BLOCK_COUNT, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.blockCountDisplayX = dragged.x - (guiW - renderer.getEditWidth()) * 0.5f;
             Config.blockCountDisplayY = dragged.y - renderer.getDefaultY(guiH);
             configDirty = true;
             blockCount = dragged;
         } else if (dragTarget == DragTarget.ARMOR_HUD && armorHud != null) {
             ArmorHudRenderer renderer = ArmorHudRenderer.getInstance();
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, armorHud.w, armorHud.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, armorHud.w, armorHud.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.ARMOR_HUD, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.armorHudX = dragged.x - (guiW - renderer.getEditWidth()) * 0.5f;
             Config.armorHudY = dragged.y - (guiH - renderer.getEditHeight()) + 28f;
             configDirty = true;
             armorHud = dragged;
         } else if (dragTarget == DragTarget.ITEM_USE_STATUS && itemUseStatus != null) {
             ItemUseStatusRenderer renderer = ItemUseStatusRenderer.getInstance();
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, itemUseStatus.w, itemUseStatus.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, itemUseStatus.w, itemUseStatus.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.ITEM_USE_STATUS, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.itemUseStatusX = dragged.x - (guiW - renderer.getEditWidth()) * 0.5f;
             Config.itemUseStatusY = dragged.y - renderer.getDefaultY(guiH);
             configDirty = true;
             itemUseStatus = dragged;
         } else if (dragTarget == DragTarget.DYNAMIC_ISLAND && dynamicIsland != null) {
             DynamicIslandRenderer renderer = DynamicIslandRenderer.getInstance();
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, dynamicIsland.w, dynamicIsland.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, dynamicIsland.w, dynamicIsland.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.DYNAMIC_ISLAND, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.dynamicIslandX = dragged.x - (guiW - renderer.getEditWidth()) * 0.5f;
             Config.dynamicIslandY = dragged.y - renderer.getDefaultY();
             configDirty = true;
@@ -254,14 +258,14 @@ public class HudEditOverlay {
             configDirty = true;
             arraylist = dragged;
         } else if (dragTarget == DragTarget.NOTIFICATION) {
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, notification.w, notification.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, notification.w, notification.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.NOTIFICATION, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.notificationX = dragged.x + dragged.w - guiW * 0.5f;
             Config.notificationY = dragged.y - guiH * 0.5f;
             configDirty = true;
             notification = dragged;
         } else if (dragTarget == DragTarget.POTION_STATUS && potionStatus != null) {
             PotionStatusRenderer renderer = PotionStatusRenderer.getInstance();
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, potionStatus.w, potionStatus.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, potionStatus.w, potionStatus.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.POTION_STATUS, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.potionStatusX = dragged.x - renderer.getDefaultX();
             Config.potionStatusY = dragged.y - (guiH - dragged.h) * 0.5f;
             configDirty = true;
@@ -270,7 +274,7 @@ public class HudEditOverlay {
             BetterScoreboardManager.Rect baseRect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
             float pad = Config.betterScoreboardVisualImprovement ? 7.0f * BetterScoreboardManager.getScale() : 0.0f;
             float visualYOffset = Config.betterScoreboardVisualImprovement ? 3.0f * BetterScoreboardManager.getScale() : 0.0f;
-            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, betterScoreboard.w, betterScoreboard.h, guiW, guiH), guiW, guiH);
+            RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, betterScoreboard.w, betterScoreboard.h, guiW, guiH), guiW, guiH, weakSnap, DragTarget.BETTER_SCOREBOARD, targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard);
             Config.betterScoreboardX = dragged.x + pad - baseRect.x();
             Config.betterScoreboardY = dragged.y + pad - visualYOffset - baseRect.y();
             configDirty = true;
@@ -425,8 +429,8 @@ public class HudEditOverlay {
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
-        float[] xs = {guiW / 3f, guiW * 0.5f, guiW * 2f / 3f};
-        float[] ys = {guiH / 3f, guiH * 0.5f, guiH * 2f / 3f};
+        float[] xs = {guiW * 0.25f, guiW * 0.5f, guiW * 0.75f};
+        float[] ys = {guiH * 0.25f, guiH * 0.5f, guiH * 0.75f};
 
         try (Paint p = new Paint()) {
             int a = (int) (0x44 * alpha * gridAlpha);
@@ -524,7 +528,7 @@ public class HudEditOverlay {
     }
 
     private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
-        String text = Config.isChinese ? "鼠标悬浮在组件上滚轮即可调节组件大小" : "Hover over a widget and scroll to resize it";
+        String text = Config.isChinese ? "悬浮滚轮调节大小，按住 Shift 弱对齐" : "Hover and scroll to resize, hold Shift for weak snap";
         float textW = FontRenderer.measureTextWidth(text, HINT_TEXT_SIZE);
         float x = (guiW - textW) * 0.5f;
         float y = Math.max(48f, guiH - 92f);
@@ -619,41 +623,77 @@ public class HudEditOverlay {
         return new RectState(clampedX, clampedY, w, h);
     }
 
-    private RectState snapRect(RectState rect, int guiW, int guiH) {
+    private RectState snapRect(RectState rect, int guiW, int guiH, boolean weakSnap, DragTarget draggedTarget, RectState targetHud, RectState keystrokes,
+                               RectState blockCount, RectState armorHud, RectState itemUseStatus, RectState dynamicIsland,
+                               RectState notification, RectState potionStatus, RectState betterScoreboard) {
         snapXLine = -1f;
         snapYLine = -1f;
-        float x = rect.x;
-        float y = rect.y;
 
-        float[] xLines = {guiW / 3f, guiW * 0.5f, guiW * 2f / 3f};
-        float[] yLines = {guiH / 3f, guiH * 0.5f, guiH * 2f / 3f};
+        RectState[] refs = {targetHud, keystrokes, blockCount, armorHud, itemUseStatus, dynamicIsland, notification, potionStatus, betterScoreboard};
+        DragTarget[] targets = {DragTarget.TARGET_HUD, DragTarget.KEYSTROKES, DragTarget.BLOCK_COUNT, DragTarget.ARMOR_HUD,
+                DragTarget.ITEM_USE_STATUS, DragTarget.DYNAMIC_ISLAND, DragTarget.NOTIFICATION, DragTarget.POTION_STATUS, DragTarget.BETTER_SCOREBOARD};
 
-        for (float line : xLines) {
-            if (Math.abs(x - line) <= SNAP_THRESHOLD) {
-                x = line;
-                snapXLine = line;
-                break;
-            }
-            if (Math.abs(x + rect.w - line) <= SNAP_THRESHOLD) {
-                x = line - rect.w;
-                snapXLine = line;
-                break;
+        float[] xLines = buildSnapLines(guiW * 0.25f, guiW * 0.5f, guiW * 0.75f, rect, refs, targets, draggedTarget, true);
+        float[] yLines = buildSnapLines(guiH * 0.25f, guiH * 0.5f, guiH * 0.75f, rect, refs, targets, draggedTarget, false);
+        float threshold = weakSnap ? WEAK_SNAP_THRESHOLD : SNAP_THRESHOLD;
+        SnapResult sx = snapAxis(rect.x, rect.w, xLines, threshold);
+        SnapResult sy = snapAxis(rect.y, rect.h, yLines, threshold);
+        snapXLine = sx.line;
+        snapYLine = sy.line;
+
+        return clampRect(sx.position, sy.position, rect.w, rect.h, guiW, guiH);
+    }
+
+    private float[] buildSnapLines(float a, float b, float c, RectState dragged, RectState[] refs, DragTarget[] targets, DragTarget draggedTarget, boolean horizontal) {
+        float[] lines = new float[3 + refs.length * 3];
+        int count = 0;
+        lines[count++] = a;
+        lines[count++] = b;
+        lines[count++] = c;
+        for (int i = 0; i < refs.length; i++) {
+            RectState ref = refs[i];
+            if (ref == null || targets[i] == draggedTarget) continue;
+            if (!isNearForSnap(dragged, ref, horizontal)) continue;
+            float start = horizontal ? ref.x : ref.y;
+            float size = horizontal ? ref.w : ref.h;
+            lines[count++] = start;
+            lines[count++] = start + size * 0.5f;
+            lines[count++] = start + size;
+        }
+        float[] compact = new float[count];
+        System.arraycopy(lines, 0, compact, 0, count);
+        return compact;
+    }
+
+    private boolean isNearForSnap(RectState dragged, RectState ref, boolean horizontal) {
+        if (horizontal) {
+            return rangeDistance(dragged.y, dragged.y + dragged.h, ref.y, ref.y + ref.h) <= ELEMENT_SNAP_PROXIMITY;
+        }
+        return rangeDistance(dragged.x, dragged.x + dragged.w, ref.x, ref.x + ref.w) <= ELEMENT_SNAP_PROXIMITY;
+    }
+
+    private float rangeDistance(float a0, float a1, float b0, float b1) {
+        if (a1 < b0) return b0 - a1;
+        if (b1 < a0) return a0 - b1;
+        return 0f;
+    }
+
+    private SnapResult snapAxis(float position, float size, float[] lines, float threshold) {
+        float snappedPosition = position;
+        float snappedLine = -1f;
+        float bestDistance = threshold + 1f;
+        float[] offsets = {0f, size * 0.5f, size};
+        for (float line : lines) {
+            for (float offset : offsets) {
+                float distance = Math.abs(position + offset - line);
+                if (distance <= threshold && distance < bestDistance) {
+                    bestDistance = distance;
+                    snappedPosition = line - offset;
+                    snappedLine = line;
+                }
             }
         }
-        for (float line : yLines) {
-            if (Math.abs(y - line) <= SNAP_THRESHOLD) {
-                y = line;
-                snapYLine = line;
-                break;
-            }
-            if (Math.abs(y + rect.h - line) <= SNAP_THRESHOLD) {
-                y = line - rect.h;
-                snapYLine = line;
-                break;
-            }
-        }
-
-        return clampRect(x, y, rect.w, rect.h, guiW, guiH);
+        return new SnapResult(snappedPosition, snappedLine);
     }
 
     private boolean contains(RectState rect, float mx, float my, float pad) {
@@ -683,4 +723,6 @@ public class HudEditOverlay {
             this.h = h;
         }
     }
+
+    private record SnapResult(float position, float line) {}
 }
