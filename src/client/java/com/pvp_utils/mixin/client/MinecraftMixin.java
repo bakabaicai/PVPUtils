@@ -3,13 +3,10 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
-import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
-import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
-import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
-import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
+import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -131,10 +128,7 @@ public class MinecraftMixin {
                     target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"
             )
     )
-    private void pvp_utils$renderSkiaFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        PotionStatusRenderer.getInstance().renderFrameEnd();
-        KeystrokesRenderer.getInstance().renderFrameEnd();
-        BlockCountDisplayRenderer.getInstance().renderFrameEnd();
+    private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         HudEditOverlay.getInstance().renderFrameEnd();
     }
 }

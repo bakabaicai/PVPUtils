@@ -1,11 +1,10 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
@@ -14,6 +13,12 @@ import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
+import org.lwjgl.system.MemoryUtil;
+
+import java.nio.ByteBuffer;
 
 public class KeystrokesRenderer {
     private static final KeystrokesRenderer INSTANCE = new KeystrokesRenderer();
@@ -32,6 +37,8 @@ public class KeystrokesRenderer {
     private static final int LITE_ACTIVE_TEXT_COLOR = 0xFF111111;
     private static final int TOTAL_W = KEY_SIZE * 3 + GAP * 2;
     private static final int TOTAL_H = KEY_SIZE * 4 + GAP * 3;
+    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "keystrokes_new");
+    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private final RateCounter leftClicks = new RateCounter();
     private final RateCounter rightClicks = new RateCounter();
     private final KeyVisual wKey = new KeyVisual();
@@ -46,15 +53,12 @@ public class KeystrokesRenderer {
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ripplePaint = new Paint().setAntiAlias(true);
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE);
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
+    private Surface surface;
+    private DynamicTexture dynamicTexture;
     private boolean nativeLoaded = false;
     private long lastFrameMs = 0L;
-    private boolean pendingFrame = false;
-    private int pendingX = 0;
-    private int pendingY = 0;
-    private float pendingScale = 1f;
-    private int pendingLeftCps = 0;
-    private int pendingRightCps = 0;
+    private int textureW = -1;
+    private int textureH = -1;
     private final float keyLabelW = FontRenderer.measureTextWidth("W", 11f);
     private final float aLabelW = FontRenderer.measureTextWidth("A", 11f);
     private final float sLabelW = FontRenderer.measureTextWidth("S", 11f);
@@ -72,7 +76,7 @@ public class KeystrokesRenderer {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof SkiaScreen) return;
+        if (shouldSkipHudRender(client)) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -99,7 +103,7 @@ public class KeystrokesRenderer {
             return;
         }
 
-        renderNew(client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
+        renderNew(graphics, client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
     }
 
     public boolean needsCanvas() {
@@ -130,7 +134,7 @@ public class KeystrokesRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
+    private void renderNew(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
 
         long now = System.currentTimeMillis();
         float dt = lastFrameMs == 0L ? 0.016f : Math.min((now - lastFrameMs) / 1000f, 0.05f);
@@ -152,23 +156,19 @@ public class KeystrokesRenderer {
         spaceKey.update(jumpDown, dt);
         shiftKey.update(shiftDown, dt);
 
-        pendingFrame = true;
-        pendingX = x;
-        pendingY = y;
-        pendingScale = scale;
-        pendingLeftCps = leftCps;
-        pendingRightCps = rightCps;
+        renderTexture(client, leftCps, rightCps);
+        if (dynamicTexture == null) return;
+
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(x, y);
+        graphics.pose().scale(scale, scale);
+        graphics.pose().translate(-x, -y);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, TOTAL_W, TOTAL_H, textureW, textureH, textureW, textureH);
+        graphics.pose().popMatrix();
     }
 
-    public void renderFrameEnd() {
-        if (!pendingFrame) return;
-        Minecraft client = Minecraft.getInstance();
-        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen) {
-            clearPendingFrame();
-            return;
-        }
-        renderGl(client, pendingX, pendingY, pendingScale, pendingLeftCps, pendingRightCps);
-        clearPendingFrame();
+    private boolean shouldSkipHudRender(Minecraft client) {
+        return client.options.hideGui || client.screen instanceof SkiaScreen;
     }
 
     private void drawLiteKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
@@ -203,49 +203,52 @@ public class KeystrokesRenderer {
         graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
-    private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
+    private void renderTexture(Minecraft client, int leftCps, int rightCps) {
         ensureNativeLoaded();
-        Canvas canvas = glBackend.begin(mainFramebufferId(client));
-        if (canvas == null) return;
-        try {
-            canvas.save();
-            canvas.translate(x, y);
-            canvas.scale(scale, scale);
-            int mouseY = (KEY_SIZE + GAP) * 2;
-            int leftMouseW = (TOTAL_W - GAP) / 2;
-            int rightMouseW = TOTAL_W - GAP - leftMouseW;
-
-            int bottomY = (KEY_SIZE + GAP) * 3;
-            drawDynamicKey(canvas, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
-            drawDynamicKey(canvas, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
-            drawDynamicKey(canvas, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
-            drawDynamicKey(canvas, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
-
-            drawDynamicMouseKey(canvas, leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
-            drawDynamicMouseKey(canvas, rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
-
-            drawDynamicKey(canvas, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
-            drawDynamicKey(canvas, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-            drawKeyLabel(canvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
-            drawKeyLabel(canvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
-            drawKeyLabel(canvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
-            drawKeyLabel(canvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
-            drawMouseLabel(canvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, leftMouse);
-            drawMouseLabel(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
-            drawKeyLabel(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
-            drawKeyLabel(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-            canvas.restore();
-        } finally {
-            glBackend.end();
+        float guiScale = Math.max(1f, (float) client.getWindow().getGuiScale());
+        int targetW = Math.max(1, Math.round(TOTAL_W * guiScale));
+        int targetH = Math.max(1, Math.round(TOTAL_H * guiScale));
+        if (surface == null || dynamicTexture == null || textureW != targetW || textureH != targetH) {
+            destroyTexture(client);
+            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
+            dynamicTexture = new DynamicTexture("pvp_utils:keystrokes_new", targetW, targetH, false);
+            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
+            textureW = targetW;
+            textureH = targetH;
         }
+
+        Canvas canvas = surface.getCanvas();
+        canvas.restoreToCount(1);
+        canvas.resetMatrix();
+        canvas.clear(0x00000000);
+        canvas.save();
+        canvas.scale(guiScale, guiScale);
+        drawKeys(canvas, leftCps, rightCps);
+        canvas.restore();
+        uploadSurface(surface, dynamicTexture, textureW, textureH);
     }
 
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+    private void drawKeys(Canvas canvas, int leftCps, int rightCps) {
+        int mouseY = (KEY_SIZE + GAP) * 2;
+        int leftMouseW = (TOTAL_W - GAP) / 2;
+        int rightMouseW = TOTAL_W - GAP - leftMouseW;
+        int bottomY = (KEY_SIZE + GAP) * 3;
+        drawDynamicKey(canvas, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+        drawDynamicKey(canvas, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+        drawDynamicKey(canvas, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+        drawDynamicKey(canvas, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+        drawDynamicMouseKey(canvas, leftCps, 0, mouseY, leftMouseW, KEY_SIZE, leftMouse);
+        drawDynamicMouseKey(canvas, rightCps, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, rightMouse);
+        drawDynamicKey(canvas, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+        drawDynamicKey(canvas, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
+        drawKeyLabel(canvas, "W", keyLabelW, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, wKey);
+        drawKeyLabel(canvas, "A", aLabelW, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, aKey);
+        drawKeyLabel(canvas, "S", sLabelW, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, sKey);
+        drawKeyLabel(canvas, "D", dLabelW, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, dKey);
+        drawMouseLabel(canvas, "LMB", lmbLabelW, 0, mouseY, leftMouseW, leftMouse);
+        drawMouseLabel(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
+        drawKeyLabel(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
+        drawKeyLabel(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
     }
 
     private void drawFallback(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
@@ -407,12 +410,31 @@ public class KeystrokesRenderer {
     }
 
     private void destroyTexture(Minecraft client) {
-        glBackend.destroy();
-        clearPendingFrame();
+        if (surface != null) {
+            surface.close();
+            surface = null;
+        }
+        if (dynamicTexture != null) {
+            client.getTextureManager().release(TEXTURE_ID);
+            dynamicTexture = null;
+        }
+        textureW = -1;
+        textureH = -1;
     }
 
-    private void clearPendingFrame() {
-        pendingFrame = false;
+    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
+        Pixmap pixmap = new Pixmap();
+        try {
+            if (!sourceSurface.peekPixels(pixmap)) return;
+            long addr = pixmap.getAddr();
+            int byteSize = height * pixmap.getRowBytes();
+            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
+            GpuTexture gpuTexture = targetTexture.getTexture();
+            RenderSystem.getDevice().createCommandEncoder()
+                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+        } finally {
+            pixmap.close();
+        }
     }
 
     private static class KeyVisual {
