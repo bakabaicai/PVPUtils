@@ -87,6 +87,7 @@ public class GuiMixin {
         }
 
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
+        guiGraphics.renderDeferredElements();
     }
 
     @Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true)
