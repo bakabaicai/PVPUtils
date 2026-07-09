@@ -5,7 +5,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Inventory;
@@ -27,6 +26,38 @@ public final class MainHandAssistManager {
     private static boolean wasUseDown;
 
     private MainHandAssistManager() {}
+
+    public static void beforeStartUseItem(Minecraft client) {
+        if (!Config.mainHandAssist || !Config.mainHandAssistQuickUse || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
+            return;
+        }
+        LocalPlayer player = client.player;
+        if (hasRightClickUtility(player.getOffhandItem())) {
+            return;
+        }
+
+        Inventory inventory = player.getInventory();
+        int selectedSlot = inventory.getSelectedSlot();
+        ItemStack held = inventory.getItem(selectedSlot);
+        if (hasRightClickUtility(held)) {
+            return;
+        }
+
+        int nextTargetSlot = findQuickUseSlot(player);
+        if (nextTargetSlot < 0 || nextTargetSlot == selectedSlot) {
+            return;
+        }
+
+        originalSlot = selectedSlot;
+        targetSlot = nextTargetSlot;
+        pressTicks = 0;
+        returnTicks = 0;
+        switched = true;
+        targetUseStarted = false;
+        quickUse = true;
+        quickUseInvoked = true;
+        inventory.setSelectedSlot(nextTargetSlot);
+    }
 
     public static void tick(Minecraft client) {
         if (!Config.mainHandAssist || (!Config.mainHandAssistQuickUse && !Config.mainHandAssistMeleeWeapon && !Config.mainHandAssistShield) || client.player == null || client.level == null || client.gameMode == null || client.screen != null) {
@@ -50,7 +81,7 @@ public final class MainHandAssistManager {
                 ItemStack held = inventory.getItem(selectedSlot);
                 int nextTargetSlot = -1;
 
-                if (Config.mainHandAssistQuickUse && usePressed && player.getOffhandItem().isEmpty() && !hasRightClickUtility(held)) {
+                if (Config.mainHandAssistQuickUse && usePressed && !hasRightClickUtility(player.getOffhandItem()) && !hasRightClickUtility(held)) {
                     nextTargetSlot = findQuickUseSlot(player);
                     quickUse = nextTargetSlot >= 0;
                 }
@@ -104,11 +135,7 @@ public final class MainHandAssistManager {
 
         if (quickUse) {
             if (!quickUseInvoked) {
-                if (++returnTicks >= delayTicks()) {
-                    client.gameMode.useItem(player, InteractionHand.MAIN_HAND);
-                    quickUseInvoked = true;
-                    returnTicks = 0;
-                }
+                reset();
                 return;
             }
             if (++returnTicks >= delayTicks()) {
