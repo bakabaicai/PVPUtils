@@ -303,8 +303,9 @@ public class HudEditOverlay {
 
     private void moveArraylist(RectState rect, int guiW, int guiH) {
         ArraylistRenderer renderer = ArraylistRenderer.getInstance();
-        Config.arraylistX = rect.x - renderer.getDefaultX(guiW);
-        Config.arraylistY = rect.y - renderer.getDefaultY();
+        float outset = renderer.getScaledBorderOutset();
+        Config.arraylistX = rect.x + outset - renderer.getDefaultX(guiW);
+        Config.arraylistY = rect.y + outset - renderer.getDefaultY();
     }
 
     private void moveNotification(RectState rect, int guiW, int guiH) {
@@ -451,7 +452,7 @@ public class HudEditOverlay {
 
     private RectState getArraylistRect(int guiW, int guiH) {
         ArraylistRenderer renderer = ArraylistRenderer.getInstance();
-        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
+        return clampRect(renderer.getEditX(guiW), renderer.getEditY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
     }
 
     private RectState getPotionStatusRect(int guiW, int guiH) {

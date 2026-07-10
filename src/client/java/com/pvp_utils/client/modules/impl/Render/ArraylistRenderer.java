@@ -94,10 +94,9 @@ public class ArraylistRenderer {
         int shadowColor = Config.hudTheme == Config.HudTheme.LIGHT ? 0x33000000 : 0x66000000;
         int width = Math.round(baseWidth(names));
         drawBackground(graphics, client, names, width, alignRight);
-        drawBorder(graphics, client, names, width, alignRight);
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
-            int textW = client.font.width(name);
+            int textW = textWidth(name);
             int textX = alignRight ? width - textW - PADDING_X : PADDING_X;
             int textY = i * LINE_HEIGHT;
             int color = textColor(i, names.size());
@@ -109,11 +108,23 @@ public class ArraylistRenderer {
     }
 
     public float getEditWidth() {
-        return baseWidth(activeOrPreviewNames()) * getScale();
+        return (baseWidth(activeOrPreviewNames()) + borderOutset() * 2f) * getScale();
     }
 
     public float getEditHeight() {
-        return Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) * getScale();
+        return (Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) + borderOutset() * 2f) * getScale();
+    }
+
+    public float getEditX(int screenW) {
+        return getRenderX(screenW) - getScaledBorderOutset();
+    }
+
+    public float getEditY(int screenH) {
+        return getRenderY(screenH) - getScaledBorderOutset();
+    }
+
+    public float getScaledBorderOutset() {
+        return borderOutset() * getScale();
     }
 
     public float getDefaultX(int screenW) {
@@ -125,13 +136,17 @@ public class ArraylistRenderer {
     }
 
     public float getRenderX(int screenW) {
-        float w = getEditWidth();
-        return clamp(getDefaultX(screenW) + Config.arraylistX, 0f, Math.max(0f, screenW - w));
+        float scale = getScale();
+        float contentW = baseWidth(activeOrPreviewNames()) * scale;
+        float outset = borderOutset() * scale;
+        return clamp(getDefaultX(screenW) + Config.arraylistX, outset, Math.max(outset, screenW - contentW - outset));
     }
 
     public float getRenderY(int screenH) {
-        float h = getEditHeight();
-        return clamp(getDefaultY() + Config.arraylistY, 0f, Math.max(0f, screenH - h));
+        float scale = getScale();
+        float contentH = Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) * scale;
+        float outset = borderOutset() * scale;
+        return clamp(getDefaultY() + Config.arraylistY, outset, Math.max(outset, screenH - contentH - outset));
     }
 
     private List<String> activeNames() {
@@ -168,53 +183,73 @@ public class ArraylistRenderer {
 
     private void drawBackground(GuiGraphics graphics, Minecraft client, List<String> names, int width, boolean alignRight) {
         for (int i = 0; i < names.size(); i++) {
-            Bounds bounds = boundsFor(client, names.get(i), width, alignRight, i);
+            Bounds bounds = innerBoundsFor(client, names, width, alignRight, i);
             graphics.fill(bounds.x1(), bounds.y1(), bounds.x2(), bounds.y2(), BACKGROUND_COLOR);
         }
+        drawBorder(graphics, client, names, width, alignRight);
     }
 
     private void drawBorder(GuiGraphics graphics, Minecraft client, List<String> names, int width, boolean alignRight) {
         if (!Config.arraylistBorder) return;
-        int borderWidth = Math.max(1, Math.round(Config.arraylistBorderWidth));
+        int borderWidth = borderOutset();
         for (int i = 0; i < names.size(); i++) {
-            Bounds current = boundsFor(client, names.get(i), width, alignRight, i);
-            Bounds next = i + 1 < names.size() ? boundsFor(client, names.get(i + 1), width, alignRight, i + 1) : null;
+            Bounds outer = boundsFor(client, names, width, alignRight, i);
+            Bounds inner = innerBoundsFor(client, names, width, alignRight, i);
             int color = textColor(i, names.size());
 
+            fillRect(graphics, outer.x1(), outer.y1(), inner.x1(), outer.y2(), color);
+            fillRect(graphics, inner.x2(), outer.y1(), outer.x2(), outer.y2(), color);
             if (i == 0) {
-                fillLine(graphics, current.x1(), current.y1(), current.x2(), current.y1() + borderWidth, color);
+                fillRect(graphics, inner.x1(), outer.y1(), inner.x2(), inner.y1(), color);
             }
-            if (next == null) {
-                fillLine(graphics, current.x1(), current.y2() - borderWidth, current.x2(), current.y2(), color);
+            if (i == names.size() - 1) {
+                fillRect(graphics, inner.x1(), inner.y2(), inner.x2(), outer.y2(), color);
             }
-            fillLine(graphics, current.x1(), current.y1(), current.x1() + borderWidth, current.y2(), color);
-            fillLine(graphics, current.x2() - borderWidth, current.y1(), current.x2(), current.y2(), color);
-
-            if (next != null) {
-                int sharedY = current.y2() - borderWidth;
-                int leftGapStart = Math.min(next.x1(), current.x1());
-                int leftGapEnd = Math.max(next.x1(), current.x1());
-                int rightGapStart = Math.min(next.x2(), current.x2());
-                int rightGapEnd = Math.max(next.x2(), current.x2());
-                fillLine(graphics, leftGapStart, sharedY, leftGapEnd, sharedY + borderWidth, color);
-                fillLine(graphics, rightGapStart, sharedY, rightGapEnd, sharedY + borderWidth, color);
+            if (i + 1 < names.size()) {
+                Bounds nextOuter = boundsFor(client, names, width, alignRight, i + 1);
+                Bounds nextInner = innerBoundsFor(client, names, width, alignRight, i + 1);
+                int sharedY1 = inner.y2() - borderWidth;
+                int sharedY2 = inner.y2();
+                fillRect(graphics, Math.min(inner.x1(), nextInner.x1()), sharedY1, Math.max(inner.x1(), nextInner.x1()), sharedY2, color);
+                fillRect(graphics, Math.min(inner.x2(), nextInner.x2()), sharedY1, Math.max(inner.x2(), nextInner.x2()), sharedY2, color);
+                fillRect(graphics, Math.min(outer.x1(), nextOuter.x1()), sharedY1, Math.max(outer.x1(), nextOuter.x1()), sharedY2, color);
+                fillRect(graphics, Math.min(outer.x2(), nextOuter.x2()), sharedY1, Math.max(outer.x2(), nextOuter.x2()), sharedY2, color);
             }
         }
     }
 
-    private Bounds boundsFor(Minecraft client, String name, int width, boolean alignRight, int index) {
-        int textW = client.font.width(name);
+    private void fillRect(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
+        if (x2 <= x1 || y2 <= y1) return;
+        graphics.fill(x1, y1, x2, y2, color);
+    }
+
+    private Bounds boundsFor(Minecraft client, List<String> names, int width, boolean alignRight, int index) {
+        int outset = borderOutset();
+        String name = names.get(index);
+        int textW = textWidth(name);
         int textX = alignRight ? width - textW - PADDING_X : PADDING_X;
-        int bgX1 = textX - BACKGROUND_PADDING_X;
-        int bgX2 = textX + textW + BACKGROUND_PADDING_X;
-        int bgY1 = index * LINE_HEIGHT - (index == 0 ? BACKGROUND_TOP_PADDING : 0);
-        int bgY2 = (index + 1) * LINE_HEIGHT;
+        int bgX1 = textX - BACKGROUND_PADDING_X - outset;
+        int bgX2 = textX + textW + BACKGROUND_PADDING_X + outset;
+        int bgY1 = index * LINE_HEIGHT - (index == 0 ? BACKGROUND_TOP_PADDING + outset : 0);
+        int bgY2 = (index + 1) * LINE_HEIGHT + (index == names.size() - 1 ? outset : 0);
         return new Bounds(bgX1, bgY1, bgX2, bgY2);
     }
 
-    private void fillLine(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
-        if (x2 <= x1 || y2 <= y1) return;
-        graphics.fill(x1, y1, x2, y2, color);
+    private Bounds innerBoundsFor(Minecraft client, List<String> names, int width, boolean alignRight, int index) {
+        Bounds outer = boundsFor(client, names, width, alignRight, index);
+        int borderWidth = borderOutset();
+        if (borderWidth <= 0) {
+            return outer;
+        }
+        int x1 = outer.x1() + borderWidth;
+        int x2 = outer.x2() - borderWidth;
+        int y1 = outer.y1() + (index == 0 ? borderWidth : 0);
+        int y2 = outer.y2() - (index == names.size() - 1 ? borderWidth : 0);
+        return new Bounds(x1, y1, x2, y2);
+    }
+
+    private int borderOutset() {
+        return Config.arraylistBorder ? Math.max(1, Math.round(Config.arraylistBorderWidth)) : 0;
     }
 
     private int textColor(int index, int count) {
