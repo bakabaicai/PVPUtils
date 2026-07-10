@@ -10,7 +10,7 @@ PVPUtils is a client-side utility mod for Minecraft 1.21.11 Fabric. It brings pr
 
 ## Features
 
-PVPUtils includes many useful features for PVP and survival gameplay. Because the feature set is broad, the mod groups them into several categories: Combat, Render, Tool, Optimize, and Misc. These features include polished HUD components, sword blocking animation, dynamic motion blur, input method conflict fixes, block count display, target information display, and more. Download the mod to experience the full feature set.
+PVPUtils includes many useful features for PVP and survival gameplay. Because the feature set is broad, the mod groups them into several categories: Combat, Render, Tool, Optimize, Misc, and Theme. These features include polished HUD components, sword blocking animation, dynamic motion blur, input method conflict fixes, block count display, target information display, and more. Download the mod to experience the full feature set.
 
 ## Preview
 
@@ -59,7 +59,7 @@ This is a client-side mod. It does not provide server-side data modification or 
 3. The default keybind is `Right Shift`. There is also a settings button in the top-right corner of the inventory screen.
 4. Press `P` on the title screen to switch to the custom main UI. Click the title in the top-left corner to return to the vanilla UI, and right-click it to switch UI styles. Low-end devices may stutter during switching; this is normal.
 5. Language switching is located under `Misc -> Language Switch`. Right-click to expand it and switch between Chinese and English. Reopen the UI for the change to take effect.
-6. The mod is compatible with Lunar Client. Other third-party clients have not been fully tested and may have issues.
+6. This mod is currently not compatible with Lunar Client. Other third-party clients haven't been fully tested yet and might have issues.
 7. Target health display may occasionally be inaccurate. This is usually caused by server plugin restrictions and cannot be fixed by the mod.
 
 ## License
