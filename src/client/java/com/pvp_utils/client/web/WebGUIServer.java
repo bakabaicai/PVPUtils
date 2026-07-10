@@ -240,6 +240,13 @@ public final class WebGUIServer {
             } catch (Exception ignored) {
             }
         }
-        new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", uri.toString()).start();
+                String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("win")) {
+            new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", uri.toString()).start();
+        } else if (os.contains("mac")) {
+            new ProcessBuilder("open", uri.toString()).start();
+        } else {
+            new ProcessBuilder("xdg-open", uri.toString()).start();
+        }
     }
 }
