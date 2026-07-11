@@ -1642,15 +1642,19 @@
       panel.style.height = morphSourceRect.height + 'px';
       panel.style.borderRadius = '18px';
 
-      const onEnd = () => {
+      const cleanup = () => {
         panel.style.display = 'none';
         backdrop.style.display = 'none';
         panel.removeEventListener('transitionend', onEnd);
         morphModule = null;
         morphSourceRect = null;
       };
-      panel.addEventListener('transitionend', onEnd, { once: true });
-      setTimeout(onEnd, 700);
+      const onEnd = event => {
+        if (event && event.propertyName !== 'top') return;
+        cleanup();
+      };
+      panel.addEventListener('transitionend', onEnd);
+      setTimeout(cleanup, 700);
 
       document.removeEventListener('keydown', morphKeyHandler);
     }
