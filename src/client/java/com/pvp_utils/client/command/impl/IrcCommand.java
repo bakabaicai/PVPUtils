@@ -75,6 +75,9 @@ public final class IrcCommand implements DotCommand {
             return;
         }
         Config.ircAutoConnect = value.equals("on");
+        if (Config.ircAutoConnect) {
+            Config.ircEnabled = true;
+        }
         Config.save();
         ChatUtils.success(Config.isChinese
                 ? "IRC自动连接已" + (Config.ircAutoConnect ? "开启。" : "关闭。")
