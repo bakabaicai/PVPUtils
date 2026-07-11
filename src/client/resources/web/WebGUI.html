@@ -1551,6 +1551,7 @@
 
       const chevron = document.createElement('div');
       chevron.className = 'card-chevron';
+      if (!mod.settings) chevron.style.display = 'none';
       chevron.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5L6 8L9.5 4.5"></path></svg>';
       card.appendChild(chevron);
 
@@ -1573,7 +1574,7 @@
 
       card.addEventListener('click', event => {
         if (event.target.closest('.toggle-wrap') || event.target.closest('.toggle-track')) return;
-        openMorph(card, mod);
+        if (mod.settings) openMorph(card, mod);
       });
 
       return card;
