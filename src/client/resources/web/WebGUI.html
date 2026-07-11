@@ -716,15 +716,6 @@
       letter-spacing: .04em;
     }
 
-    .morph-head-status {
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 10px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      flex-shrink: 0;
-    }
-
     .morph-close {
       width: 32px;
       height: 32px;
@@ -1306,7 +1297,6 @@
         <div class="morph-head-eyebrow">Module</div>
         <div class="morph-head-title" id="morph-title"></div>
       </div>
-      <span class="morph-head-status" id="morph-status"></span>
       <button class="morph-close" onclick="closeMorph()" aria-label="Close">
         <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <line x1="2" y1="2" x2="13" y2="13"></line>
@@ -1983,10 +1973,6 @@
 
       panel.querySelector('.morph-head-title').textContent = mod.name;
       panel.querySelector('.morph-head-eyebrow').textContent = mod.settings ? 'Module Settings' : 'Module';
-
-      const status = panel.querySelector('#morph-status');
-      status.className = 'morph-head-status' + (mod.state ? ' on' : '');
-      status.textContent = mod.state ? 'enabled' : 'disabled';
 
       const body = panel.querySelector('#morph-body');
       body.innerHTML = '';
