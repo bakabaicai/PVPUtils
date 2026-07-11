@@ -1191,7 +1191,7 @@
       <div class="logo-mark">P</div>
       <div>
         <div class="brand-title">PVPUtils</div>
-        <div class="brand-subtitle">WEBGUI</div>
+        <div class="brand-subtitle">WebGUI</div>
       </div>
     </div>
     <div class="spacer"></div>
@@ -1207,13 +1207,7 @@
       <div id="conn-dot"></div>
       <span id="conn-text">connecting</span>
     </div>
-    <button id="test-toggle" class="icon-btn" onclick="toggleTestMode()" aria-label="Toggle test mode" title="Toggle mock test mode" style="color:var(--muted)">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-      </svg>
-    </button>
-    <div class="theme-picker">
-      <button id="theme-btn" class="icon-btn" onclick="toggleThemePicker()" aria-label="Change theme" title="Change color theme">
+    <button id="theme-btn" class="icon-btn" onclick="toggleThemePicker()" aria-label="Change theme" title="Change color theme">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="5"></circle>
           <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -1284,7 +1278,6 @@
       <div class="login-subtitle">Enter your token to access WebGUI</div>
       <input id="login-token" class="login-input" type="text" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
       <button id="login-btn" class="login-btn">Login</button>
-      <button id="login-test-btn" class="login-btn" style="margin-top:10px;background:transparent;border:1px solid var(--border);color:var(--muted)">Test Mode</button>
       <div id="login-error" class="login-error"></div>
     </div>
   </div>
@@ -1316,201 +1309,8 @@
     let searchTimer = null;
     let pollTimer = null;
     let categoryDataCache = {};
-    let testMode = false;
 
     const $ = id => document.getElementById(id);
-
-    const MOCK = {
-      categories: [
-        { id: 'Combat', name: 'Combat' },
-        { id: 'Movement', name: 'Movement' },
-        { id: 'Render', name: 'Render' },
-        { id: 'Player', name: 'Player' },
-        { id: 'Command', name: 'Command' }
-      ],
-      modules: {
-        Combat: [
-          { id: 'killaura', name: 'KillAura', desc: 'Attacks nearby entities automatically.', state: true, toggleable: true, settings: true },
-          { id: 'velocity', name: 'Velocity', desc: 'Reduces knockback from attacks.', state: false, toggleable: true, settings: true },
-          { id: 'autoclicker', name: 'AutoClicker', desc: 'Automatically clicks at a configurable CPS.', state: false, toggleable: true, settings: true },
-          { id: 'reach', name: 'Reach', desc: 'Extends attack reach distance.', state: true, toggleable: true, settings: true },
-          { id: 'aimassist', name: 'AimAssist', desc: 'Smoothly aims at nearby targets.', state: false, toggleable: true, settings: false },
-          { id: 'criticals', name: 'Criticals', desc: 'Always land critical hits.', state: true, toggleable: true, settings: true },
-          { id: 'autobow', name: 'AutoBow', desc: 'Perfectly timed bow releases.', state: false, toggleable: true, settings: false },
-          { id: 'hitboxes', name: 'HitBoxes', desc: 'Expands entity hitboxes for easier hits.', state: false, toggleable: true, settings: true }
-        ],
-        Movement: [
-          { id: 'speed', name: 'Speed', desc: 'Increases movement speed.', state: true, toggleable: true, settings: true },
-          { id: 'fly', name: 'Fly', desc: 'Allows creative-style flight in survival.', state: false, toggleable: true, settings: true },
-          { id: 'sprint', name: 'AutoSprint', desc: 'Automatically sprints while moving.', state: true, toggleable: true, settings: false },
-          { id: 'step', name: 'Step', desc: 'Walk up full blocks instantly.', state: false, toggleable: true, settings: true },
-          { id: 'noslow', name: 'NoSlow', desc: 'Removes slowdown from items and blocks.', state: false, toggleable: true, settings: false }
-        ],
-        Render: [
-          { id: 'esp', name: 'ESP', desc: 'Highlights entities through walls.', state: true, toggleable: true, settings: true },
-          { id: 'nametags', name: 'NameTags', desc: 'Renders larger, more visible nametags.', state: false, toggleable: true, settings: true },
-          { id: 'fullbright', name: 'FullBright', desc: 'Max brightness everywhere.', state: true, toggleable: true, settings: false },
-          { id: 'blockoutline', name: 'BlockOutline', desc: 'Custom block selection outline.', state: false, toggleable: true, settings: true }
-        ],
-        Player: [
-          { id: 'autotool', name: 'AutoTool', desc: 'Switches to the best tool automatically.', state: true, toggleable: true, settings: true },
-          { id: 'fastplace', name: 'FastPlace', desc: 'Removes block placement delay.', state: false, toggleable: true, settings: true },
-          { id: 'antiafk', name: 'AntiAFK', desc: 'Prevents AFK kick with random movement.', state: false, toggleable: true, settings: false },
-          { id: 'blink', name: 'Blink', desc: 'Queues all packets and sends at once.', state: false, toggleable: true, settings: true }
-        ],
-        Command: [
-          { id: 'cmd_toggle', name: '/toggle <module>', desc: 'Toggle a module on or off.', requiresInput: true, inputType: 'text', placeholder: 'e.g. killaura', value: '' },
-          { id: 'cmd_config', name: '/config load', desc: 'Load a saved configuration profile.', requiresInput: true, inputType: 'text', placeholder: 'config name', value: '' },
-          { id: 'cmd_save', name: '/config save', desc: 'Save current configuration.', requiresInput: false },
-          { id: 'cmd_help', name: '/help', desc: 'Show all available commands.', requiresInput: false },
-          { id: 'cmd_reset', name: '/reset', desc: 'Reset all modules to defaults.', requiresInput: false }
-        ]
-      },
-      settings: {
-        killaura: [
-          { name: 'range', displayName: 'Range', type: 'slider', min: 1, max: 6, step: 0.1, value: 3.5 },
-          { name: 'cps', displayName: 'CPS', type: 'slider', min: 1, max: 20, step: 1, value: 12 },
-          { name: 'targets', displayName: 'Target Players', type: 'checkbox', value: true },
-          { name: 'targetMobs', displayName: 'Target Mobs', type: 'checkbox', value: false },
-          { name: 'priority', displayName: 'Priority', type: 'selection', values: ['Distance', 'Health', 'Angle'], value: 'Distance' },
-          { name: 'rotation', displayName: 'Rotation Mode', type: 'selection', values: ['Smooth', 'Snap', 'None'], value: 'Smooth' },
-          { name: 'autoblock', displayName: 'AutoBlock', type: 'checkbox', value: true }
-        ],
-        velocity: [
-          { name: 'horizontal', displayName: 'Horizontal %', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
-          { name: 'vertical', displayName: 'Vertical %', type: 'slider', min: 0, max: 100, step: 1, value: 0 },
-          { name: 'mode', displayName: 'Mode', type: 'selection', values: ['Packet', 'Cancel', 'Reverse'], value: 'Packet' }
-        ],
-        autoclicker: [
-          { name: 'minCps', displayName: 'Min CPS', type: 'slider', min: 1, max: 20, step: 1, value: 10 },
-          { name: 'maxCps', displayName: 'Max CPS', type: 'slider', min: 1, max: 20, step: 1, value: 14 },
-          { name: 'leftClick', displayName: 'Left Click', type: 'checkbox', value: true },
-          { name: 'rightClick', displayName: 'Right Click', type: 'checkbox', value: false },
-          { name: 'jitter', displayName: 'Jitter Strength', type: 'slider', min: 0, max: 3, step: 0.1, value: 0.5 }
-        ],
-        reach: [
-          { name: 'distance', displayName: 'Distance', type: 'slider', min: 3, max: 6, step: 0.05, value: 3.8 },
-          { name: 'movingOnly', displayName: 'Only While Moving', type: 'checkbox', value: false }
-        ],
-        criticals: [
-          { name: 'mode', displayName: 'Mode', type: 'selection', values: ['Packet', 'Jump', 'MiniJump'], value: 'Packet' }
-        ],
-        hitboxes: [
-          { name: 'expand', displayName: 'Expand Amount', type: 'slider', min: 0, max: 1, step: 0.05, value: 0.3 }
-        ],
-        speed: [
-          { name: 'speed', displayName: 'Speed', type: 'slider', min: 0.5, max: 5, step: 0.1, value: 1.8 },
-          { name: 'mode', displayName: 'Mode', type: 'selection', values: ['Strafe', 'BHop', 'Vanilla'], value: 'Strafe' },
-          { name: 'timer', displayName: 'Timer', type: 'slider', min: 0.8, max: 2, step: 0.05, value: 1.0 }
-        ],
-        fly: [
-          { name: 'speed', displayName: 'Speed', type: 'slider', min: 0.5, max: 10, step: 0.1, value: 2.0 },
-          { name: 'mode', displayName: 'Mode', type: 'selection', values: ['Vanilla', 'Packet', 'Jetpack'], value: 'Vanilla' },
-          { name: 'antikick', displayName: 'Anti-Kick', type: 'checkbox', value: true }
-        ],
-        step: [
-          { name: 'height', displayName: 'Step Height', type: 'slider', min: 1, max: 5, step: 0.5, value: 2.0 },
-          { name: 'mode', displayName: 'Mode', type: 'selection', values: ['NCP', 'Vanilla'], value: 'NCP' }
-        ],
-        esp: [
-          { name: 'players', displayName: 'Show Players', type: 'checkbox', value: true },
-          { name: 'mobs', displayName: 'Show Mobs', type: 'checkbox', value: true },
-          { name: 'items', displayName: 'Show Items', type: 'checkbox', value: false },
-          { name: 'color', displayName: 'Color', type: 'selection', values: ['Red', 'Green', 'Blue', 'Rainbow'], value: 'Green' },
-          { name: 'mode', displayName: 'Render Mode', type: 'selection', values: ['Outline', 'Filled', '2D'], value: 'Outline' }
-        ],
-        nametags: [
-          { name: 'scale', displayName: 'Scale', type: 'slider', min: 0.5, max: 3, step: 0.1, value: 1.5 },
-          { name: 'health', displayName: 'Show Health', type: 'checkbox', value: true },
-          { name: 'armor', displayName: 'Show Armor', type: 'checkbox', value: false }
-        ],
-        blockoutline: [
-          { name: 'color', displayName: 'Color', type: 'selection', values: ['White', 'Green', 'Red', 'Custom'], value: 'White' },
-          { name: 'width', displayName: 'Line Width', type: 'slider', min: 0.5, max: 5, step: 0.5, value: 2.0 }
-        ],
-        autotool: [
-          { name: 'switchBack', displayName: 'Switch Back', type: 'checkbox', value: true },
-          { name: 'preferSilk', displayName: 'Prefer Silk Touch', type: 'checkbox', value: false }
-        ],
-        fastplace: [
-          { name: 'delay', displayName: 'Delay', type: 'slider', min: 0, max: 4, step: 1, value: 0 }
-        ],
-        blink: [
-          { name: 'maxPackets', displayName: 'Max Packets', type: 'slider', min: 10, max: 500, step: 10, value: 200 }
-        ]
-      }
-    };
-
-    function mockFetch(url) {
-      const u = new URL(url, location.origin);
-      const path = u.pathname;
-      const params = u.searchParams;
-      return new Promise(resolve => {
-        setTimeout(() => {
-          if (path === '/api/ping') {
-            resolve({ json: () => Promise.resolve({ ok: true }) });
-          } else if (path === '/api/categoriesList') {
-            resolve({ json: () => Promise.resolve({ success: true, result: MOCK.categories }) });
-          } else if (path === '/api/modulesList') {
-            const cat = params.get('category') || 'Combat';
-            resolve({ json: () => Promise.resolve({ success: true, result: MOCK.modules[cat] || [] }) });
-          } else if (path === '/api/commandsList') {
-            resolve({ json: () => Promise.resolve({ success: true, result: MOCK.modules.Command }) });
-          } else if (path === '/api/setStatus') {
-            const mod = params.get('module');
-            const state = params.get('state') === 'true';
-            for (const cat of Object.values(MOCK.modules)) {
-              const m = cat.find(x => x.id === mod);
-              if (m) { m.state = state; break; }
-            }
-            resolve({ json: () => Promise.resolve({ success: true, result: state }) });
-          } else if (path === '/api/getModuleSetting') {
-            const mod = params.get('module');
-            resolve({ json: () => Promise.resolve({ success: true, result: MOCK.settings[mod] || [] }) });
-          } else if (path === '/api/setModuleSettingValue') {
-            const mod = params.get('module');
-            const name = params.get('name');
-            const value = params.get('value');
-            const settings = MOCK.settings[mod];
-            if (settings) {
-              const s = settings.find(x => x.name === name);
-              if (s) {
-                if (s.type === 'slider') s.value = parseFloat(value);
-                else if (s.type === 'checkbox') s.value = value === 'true';
-                else s.value = value;
-              }
-            }
-            resolve({ json: () => Promise.resolve({ success: true }) });
-          } else if (path === '/api/executeCommand') {
-            resolve({ json: () => Promise.resolve({ success: true }) });
-          } else {
-            resolve({ json: () => Promise.resolve({ success: false, reason: 'Unknown API' }) });
-          }
-        }, 80);
-      });
-    }
-
-    function apiFetch(url) {
-      return testMode ? mockFetch(url) : fetch(url);
-    }
-
-    function toggleTestMode() {
-      testMode = !testMode;
-      const btn = $('test-toggle');
-      const brandSub = document.querySelector('.brand-subtitle');
-      if (testMode) {
-        btn.style.color = 'var(--accent)';
-        btn.style.background = 'rgba(140, 240, 111, .12)';
-        brandSub.textContent = 'WEBGUI · TEST MODE';
-        toast('Test mode enabled - using mock data');
-      } else {
-        btn.style.color = 'var(--muted)';
-        btn.style.background = 'transparent';
-        brandSub.textContent = 'WEBGUI';
-        toast('Test mode disabled - using live API');
-      }
-      loadCategories(false);
-    }
 
     function initApp() {
       document.getElementById('login-screen').classList.add('hidden');
@@ -1586,18 +1386,6 @@
         }
         loginBtn.onclick = doLogin;
         loginInput.onkeydown = e => { if (e.key === 'Enter') doLogin(); };
-        document.getElementById('login-test-btn').onclick = () => {
-          testMode = true;
-          const btn = $('test-toggle');
-          if (btn) {
-            btn.style.color = 'var(--accent)';
-            btn.style.background = 'rgba(140, 240, 111, .12)';
-          }
-          const brandSub = document.querySelector('.brand-subtitle');
-          if (brandSub) brandSub.textContent = 'WEBGUI · TEST MODE';
-          initApp();
-          toast('Test mode enabled - using mock data');
-        };
       }
     })();
 
@@ -1705,7 +1493,7 @@
 
       const moduleCats = categories.filter(c => c.id !== 'Command');
       const promises = moduleCats.map(cat =>
-        apiFetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(cat.id))
+        fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(cat.id))
           .then(r => r.json())
           .then(v => (v.success ? (v.result || []).map(m => ({ ...m, _cat: cat.name })) : []))
           .catch(() => [])
@@ -1798,7 +1586,7 @@
       grid.innerHTML = '';
       grid.appendChild(buildSkeleton(6));
       $('module-count').textContent = 'loading...';
-      apiFetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(name))
+      fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(name))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
@@ -1830,7 +1618,7 @@
       grid.innerHTML = '';
       grid.appendChild(buildSkeleton(4));
       $('module-count').textContent = 'loading...';
-      apiFetch('/api/commandsList?token=' + encodeURIComponent(token))
+      fetch('/api/commandsList?token=' + encodeURIComponent(token))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
@@ -1892,7 +1680,7 @@
 
     function executeWebCommand(id, value, button) {
       button.disabled = true;
-      apiFetch('/api/executeCommand?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(id) + '&value=' + encodeURIComponent(value))
+      fetch('/api/executeCommand?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(id) + '&value=' + encodeURIComponent(value))
         .then(response => response.json())
         .then(result => {
           if (!result.success) {
@@ -2060,7 +1848,7 @@
     }
 
     function loadMorphSettings(moduleId, body) {
-      apiFetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
+      fetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
         .then(response => response.json())
         .then(value => {
           if (!value.success || !value.result || !value.result.length) {
@@ -2129,7 +1917,7 @@
       const input = card.querySelector('.toggle-input');
       const pill = card.querySelector('.status-pill');
       input.disabled = true;
-      apiFetch('/api/setStatus?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&state=' + encodeURIComponent(state))
+      fetch('/api/setStatus?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&state=' + encodeURIComponent(state))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
@@ -2170,7 +1958,7 @@
 
     function setSettingValue(moduleId, name, value, input) {
       input.disabled = true;
-      apiFetch('/api/setModuleSettingValue?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&name=' + encodeURIComponent(name) + '&value=' + encodeURIComponent(value))
+      fetch('/api/setModuleSettingValue?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId) + '&name=' + encodeURIComponent(name) + '&value=' + encodeURIComponent(value))
         .then(response => response.json())
         .then(result => {
           if (!result.success) {
@@ -2197,7 +1985,7 @@
         renderCommandPage(false);
         return;
       }
-      apiFetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(currentCategory))
+      fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(currentCategory))
         .then(response => response.json())
         .then(value => {
           if (!value.success) return;
@@ -2225,7 +2013,7 @@
     }
 
     function loadCategories(silent = false) {
-      apiFetch('/api/categoriesList?token=' + encodeURIComponent(token))
+      fetch('/api/categoriesList?token=' + encodeURIComponent(token))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
@@ -2273,7 +2061,7 @@
     }
 
     function ping() {
-      apiFetch('/api/ping?token=' + encodeURIComponent(token))
+      fetch('/api/ping?token=' + encodeURIComponent(token))
         .then(response => response.json())
         .then(value => {
           setConnected(!!value.ok);
