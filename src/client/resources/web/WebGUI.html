@@ -537,7 +537,7 @@
       background: rgba(0, 0, 0, .58);
       backdrop-filter: blur(4px);
       opacity: 0;
-      transition: opacity .3s ease;
+      transition: opacity .45s ease;
     }
 
     #morph-backdrop.open {
@@ -554,11 +554,11 @@
       overflow: hidden;
       display: none;
       box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
-      transition: top .32s cubic-bezier(.22, 1, .36, 1),
-                  left .32s cubic-bezier(.22, 1, .36, 1),
-                  width .32s cubic-bezier(.22, 1, .36, 1),
-                  height .32s cubic-bezier(.22, 1, .36, 1),
-                  border-radius .32s cubic-bezier(.22, 1, .36, 1);
+      transition: top .55s cubic-bezier(.22, 1, .36, 1),
+                  left .55s cubic-bezier(.22, 1, .36, 1),
+                  width .55s cubic-bezier(.22, 1, .36, 1),
+                  height .55s cubic-bezier(.22, 1, .36, 1),
+                  border-radius .55s cubic-bezier(.22, 1, .36, 1);
     }
 
     #morph-panel.open {
@@ -650,12 +650,13 @@
       gap: 16px;
       opacity: 0;
       transform: translateY(8px);
-      transition: opacity .25s ease .1s, transform .25s ease .1s;
+      transition: opacity .2s ease, transform .2s ease;
     }
 
     #morph-panel.open .morph-body {
       opacity: 1;
       transform: translateY(0);
+      transition: opacity .4s ease .2s, transform .4s ease .2s;
     }
 
     .morph-desc {
@@ -1632,24 +1633,27 @@
       const backdrop = $('morph-backdrop');
       if (!morphSourceRect || !panel.classList.contains('open')) return;
 
-      panel.style.transition = '';
-      panel.style.top = morphSourceRect.top + 'px';
-      panel.style.left = morphSourceRect.left + 'px';
-      panel.style.width = morphSourceRect.width + 'px';
-      panel.style.height = morphSourceRect.height + 'px';
-      panel.style.borderRadius = '18px';
+      panel.classList.remove('open');
       backdrop.classList.remove('open');
 
-      const onEnd = () => {
-        panel.style.display = 'none';
-        panel.classList.remove('open');
-        backdrop.style.display = 'none';
-        panel.removeEventListener('transitionend', onEnd);
-        morphModule = null;
-        morphSourceRect = null;
-      };
-      panel.addEventListener('transitionend', onEnd, { once: true });
-      setTimeout(onEnd, 400);
+      setTimeout(() => {
+        panel.style.transition = '';
+        panel.style.top = morphSourceRect.top + 'px';
+        panel.style.left = morphSourceRect.left + 'px';
+        panel.style.width = morphSourceRect.width + 'px';
+        panel.style.height = morphSourceRect.height + 'px';
+        panel.style.borderRadius = '18px';
+
+        const onEnd = () => {
+          panel.style.display = 'none';
+          backdrop.style.display = 'none';
+          panel.removeEventListener('transitionend', onEnd);
+          morphModule = null;
+          morphSourceRect = null;
+        };
+        panel.addEventListener('transitionend', onEnd, { once: true });
+        setTimeout(onEnd, 700);
+      }, 250);
 
       document.removeEventListener('keydown', morphKeyHandler);
     }
