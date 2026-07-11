@@ -117,7 +117,7 @@ public class RenderPage extends BasePage {
                             Config.setDynamicIslandBlockCount(v);
                             Config.save();
                         }))
-                .addSub("???", "",
+                .addSub("备选图标", "Alternative Icon",
                         new SettingToggle(() -> Config.dynamicIslandBlockCountAltIcon, v -> {
                             Config.dynamicIslandBlockCountAltIcon = v;
                             Config.save();
