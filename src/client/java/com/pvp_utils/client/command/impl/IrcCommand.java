@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public final class IrcCommand implements DotCommand {
     private static final List<String> SUB_COMMANDS = List.of("status", "disconnect", "login", "chat", "autoconnect");
-    private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick", "mute");
+    private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick", "mute", "unmute", "unban");
 
     @Override
     public List<String> names() {
@@ -48,6 +48,8 @@ public final class IrcCommand implements DotCommand {
             case "kick" -> executeModeratorCommand("KICK", subArgs, false);
             case "ban" -> executeModeratorCommand("BAN", subArgs, true);
             case "mute" -> executeModeratorCommand("MUTE", subArgs, true);
+            case "unmute" -> executeModeratorCommand("UNMUTE", subArgs, false);
+            case "unban" -> executeModeratorCommand("UNBAN", subArgs, false);
             default -> ChatUtils.warning(Config.isChinese
                     ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
                     : "Usage: .irc login <username> <password> / .irc chat <text>");
@@ -93,7 +95,7 @@ public final class IrcCommand implements DotCommand {
         if (target.isBlank() || (requiresDuration && duration.isBlank())) {
             ChatUtils.error(requiresDuration
                     ? (Config.isChinese ? "用法：.irc " + commandType.toLowerCase(Locale.ROOT) + " <用户> <时长> [理由]" : "Usage: .irc " + commandType.toLowerCase(Locale.ROOT) + " <user> <duration> [reason]")
-                    : (Config.isChinese ? "用法：.irc kick <用户>" : "Usage: .irc kick <user>"));
+                    : (Config.isChinese ? "用法：.irc " + commandType.toLowerCase(Locale.ROOT) + " <用户>" : "Usage: .irc " + commandType.toLowerCase(Locale.ROOT) + " <user>"));
             return;
         }
         sendModerationCommand(commandType, target, duration, reason);
