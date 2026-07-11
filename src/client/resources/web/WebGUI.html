@@ -30,6 +30,13 @@
       --font-body: "Verdana", "Microsoft YaHei UI", sans-serif;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     html {
       scroll-behavior: smooth;
     }
@@ -66,6 +73,7 @@
       z-index: 0;
       pointer-events: none;
       opacity: .42;
+      will-change: contents;
     }
 
     #topbar {
@@ -82,6 +90,7 @@
       background: rgba(5, 9, 11, .82);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(22px) saturate(1.35);
+      will-change: transform;
       animation: topbar-in .55s cubic-bezier(.22, 1, .36, 1) both;
     }
 
@@ -118,6 +127,11 @@
       transform: scale(.92);
     }
 
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     .brand {
       display: flex;
       align-items: center;
@@ -139,6 +153,7 @@
       font-size: 15px;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 0 28px rgba(140, 240, 111, .16);
+      will-change: box-shadow;
       animation: logo-pulse 3s ease-in-out infinite;
     }
 
@@ -196,6 +211,68 @@
       transition: background .25s ease, box-shadow .25s ease;
     }
 
+    #search-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 10px;
+      height: 34px;
+      background: rgba(0, 0, 0, .24);
+      transition: border-color .2s ease;
+      max-width: 220px;
+    }
+
+    #search-bar:focus-within {
+      border-color: var(--border-strong);
+    }
+
+    #search-bar svg {
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    #search-input {
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 12px;
+      outline: none;
+      width: 100%;
+      min-width: 0;
+    }
+
+    #search-input::placeholder {
+      color: var(--muted);
+    }
+
+    #search-clear {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--faint);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      line-height: 18px;
+      text-align: center;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    #search-clear:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, .1);
+    }
+
+    #search-clear.show {
+      display: block;
+    }
+
     #sidebar {
       position: fixed;
       top: 0;
@@ -207,6 +284,7 @@
       flex-direction: column;
       background: rgba(10, 15, 18, .96);
       border-right: 1px solid var(--border);
+      will-change: transform;
       transform: translateX(-100%);
       transition: transform .35s cubic-bezier(.22, 1, .36, 1);
     }
@@ -257,6 +335,11 @@
     .nav-link.active {
       color: var(--text);
       background: rgba(140, 240, 111, .08);
+    }
+
+    .nav-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
     }
 
     .nav-dot {
@@ -345,6 +428,7 @@
       overflow: hidden;
       opacity: 0;
       transform: translateY(18px);
+      will-change: transform, opacity;
       animation: card-in .45s cubic-bezier(.22, 1, .36, 1) forwards;
       transition: border-color .22s ease, transform .22s ease, box-shadow .22s ease;
     }
@@ -449,6 +533,13 @@
       background: var(--faint);
     }
 
+    .settings-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     .settings-btn svg {
       pointer-events: none;
     }
@@ -499,6 +590,7 @@
       height: 16px;
       border-radius: 50%;
       background: var(--muted);
+      will-change: transform;
       transition: transform .24s cubic-bezier(.34, 1.56, .64, 1), background .22s ease;
     }
 
@@ -510,6 +602,82 @@
     .toggle-input:checked ~ .toggle-track .toggle-thumb {
       transform: translateX(18px);
       background: var(--accent);
+    }
+
+    .toggle-input:focus-visible ~ .toggle-track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, var(--faint) 25%, rgba(255,255,255,.06) 50%, var(--faint) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+      border-radius: 8px;
+    }
+
+    @keyframes skeleton-pulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .skeleton-card {
+      min-height: 142px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--card);
+    }
+
+    .skeleton-title {
+      width: 60%;
+      height: 16px;
+      margin-bottom: 12px;
+    }
+
+    .skeleton-desc {
+      width: 90%;
+      height: 12px;
+      margin-bottom: 6px;
+    }
+
+    .skeleton-desc-short {
+      width: 45%;
+      height: 12px;
+    }
+
+    .skeleton-pill {
+      width: 50px;
+      height: 20px;
+      border-radius: 999px;
+    }
+
+    .skeleton-toggle {
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+    }
+
+    .skeleton-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+
+    #no-results {
+      display: none;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .04em;
+    }
+
+    #no-results svg {
+      display: block;
+      margin: 0 auto 14px;
+      opacity: .4;
     }
 
     #toast {
@@ -524,6 +692,7 @@
       background: var(--panel);
       color: var(--text);
       font-size: 12px;
+      cursor: pointer;
       opacity: 0;
       pointer-events: none;
       transform: translateY(10px);
@@ -533,6 +702,7 @@
     #toast.show {
       opacity: 1;
       transform: translateY(0);
+      pointer-events: auto;
     }
 
     #modal-backdrop {
@@ -635,7 +805,6 @@
 
     .command-input:focus {
       border-color: var(--border-strong);
-      outline: none;
     }
 
     .command-button {
@@ -726,6 +895,10 @@
         display: none;
       }
 
+      #search-bar {
+        max-width: 140px;
+      }
+
       main {
         padding-inline: 14px;
       }
@@ -750,6 +923,14 @@
       </div>
     </div>
     <div class="spacer"></div>
+    <div id="search-bar">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input id="search-input" type="text" placeholder="Search modules..." aria-label="Search modules">
+      <button id="search-clear" aria-label="Clear search">&times;</button>
+    </div>
     <div class="connection">
       <div id="conn-dot"></div>
       <span id="conn-text">connecting</span>
@@ -763,7 +944,7 @@
   </div>
 
   <div id="sidebar-overlay" onclick="closeSidebar()"></div>
-  <nav id="sidebar">
+  <nav id="sidebar" role="navigation" aria-label="Module categories">
     <div id="sidebar-head">Categories</div>
     <ul id="category"></ul>
     <div style="padding:14px 18px;border-top:1px solid var(--border);color:var(--muted);font-size:10px;letter-spacing:.12em">PVPUtils · WEBGUI</div>
@@ -773,14 +954,21 @@
     <div id="cat-header">
       <div class="header-line"></div>
       <h1 id="cat-title">PVPUtils</h1>
-      <span id="module-count">test shell</span>
+      <span id="module-count">loading...</span>
     </div>
     <div id="point"></div>
+    <div id="no-results">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      No modules match your search.
+    </div>
   </main>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 
-  <div id="modal-backdrop">
+  <div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div id="modal">
       <div class="modal-head">
         <div>
@@ -803,23 +991,31 @@
     let currentCategory = 'Combat';
     let categories = [];
     let categorySignature = '';
+    let searchQuery = '';
+    let searchTimer = null;
+    let pollTimer = null;
+    let categoryDataCache = {};
+    let previousFocus = null;
+
+    const $ = id => document.getElementById(id);
 
     function openSidebar() {
-      document.getElementById('sidebar').classList.add('open');
-      document.getElementById('sidebar-overlay').classList.add('open');
+      $('sidebar').classList.add('open');
+      $('sidebar-overlay').classList.add('open');
+      $('sidebar').querySelector('.nav-link')?.focus();
     }
 
     function closeSidebar() {
-      document.getElementById('sidebar').classList.remove('open');
-      document.getElementById('sidebar-overlay').classList.remove('open');
+      $('sidebar').classList.remove('open');
+      $('sidebar-overlay').classList.remove('open');
     }
 
-    document.getElementById('sidebar-toggle').onclick = () => {
-      document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
+    $('sidebar-toggle').onclick = () => {
+      $('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
     };
 
     function toast(message, danger = false) {
-      const node = document.getElementById('toast');
+      const node = $('toast');
       node.textContent = message;
       node.style.borderColor = danger ? 'rgba(255, 100, 100, .4)' : 'var(--border)';
       node.style.color = danger ? 'var(--danger)' : 'var(--text)';
@@ -828,19 +1024,90 @@
       window.toastTimer = setTimeout(() => node.classList.remove('show'), 2600);
     }
 
+    $('toast').onclick = () => $('toast').classList.remove('show');
+
     function setConnected(connected) {
-      document.getElementById('conn-dot').style.background = connected ? 'var(--success)' : 'var(--danger)';
-      document.getElementById('conn-dot').style.boxShadow = connected ? '0 0 12px rgba(84, 232, 143, .45)' : '0 0 12px rgba(255, 100, 100, .35)';
-      document.getElementById('conn-text').textContent = connected ? 'connected' : 'disconnected';
-      document.getElementById('conn-text').style.color = connected ? 'var(--success)' : 'var(--danger)';
+      const dot = $('conn-dot');
+      dot.style.background = connected ? 'var(--success)' : 'var(--danger)';
+      dot.style.boxShadow = connected ? '0 0 12px rgba(84, 232, 143, .45)' : '0 0 12px rgba(255, 100, 100, .35)';
+      const text = $('conn-text');
+      text.textContent = connected ? 'connected' : 'disconnected';
+      text.style.color = connected ? 'var(--success)' : 'var(--danger)';
     }
 
     function refreshStatus() {
-      const icon = document.getElementById('refresh-icon');
+      const icon = $('refresh-icon');
       icon.style.transition = 'transform .45s ease';
       icon.style.transform = 'rotate(360deg)';
-      setTimeout(() => icon.style.transform = 'rotate(0deg)', 460);
+      setTimeout(() => { icon.style.transition = 'none'; icon.style.transform = 'rotate(0deg)'; }, 460);
       ping();
+    }
+
+    $('search-input').oninput = function() {
+      searchQuery = this.value.trim().toLowerCase();
+      $('search-clear').classList.toggle('show', searchQuery.length > 0);
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(filterCurrentView, 150);
+    };
+
+    $('search-clear').onclick = function() {
+      $('search-input').value = '';
+      searchQuery = '';
+      this.classList.remove('show');
+      filterCurrentView();
+      $('search-input').focus();
+    };
+
+    function filterCurrentView() {
+      if (currentCategory === 'Command') {
+        filterCommandCards();
+        return;
+      }
+      filterModuleCards();
+    }
+
+    function filterModuleCards() {
+      const cards = $('point').querySelectorAll('.module-card');
+      let visible = 0;
+      cards.forEach(card => {
+        const title = (card.querySelector('.module-title')?.textContent || '').toLowerCase();
+        const desc = (card.querySelector('.module-desc')?.textContent || '').toLowerCase();
+        const match = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      $('no-results').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function filterCommandCards() {
+      const cards = $('point').querySelectorAll('.module-card');
+      let visible = 0;
+      cards.forEach(card => {
+        const title = (card.querySelector('.module-title')?.textContent || '').toLowerCase();
+        const desc = (card.querySelector('.module-desc')?.textContent || '').toLowerCase();
+        const match = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      $('no-results').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function buildSkeleton(count) {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < count; i++) {
+        const card = document.createElement('section');
+        card.className = 'skeleton-card';
+        card.innerHTML =
+          '<div class="skeleton skeleton-title"></div>' +
+          '<div class="skeleton skeleton-desc"></div>' +
+          '<div class="skeleton skeleton-desc-short"></div>' +
+          '<div class="skeleton-footer" style="margin-top:auto;padding-top:16px">' +
+          '<div class="skeleton skeleton-pill"></div>' +
+          '<div class="skeleton skeleton-toggle"></div>' +
+          '</div>';
+        frag.appendChild(card);
+      }
+      return frag;
     }
 
     function addCategory(category) {
@@ -849,66 +1116,98 @@
       link.className = 'nav-link';
       link.href = '#' + category.id;
       link.dataset.cat = category.id;
+      link.tabIndex = 0;
       link.innerHTML = '<span class="nav-dot"></span><span>' + category.name + '</span>';
       link.onclick = event => {
         event.preventDefault();
         renderCategory(category.id);
         closeSidebar();
       };
+      link.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          renderCategory(category.id);
+          closeSidebar();
+        }
+      };
       item.appendChild(link);
-      document.getElementById('category').appendChild(item);
+      $('category').appendChild(item);
     }
 
     function renderCategory(name, animate = true) {
       currentCategory = name;
+      $('no-results').style.display = 'none';
+      searchQuery = '';
+      $('search-input').value = '';
+      $('search-clear').classList.remove('show');
       document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.toggle('active', link.dataset.cat === name);
       });
       const category = categories.find(item => item.id === name);
-      document.getElementById('cat-title').textContent = category ? category.name : name;
-      const grid = document.getElementById('point');
-      grid.innerHTML = '';
+      $('cat-title').textContent = category ? category.name : name;
+      const grid = $('point');
       if (name === 'Command') {
         renderCommandPage(animate);
         return;
       }
+      grid.innerHTML = '';
+      grid.appendChild(buildSkeleton(6));
+      $('module-count').textContent = 'loading...';
       fetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(name))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
             toast(value.reason || 'Failed to load modules.', true);
+            grid.innerHTML = '';
             return;
           }
           const list = value.result || [];
-          document.getElementById('module-count').textContent = list.length + ' modules';
+          $('module-count').textContent = list.length + ' modules';
+          categoryDataCache[name] = list;
           grid.innerHTML = '';
-          list.forEach((mod, index) => {
-            grid.appendChild(buildModuleCard(mod, index, animate));
-          });
+          if (!list.length) {
+            $('no-results').style.display = 'block';
+            return;
+          }
+          const frag = document.createDocumentFragment();
+          list.forEach((mod, index) => frag.appendChild(buildModuleCard(mod, index, animate)));
+          grid.appendChild(frag);
         })
         .catch(() => {
           setConnected(false);
           toast('Failed to load modules.', true);
+          grid.innerHTML = '';
         });
     }
 
     function renderCommandPage(animate = true) {
-      const grid = document.getElementById('point');
+      const grid = $('point');
+      grid.innerHTML = '';
+      grid.appendChild(buildSkeleton(4));
+      $('module-count').textContent = 'loading...';
       fetch('/api/commandsList?token=' + encodeURIComponent(token))
         .then(response => response.json())
         .then(value => {
           if (!value.success) {
             toast(value.reason || 'Failed to load commands.', true);
+            grid.innerHTML = '';
             return;
           }
           const list = value.result || [];
-          document.getElementById('module-count').textContent = list.length + ' commands';
+          $('module-count').textContent = list.length + ' commands';
           grid.innerHTML = '';
-          list.forEach((command, index) => grid.appendChild(buildCommandCard(command, index, animate)));
+          if (!list.length) {
+            $('no-results').style.display = 'block';
+            return;
+          }
+          const frag = document.createDocumentFragment();
+          list.forEach((command, index) => frag.appendChild(buildCommandCard(command, index, animate)));
+          grid.appendChild(frag);
         })
         .catch(() => {
           setConnected(false);
           toast('Failed to load commands.', true);
+          grid.innerHTML = '';
         });
     }
 
@@ -981,10 +1280,10 @@
         ? '<div class="card-footer"><span class="status-pill">settings</span></div>'
         : '<div class="card-footer">' +
         '<span class="status-pill ' + (mod.state ? 'on' : 'off') + '">' + (mod.state ? 'enabled' : 'disabled') + '</span>' +
-        '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (mod.state ? 'checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+        '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (mod.state ? 'checked' : '') + ' aria-label="Toggle ' + escapeHtml(mod.name) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
         '</div>';
       card.innerHTML =
-        (mod.settings ? '<button class="settings-btn" aria-label="Settings" data-settings="' + escapeHtml(mod.id) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>' : '') +
+        (mod.settings ? '<button class="settings-btn" aria-label="Settings for ' + escapeHtml(mod.name) + '" data-settings="' + escapeHtml(mod.id) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>' : '') +
         '<div class="module-title">' + escapeHtml(mod.name) + '</div>' +
         '<div class="module-desc">' + escapeHtml(mod.desc || '') + '</div>' +
         footer;
@@ -1030,13 +1329,13 @@
     }
 
     function updateModuleCard(card, mod) {
-      card.querySelector('.module-title').textContent = mod.name;
-      card.querySelector('.module-desc').textContent = mod.desc || '';
+      const title = card.querySelector('.module-title');
+      if (title) title.textContent = mod.name;
+      const desc = card.querySelector('.module-desc');
+      if (desc) desc.textContent = mod.desc || '';
       const input = card.querySelector('.toggle-input');
       const pill = card.querySelector('.status-pill');
-      if (!input) {
-        return;
-      }
+      if (!input) return;
       const enabled = !!mod.state;
       input.checked = enabled;
       card.classList.toggle('enabled', enabled);
@@ -1045,10 +1344,17 @@
     }
 
     function openSettings(moduleId, moduleName) {
-      document.getElementById('modal-title').textContent = moduleName;
-      const body = document.getElementById('modal-body');
-      body.innerHTML = '<div class="setting-name">Loading...</div>';
-      document.getElementById('modal-backdrop').classList.add('open');
+      $('modal-title').textContent = moduleName;
+      const body = $('modal-body');
+      body.innerHTML = '<div class="setting-row"><div class="skeleton skeleton-desc" style="height:14px;width:100px"></div><div class="skeleton skeleton-desc" style="height:34px;width:100%"></div></div>' +
+        '<div class="setting-row"><div class="skeleton skeleton-desc" style="height:14px;width:120px"></div><div class="skeleton skeleton-desc" style="height:34px;width:100%"></div></div>';
+      $('modal-backdrop').classList.add('open');
+      previousFocus = document.activeElement;
+      document.addEventListener('keydown', modalKeyHandler);
+      setTimeout(() => {
+        const closeBtn = $('modal').querySelector('.icon-btn');
+        if (closeBtn) closeBtn.focus();
+      }, 100);
       fetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
         .then(response => response.json())
         .then(value => {
@@ -1063,7 +1369,9 @@
             return;
           }
           body.innerHTML = '';
-          settings.forEach(setting => body.appendChild(buildSettingControl(moduleId, setting)));
+          const frag = document.createDocumentFragment();
+          settings.forEach(setting => frag.appendChild(buildSettingControl(moduleId, setting)));
+          body.appendChild(frag);
         })
         .catch(() => {
           body.innerHTML = '';
@@ -1072,11 +1380,41 @@
         });
     }
 
-    function closeModal() {
-      document.getElementById('modal-backdrop').classList.remove('open');
+    function modalKeyHandler(event) {
+      if (event.key === 'Escape') {
+        closeModal();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const modal = $('modal');
+        const focusable = modal.querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])');
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey) {
+          if (document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+      }
     }
 
-    document.getElementById('modal-backdrop').onclick = event => {
+    function closeModal() {
+      $('modal-backdrop').classList.remove('open');
+      document.removeEventListener('keydown', modalKeyHandler);
+      if (previousFocus && previousFocus.focus) {
+        previousFocus.focus();
+        previousFocus = null;
+      }
+    }
+
+    $('modal-backdrop').onclick = event => {
       if (event.target === event.currentTarget) closeModal();
     };
 
@@ -1087,7 +1425,7 @@
         row.innerHTML =
           '<div class="setting-line">' +
           '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
-          '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (setting.value ? 'checked' : '') + '><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+          '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (setting.value ? 'checked' : '') + ' aria-label="' + escapeHtml(setting.displayName) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
           '</div>';
         const input = row.querySelector('input');
         input.onchange = () => setSettingValue(moduleId, setting.name, input.checked, input);
@@ -1099,13 +1437,17 @@
           '</div>' +
           '<input type="range" min="' + setting.min + '" max="' + setting.max + '" step="' + setting.step + '" value="' + setting.value + '">';
         const input = row.querySelector('input');
-        const value = row.querySelector('.setting-value');
-        input.oninput = () => value.textContent = input.value;
-        input.onchange = () => setSettingValue(moduleId, setting.name, input.value, input);
+        const valueSpan = row.querySelector('.setting-value');
+        let commitTimer = null;
+        input.oninput = () => {
+          valueSpan.textContent = input.value;
+          clearTimeout(commitTimer);
+          commitTimer = setTimeout(() => setSettingValue(moduleId, setting.name, input.value, input), 300);
+        };
       } else if (setting.type === 'selection') {
         row.innerHTML =
           '<div class="setting-line"><span class="setting-name">' + escapeHtml(setting.displayName) + '</span></div>' +
-          '<select>' + (setting.values || []).map(option => '<option value="' + escapeHtml(option) + '"' + (option === setting.value ? ' selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select>';
+          '<select aria-label="' + escapeHtml(setting.displayName) + '">' + (setting.values || []).map(option => '<option value="' + escapeHtml(option) + '"' + (option === setting.value ? ' selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select>';
         const select = row.querySelector('select');
         select.onchange = () => setSettingValue(moduleId, setting.name, select.value, select);
       }
@@ -1122,7 +1464,6 @@
             return;
           }
           syncCurrentCategory();
-          openSettings(moduleId, document.getElementById('modal-title').textContent);
         })
         .catch(() => {
           setConnected(false);
@@ -1146,20 +1487,24 @@
         .then(value => {
           if (!value.success) return;
           const list = value.result || [];
-          document.getElementById('module-count').textContent = list.length + ' modules';
-          const grid = document.getElementById('point');
-          const existing = new Map(Array.from(grid.querySelectorAll('.module-card')).map(card => [card.dataset.module, card]));
+          $('module-count').textContent = list.length + ' modules';
+          const grid = $('point');
+          const existing = new Map();
+          grid.querySelectorAll('.module-card').forEach(card => existing.set(card.dataset.module, card));
           const currentIds = Array.from(existing.keys()).join('|');
           const nextIds = list.map(mod => mod.id).join('|');
           if (currentIds !== nextIds) {
             grid.innerHTML = '';
-            list.forEach((mod, index) => grid.appendChild(buildModuleCard(mod, index, false)));
+            const frag = document.createDocumentFragment();
+            list.forEach((mod, index) => frag.appendChild(buildModuleCard(mod, index, false)));
+            grid.appendChild(frag);
             return;
           }
           list.forEach(mod => {
             const card = existing.get(mod.id);
             if (card) updateModuleCard(card, mod);
           });
+          if (searchQuery) filterModuleCards();
         })
         .catch(() => setConnected(false));
     }
@@ -1177,7 +1522,7 @@
           const nextSignature = categories.map(item => item.id + ':' + item.name).join('|');
           if (nextSignature !== categorySignature) {
             categorySignature = nextSignature;
-            const list = document.getElementById('category');
+            const list = $('category');
             list.innerHTML = '';
             categories.forEach(addCategory);
           }
@@ -1185,7 +1530,7 @@
             ? previousCategory
             : (categories[0] ? categories[0].id : 'Combat');
           const category = categories.find(item => item.id === currentCategory);
-          document.getElementById('cat-title').textContent = category ? category.name : currentCategory;
+          $('cat-title').textContent = category ? category.name : currentCategory;
           document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.toggle('active', link.dataset.cat === currentCategory);
           });
@@ -1226,17 +1571,35 @@
         });
     }
 
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(() => {
+        if (document.hidden) return;
+        loadCategories(true);
+      }, 3000);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.hasFocus()) {
+        loadCategories(true);
+      }
+    });
+
     function initParticles() {
-      const canvas = document.getElementById('bg-canvas');
+      const canvas = $('bg-canvas');
       const ctx = canvas.getContext('2d');
       let width = 0;
       let height = 0;
       let points = [];
+      let frameId = null;
+      let lastTime = 0;
+      const FPS_INTERVAL = 1000 / 30;
 
       function resize() {
         width = canvas.width = window.innerWidth;
         height = canvas.height = window.innerHeight;
-        points = Array.from({ length: 56 }, () => ({
+        const count = width < 640 ? 24 : 40;
+        points = Array.from({ length: count }, () => ({
           x: Math.random() * width,
           y: Math.random() * height,
           vx: (Math.random() - .5) * .32,
@@ -1245,7 +1608,12 @@
         }));
       }
 
-      function frame() {
+      function frame(timestamp) {
+        frameId = requestAnimationFrame(frame);
+        const elapsed = timestamp - lastTime;
+        if (elapsed < FPS_INTERVAL) return;
+        lastTime = timestamp - (elapsed % FPS_INTERVAL);
+
         ctx.clearRect(0, 0, width, height);
         for (const point of points) {
           point.x += point.vx;
@@ -1259,32 +1627,40 @@
           ctx.fillStyle = 'rgba(140, 240, 111, .55)';
           ctx.fill();
         }
+        const maxDist = 120;
+        const maxDistSq = maxDist * maxDist;
+        ctx.lineWidth = .55;
         for (let i = 0; i < points.length; i++) {
           for (let j = i + 1; j < points.length; j++) {
             const dx = points[i].x - points[j].x;
             const dy = points[i].y - points[j].y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < 120) {
+            const distSq = dx * dx + dy * dy;
+            if (distSq < maxDistSq) {
+              const opacity = .13 * (1 - Math.sqrt(distSq) / maxDist);
               ctx.beginPath();
               ctx.moveTo(points[i].x, points[i].y);
               ctx.lineTo(points[j].x, points[j].y);
-              ctx.strokeStyle = 'rgba(88, 215, 255,' + (.13 * (1 - distance / 120)) + ')';
-              ctx.lineWidth = .55;
+              ctx.strokeStyle = 'rgba(88, 215, 255,' + opacity + ')';
               ctx.stroke();
             }
           }
         }
-        requestAnimationFrame(frame);
       }
 
       resize();
-      frame();
+      frameId = requestAnimationFrame(frame);
       window.addEventListener('resize', resize);
     }
 
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && $('sidebar').classList.contains('open')) {
+        closeSidebar();
+      }
+    });
+
     initParticles();
     ping();
-    setInterval(() => loadCategories(true), 2500);
+    startPolling();
   </script>
 </body>
 </html>
