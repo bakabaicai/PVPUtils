@@ -98,12 +98,12 @@ public final class WebGUIServer {
     }
 
     private static void handleIndex(HttpExchange exchange) throws IOException {
-        if (!isAuthorized(exchange)) {
-            send(exchange, 403, "text/plain; charset=utf-8", "Forbidden");
-            return;
-        }
         String path = exchange.getRequestURI().getPath();
         if (path.equals("/") || path.isEmpty()) {
+            if (!isAuthorized(exchange)) {
+                send(exchange, 403, "text/plain; charset=utf-8", "Forbidden");
+                return;
+            }
             send(exchange, 200, "text/html; charset=utf-8", loadHtml());
         } else {
             serveStatic(exchange, path);
