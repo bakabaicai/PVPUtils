@@ -124,6 +124,7 @@ public class Config {
     public static String autoGGText = "gg";
     public static String ircUsername = "";
     public static String ircToken = "";
+    public static String ircPasswordHash = "";
     public static String mainUIBackgroundImage = "1.png";
     public static String mainUIVideoBackground = "background.mp4";
     public static String customCapeImage = "default.png";

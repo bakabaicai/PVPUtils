@@ -19,6 +19,9 @@
     "main": [
       "com.pvp_utils.PVPUtils"
     ],
+    "preLaunch": [
+      "com.pvp_utils.client.irc.login.IrcLoginPreLaunch"
+    ],
     "client": [
       "com.pvp_utils.PVPUtilsClient"
     ]
