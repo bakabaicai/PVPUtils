@@ -579,14 +579,12 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       opacity: 0;
-      transform: translateY(-6px);
-      transition: opacity .2s ease, transform .2s ease;
+      transition: opacity .2s ease;
     }
 
     #morph-panel.open .morph-head {
       opacity: 1;
-      transform: translateY(0);
-      transition: opacity .35s ease .08s, transform .35s ease .08s;
+      transition: opacity .35s ease .08s;
     }
 
     .morph-body {
@@ -597,14 +595,12 @@
       flex-direction: column;
       gap: 16px;
       opacity: 0;
-      transform: translateY(8px);
-      transition: opacity .2s ease, transform .2s ease;
+      transition: opacity .2s ease;
     }
 
     #morph-panel.open .morph-body {
       opacity: 1;
-      transform: translateY(0);
-      transition: opacity .35s ease .15s, transform .35s ease .15s;
+      transition: opacity .35s ease .15s;
     }
 
     .morph-head-line {
