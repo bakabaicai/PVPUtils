@@ -147,16 +147,21 @@
       place-items: center;
       position: relative;
       overflow: hidden;
+      color: #07100a;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 15px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
       box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 0 28px rgba(140, 240, 111, .16);
       will-change: box-shadow;
       animation: logo-pulse 3s ease-in-out infinite;
     }
 
-    .logo-mark img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: inherit;
+    .logo-mark::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .35), transparent 58%);
     }
 
     @keyframes logo-pulse {
@@ -1112,7 +1117,7 @@
       </svg>
     </button>
     <div class="brand">
-      <div class="logo-mark"><img src="icon.png" alt="PVPUtils"></div>
+      <div class="logo-mark">P</div>
       <div>
         <div class="brand-title">PVPUtils</div>
         <div class="brand-subtitle">WEBGUI</div>
@@ -1166,7 +1171,7 @@
 
   <div id="login-screen">
     <div class="login-card">
-      <div class="login-logo"><img src="icon.png" alt="PVPUtils" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"></div>
+      <div class="login-logo">P</div>
       <div class="login-title">PVPUtils</div>
       <div class="login-subtitle">Enter your token to access WebGUI</div>
       <input id="login-token" class="login-input" type="text" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
