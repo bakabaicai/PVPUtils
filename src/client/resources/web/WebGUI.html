@@ -1215,6 +1215,59 @@
 
     const $ = id => document.getElementById(id);
 
+    function initApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      categorySignature = '';
+      $('category').innerHTML = '';
+      initParticles();
+      ping();
+      startPolling();
+    }
+
+    (function checkToken() {
+      if (token) {
+        initApp();
+        return;
+      }
+      document.getElementById('login-screen').classList.remove('hidden');
+      const loginInput = document.getElementById('login-token');
+      const loginBtn = document.getElementById('login-btn');
+      const loginError = document.getElementById('login-error');
+      loginInput.focus();
+      function doLogin() {
+        const val = loginInput.value.trim();
+        if (!val) {
+          loginError.textContent = 'Please enter a token.';
+          return;
+        }
+        loginError.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Connecting...';
+        fetch('/api/ping?token=' + encodeURIComponent(val))
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              const url = new URL(location.href);
+              url.searchParams.set('token', val);
+              history.replaceState(null, '', url.toString());
+              token = val;
+              initApp();
+            } else {
+              loginError.textContent = 'Invalid token.';
+              loginBtn.disabled = false;
+              loginBtn.textContent = 'Login';
+            }
+          })
+          .catch(() => {
+            loginError.textContent = 'Connection failed.';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Login';
+          });
+      }
+      loginBtn.onclick = doLogin;
+      loginInput.onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+    })();
+
     function openSidebar() {
       $('sidebar').classList.add('open');
       $('sidebar-overlay').classList.add('open');
