@@ -27,6 +27,7 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -68,6 +69,7 @@ public final class IrcLoginWindow {
         root.setBorder(javax.swing.BorderFactory.createEmptyBorder(24, 28, 24, 28));
         Font uiFont = new Font("Microsoft YaHei UI", Font.PLAIN, 15);
         Font titleFont = new Font("Microsoft YaHei UI", Font.BOLD, 28);
+        Font iconFont = loadFont("/fonts/MaterialSymbolsRounded.ttf", 15f);
 
         JPanel header = new AntiAliasPanel(new BorderLayout(0, 6));
         JLabel title = new JLabel("PVPUtils IRC AUTH", SwingConstants.CENTER);
@@ -92,9 +94,17 @@ public final class IrcLoginWindow {
         status.setForeground(Color.GRAY);
         status.setFont(uiFont.deriveFont(Font.PLAIN, 14f));
         status.setPreferredSize(new Dimension(320, 28));
-        JLabel connectionStatus = new JLabel("未连接", SwingConstants.LEFT);
+        JLabel connectionIcon = new JLabel("", SwingConstants.LEFT);
+        JLabel connectionStatus = new JLabel("", SwingConstants.LEFT);
+        JLabel protectedIcon = new JLabel("\ue32a", SwingConstants.RIGHT);
+        JLabel protectedText = new JLabel("Protected by PAHP.", SwingConstants.RIGHT);
+        connectionIcon.setFont(iconFont.deriveFont(Font.BOLD, 14f));
         connectionStatus.setFont(uiFont.deriveFont(Font.BOLD, 13f));
-        setConnectionStatus(connectionStatus, ConnectionState.CONNECTING);
+        protectedIcon.setFont(iconFont.deriveFont(Font.BOLD, 13f));
+        protectedText.setFont(uiFont.deriveFont(Font.PLAIN, 12f));
+        protectedIcon.setForeground(new Color(120, 120, 120));
+        protectedText.setForeground(new Color(120, 120, 120));
+        setConnectionStatus(connectionIcon, connectionStatus, ConnectionState.CONNECTING);
         applyFont(uiFont, username, password, rememberPassword, autoLogin, login, skip);
 
         JPanel form = new AntiAliasPanel(new GridBagLayout());
@@ -136,14 +146,21 @@ public final class IrcLoginWindow {
         root.add(status, BorderLayout.SOUTH);
         JPanel statusBar = new AntiAliasPanel(new BorderLayout());
         statusBar.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 10, 10, 10));
-        statusBar.add(connectionStatus, BorderLayout.WEST);
+        JPanel connectionPanel = new AntiAliasPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        connectionPanel.add(connectionIcon);
+        connectionPanel.add(connectionStatus);
+        JPanel protectedPanel = new AntiAliasPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        protectedPanel.add(protectedIcon);
+        protectedPanel.add(protectedText);
+        statusBar.add(connectionPanel, BorderLayout.WEST);
+        statusBar.add(protectedPanel, BorderLayout.EAST);
         outer.add(root, BorderLayout.CENTER);
         outer.add(statusBar, BorderLayout.SOUTH);
         dialog.setContentPane(outer);
         dialog.setPreferredSize(new Dimension(520, 380));
         dialog.pack();
         dialog.setLocationRelativeTo(null);
-        startServerPing(connectionStatus);
+        startServerPing(connectionIcon, connectionStatus);
 
         login.addActionListener(event -> {
             String user = username.getText().trim();
@@ -222,10 +239,10 @@ public final class IrcLoginWindow {
         }, automatic ? "PVPUtils-IRC-AutoLoginWindow" : "PVPUtils-IRC-LoginWindow").start();
     }
 
-    private static void startServerPing(JLabel connectionStatus) {
+    private static void startServerPing(JLabel connectionIcon, JLabel connectionStatus) {
         new Thread(() -> {
             boolean alive = pingServer();
-            SwingUtilities.invokeLater(() -> setConnectionStatus(connectionStatus, alive ? ConnectionState.CONNECTED : ConnectionState.DISCONNECTED));
+            SwingUtilities.invokeLater(() -> setConnectionStatus(connectionIcon, connectionStatus, alive ? ConnectionState.CONNECTED : ConnectionState.DISCONNECTED));
         }, "PVPUtils-IRC-ServerPing").start();
     }
 
@@ -262,17 +279,23 @@ public final class IrcLoginWindow {
         }, "PVPUtils-IRC-LoginSuccess").start();
     }
 
-    private static void setConnectionStatus(JLabel label, ConnectionState state) {
+    private static void setConnectionStatus(JLabel icon, JLabel label, ConnectionState state) {
         switch (state) {
             case CONNECTED -> {
+                icon.setForeground(new Color(35, 150, 60));
+                icon.setText("\ue86c");
                 label.setForeground(new Color(35, 150, 60));
                 label.setText("已连接");
             }
             case CONNECTING -> {
+                icon.setForeground(new Color(190, 145, 20));
+                icon.setText("\ue5d5");
                 label.setForeground(new Color(190, 145, 20));
                 label.setText("连接中");
             }
             case DISCONNECTED -> {
+                icon.setForeground(new Color(190, 40, 40));
+                icon.setText("\ue5cd");
                 label.setForeground(new Color(190, 40, 40));
                 label.setText("未连接");
             }
@@ -320,6 +343,17 @@ public final class IrcLoginWindow {
             return result == null ? "" : result.toString();
         } catch (ReflectiveOperationException e) {
             return IrcBridge.MISSING_CORE_MESSAGE;
+        }
+    }
+
+    private static Font loadFont(String resourcePath, float size) {
+        try (InputStream input = IrcLoginWindow.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                return new Font("Microsoft YaHei UI", Font.PLAIN, Math.round(size));
+            }
+            return Font.createFont(Font.TRUETYPE_FONT, input).deriveFont(size);
+        } catch (Exception ignored) {
+            return new Font("Microsoft YaHei UI", Font.PLAIN, Math.round(size));
         }
     }
 

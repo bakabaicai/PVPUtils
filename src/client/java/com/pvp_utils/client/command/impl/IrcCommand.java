@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 public final class IrcCommand implements DotCommand {
-    private static final List<String> SUB_COMMANDS = List.of("status", "chat");
+    private static final List<String> SUB_COMMANDS = List.of("status", "chat", "reconnect");
     private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick", "mute", "unmute", "unban");
 
     @Override
@@ -28,6 +28,16 @@ public final class IrcCommand implements DotCommand {
         switch (subCommand) {
             case "", "status" -> ChatUtils.send("IRC: " + IrcBridge.status());
             case "chat" -> IrcBridge.sendChat(subArgs);
+            case "reconnect" -> {
+                if ("CONNECTED".equalsIgnoreCase(IrcBridge.status())) {
+                    ChatUtils.error(Config.isChinese ? "您已经连接到IRC服务器了！" : "You are already connected to the IRC server!");
+                    return;
+                }
+                Config.ircEnabled = true;
+                Config.save();
+                IrcBridge.connect();
+                ChatUtils.success(Config.isChinese ? "正在尝试重新连接IRC服务器。" : "Trying to reconnect to the IRC server.");
+            }
             case "kick" -> executeModeratorCommand("KICK", subArgs, false);
             case "ban" -> executeModeratorCommand("BAN", subArgs, true);
             case "mute" -> executeModeratorCommand("MUTE", subArgs, true);
