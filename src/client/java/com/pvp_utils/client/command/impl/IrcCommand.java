@@ -9,6 +9,7 @@ import java.util.Locale;
 
 public final class IrcCommand implements DotCommand {
     private static final List<String> SUB_COMMANDS = List.of("status", "disconnect", "login", "chat", "autoconnect");
+    private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick");
 
     @Override
     public List<String> names() {
@@ -43,6 +44,8 @@ public final class IrcCommand implements DotCommand {
             }
             case "chat" -> IrcBridge.sendChat(subArgs);
             case "autoconnect" -> setAutoConnect(subArgs);
+            case "kick" -> executeModeratorCommand("KICK", subArgs, false);
+            case "ban" -> executeModeratorCommand("BAN", subArgs, true);
             default -> ChatUtils.warning(Config.isChinese
                     ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
                     : "Usage: .irc login <username> <password> / .irc chat <text>");
@@ -63,9 +66,34 @@ public final class IrcCommand implements DotCommand {
             return List.of();
         }
         String prefix = trimmed.toLowerCase(Locale.ROOT);
-        return SUB_COMMANDS.stream()
+        return visibleSubCommands().stream()
                 .filter(command -> command.startsWith(prefix))
                 .toList();
+    }
+
+    private static List<String> visibleSubCommands() {
+        if (!IrcBridge.canModerate()) {
+            return SUB_COMMANDS;
+        }
+        return java.util.stream.Stream.concat(SUB_COMMANDS.stream(), MODERATOR_SUB_COMMANDS.stream()).toList();
+    }
+
+    private static void executeModeratorCommand(String commandType, String args, boolean requiresValue) {
+        if (!IrcBridge.canModerate()) {
+            ChatUtils.warning(Config.isChinese
+                    ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
+                    : "Usage: .irc login <username> <password> / .irc chat <text>");
+            return;
+        }
+        String target = firstToken(args);
+        String value = rest(args);
+        if (target.isBlank() || (requiresValue && value.isBlank())) {
+            ChatUtils.error(requiresValue
+                    ? (Config.isChinese ? "用法：.irc ban <用户> <时长>" : "Usage: .irc ban <user> <duration>")
+                    : (Config.isChinese ? "用法：.irc kick <用户>" : "Usage: .irc kick <user>"));
+            return;
+        }
+        IrcBridge.sendModerationCommand(commandType, target, value);
     }
 
     private static void setAutoConnect(String args) {
