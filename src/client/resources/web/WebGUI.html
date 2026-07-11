@@ -1228,14 +1228,37 @@
 
     (function checkToken() {
       if (token) {
-        initApp();
+        fetch('/api/ping?token=' + encodeURIComponent(token))
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              initApp();
+            } else {
+              token = '';
+              const url = new URL(location.href);
+              url.searchParams.delete('token');
+              history.replaceState(null, '', url.toString());
+              showLogin('Invalid token.');
+            }
+          })
+          .catch(() => {
+            token = '';
+            const url = new URL(location.href);
+            url.searchParams.delete('token');
+            history.replaceState(null, '', url.toString());
+            showLogin('Connection failed.');
+          });
         return;
       }
-      document.getElementById('login-screen').classList.remove('hidden');
-      const loginInput = document.getElementById('login-token');
-      const loginBtn = document.getElementById('login-btn');
-      const loginError = document.getElementById('login-error');
-      loginInput.focus();
+      showLogin();
+
+      function showLogin(errorMsg) {
+        document.getElementById('login-screen').classList.remove('hidden');
+        const loginInput = document.getElementById('login-token');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        if (errorMsg) loginError.textContent = errorMsg;
+        loginInput.focus();
       function doLogin() {
         const val = loginInput.value.trim();
         if (!val) {
