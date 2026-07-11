@@ -425,34 +425,41 @@
       padding: 18px;
       background: var(--card);
       position: relative;
-      overflow: hidden;
       opacity: 0;
       transform: translateY(18px);
       will-change: transform, opacity;
       animation: card-in .45s cubic-bezier(.22, 1, .36, 1) forwards;
       transition: border-color .22s ease, transform .22s ease, box-shadow .22s ease;
+      cursor: pointer;
     }
 
-    .module-card::before {
+    .module-card > .card-shimmer {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .module-card > .card-shimmer::before {
       content: "";
       position: absolute;
       inset: 0;
       background: linear-gradient(115deg, transparent 35%, rgba(140, 240, 111, .08) 50%, transparent 65%);
       background-size: 220% 100%;
       opacity: 0;
-      pointer-events: none;
       transition: opacity .25s ease;
+    }
+
+    .module-card.enabled:hover > .card-shimmer::before {
+      opacity: 1;
+      animation: shimmer 2.6s linear infinite;
     }
 
     .module-card:hover {
       transform: translateY(-3px);
       border-color: var(--border-strong);
       box-shadow: 0 14px 38px rgba(0, 0, 0, .32);
-    }
-
-    .module-card.enabled:hover::before {
-      opacity: 1;
-      animation: shimmer 2.6s linear infinite;
     }
 
     @keyframes card-in {
@@ -492,56 +499,63 @@
     }
 
     .card-footer {
-      position: absolute;
+      position: relative;
       z-index: 1;
-      left: 18px;
-      right: 18px;
-      bottom: 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      margin-top: 12px;
     }
 
-    .settings-btn {
+    .card-expand-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .25s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .card-expand-panel.expanded {
+      grid-template-rows: 1fr;
+    }
+
+    .card-expand-inner {
+      overflow: hidden;
+    }
+
+    .card-expand-content {
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .2s ease .05s, transform .2s ease .05s;
+    }
+
+    .card-expand-panel.expanded .card-expand-content {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .card-chevron {
       position: absolute;
       z-index: 2;
-      top: 12px;
-      right: 12px;
-      width: 34px;
-      height: 34px;
-      box-sizing: border-box;
-      border: 0;
-      border-radius: 10px;
+      top: 14px;
+      right: 14px;
+      width: 20px;
+      height: 20px;
       display: grid;
       place-items: center;
       color: var(--muted);
-      background: rgba(255, 255, 255, .035);
-      cursor: pointer;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .18s ease, color .18s ease, background .18s ease;
+      transition: transform .25s cubic-bezier(.22, 1, .36, 1), color .18s ease;
     }
 
-    .module-card:hover .settings-btn {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .settings-btn:hover {
+    .module-card:hover .card-chevron {
       color: var(--text);
-      background: var(--faint);
     }
 
-    .settings-btn:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .settings-btn svg {
-      pointer-events: none;
+    .module-card.expanded .card-chevron {
+      transform: rotate(180deg);
+      color: var(--accent);
     }
 
     .status-pill {
@@ -705,77 +719,6 @@
       pointer-events: auto;
     }
 
-    #modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 70;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(0, 0, 0, .62);
-      backdrop-filter: blur(8px);
-    }
-
-    #modal-backdrop.open {
-      display: flex;
-    }
-
-    #modal {
-      width: min(430px, 100%);
-      max-height: min(650px, calc(100vh - 36px));
-      border: 1px solid var(--border-strong);
-      border-radius: 22px;
-      overflow: hidden;
-      background: var(--panel);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
-      animation: modal-in .28s cubic-bezier(.22, 1, .36, 1) both;
-    }
-
-    @keyframes modal-in {
-      from {
-        opacity: 0;
-        transform: translateY(18px) scale(.96);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    .modal-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .modal-eyebrow {
-      margin-bottom: 4px;
-      color: var(--muted);
-      font-size: 10px;
-      letter-spacing: .16em;
-      text-transform: uppercase;
-    }
-
-    #modal-title {
-      color: #fff;
-      font-family: var(--font-display);
-      font-weight: 900;
-      letter-spacing: .04em;
-    }
-
-    #modal-body {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 18px 20px 20px;
-      max-height: 500px;
-      overflow-y: auto;
-    }
-
     .setting-row {
       display: flex;
       flex-direction: column;
@@ -827,14 +770,6 @@
       opacity: .5;
       cursor: not-allowed;
       transform: none;
-    }
-
-    .command-card .card-footer {
-      position: relative;
-      left: auto;
-      right: auto;
-      bottom: auto;
-      margin-top: auto;
     }
 
     .setting-line {
@@ -973,24 +908,6 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
 
-  <div id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div id="modal">
-      <div class="modal-head">
-        <div>
-          <div class="modal-eyebrow">Module Settings</div>
-          <div id="modal-title"></div>
-        </div>
-        <button class="icon-btn" onclick="closeModal()" aria-label="Close">
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-            <line x1="2" y1="2" x2="13" y2="13"></line>
-            <line x1="13" y1="2" x2="2" y2="13"></line>
-          </svg>
-        </button>
-      </div>
-      <div id="modal-body"></div>
-    </div>
-  </div>
-
   <script>
     const token = new URLSearchParams(location.search).get('token') || '';
     let currentCategory = 'Combat';
@@ -1000,7 +917,6 @@
     let searchTimer = null;
     let pollTimer = null;
     let categoryDataCache = {};
-    let previousFocus = null;
     let testMode = false;
 
     const $ = id => document.getElementById(id);
@@ -1474,28 +1390,113 @@
         card.style.transform = 'translateY(0)';
       }
       card.dataset.module = mod.id;
+
+      const shimmer = document.createElement('div');
+      shimmer.className = 'card-shimmer';
+      card.appendChild(shimmer);
+
+      const chevron = document.createElement('div');
+      chevron.className = 'card-chevron';
+      chevron.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5L6 8L9.5 4.5"></path></svg>';
+      card.appendChild(chevron);
+
+      const main = document.createElement('div');
+      main.className = 'card-main';
       const footer = mod.toggleable === false
         ? '<div class="card-footer"><span class="status-pill">settings</span></div>'
         : '<div class="card-footer">' +
         '<span class="status-pill ' + (mod.state ? 'on' : 'off') + '">' + (mod.state ? 'enabled' : 'disabled') + '</span>' +
-        '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (mod.state ? 'checked' : '') + ' aria-label="Toggle ' + escapeHtml(mod.name) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+        '<label class="toggle-wrap" onclick="event.stopPropagation()"><input class="toggle-input" type="checkbox" ' + (mod.state ? 'checked' : '') + ' aria-label="Toggle ' + escapeHtml(mod.name) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
         '</div>';
-      card.innerHTML =
-        (mod.settings ? '<button class="settings-btn" aria-label="Settings for ' + escapeHtml(mod.name) + '" data-settings="' + escapeHtml(mod.id) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>' : '') +
+      main.innerHTML =
         '<div class="module-title">' + escapeHtml(mod.name) + '</div>' +
         '<div class="module-desc">' + escapeHtml(mod.desc || '') + '</div>' +
         footer;
+      card.appendChild(main);
+
+      const expandPanel = document.createElement('div');
+      expandPanel.className = 'card-expand-panel';
+      const expandInner = document.createElement('div');
+      expandInner.className = 'card-expand-inner';
+      const expandContent = document.createElement('div');
+      expandContent.className = 'card-expand-content';
+      expandContent.innerHTML = '<div class="setting-name" style="color:var(--muted);font-size:11px">Loading settings...</div>';
+      expandInner.appendChild(expandContent);
+      expandPanel.appendChild(expandInner);
+      card.appendChild(expandPanel);
+
       const input = card.querySelector('.toggle-input');
       if (input) input.onchange = () => setModuleState(card, mod.id, input.checked);
-      const settings = card.querySelector('[data-settings]');
-      if (settings) {
-        settings.onclick = event => {
-          event.preventDefault();
-          event.stopPropagation();
-          openSettings(mod.id, mod.name);
-        };
-      }
+
+      let settingsLoaded = false;
+      card.addEventListener('click', event => {
+        if (event.target.closest('.toggle-wrap') || event.target.closest('.toggle-track')) return;
+        const wasExpanded = card.classList.contains('expanded');
+        document.querySelectorAll('.module-card.expanded').forEach(c => {
+          if (c !== card) c.classList.remove('expanded');
+        });
+        card.classList.toggle('expanded', !wasExpanded);
+        if (!wasExpanded && mod.settings && !settingsLoaded) {
+          settingsLoaded = true;
+          loadInlineSettings(mod.id, expandContent);
+        }
+      });
+
       return card;
+    }
+
+    function loadInlineSettings(moduleId, container) {
+      apiFetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
+        .then(response => response.json())
+        .then(value => {
+          if (!value.success || !value.result || !value.result.length) {
+            container.innerHTML = '<div class="setting-name" style="color:var(--muted);font-size:11px">No settings available.</div>';
+            return;
+          }
+          container.innerHTML = '';
+          const frag = document.createDocumentFragment();
+          value.result.forEach(setting => frag.appendChild(buildInlineSettingControl(moduleId, setting)));
+          container.appendChild(frag);
+        })
+        .catch(() => {
+          container.innerHTML = '<div class="setting-name" style="color:var(--danger);font-size:11px">Failed to load settings.</div>';
+        });
+    }
+
+    function buildInlineSettingControl(moduleId, setting) {
+      const row = document.createElement('div');
+      row.className = 'setting-row';
+      if (setting.type === 'checkbox') {
+        row.innerHTML =
+          '<div class="setting-line">' +
+          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
+          '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (setting.value ? 'checked' : '') + ' aria-label="' + escapeHtml(setting.displayName) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
+          '</div>';
+        const input = row.querySelector('input');
+        input.onchange = () => setSettingValue(moduleId, setting.name, input.checked, input);
+      } else if (setting.type === 'slider') {
+        row.innerHTML =
+          '<div class="setting-line">' +
+          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
+          '<span class="setting-value">' + escapeHtml(setting.value) + '</span>' +
+          '</div>' +
+          '<input type="range" min="' + setting.min + '" max="' + setting.max + '" step="' + setting.step + '" value="' + setting.value + '">';
+        const input = row.querySelector('input');
+        const valueSpan = row.querySelector('.setting-value');
+        let commitTimer = null;
+        input.oninput = () => {
+          valueSpan.textContent = input.value;
+          clearTimeout(commitTimer);
+          commitTimer = setTimeout(() => setSettingValue(moduleId, setting.name, input.value, input), 300);
+        };
+      } else if (setting.type === 'selection') {
+        row.innerHTML =
+          '<div class="setting-line"><span class="setting-name">' + escapeHtml(setting.displayName) + '</span></div>' +
+          '<select aria-label="' + escapeHtml(setting.displayName) + '">' + (setting.values || []).map(option => '<option value="' + escapeHtml(option) + '"' + (option === setting.value ? ' selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select>';
+        const select = row.querySelector('select');
+        select.onchange = () => setSettingValue(moduleId, setting.name, select.value, select);
+      }
+      return row;
     }
 
     function setModuleState(card, moduleId, state) {
@@ -1539,117 +1540,6 @@
       card.classList.toggle('enabled', enabled);
       pill.className = 'status-pill ' + (enabled ? 'on' : 'off');
       pill.textContent = enabled ? 'enabled' : 'disabled';
-    }
-
-    function openSettings(moduleId, moduleName) {
-      $('modal-title').textContent = moduleName;
-      const body = $('modal-body');
-      body.innerHTML = '<div class="setting-row"><div class="skeleton skeleton-desc" style="height:14px;width:100px"></div><div class="skeleton skeleton-desc" style="height:34px;width:100%"></div></div>' +
-        '<div class="setting-row"><div class="skeleton skeleton-desc" style="height:14px;width:120px"></div><div class="skeleton skeleton-desc" style="height:34px;width:100%"></div></div>';
-      $('modal-backdrop').classList.add('open');
-      previousFocus = document.activeElement;
-      document.addEventListener('keydown', modalKeyHandler);
-      setTimeout(() => {
-        const closeBtn = $('modal').querySelector('.icon-btn');
-        if (closeBtn) closeBtn.focus();
-      }, 100);
-      apiFetch('/api/getModuleSetting?token=' + encodeURIComponent(token) + '&module=' + encodeURIComponent(moduleId))
-        .then(response => response.json())
-        .then(value => {
-          if (!value.success) {
-            body.innerHTML = '';
-            toast(value.reason || 'Failed to load settings.', true);
-            return;
-          }
-          const settings = value.result || [];
-          if (!settings.length) {
-            body.innerHTML = '<div class="setting-name">No settings available.</div>';
-            return;
-          }
-          body.innerHTML = '';
-          const frag = document.createDocumentFragment();
-          settings.forEach(setting => frag.appendChild(buildSettingControl(moduleId, setting)));
-          body.appendChild(frag);
-        })
-        .catch(() => {
-          body.innerHTML = '';
-          setConnected(false);
-          toast('Failed to load settings.', true);
-        });
-    }
-
-    function modalKeyHandler(event) {
-      if (event.key === 'Escape') {
-        closeModal();
-        return;
-      }
-      if (event.key === 'Tab') {
-        const modal = $('modal');
-        const focusable = modal.querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])');
-        if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey) {
-          if (document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-          }
-        }
-      }
-    }
-
-    function closeModal() {
-      $('modal-backdrop').classList.remove('open');
-      document.removeEventListener('keydown', modalKeyHandler);
-      if (previousFocus && previousFocus.focus) {
-        previousFocus.focus();
-        previousFocus = null;
-      }
-    }
-
-    $('modal-backdrop').onclick = event => {
-      if (event.target === event.currentTarget) closeModal();
-    };
-
-    function buildSettingControl(moduleId, setting) {
-      const row = document.createElement('div');
-      row.className = 'setting-row';
-      if (setting.type === 'checkbox') {
-        row.innerHTML =
-          '<div class="setting-line">' +
-          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
-          '<label class="toggle-wrap"><input class="toggle-input" type="checkbox" ' + (setting.value ? 'checked' : '') + ' aria-label="' + escapeHtml(setting.displayName) + '"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>' +
-          '</div>';
-        const input = row.querySelector('input');
-        input.onchange = () => setSettingValue(moduleId, setting.name, input.checked, input);
-      } else if (setting.type === 'slider') {
-        row.innerHTML =
-          '<div class="setting-line">' +
-          '<span class="setting-name">' + escapeHtml(setting.displayName) + '</span>' +
-          '<span class="setting-value">' + escapeHtml(setting.value) + '</span>' +
-          '</div>' +
-          '<input type="range" min="' + setting.min + '" max="' + setting.max + '" step="' + setting.step + '" value="' + setting.value + '">';
-        const input = row.querySelector('input');
-        const valueSpan = row.querySelector('.setting-value');
-        let commitTimer = null;
-        input.oninput = () => {
-          valueSpan.textContent = input.value;
-          clearTimeout(commitTimer);
-          commitTimer = setTimeout(() => setSettingValue(moduleId, setting.name, input.value, input), 300);
-        };
-      } else if (setting.type === 'selection') {
-        row.innerHTML =
-          '<div class="setting-line"><span class="setting-name">' + escapeHtml(setting.displayName) + '</span></div>' +
-          '<select aria-label="' + escapeHtml(setting.displayName) + '">' + (setting.values || []).map(option => '<option value="' + escapeHtml(option) + '"' + (option === setting.value ? ' selected' : '') + '>' + escapeHtml(option) + '</option>').join('') + '</select>';
-        const select = row.querySelector('select');
-        select.onchange = () => setSettingValue(moduleId, setting.name, select.value, select);
-      }
-      return row;
     }
 
     function setSettingValue(moduleId, name, value, input) {
