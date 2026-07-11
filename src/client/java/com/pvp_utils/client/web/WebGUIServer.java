@@ -48,7 +48,9 @@ public final class WebGUIServer {
         try {
             ensureStarted();
             openBrowser(URI.create("http://127.0.0.1:" + port + "/?token=" + token));
-            ChatUtils.success(Config.isChinese ? "WebGUI 已打开。" : "WebGUI opened.");
+            ChatUtils.success(Config.isChinese
+                ? "WebGUI已启动，你现在可以访问\"127.0.0.1:" + port + "\"进入，token:" + token
+                : "WebGUI started. Visit \"127.0.0.1:" + port + "\" with token:" + token);
         } catch (Exception e) {
             ChatUtils.error((Config.isChinese ? "WebGUI 打开失败：" : "Failed to open WebGUI: ") + e.getMessage());
         }
