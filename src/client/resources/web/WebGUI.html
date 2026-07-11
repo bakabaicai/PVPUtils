@@ -1601,7 +1601,12 @@
 
       card.addEventListener('click', event => {
         if (event.target.closest('.toggle-wrap') || event.target.closest('.toggle-track')) return;
-        if (mod.settings) openMorph(card, mod);
+        if (mod.settings) {
+          openMorph(card, mod);
+        } else if (input) {
+          input.checked = !input.checked;
+          input.dispatchEvent(new Event('change'));
+        }
       });
 
       return card;
