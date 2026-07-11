@@ -725,10 +725,6 @@
       flex-shrink: 0;
     }
 
-    .morph-head-toggle {
-      flex-shrink: 0;
-    }
-
     .morph-close {
       width: 32px;
       height: 32px;
@@ -1311,10 +1307,6 @@
         <div class="morph-head-title" id="morph-title"></div>
       </div>
       <span class="morph-head-status" id="morph-status"></span>
-      <label class="toggle-wrap morph-head-toggle" id="morph-toggle-wrap">
-        <input class="toggle-input" type="checkbox" id="morph-toggle" aria-label="Toggle module">
-        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-      </label>
       <button class="morph-close" onclick="closeMorph()" aria-label="Close">
         <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <line x1="2" y1="2" x2="13" y2="13"></line>
@@ -1995,15 +1987,6 @@
       const status = panel.querySelector('#morph-status');
       status.className = 'morph-head-status' + (mod.state ? ' on' : '');
       status.textContent = mod.state ? 'enabled' : 'disabled';
-
-      const toggle = panel.querySelector('#morph-toggle');
-      toggle.checked = !!mod.state;
-      toggle.onchange = () => {
-        setModuleState(card, mod.id, toggle.checked);
-        const enabled = toggle.checked;
-        status.className = 'morph-head-status' + (enabled ? ' on' : '');
-        status.textContent = enabled ? 'enabled' : 'disabled';
-      };
 
       const body = panel.querySelector('#morph-body');
       body.innerHTML = '';
