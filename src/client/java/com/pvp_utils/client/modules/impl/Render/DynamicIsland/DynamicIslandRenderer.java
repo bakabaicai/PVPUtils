@@ -27,6 +27,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.scores.PlayerTeam;
 import org.lwjgl.system.MemoryUtil;
 
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -355,6 +356,8 @@ public class DynamicIslandRenderer {
             PlayerInfo player = players.get(i);
             key.append(player.getProfile().id())
                     .append(':').append(getPlayerName(player))
+                    .append('#').append(ircTitle(player))
+                    .append('#').append(ircTitleColor(player))
                     .append('@').append(player.getLatency())
                     .append(';');
         }
@@ -645,7 +648,7 @@ public class DynamicIslandRenderer {
         if (displayName != null) {
             Map.Entry<String, Integer> componentName = parseComponentTabName(displayName, teamColor);
             if (!componentName.getKey().isBlank()) {
-                return componentName;
+                return withIrcTitle(player, componentName);
             }
         }
 
@@ -654,11 +657,68 @@ public class DynamicIslandRenderer {
             Component formatted = team.getFormattedName(Component.literal(player.getProfile().name()));
             Map.Entry<String, Integer> teamName = parseComponentTabName(formatted, teamColor);
             if (!teamName.getKey().isBlank()) {
-                return teamName;
+                return withIrcTitle(player, teamName);
             }
         }
 
-        return parseLegacyTabName(player.getProfile().name(), teamColor);
+        return withIrcTitle(player, parseLegacyTabName(player.getProfile().name(), teamColor));
+    }
+
+    private Map.Entry<String, Integer> withIrcTitle(PlayerInfo player, Map.Entry<String, Integer> name) {
+        if (!ircHasProfile(player)) {
+            return name;
+        }
+        String title = ircTitle(player);
+        StringBuilder decorated = new StringBuilder("[P]  ");
+        if (!title.isBlank()) {
+            decorated.append("[").append(title).append("]  ");
+        }
+        decorated.append(name.getKey());
+        return Map.entry(decorated.toString(), title.isBlank() ? name.getValue() : parseIrcTitleColor(player, name.getValue()));
+    }
+
+    private boolean ircHasProfile(PlayerInfo player) {
+        try {
+            Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
+            Method method = service.getMethod("hasProfile", java.util.UUID.class);
+            Object value = method.invoke(null, player.getProfile().id());
+            return Boolean.TRUE.equals(value);
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private String ircTitle(PlayerInfo player) {
+        try {
+            Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
+            Method method = service.getMethod("title", java.util.UUID.class);
+            Object value = method.invoke(null, player.getProfile().id());
+            return value == null ? "" : value.toString().trim();
+        } catch (ReflectiveOperationException ignored) {
+            return "";
+        }
+    }
+
+    private String ircTitleColor(PlayerInfo player) {
+        try {
+            Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
+            Method method = service.getMethod("titleColor", java.util.UUID.class);
+            Object value = method.invoke(null, player.getProfile().id());
+            return value == null ? "" : value.toString().trim();
+        } catch (ReflectiveOperationException ignored) {
+            return "";
+        }
+    }
+
+    private int parseIrcTitleColor(PlayerInfo player, int fallbackColor) {
+        String color = ircTitleColor(player);
+        if (color.startsWith("#") && color.length() == 7) {
+            try {
+                return 0xFF000000 | Integer.parseInt(color.substring(1), 16);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return fallbackColor;
     }
 
     private Map.Entry<String, Integer> parseComponentTabName(Component component, int fallbackColor) {
