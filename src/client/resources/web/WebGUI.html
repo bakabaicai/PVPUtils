@@ -1598,6 +1598,7 @@
       }
 
       panel.style.transition = 'none';
+      panel.style.opacity = '1';
       panel.style.top = morphSourceRect.top + 'px';
       panel.style.left = morphSourceRect.left + 'px';
       panel.style.width = morphSourceRect.width + 'px';
@@ -1636,6 +1637,8 @@
       panel.classList.remove('open');
       backdrop.classList.remove('open');
 
+      panel.style.opacity = '0';
+      panel.style.transition = 'top .55s cubic-bezier(.22, 1, .36, 1), left .55s cubic-bezier(.22, 1, .36, 1), width .55s cubic-bezier(.22, 1, .36, 1), height .55s cubic-bezier(.22, 1, .36, 1), border-radius .55s cubic-bezier(.22, 1, .36, 1), opacity .2s ease .35s';
       panel.style.top = morphSourceRect.top + 'px';
       panel.style.left = morphSourceRect.left + 'px';
       panel.style.width = morphSourceRect.width + 'px';
