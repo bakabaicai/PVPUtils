@@ -160,7 +160,7 @@ public final class IrcLoginWindow {
         dialog.setPreferredSize(new Dimension(520, 380));
         dialog.pack();
         dialog.setLocationRelativeTo(null);
-        startServerPing(connectionIcon, connectionStatus);
+        startServerPing(connectionIcon, connectionStatus, finished);
 
         login.addActionListener(event -> {
             String user = username.getText().trim();
@@ -239,10 +239,20 @@ public final class IrcLoginWindow {
         }, automatic ? "PVPUtils-IRC-AutoLoginWindow" : "PVPUtils-IRC-LoginWindow").start();
     }
 
-    private static void startServerPing(JLabel connectionIcon, JLabel connectionStatus) {
+    private static void startServerPing(JLabel connectionIcon, JLabel connectionStatus, AtomicBoolean finished) {
         new Thread(() -> {
-            boolean alive = pingServer();
-            SwingUtilities.invokeLater(() -> setConnectionStatus(connectionIcon, connectionStatus, alive ? ConnectionState.CONNECTED : ConnectionState.DISCONNECTED));
+            while (!finished.get()) {
+                SwingUtilities.invokeLater(() -> setConnectionStatus(connectionIcon, connectionStatus, ConnectionState.CONNECTING));
+                boolean alive = pingServer();
+                if (finished.get()) {
+                    return;
+                }
+                SwingUtilities.invokeLater(() -> setConnectionStatus(connectionIcon, connectionStatus, alive ? ConnectionState.CONNECTED : ConnectionState.DISCONNECTED));
+                if (alive) {
+                    return;
+                }
+                sleep(5000L);
+            }
         }, "PVPUtils-IRC-ServerPing").start();
     }
 
