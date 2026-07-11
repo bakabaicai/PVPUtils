@@ -1,24 +1,30 @@
 package com.pvp_utils.client.command.impl;
 
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.pvp_utils.client.Update;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
-public final class UpdateCommand {
-    private UpdateCommand() {
+import java.util.List;
+
+public final class UpdateCommand implements DotCommand {
+    @Override
+    public List<String> names() {
+        return List.of("update");
     }
 
-    public static LiteralArgumentBuilder<FabricClientCommandSource> build() {
-        return ClientCommandManager.literal("update")
-                .executes(context -> {
-                    Update.startManualCheck();
-                    return 1;
-                })
-                .then(ClientCommandManager.literal("qqgroup")
-                        .executes(context -> {
-                            Update.copyQqGroupNumber();
-                            return 1;
-                        }));
+    @Override
+    public void execute(String args) {
+        if ("qqgroup".equalsIgnoreCase(args.trim())) {
+            Update.copyQqGroupNumber();
+            return;
+        }
+        Update.startManualCheck();
+    }
+
+    @Override
+    public List<String> suggestions(String args) {
+        String trimmed = args.trim();
+        if (args.contains(" ") || trimmed.isBlank()) {
+            return List.of();
+        }
+        return "qqgroup".startsWith(trimmed.toLowerCase(java.util.Locale.ROOT)) ? List.of("qqgroup") : List.of();
     }
 }

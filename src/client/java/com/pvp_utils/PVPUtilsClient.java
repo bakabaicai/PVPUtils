@@ -7,6 +7,7 @@ import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
 import com.pvp_utils.client.command.CommandManager;
+import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
 import com.pvp_utils.client.modules.impl.Combat.ElytraAssistManager;
@@ -58,6 +59,7 @@ public class PVPUtilsClient implements ClientModInitializer {
             FreelookManager.tick(client);
             VersionWarningManager.tick(client);
             Update.tick(client);
+            IrcBridge.tick(client);
         });
 
     }

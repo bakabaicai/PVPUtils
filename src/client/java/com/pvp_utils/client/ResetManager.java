@@ -185,6 +185,13 @@ public class ResetManager {
         Config.applyGameLanguageDefault();
         Config.termsRead = false;
         Config.fullMode = false;
+        Config.ircEnabled = false;
+        Config.ircAutoConnect = false;
+        Config.ircHost = "";
+        Config.ircPort = 24465;
+        Config.ircProtocolVersion = 1;
+        Config.ircUsername = "";
+        Config.ircToken = "";
         Config.clientName = "PVPUtils";
         Config.autoGGText = "gg";
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
@@ -212,3 +219,4 @@ public class ResetManager {
         Config.save();
     }
 }
+

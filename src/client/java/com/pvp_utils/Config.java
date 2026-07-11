@@ -118,8 +118,13 @@ public class Config {
     public static boolean mainUIMouseEffect = false;
     public static boolean termsRead = false;
     public static boolean fullMode = false;
+    public static boolean ircEnabled = false;
+    public static boolean ircAutoConnect = false;
     public static String clientName = "PVPUtils";
     public static String autoGGText = "gg";
+    public static String ircHost = "";
+    public static String ircUsername = "";
+    public static String ircToken = "";
     public static String mainUIBackgroundImage = "1.png";
     public static String mainUIVideoBackground = "background.mp4";
     public static String customCapeImage = "default.png";
@@ -200,6 +205,8 @@ public class Config {
     public static int mainHandAssistSwitchDelayTicks = 2;
     public static int autoChestDepositDepositDelay = 4;
     public static int autoChestDepositCloseDelay = 4;
+    public static int ircPort = 24465;
+    public static int ircProtocolVersion = 1;
     public static int clientTime = 6000;
     public static int zoomAmount = 4;
     public static int zoomScrollSteps = 10;
@@ -703,3 +710,4 @@ public class Config {
     }
 
 }
+

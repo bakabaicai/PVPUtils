@@ -1,22 +1,21 @@
 package com.pvp_utils.client.command.impl;
 
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.util.ChatUtils;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
-public final class HelpCommand {
-    private HelpCommand() {
+import java.util.List;
+
+public final class HelpCommand implements DotCommand {
+    @Override
+    public List<String> names() {
+        return List.of("help");
     }
 
-    public static LiteralArgumentBuilder<FabricClientCommandSource> build() {
-        return ClientCommandManager.literal("help")
-                .executes(context -> {
-                    ChatUtils.send(Config.isChinese
-                            ? "可用命令：/PVPUtils update，/PVPUtils clientname <名称>，/PVPUtils autogg <文本>"
-                            : "Available commands: /PVPUtils update, /PVPUtils clientname <name>, /PVPUtils autogg <text>");
-                    return 1;
-                });
+    @Override
+    public void execute(String args) {
+        ChatUtils.send(Config.isChinese
+                ? "可用指令：.update，.clientname <名称>，.autogg <文本>，.irc server <地址> [端口]，.irc login <用户名> <密码>，.irc chat <文本>，.c <文本>，.chat <文本>"
+                : "Available commands: .update, .clientname <name>, .autogg <text>, .irc server <host> [port], .irc login <username> <password>, .irc chat <text>, .c <text>, .chat <text>");
     }
 }
+

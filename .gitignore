@@ -22,3 +22,9 @@ Thumbs.db
 *.jks
 *.p12
 *.keystore
+
+# Private IRC core. Keep the public bridge so GitHub builds still compile.
+src/client/java/com/pvp_utils/client/irc/**
+!src/client/java/com/pvp_utils/client/irc/
+!src/client/java/com/pvp_utils/client/irc/IrcBridge.java
+src/client/resources/assets/pvp_utils/ircserver/

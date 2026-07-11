@@ -332,7 +332,7 @@ public final class Update {
             return Component.literal(text).withStyle(Style.EMPTY
                     .withColor(0xFFB04DFF)
                     .withBold(true)
-                    .withClickEvent(new ClickEvent.RunCommand("/PVPUtils update qqgroup")));
+                    .withClickEvent(new ClickEvent.SuggestCommand(".update qqgroup")));
         }
     }
 
