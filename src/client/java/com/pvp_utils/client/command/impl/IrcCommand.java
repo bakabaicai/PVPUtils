@@ -104,6 +104,12 @@ public final class IrcCommand implements DotCommand {
             if (currentUser == null) {
                 return false;
             }
+            Method hasGroup = currentUser.getClass().getMethod("hasGroup", String.class);
+            Object adminGroup = hasGroup.invoke(currentUser, "ADMIN");
+            Object developerGroup = hasGroup.invoke(currentUser, "DEVELOPER");
+            if (Boolean.TRUE.equals(adminGroup) || Boolean.TRUE.equals(developerGroup)) {
+                return true;
+            }
             Object role = currentUser.getClass().getMethod("role").invoke(currentUser);
             String value = role == null ? "" : role.toString();
             return "DEVELOPER".equalsIgnoreCase(value) || "ADMIN".equalsIgnoreCase(value);
