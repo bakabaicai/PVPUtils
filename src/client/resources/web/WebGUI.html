@@ -1181,6 +1181,7 @@
       <div class="login-subtitle">Enter your token to access WebGUI</div>
       <input id="login-token" class="login-input" type="text" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
       <button id="login-btn" class="login-btn">Login</button>
+      <button id="login-test-btn" class="login-btn" style="margin-top:10px;background:transparent;border:1px solid var(--border);color:var(--muted)">Test Mode</button>
       <div id="login-error" class="login-error"></div>
     </div>
   </div>
@@ -1270,6 +1271,18 @@
       }
       loginBtn.onclick = doLogin;
       loginInput.onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+      document.getElementById('login-test-btn').onclick = () => {
+        testMode = true;
+        const btn = $('test-toggle');
+        if (btn) {
+          btn.style.color = 'var(--accent)';
+          btn.style.background = 'rgba(140, 240, 111, .12)';
+        }
+        const brandSub = document.querySelector('.brand-subtitle');
+        if (brandSub) brandSub.textContent = 'WEBGUI · TEST MODE';
+        initApp();
+        toast('Test mode enabled - using mock data');
+      };
     })();
 
     const MOCK = {
