@@ -980,6 +980,130 @@
         padding-inline: 14px;
       }
     }
+
+    #login-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(140, 240, 111, .20), transparent 28rem),
+        radial-gradient(circle at 80% 8%, rgba(88, 215, 255, .16), transparent 24rem),
+        linear-gradient(135deg, #030506, var(--bg));
+    }
+
+    #login-screen.hidden {
+      display: none;
+    }
+
+    .login-card {
+      width: min(380px, 90vw);
+      border: 1px solid var(--border-strong);
+      border-radius: 22px;
+      padding: 36px 32px 32px;
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      text-align: center;
+      animation: modal-in .35s cubic-bezier(.22, 1, .36, 1) both;
+    }
+
+    .login-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 18px;
+      color: #07100a;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 0 28px rgba(140, 240, 111, .2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-logo::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .35), transparent 58%);
+    }
+
+    .login-title {
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 18px;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+
+    .login-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .login-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      background: rgba(0, 0, 0, .24);
+      outline: none;
+      font-family: var(--font-body);
+      font-size: 13px;
+      letter-spacing: .04em;
+      text-align: center;
+      transition: border-color .2s ease;
+    }
+
+    .login-input::placeholder {
+      color: var(--muted);
+      letter-spacing: .08em;
+    }
+
+    .login-input:focus {
+      border-color: var(--accent);
+    }
+
+    .login-btn {
+      width: 100%;
+      margin-top: 16px;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px;
+      color: #07100a;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: .08em;
+      cursor: pointer;
+      transition: transform .16s ease, opacity .16s ease;
+    }
+
+    .login-btn:hover {
+      opacity: .9;
+      transform: translateY(-1px);
+    }
+
+    .login-btn:active {
+      transform: scale(.98);
+    }
+
+    .login-error {
+      margin-top: 12px;
+      color: var(--danger);
+      font-size: 11px;
+      min-height: 16px;
+    }
   </style>
 </head>
 <body>
@@ -1050,6 +1174,17 @@
 
   <div id="toast" role="status" aria-live="polite"></div>
 
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">P</div>
+      <div class="login-title">PVPUtils</div>
+      <div class="login-subtitle">Enter your token to access WebGUI</div>
+      <input id="login-token" class="login-input" type="text" placeholder="Paste token here..." autocomplete="off" spellcheck="false">
+      <button id="login-btn" class="login-btn">Login</button>
+      <div id="login-error" class="login-error"></div>
+    </div>
+  </div>
+
   <div id="morph-backdrop" onclick="closeMorph()"></div>
   <div id="morph-panel">
     <div class="morph-head">
@@ -1085,6 +1220,57 @@
     let testMode = false;
 
     const $ = id => document.getElementById(id);
+
+    function initApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      initParticles();
+      ping();
+      startPolling();
+    }
+
+    (function checkToken() {
+      if (token) {
+        initApp();
+        return;
+      }
+      document.getElementById('login-screen').classList.remove('hidden');
+      const loginInput = document.getElementById('login-token');
+      const loginBtn = document.getElementById('login-btn');
+      const loginError = document.getElementById('login-error');
+      loginInput.focus();
+      function doLogin() {
+        const val = loginInput.value.trim();
+        if (!val) {
+          loginError.textContent = 'Please enter a token.';
+          return;
+        }
+        loginError.textContent = '';
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Connecting...';
+        fetch('/api/ping?token=' + encodeURIComponent(val))
+          .then(r => r.json())
+          .then(data => {
+            if (data.ok) {
+              const url = new URL(location.href);
+              url.searchParams.set('token', val);
+              history.replaceState(null, '', url.toString());
+              token = val;
+              initApp();
+            } else {
+              loginError.textContent = 'Invalid token.';
+              loginBtn.disabled = false;
+              loginBtn.textContent = 'Login';
+            }
+          })
+          .catch(() => {
+            loginError.textContent = 'Connection failed.';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Login';
+          });
+      }
+      loginBtn.onclick = doLogin;
+      loginInput.onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+    })();
 
     const MOCK = {
       categories: [
@@ -2037,10 +2223,6 @@
         closeSidebar();
       }
     });
-
-    initParticles();
-    ping();
-    startPolling();
 
     document.addEventListener('contextmenu', e => e.preventDefault());
   </script>
