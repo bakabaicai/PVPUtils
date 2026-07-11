@@ -30,6 +30,27 @@
       --font-body: "Verdana", "Microsoft YaHei UI", sans-serif;
     }
 
+    body.theme-green {
+      --accent: #8cf06f; --accent-2: #58d7ff; --success: #54e88f;
+      --border: rgba(140, 240, 111, .16); --border-strong: rgba(140, 240, 111, .32);
+    }
+    body.theme-blue {
+      --accent: #6fb8ff; --accent-2: #a78bfa; --success: #60a5fa;
+      --border: rgba(111, 184, 255, .16); --border-strong: rgba(111, 184, 255, .32);
+    }
+    body.theme-purple {
+      --accent: #c084fc; --accent-2: #f472b6; --success: #a78bfa;
+      --border: rgba(192, 132, 252, .16); --border-strong: rgba(192, 132, 252, .32);
+    }
+    body.theme-red {
+      --accent: #ff6b6b; --accent-2: #ffa94d; --success: #ff8787;
+      --border: rgba(255, 107, 107, .16); --border-strong: rgba(255, 107, 107, .32);
+    }
+    body.theme-cyan {
+      --accent: #22d3ee; --accent-2: #a78bfa; --success: #2dd4bf;
+      --border: rgba(34, 211, 238, .16); --border-strong: rgba(34, 211, 238, .32);
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -1136,6 +1157,19 @@
       <div id="conn-dot"></div>
       <span id="conn-text">connecting</span>
     </div>
+    <button id="theme-btn" class="icon-btn" onclick="cycleTheme()" aria-label="Change theme" title="Change color theme">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+    </button>
     <button class="icon-btn" onclick="refreshStatus()" aria-label="Refresh">
       <svg id="refresh-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
@@ -1327,6 +1361,24 @@
       text.textContent = connected ? 'connected' : 'disconnected';
       text.style.color = connected ? 'var(--success)' : 'var(--danger)';
     }
+
+    const THEMES = ['theme-green', 'theme-blue', 'theme-purple', 'theme-red', 'theme-cyan'];
+    const THEME_NAMES = { 'theme-green': 'Green', 'theme-blue': 'Blue', 'theme-purple': 'Purple', 'theme-red': 'Red', 'theme-cyan': 'Cyan' };
+    let currentTheme = localStorage.getItem('pvp-theme') || 'theme-green';
+
+    function applyTheme(theme) {
+      document.body.className = theme;
+      currentTheme = theme;
+      localStorage.setItem('pvp-theme', theme);
+      toast('Theme: ' + THEME_NAMES[theme]);
+    }
+
+    function cycleTheme() {
+      const idx = THEMES.indexOf(currentTheme);
+      applyTheme(THEMES[(idx + 1) % THEMES.length]);
+    }
+
+    applyTheme(currentTheme);
 
     function refreshStatus() {
       const icon = $('refresh-icon');
