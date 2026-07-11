@@ -578,6 +578,33 @@
       padding: 20px 24px 16px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    #morph-panel.open .morph-head {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .35s ease .08s, transform .35s ease .08s;
+    }
+
+    .morph-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    #morph-panel.open .morph-body {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .35s ease .15s, transform .35s ease .15s;
     }
 
     .morph-head-line {
