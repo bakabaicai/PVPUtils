@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public final class IrcCommand implements DotCommand {
     private static final List<String> SUB_COMMANDS = List.of("status", "disconnect", "login", "chat", "autoconnect");
-    private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick");
+    private static final List<String> MODERATOR_SUB_COMMANDS = List.of("ban", "kick", "mute");
 
     @Override
     public List<String> names() {
@@ -47,6 +47,7 @@ public final class IrcCommand implements DotCommand {
             case "autoconnect" -> setAutoConnect(subArgs);
             case "kick" -> executeModeratorCommand("KICK", subArgs, false);
             case "ban" -> executeModeratorCommand("BAN", subArgs, true);
+            case "mute" -> executeModeratorCommand("MUTE", subArgs, true);
             default -> ChatUtils.warning(Config.isChinese
                     ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
                     : "Usage: .irc login <username> <password> / .irc chat <text>");
@@ -79,7 +80,7 @@ public final class IrcCommand implements DotCommand {
         return java.util.stream.Stream.concat(SUB_COMMANDS.stream(), MODERATOR_SUB_COMMANDS.stream()).toList();
     }
 
-    private static void executeModeratorCommand(String commandType, String args, boolean requiresValue) {
+    private static void executeModeratorCommand(String commandType, String args, boolean requiresDuration) {
         if (!canModerate()) {
             ChatUtils.warning(Config.isChinese
                     ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
@@ -87,14 +88,15 @@ public final class IrcCommand implements DotCommand {
             return;
         }
         String target = firstToken(args);
-        String value = rest(args);
-        if (target.isBlank() || (requiresValue && value.isBlank())) {
-            ChatUtils.error(requiresValue
-                    ? (Config.isChinese ? "用法：.irc ban <用户> <时长>" : "Usage: .irc ban <user> <duration>")
+        String duration = firstToken(rest(args));
+        String reason = rest(rest(args));
+        if (target.isBlank() || (requiresDuration && duration.isBlank())) {
+            ChatUtils.error(requiresDuration
+                    ? (Config.isChinese ? "用法：.irc " + commandType.toLowerCase(Locale.ROOT) + " <用户> <时长> [理由]" : "Usage: .irc " + commandType.toLowerCase(Locale.ROOT) + " <user> <duration> [reason]")
                     : (Config.isChinese ? "用法：.irc kick <用户>" : "Usage: .irc kick <user>"));
             return;
         }
-        sendModerationCommand(commandType, target, value);
+        sendModerationCommand(commandType, target, duration, reason);
     }
 
     private static boolean canModerate() {
@@ -118,12 +120,12 @@ public final class IrcCommand implements DotCommand {
         }
     }
 
-    private static void sendModerationCommand(String commandType, String target, String value) {
+    private static void sendModerationCommand(String commandType, String target, String duration, String reason) {
         try {
             Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
             Object instance = clientClass.getMethod("getInstance").invoke(null);
-            Method method = clientClass.getMethod("sendModerationCommand", String.class, String.class, String.class);
-            method.invoke(instance, commandType, target, value);
+            Method method = clientClass.getMethod("sendModerationCommand", String.class, String.class, String.class, String.class);
+            method.invoke(instance, commandType, target, duration, reason);
         } catch (ReflectiveOperationException e) {
             IrcBridge.missingCore();
         }

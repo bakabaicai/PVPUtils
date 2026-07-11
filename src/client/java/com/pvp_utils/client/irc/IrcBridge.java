@@ -2,14 +2,17 @@ package com.pvp_utils.client.irc;
 
 import com.pvp_utils.client.util.ChatUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 import java.lang.reflect.Method;
+import java.util.UUID;
 
 public final class IrcBridge {
     public static final String MISSING_CORE_MESSAGE = "The irc core file is missing.";
 
     private static final String CLIENT_CLASS = "com.pvp_utils.client.irc.network.PVPUtilsIrcClient";
     private static final String CHAT_SERVICE_CLASS = "com.pvp_utils.client.irc.chat.IrcChatService";
+    private static final String TAB_LIST_SERVICE_CLASS = "com.pvp_utils.client.irc.tablist.IrcTabListService";
 
     private IrcBridge() {
     }
@@ -78,6 +81,15 @@ public final class IrcBridge {
             return;
         }
         invokeStatic(chatService, "sendChat", new Class<?>[]{String.class}, message);
+    }
+
+    public static Component decorateName(Component original, UUID minecraftUuid) {
+        Class<?> tabListService = findClass(TAB_LIST_SERVICE_CLASS);
+        if (tabListService == null || original == null || minecraftUuid == null) {
+            return original;
+        }
+        Object decorated = invokeStatic(tabListService, "decorateName", new Class<?>[]{Component.class, UUID.class}, original, minecraftUuid);
+        return decorated instanceof Component component ? component : original;
     }
 
     public static void missingCore() {
