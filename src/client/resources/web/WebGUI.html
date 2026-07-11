@@ -1327,37 +1327,58 @@
     };
 
     function filterCurrentView() {
-      if (currentCategory === 'Command') {
-        filterCommandCards();
+      if (!searchQuery) {
+        renderCategory(currentCategory, false);
         return;
       }
-      filterModuleCards();
+      renderGlobalSearch();
     }
 
-    function filterModuleCards() {
-      const cards = $('point').querySelectorAll('.module-card');
-      let visible = 0;
-      cards.forEach(card => {
-        const title = (card.querySelector('.module-title')?.textContent || '').toLowerCase();
-        const desc = (card.querySelector('.module-desc')?.textContent || '').toLowerCase();
-        const match = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      $('no-results').style.display = visible === 0 ? 'block' : 'none';
-    }
+    function renderGlobalSearch() {
+      const grid = $('point');
+      grid.innerHTML = '';
+      grid.appendChild(buildSkeleton(6));
+      $('module-count').textContent = 'searching...';
+      $('cat-title').textContent = 'Search';
+      document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
 
-    function filterCommandCards() {
-      const cards = $('point').querySelectorAll('.module-card');
-      let visible = 0;
-      cards.forEach(card => {
-        const title = (card.querySelector('.module-title')?.textContent || '').toLowerCase();
-        const desc = (card.querySelector('.module-desc')?.textContent || '').toLowerCase();
-        const match = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
+      const moduleCats = categories.filter(c => c.id !== 'Command');
+      const promises = moduleCats.map(cat =>
+        apiFetch('/api/modulesList?token=' + encodeURIComponent(token) + '&category=' + encodeURIComponent(cat.id))
+          .then(r => r.json())
+          .then(v => (v.success ? (v.result || []).map(m => ({ ...m, _cat: cat.name })) : []))
+          .catch(() => [])
+      );
+
+      Promise.all(promises).then(results => {
+        const all = results.flat();
+        const matched = all.filter(m => {
+          const title = (m.name || '').toLowerCase();
+          const desc = (m.desc || '').toLowerCase();
+          return title.includes(searchQuery) || desc.includes(searchQuery);
+        });
+
+        grid.innerHTML = '';
+        if (!matched.length) {
+          $('module-count').textContent = '0 modules';
+          $('no-results').style.display = 'block';
+          return;
+        }
+        $('no-results').style.display = 'none';
+        $('module-count').textContent = matched.length + ' modules';
+
+        const frag = document.createDocumentFragment();
+        matched.forEach((mod, index) => {
+          const card = buildModuleCard(mod, index, true);
+          const tag = document.createElement('span');
+          tag.className = 'status-pill';
+          tag.textContent = mod._cat;
+          tag.style.cssText = 'position:absolute;top:14px;left:14px;font-size:9px;pointer-events:none;z-index:3';
+          card.appendChild(tag);
+          frag.appendChild(card);
+        });
+        grid.appendChild(frag);
       });
-      $('no-results').style.display = visible === 0 ? 'block' : 'none';
     }
 
     function buildSkeleton(count) {
@@ -1843,7 +1864,7 @@
             const card = existing.get(mod.id);
             if (card) updateModuleCard(card, mod);
           });
-          if (searchQuery) filterModuleCards();
+          if (searchQuery) renderGlobalSearch();
         })
         .catch(() => setConnected(false));
     }
