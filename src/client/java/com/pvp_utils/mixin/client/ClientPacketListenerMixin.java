@@ -5,9 +5,11 @@ import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
@@ -23,6 +25,19 @@ import java.util.List;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerMixin {
+    @Inject(method = "handleSetTime", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$overrideServerTime(ClientboundSetTimePacket packet, CallbackInfo ci) {
+        if (Config.timeChange) {
+            Minecraft client = Minecraft.getInstance();
+            ClientLevel level = client.level;
+            if (level != null) {
+                long time = Math.floorMod(Config.clientTime, 24000);
+                level.setTimeFromServer(packet.gameTime(), time, false);
+                ci.cancel();
+            }
+        }
+    }
+
     @Redirect(method = "handleSetEntityData", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/game/ClientboundSetEntityDataPacket;packedItems()Ljava/util/List;", ordinal = 0))
     private List<SynchedEntityData.DataValue<?>> fixLocalPlayerPoseTracker(ClientboundSetEntityDataPacket packet) {
         Minecraft client = Minecraft.getInstance();
