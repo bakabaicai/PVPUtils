@@ -1370,11 +1370,6 @@
         const frag = document.createDocumentFragment();
         matched.forEach((mod, index) => {
           const card = buildModuleCard(mod, index, true);
-          const tag = document.createElement('span');
-          tag.className = 'status-pill';
-          tag.textContent = mod._cat;
-          tag.style.cssText = 'position:absolute;top:14px;left:14px;font-size:9px;pointer-events:none;z-index:3';
-          card.appendChild(tag);
           frag.appendChild(card);
         });
         grid.appendChild(frag);
@@ -1835,6 +1830,7 @@
     }
 
     function syncCurrentCategory() {
+      if (searchQuery) return;
       if (currentCategory === 'Command') {
         if (document.activeElement && document.activeElement.classList.contains('command-input')) {
           return;
