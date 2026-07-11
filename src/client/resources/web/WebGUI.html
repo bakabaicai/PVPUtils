@@ -1636,24 +1636,21 @@
       panel.classList.remove('open');
       backdrop.classList.remove('open');
 
-      setTimeout(() => {
-        panel.style.transition = '';
-        panel.style.top = morphSourceRect.top + 'px';
-        panel.style.left = morphSourceRect.left + 'px';
-        panel.style.width = morphSourceRect.width + 'px';
-        panel.style.height = morphSourceRect.height + 'px';
-        panel.style.borderRadius = '18px';
+      panel.style.top = morphSourceRect.top + 'px';
+      panel.style.left = morphSourceRect.left + 'px';
+      panel.style.width = morphSourceRect.width + 'px';
+      panel.style.height = morphSourceRect.height + 'px';
+      panel.style.borderRadius = '18px';
 
-        const onEnd = () => {
-          panel.style.display = 'none';
-          backdrop.style.display = 'none';
-          panel.removeEventListener('transitionend', onEnd);
-          morphModule = null;
-          morphSourceRect = null;
-        };
-        panel.addEventListener('transitionend', onEnd, { once: true });
-        setTimeout(onEnd, 700);
-      }, 250);
+      const onEnd = () => {
+        panel.style.display = 'none';
+        backdrop.style.display = 'none';
+        panel.removeEventListener('transitionend', onEnd);
+        morphModule = null;
+        morphSourceRect = null;
+      };
+      panel.addEventListener('transitionend', onEnd, { once: true });
+      setTimeout(onEnd, 700);
 
       document.removeEventListener('keydown', morphKeyHandler);
     }
