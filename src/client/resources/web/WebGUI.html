@@ -1224,6 +1224,8 @@
 
     function initApp() {
       document.getElementById('login-screen').classList.add('hidden');
+      categorySignature = '';
+      $('category').innerHTML = '';
       initParticles();
       ping();
       startPolling();
