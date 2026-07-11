@@ -1886,10 +1886,12 @@
             ? previousCategory
             : (categories[0] ? categories[0].id : 'Combat');
           const category = categories.find(item => item.id === currentCategory);
-          $('cat-title').textContent = category ? category.name : currentCategory;
-          document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.toggle('active', link.dataset.cat === currentCategory);
-          });
+          if (!searchQuery) {
+            $('cat-title').textContent = category ? category.name : currentCategory;
+            document.querySelectorAll('.nav-link').forEach(link => {
+              link.classList.toggle('active', link.dataset.cat === currentCategory);
+            });
+          }
           if (silent) {
             syncCurrentCategory();
           } else {
