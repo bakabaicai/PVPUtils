@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.util.ChatUtils;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
 
@@ -72,14 +73,14 @@ public final class IrcCommand implements DotCommand {
     }
 
     private static List<String> visibleSubCommands() {
-        if (!IrcBridge.canModerate()) {
+        if (!canModerate()) {
             return SUB_COMMANDS;
         }
         return java.util.stream.Stream.concat(SUB_COMMANDS.stream(), MODERATOR_SUB_COMMANDS.stream()).toList();
     }
 
     private static void executeModeratorCommand(String commandType, String args, boolean requiresValue) {
-        if (!IrcBridge.canModerate()) {
+        if (!canModerate()) {
             ChatUtils.warning(Config.isChinese
                     ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
                     : "Usage: .irc login <username> <password> / .irc chat <text>");
@@ -93,7 +94,33 @@ public final class IrcCommand implements DotCommand {
                     : (Config.isChinese ? "用法：.irc kick <用户>" : "Usage: .irc kick <user>"));
             return;
         }
-        IrcBridge.sendModerationCommand(commandType, target, value);
+        sendModerationCommand(commandType, target, value);
+    }
+
+    private static boolean canModerate() {
+        try {
+            Class<?> userManager = Class.forName("com.pvp_utils.client.irc.user.IrcUserManager");
+            Object currentUser = userManager.getMethod("currentUser").invoke(null);
+            if (currentUser == null) {
+                return false;
+            }
+            Object role = currentUser.getClass().getMethod("role").invoke(currentUser);
+            String value = role == null ? "" : role.toString();
+            return "DEVELOPER".equalsIgnoreCase(value) || "ADMIN".equalsIgnoreCase(value);
+        } catch (ReflectiveOperationException ignored) {
+            return false;
+        }
+    }
+
+    private static void sendModerationCommand(String commandType, String target, String value) {
+        try {
+            Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
+            Object instance = clientClass.getMethod("getInstance").invoke(null);
+            Method method = clientClass.getMethod("sendModerationCommand", String.class, String.class, String.class);
+            method.invoke(instance, commandType, target, value);
+        } catch (ReflectiveOperationException e) {
+            IrcBridge.missingCore();
+        }
     }
 
     private static void setAutoConnect(String args) {
