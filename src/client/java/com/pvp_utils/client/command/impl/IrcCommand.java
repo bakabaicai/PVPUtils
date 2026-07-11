@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Locale;
 
 public final class IrcCommand implements DotCommand {
-    private static final List<String> SUB_COMMANDS = List.of("status", "server", "connect", "disconnect", "login", "chat", "autoconnect");
+    private static final List<String> SUB_COMMANDS = List.of("status", "disconnect", "login", "chat", "autoconnect");
 
     @Override
     public List<String> names() {
@@ -24,15 +24,7 @@ public final class IrcCommand implements DotCommand {
         String subCommand = firstToken(args).toLowerCase(Locale.ROOT);
         String subArgs = rest(args);
         switch (subCommand) {
-            case "", "status" -> ChatUtils.send("IRC: "
-                    + IrcBridge.status()
-                    + " (" + IrcBridge.serverAddress() + ")");
-            case "server" -> setServer(subArgs);
-            case "connect" -> {
-                Config.ircEnabled = true;
-                Config.save();
-                IrcBridge.connect();
-            }
+            case "", "status" -> ChatUtils.send("IRC: " + IrcBridge.status());
             case "disconnect" -> {
                 Config.ircEnabled = false;
                 Config.ircAutoConnect = false;
@@ -52,8 +44,8 @@ public final class IrcCommand implements DotCommand {
             case "chat" -> IrcBridge.sendChat(subArgs);
             case "autoconnect" -> setAutoConnect(subArgs);
             default -> ChatUtils.warning(Config.isChinese
-                    ? "用法：.irc server <地址> [端口] / .irc login <用户名> <密码> / .irc chat <文本>"
-                    : "Usage: .irc server <host> [port] / .irc login <username> <password> / .irc chat <text>");
+                    ? "用法：.irc login <用户名> <密码> / .irc chat <文本>"
+                    : "Usage: .irc login <username> <password> / .irc chat <text>");
         }
     }
 
@@ -74,34 +66,6 @@ public final class IrcCommand implements DotCommand {
         return SUB_COMMANDS.stream()
                 .filter(command -> command.startsWith(prefix))
                 .toList();
-    }
-
-    private static void setServer(String args) {
-        String host = firstToken(args);
-        String portText = rest(args);
-        if (host.isBlank()) {
-            ChatUtils.error(Config.isChinese ? "用法：.irc server <地址> [端口]" : "Usage: .irc server <host> [port]");
-            return;
-        }
-        int port = Config.ircPort;
-        if (!portText.isBlank()) {
-            try {
-                port = Integer.parseInt(firstToken(portText));
-            } catch (NumberFormatException ignored) {
-                ChatUtils.error(Config.isChinese ? "IRC端口格式错误。" : "Invalid IRC port.");
-                return;
-            }
-        }
-        if (port <= 0 || port > 65535) {
-            ChatUtils.error(Config.isChinese ? "IRC端口范围错误。" : "IRC port is out of range.");
-            return;
-        }
-        Config.ircHost = host;
-        Config.ircPort = port;
-        Config.save();
-        ChatUtils.success(Config.isChinese
-                ? "IRC服务器已设置为：" + host + ":" + port
-                : "IRC server has been set to: " + host + ":" + port);
     }
 
     private static void setAutoConnect(String args) {

@@ -187,8 +187,6 @@ public class ResetManager {
         Config.fullMode = false;
         Config.ircEnabled = false;
         Config.ircAutoConnect = false;
-        Config.ircHost = "";
-        Config.ircPort = 24465;
         Config.ircProtocolVersion = 1;
         Config.ircUsername = "";
         Config.ircToken = "";
