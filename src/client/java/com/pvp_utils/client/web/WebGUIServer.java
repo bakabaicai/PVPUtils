@@ -102,7 +102,29 @@ public final class WebGUIServer {
             send(exchange, 403, "text/plain; charset=utf-8", "Forbidden");
             return;
         }
-        send(exchange, 200, "text/html; charset=utf-8", loadHtml());
+        String path = exchange.getRequestURI().getPath();
+        if (path.equals("/") || path.isEmpty()) {
+            send(exchange, 200, "text/html; charset=utf-8", loadHtml());
+        } else {
+            serveStatic(exchange, path);
+        }
+    }
+
+    private static void serveStatic(HttpExchange exchange, String path) throws IOException {
+        String resourcePath = "/web" + path;
+        try (InputStream input = WebGUIServer.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                send(exchange, 404, "text/plain", "Not Found");
+                return;
+            }
+            String contentType = "application/octet-stream";
+            if (path.endsWith(".png")) contentType = "image/png";
+            else if (path.endsWith(".jpg") || path.endsWith(".jpeg")) contentType = "image/jpeg";
+            else if (path.endsWith(".svg")) contentType = "image/svg+xml";
+            else if (path.endsWith(".css")) contentType = "text/css";
+            else if (path.endsWith(".js")) contentType = "application/javascript";
+            send(exchange, 200, contentType, input.readAllBytes());
+        }
     }
 
     private static void handlePing(HttpExchange exchange) throws IOException {
@@ -208,6 +230,15 @@ public final class WebGUIServer {
 
     private static void send(HttpExchange exchange, int status, String contentType, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream output = exchange.getResponseBody()) {
+            output.write(bytes);
+        }
+    }
+
+    private static void send(HttpExchange exchange, int status, String contentType, byte[] bytes) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", contentType);
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.sendResponseHeaders(status, bytes.length);
