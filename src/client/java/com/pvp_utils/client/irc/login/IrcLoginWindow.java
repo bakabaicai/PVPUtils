@@ -172,8 +172,7 @@ public final class IrcLoginWindow {
             ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
             styleTabButton(loginTab, true);
             styleTabButton(registerTab, false);
-            error.setText(" ");
-            status.setForeground(Color.GRAY);
+            clearMessage(error);
             status.setText("未注册用户请切换到注册页。");
         });
         registerTab.addActionListener(event -> {
@@ -181,9 +180,8 @@ public final class IrcLoginWindow {
             ((CardLayout) cards.getLayout()).show(cards, REGISTER_CARD);
             styleTabButton(loginTab, false);
             styleTabButton(registerTab, true);
-            error.setText(" ");
-            status.setForeground(Color.GRAY);
-            status.setText("验证码将发送到 QQ 邮箱。");
+            clearMessage(error);
+            status.setText(" ");
         });
 
         login.addActionListener(event -> {
@@ -191,7 +189,7 @@ public final class IrcLoginWindow {
             String pass = new String(loginPassword.getPassword());
             boolean useSavedPassword = !Config.ircPasswordHash.isBlank() && SAVED_PASSWORD_PLACEHOLDER.equals(pass);
             if (user.isBlank() || (pass.isBlank() && !useSavedPassword)) {
-                showError(error, status, "账号或密码不能为空。");
+                showError(error, "账号或密码不能为空。");
                 return;
             }
             String hash = useSavedPassword ? Config.ircPasswordHash : sha256(pass);
@@ -204,26 +202,23 @@ public final class IrcLoginWindow {
             String pass = new String(registerPassword.getPassword());
             String qq = registerQq.getText().trim();
             if (user.isBlank() || pass.isBlank() || qq.isBlank()) {
-                showError(error, status, "账号、密码和QQ号不能为空。");
+                showError(error, "账号、密码和QQ号不能为空。");
                 return;
             }
             if (!validQq(qq)) {
-                showError(error, status, "QQ号格式错误。");
+                showError(error, "QQ号格式错误。");
                 return;
             }
             setRegisterButtons(false, register, sendCode, registerSkip);
-            error.setText(" ");
-            status.setForeground(Color.GRAY);
-            status.setText("正在发送验证码...");
+            showInfo(error, "正在发送验证码...");
             new Thread(() -> {
                 String result = requestRegistrationCode(user, sha256(pass), qq);
                 SwingUtilities.invokeLater(() -> {
                     if (result.isBlank()) {
-                        status.setForeground(new Color(35, 150, 60));
-                        status.setText("验证码已生成，请查看服务器控制台或QQ邮箱。");
+                        showSuccessMessage(error, "验证码已发送。请查看您的QQ邮箱和垃圾邮件分页。");
                         startCodeCooldown(sendCode, register, registerSkip);
                     } else {
-                        showError(error, status, result);
+                        showError(error, result);
                         setRegisterButtons(true, register, sendCode, registerSkip);
                     }
                 });
@@ -236,21 +231,19 @@ public final class IrcLoginWindow {
             String qq = registerQq.getText().trim();
             String code = registerCode.getText().trim();
             if (user.isBlank() || pass.isBlank() || qq.isBlank() || code.isBlank()) {
-                showError(error, status, "账号、密码、QQ号和验证码不能为空。");
+                showError(error, "账号、密码、QQ号和验证码不能为空。");
                 return;
             }
             if (!validQq(qq)) {
-                showError(error, status, "QQ号格式错误。");
+                showError(error, "QQ号格式错误。");
                 return;
             }
-            if (!digitsOnly(code)) {
-                showError(error, status, "验证码格式错误。");
+            if (!validVerificationCode(code)) {
+                showError(error, "验证码格式错误。");
                 return;
             }
             setRegisterButtons(false, register, sendCode, registerSkip);
-            error.setText(" ");
-            status.setForeground(Color.GRAY);
-            status.setText("正在注册...");
+            showInfo(error, "正在注册...");
             new Thread(() -> {
                 String result = registerAccount(user, sha256(pass), qq, code);
                 SwingUtilities.invokeLater(() -> {
@@ -263,11 +256,9 @@ public final class IrcLoginWindow {
                         ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
                         styleTabButton(loginTab, true);
                         styleTabButton(registerTab, false);
-                        error.setText(" ");
-                        status.setForeground(new Color(35, 150, 60));
-                        status.setText("注册成功，请登录。");
+                        showSuccessMessage(error, "注册成功，请登录。");
                     } else {
-                        showError(error, status, result);
+                        showError(error, result);
                     }
                 });
             }, "PVPUtils-IRC-Register").start();
@@ -412,9 +403,7 @@ public final class IrcLoginWindow {
                                  String passwordHash, boolean automatic) {
         login.setEnabled(false);
         skip.setEnabled(false);
-        error.setText(" ");
-        status.setForeground(Color.GRAY);
-        status.setText(automatic ? "正在自动登录..." : "正在登录...");
+        showInfo(error, automatic ? "正在自动登录..." : "正在登录...");
         new Thread(() -> {
             long startedAt = System.currentTimeMillis();
             String result = loginWithHash(username, passwordHash);
@@ -435,9 +424,7 @@ public final class IrcLoginWindow {
                     Config.save();
                     showSuccess(dialog, root, cards, title, error, status, connectionStatus, finished);
                 } else {
-                    error.setText(result);
-                    status.setForeground(Color.GRAY);
-                    status.setText("未注册用户请切换到注册页。");
+                    showError(error, result);
                     login.setEnabled(true);
                     skip.setEnabled(true);
                 }
@@ -483,7 +470,7 @@ public final class IrcLoginWindow {
         rank.setFont(font);
         success.add(rank, c);
         root.add(success, BorderLayout.CENTER);
-        status.setText("登录成功，正在启动游戏...");
+        showSuccessMessage(error, "登录成功，正在启动游戏...");
         root.revalidate();
         root.repaint();
         new Thread(() -> {
@@ -521,18 +508,32 @@ public final class IrcLoginWindow {
         skip.setEnabled(enabled);
     }
 
-    private static void showError(JLabel error, JLabel status, String message) {
+    private static void showError(JLabel error, String message) {
+        error.setForeground(new Color(190, 40, 40));
         error.setText(message);
-        status.setForeground(Color.GRAY);
-        status.setText("请检查输入后重试。");
+    }
+
+    private static void showSuccessMessage(JLabel label, String message) {
+        label.setForeground(new Color(35, 150, 60));
+        label.setText(message);
+    }
+
+    private static void showInfo(JLabel label, String message) {
+        label.setForeground(Color.GRAY);
+        label.setText(message);
+    }
+
+    private static void clearMessage(JLabel label) {
+        label.setForeground(new Color(190, 40, 40));
+        label.setText(" ");
     }
 
     private static boolean validQq(String value) {
-        return value != null && value.length() >= 5 && digitsOnly(value);
+        return value != null && value.matches("[1-9]\\d{4,11}");
     }
 
-    private static boolean digitsOnly(String value) {
-        return value != null && value.matches("\\d+");
+    private static boolean validVerificationCode(String value) {
+        return value != null && value.matches("[A-Za-z0-9]{6}");
     }
 
     private static void setConnectionStatus(JLabel icon, JLabel label, ConnectionState state) {

@@ -215,11 +215,36 @@ public class DynamicIslandRenderer {
     }
 
     private IslandContent buildContent(Minecraft client) {
-        String username = client.getUser() != null ? client.getUser().getName() : "Unknown";
+        String username = getCompactIslandUsername(client);
         String location = getLocationText(client);
         String fps = String.valueOf(client.getFps());
         String brand = Config.clientName == null || Config.clientName.isBlank() ? "PVPUtils" : Config.clientName;
         return new IslandContent(brand, username, location, fps);
+    }
+
+    private String getCompactIslandUsername(Minecraft client) {
+        String ircUsername = getCurrentIrcUsername();
+        if (!ircUsername.isBlank()) {
+            return ircUsername;
+        }
+        if (client.getUser() != null && client.getUser().getName() != null && !client.getUser().getName().isBlank()) {
+            return client.getUser().getName();
+        }
+        return client.player != null ? client.player.getScoreboardName() : "Unknown";
+    }
+
+    private String getCurrentIrcUsername() {
+        try {
+            Class<?> userManager = Class.forName("com.pvp_utils.client.irc.user.IrcUserManager");
+            Object currentUser = userManager.getMethod("currentUser").invoke(null);
+            if (currentUser == null) {
+                return "";
+            }
+            Object username = currentUser.getClass().getMethod("username").invoke(currentUser);
+            return username == null ? "" : username.toString().trim();
+        } catch (ReflectiveOperationException ignored) {
+            return "";
+        }
     }
 
     private String getLocationText(Minecraft client) {
