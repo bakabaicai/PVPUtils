@@ -13,8 +13,10 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -35,10 +37,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class IrcLoginWindow {
     private static final long LOGIN_TIMEOUT_MS = 30000L;
+    private static final long REGISTER_TIMEOUT_MS = 30000L;
     private static final long MIN_AUTO_LOGIN_WINDOW_MS = 1200L;
     private static final long MIN_MANUAL_LOGIN_BUTTON_MS = 1500L;
     private static final long SUCCESS_WINDOW_MS = 3000L;
+    private static final int CODE_COOLDOWN_SECONDS = 60;
     private static final String SAVED_PASSWORD_PLACEHOLDER = "********";
+    private static final String LOGIN_CARD = "login";
+    private static final String REGISTER_CARD = "register";
 
     private IrcLoginWindow() {
     }
@@ -66,34 +72,59 @@ public final class IrcLoginWindow {
 
         JPanel outer = new AntiAliasPanel(new BorderLayout(0, 0));
         JPanel root = new AntiAliasPanel(new BorderLayout(0, 14));
-        root.setBorder(javax.swing.BorderFactory.createEmptyBorder(24, 28, 24, 28));
+        root.setBorder(javax.swing.BorderFactory.createEmptyBorder(18, 28, 24, 28));
         Font uiFont = new Font("Microsoft YaHei UI", Font.PLAIN, 15);
         Font titleFont = new Font("Microsoft YaHei UI", Font.BOLD, 28);
         Font iconFont = loadFont("/fonts/MaterialSymbolsRounded.ttf", 15f);
+        Dimension fieldSize = new Dimension(300, 36);
+        Dimension smallButtonSize = new Dimension(98, 34);
+        Dimension wideButtonSize = new Dimension(128, 34);
 
-        JPanel header = new AntiAliasPanel(new BorderLayout(0, 6));
         JLabel title = new JLabel("PVPUtils IRC AUTH", SwingConstants.CENTER);
         title.setFont(titleFont);
         JLabel error = new JLabel(" ", SwingConstants.CENTER);
         error.setFont(uiFont.deriveFont(Font.BOLD, 13f));
         error.setForeground(new Color(190, 40, 40));
-        header.add(title, BorderLayout.NORTH);
+
+        JPanel tabs = new AntiAliasPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JButton loginTab = new JButton("登录");
+        JButton registerTab = new JButton("注册");
+        applyFont(uiFont.deriveFont(Font.BOLD, 13f), loginTab, registerTab);
+        styleTabButton(loginTab, true);
+        styleTabButton(registerTab, false);
+        tabs.add(loginTab);
+        tabs.add(registerTab);
+
+        JPanel header = new AntiAliasPanel(new BorderLayout(0, 6));
+        header.add(tabs, BorderLayout.NORTH);
+        header.add(title, BorderLayout.CENTER);
         header.add(error, BorderLayout.SOUTH);
         root.add(header, BorderLayout.NORTH);
 
-        JTextField username = new JTextField(Config.ircUsername, 20);
-        JPasswordField password = new JPasswordField(20);
+        JTextField loginUsername = new JTextField(Config.ircUsername, 20);
+        JPasswordField loginPassword = new JPasswordField(20);
         if (!Config.ircPasswordHash.isBlank()) {
-            password.setText(SAVED_PASSWORD_PLACEHOLDER);
+            loginPassword.setText(SAVED_PASSWORD_PLACEHOLDER);
         }
         JCheckBox rememberPassword = new JCheckBox("记住密码", !Config.ircPasswordHash.isBlank());
         JCheckBox autoLogin = new JCheckBox("自动登录", Config.ircAutoConnect);
         JButton login = new JButton("登录");
-        JButton skip = new JButton("不使用IRC");
-        JLabel status = new JLabel("未注册用户会自动注册并登录。", SwingConstants.CENTER);
+        JButton loginSkip = new JButton("不使用IRC");
+
+        JTextField registerUsername = new JTextField(20);
+        JPasswordField registerPassword = new JPasswordField(20);
+        JTextField registerQq = new JTextField(20);
+        JTextField registerCode = new JTextField(20);
+        JButton register = new JButton("注册");
+        JButton sendCode = new JButton("发送验证码");
+        JButton registerSkip = new JButton("不使用IRC");
+        applyFixedSize(smallButtonSize, login, register);
+        applyFixedSize(wideButtonSize, loginSkip, registerSkip, sendCode);
+
+        JLabel status = new JLabel("未注册用户请切换到注册页。", SwingConstants.CENTER);
         status.setForeground(Color.GRAY);
         status.setFont(uiFont.deriveFont(Font.PLAIN, 14f));
-        status.setPreferredSize(new Dimension(320, 28));
+        status.setPreferredSize(new Dimension(380, 28));
         JLabel connectionIcon = new JLabel("", SwingConstants.LEFT);
         JLabel connectionStatus = new JLabel("", SwingConstants.LEFT);
         JLabel protectedIcon = new JLabel("\ue32a", SwingConstants.RIGHT);
@@ -105,45 +136,20 @@ public final class IrcLoginWindow {
         protectedIcon.setForeground(new Color(120, 120, 120));
         protectedText.setForeground(new Color(120, 120, 120));
         setConnectionStatus(connectionIcon, connectionStatus, ConnectionState.CONNECTING);
-        applyFont(uiFont, username, password, rememberPassword, autoLogin, login, skip);
+        applyFont(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip,
+                registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
+        applyFixedSize(fieldSize, loginUsername, loginPassword, registerUsername, registerPassword, registerQq, registerCode);
 
-        JPanel form = new AntiAliasPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(6, 6, 6, 6);
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridx = 0;
-        c.gridy = 0;
-        JLabel usernameLabel = new JLabel("账号");
-        usernameLabel.setFont(uiFont);
-        form.add(usernameLabel, c);
-        c.gridx = 1;
-        c.gridwidth = 2;
-        form.add(username, c);
-        c.gridx = 0;
-        c.gridy = 1;
-        c.gridwidth = 1;
-        JLabel passwordLabel = new JLabel("密码");
-        passwordLabel.setFont(uiFont);
-        form.add(passwordLabel, c);
-        c.gridx = 1;
-        c.gridwidth = 2;
-        form.add(password, c);
-
-        JPanel loginRow = new AntiAliasPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
-        loginRow.add(login);
-        loginRow.add(rememberPassword);
-        c.gridx = 0;
-        c.gridy = 2;
-        c.gridwidth = 3;
-        form.add(loginRow, c);
-
-        JPanel skipRow = new AntiAliasPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
-        skipRow.add(skip);
-        skipRow.add(autoLogin);
-        c.gridy = 3;
-        form.add(skipRow, c);
-        root.add(form, BorderLayout.CENTER);
+        JPanel cards = new AntiAliasPanel(new CardLayout());
+        cards.setPreferredSize(new Dimension(460, 310));
+        cards.setMinimumSize(new Dimension(460, 310));
+        JPanel loginForm = loginForm(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip);
+        JPanel registerForm = registerForm(uiFont, registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
+        cards.add(loginForm, LOGIN_CARD);
+        cards.add(registerForm, REGISTER_CARD);
+        root.add(cards, BorderLayout.CENTER);
         root.add(status, BorderLayout.SOUTH);
+
         JPanel statusBar = new AntiAliasPanel(new BorderLayout());
         statusBar.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 10, 10, 10));
         JPanel connectionPanel = new AntiAliasPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
@@ -157,26 +163,118 @@ public final class IrcLoginWindow {
         outer.add(root, BorderLayout.CENTER);
         outer.add(statusBar, BorderLayout.SOUTH);
         dialog.setContentPane(outer);
-        dialog.setPreferredSize(new Dimension(520, 380));
+        dialog.setPreferredSize(new Dimension(560, 560));
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         startServerPing(connectionIcon, connectionStatus, finished);
 
+        loginTab.addActionListener(event -> {
+            ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
+            styleTabButton(loginTab, true);
+            styleTabButton(registerTab, false);
+            error.setText(" ");
+            status.setForeground(Color.GRAY);
+            status.setText("未注册用户请切换到注册页。");
+        });
+        registerTab.addActionListener(event -> {
+            registerUsername.setText(loginUsername.getText().trim());
+            ((CardLayout) cards.getLayout()).show(cards, REGISTER_CARD);
+            styleTabButton(loginTab, false);
+            styleTabButton(registerTab, true);
+            error.setText(" ");
+            status.setForeground(Color.GRAY);
+            status.setText("验证码将发送到 QQ 邮箱。");
+        });
+
         login.addActionListener(event -> {
-            String user = username.getText().trim();
-            String pass = new String(password.getPassword());
+            String user = loginUsername.getText().trim();
+            String pass = new String(loginPassword.getPassword());
             boolean useSavedPassword = !Config.ircPasswordHash.isBlank() && SAVED_PASSWORD_PLACEHOLDER.equals(pass);
             if (user.isBlank() || (pass.isBlank() && !useSavedPassword)) {
-                status.setForeground(new Color(180, 40, 40));
-                status.setText("账号或密码不能为空。");
+                showError(error, status, "账号或密码不能为空。");
                 return;
             }
             String hash = useSavedPassword ? Config.ircPasswordHash : sha256(pass);
-            runLogin(dialog, root, form, title, error, status, connectionStatus, username, password,
-                    rememberPassword, autoLogin, login, skip, finished, user, hash, false);
+            runLogin(dialog, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
+                    login, loginSkip, finished, user, hash, false);
         });
 
-        skip.addActionListener(event -> skipIrc(dialog, finished));
+        sendCode.addActionListener(event -> {
+            String user = registerUsername.getText().trim();
+            String pass = new String(registerPassword.getPassword());
+            String qq = registerQq.getText().trim();
+            if (user.isBlank() || pass.isBlank() || qq.isBlank()) {
+                showError(error, status, "账号、密码和QQ号不能为空。");
+                return;
+            }
+            if (!validQq(qq)) {
+                showError(error, status, "QQ号格式错误。");
+                return;
+            }
+            setRegisterButtons(false, register, sendCode, registerSkip);
+            error.setText(" ");
+            status.setForeground(Color.GRAY);
+            status.setText("正在发送验证码...");
+            new Thread(() -> {
+                String result = requestRegistrationCode(user, sha256(pass), qq);
+                SwingUtilities.invokeLater(() -> {
+                    if (result.isBlank()) {
+                        status.setForeground(new Color(35, 150, 60));
+                        status.setText("验证码已生成，请查看服务器控制台或QQ邮箱。");
+                        startCodeCooldown(sendCode, register, registerSkip);
+                    } else {
+                        showError(error, status, result);
+                        setRegisterButtons(true, register, sendCode, registerSkip);
+                    }
+                });
+            }, "PVPUtils-IRC-RegisterCode").start();
+        });
+
+        register.addActionListener(event -> {
+            String user = registerUsername.getText().trim();
+            String pass = new String(registerPassword.getPassword());
+            String qq = registerQq.getText().trim();
+            String code = registerCode.getText().trim();
+            if (user.isBlank() || pass.isBlank() || qq.isBlank() || code.isBlank()) {
+                showError(error, status, "账号、密码、QQ号和验证码不能为空。");
+                return;
+            }
+            if (!validQq(qq)) {
+                showError(error, status, "QQ号格式错误。");
+                return;
+            }
+            if (!digitsOnly(code)) {
+                showError(error, status, "验证码格式错误。");
+                return;
+            }
+            setRegisterButtons(false, register, sendCode, registerSkip);
+            error.setText(" ");
+            status.setForeground(Color.GRAY);
+            status.setText("正在注册...");
+            new Thread(() -> {
+                String result = registerAccount(user, sha256(pass), qq, code);
+                SwingUtilities.invokeLater(() -> {
+                    setRegisterButtons(true, register, sendCode, registerSkip);
+                    if (result.isBlank()) {
+                        loginUsername.setText(user);
+                        loginPassword.setText("");
+                        registerPassword.setText("");
+                        registerCode.setText("");
+                        ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
+                        styleTabButton(loginTab, true);
+                        styleTabButton(registerTab, false);
+                        error.setText(" ");
+                        status.setForeground(new Color(35, 150, 60));
+                        status.setText("注册成功，请登录。");
+                    } else {
+                        showError(error, status, result);
+                    }
+                });
+            }, "PVPUtils-IRC-Register").start();
+        });
+
+        loginSkip.addActionListener(event -> skipIrc(dialog, finished));
+        registerSkip.addActionListener(event -> skipIrc(dialog, finished));
         dialog.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent event) {
@@ -186,20 +284,132 @@ public final class IrcLoginWindow {
             }
         });
         if (Config.ircAutoConnect && !Config.ircUsername.isBlank() && !Config.ircPasswordHash.isBlank()) {
-            runLogin(dialog, root, form, title, error, status, connectionStatus, username, password,
-                    rememberPassword, autoLogin, login, skip, finished, Config.ircUsername, Config.ircPasswordHash, true);
+            runLogin(dialog, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
+                    login, loginSkip, finished, Config.ircUsername, Config.ircPasswordHash, true);
         }
         return dialog;
     }
 
-    private static void runLogin(JDialog dialog, JPanel root, JPanel form, JLabel title, JLabel error, JLabel status,
-                                 JLabel connectionStatus, JTextField usernameField, JPasswordField passwordField,
-                                 JCheckBox rememberPassword, JCheckBox autoLogin, JButton login, JButton skip,
-                                 AtomicBoolean finished, String username, String passwordHash, boolean automatic) {
-        usernameField.setEnabled(false);
-        passwordField.setEnabled(false);
-        rememberPassword.setEnabled(false);
-        autoLogin.setEnabled(false);
+    private static JPanel loginForm(Font uiFont, JTextField username, JPasswordField password, JCheckBox rememberPassword,
+                                    JCheckBox autoLogin, JButton login, JButton skip) {
+        JPanel form = new AntiAliasPanel(new GridBagLayout());
+        form.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 24, 8, 24));
+        GridBagConstraints c = constraints();
+        addField(form, c, uiFont, 0, "账号", username, false);
+        addField(form, c, uiFont, 1, "密码", password, false);
+
+        JPanel loginRow = rowPanel();
+        loginRow.add(rememberPassword);
+        loginRow.add(login);
+        c.gridx = 0;
+        c.gridy = 2;
+        c.gridwidth = 3;
+        c.weightx = 1.0;
+        form.add(loginRow, c);
+
+        JPanel skipRow = rowPanel();
+        skipRow.add(autoLogin);
+        skipRow.add(skip);
+        c.gridy = 3;
+        form.add(skipRow, c);
+        return form;
+    }
+
+    private static JPanel registerForm(Font uiFont, JTextField username, JPasswordField password, JTextField qq,
+                                       JTextField code, JButton register, JButton sendCode, JButton skip) {
+        JPanel form = new AntiAliasPanel(new GridBagLayout());
+        form.setBorder(javax.swing.BorderFactory.createEmptyBorder(18, 24, 20, 24));
+        GridBagConstraints c = constraints();
+        addField(form, c, uiFont, 0, "账号", username, true);
+        addField(form, c, uiFont, 1, "密码", password, true);
+        addField(form, c, uiFont, 2, "QQ号", qq, true);
+        addField(form, c, uiFont, 3, "验证码", code, true);
+
+        JPanel actionRow = rowPanel();
+        actionRow.add(sendCode);
+        actionRow.add(register);
+        c.gridx = 0;
+        c.gridy = 4;
+        c.gridwidth = 3;
+        c.weightx = 1.0;
+        form.add(actionRow, c);
+
+        JPanel skipRow = rowPanel();
+        skipRow.add(skip);
+        c.gridy = 5;
+        form.add(skipRow, c);
+        return form;
+    }
+
+    private static GridBagConstraints constraints() {
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(8, 7, 8, 7);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        return c;
+    }
+
+    private static void addField(JPanel form, GridBagConstraints c, Font font, int row, String labelText, JComponent field, boolean wrapped) {
+        c.gridx = 0;
+        c.gridy = row;
+        c.gridwidth = 1;
+        JLabel label = new JLabel(labelText);
+        label.setFont(font);
+        label.setPreferredSize(new Dimension(76, 36));
+        label.setMinimumSize(new Dimension(76, 36));
+        form.add(label, c);
+        c.gridx = 1;
+        c.gridwidth = 2;
+        c.weightx = 0.0;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.WEST;
+        form.add(wrapped ? fixedFieldPanel(field) : field, c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.CENTER;
+    }
+
+    private static JPanel fixedFieldPanel(JComponent field) {
+        JPanel panel = new AntiAliasPanel(new BorderLayout());
+        Dimension size = new Dimension(300, 36);
+        panel.setPreferredSize(size);
+        panel.setMinimumSize(size);
+        panel.setMaximumSize(size);
+        field.setPreferredSize(size);
+        field.setMinimumSize(size);
+        panel.add(field, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private static JPanel rowPanel() {
+        JPanel panel = new AntiAliasPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        panel.setPreferredSize(new Dimension(420, 42));
+        panel.setMinimumSize(new Dimension(420, 42));
+        return panel;
+    }
+
+    private static void styleTabButton(JButton button, boolean selected) {
+        button.setFocusPainted(false);
+        button.setOpaque(true);
+        button.setPreferredSize(new Dimension(76, 30));
+        button.setMinimumSize(new Dimension(76, 30));
+        button.setForeground(selected ? Color.WHITE : new Color(70, 75, 85));
+        button.setBackground(selected ? new Color(55, 120, 220) : new Color(238, 241, 246));
+        button.setBorder(javax.swing.BorderFactory.createCompoundBorder(
+                javax.swing.BorderFactory.createLineBorder(selected ? new Color(35, 95, 190) : new Color(205, 210, 220), 1),
+                javax.swing.BorderFactory.createEmptyBorder(4, 14, 4, 14)
+        ));
+    }
+
+    private static void applyFixedSize(Dimension size, JComponent... components) {
+        for (JComponent component : components) {
+            component.setPreferredSize(size);
+            component.setMinimumSize(size);
+        }
+    }
+
+    private static void runLogin(JDialog dialog, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
+                                 JLabel connectionStatus, JCheckBox rememberPassword, JCheckBox autoLogin,
+                                 JButton login, JButton skip, AtomicBoolean finished, String username,
+                                 String passwordHash, boolean automatic) {
         login.setEnabled(false);
         skip.setEnabled(false);
         error.setText(" ");
@@ -223,15 +433,11 @@ public final class IrcLoginWindow {
                     Config.ircAutoConnect = autoLogin.isSelected();
                     Config.ircEnabled = true;
                     Config.save();
-                    showSuccess(dialog, root, form, title, error, status, connectionStatus, finished);
+                    showSuccess(dialog, root, cards, title, error, status, connectionStatus, finished);
                 } else {
                     error.setText(result);
                     status.setForeground(Color.GRAY);
-                    status.setText("未注册用户会自动注册并登录。");
-                    usernameField.setEnabled(true);
-                    passwordField.setEnabled(true);
-                    rememberPassword.setEnabled(true);
-                    autoLogin.setEnabled(true);
+                    status.setText("未注册用户请切换到注册页。");
                     login.setEnabled(true);
                     skip.setEnabled(true);
                 }
@@ -256,12 +462,12 @@ public final class IrcLoginWindow {
         }, "PVPUtils-IRC-ServerPing").start();
     }
 
-    private static void showSuccess(JDialog dialog, JPanel root, JPanel form, JLabel title, JLabel error, JLabel status,
+    private static void showSuccess(JDialog dialog, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
                                     JLabel connectionStatus, AtomicBoolean finished) {
         UserSummary user = currentUserSummary();
         title.setText("欢迎" + blankFallback(user.username(), Config.ircUsername) + "！");
         error.setText(" ");
-        root.remove(form);
+        root.remove(cards);
         JPanel success = new AntiAliasPanel(new GridBagLayout());
         Font font = new Font("Microsoft YaHei UI", Font.PLAIN, 17);
         GridBagConstraints c = new GridBagConstraints();
@@ -287,6 +493,46 @@ public final class IrcLoginWindow {
                 dialog.dispose();
             });
         }, "PVPUtils-IRC-LoginSuccess").start();
+    }
+
+    private static void startCodeCooldown(JButton sendCode, JButton register, JButton skip) {
+        register.setEnabled(true);
+        skip.setEnabled(true);
+        sendCode.setEnabled(false);
+        final int[] remaining = {CODE_COOLDOWN_SECONDS};
+        sendCode.setText("发送验证码(" + remaining[0] + "s)");
+        Timer timer = new Timer(1000, null);
+        timer.addActionListener(event -> {
+            remaining[0]--;
+            if (remaining[0] <= 0) {
+                timer.stop();
+                sendCode.setText("发送验证码");
+                sendCode.setEnabled(true);
+            } else {
+                sendCode.setText("发送验证码(" + remaining[0] + "s)");
+            }
+        });
+        timer.start();
+    }
+
+    private static void setRegisterButtons(boolean enabled, JButton register, JButton sendCode, JButton skip) {
+        register.setEnabled(enabled);
+        sendCode.setEnabled(enabled);
+        skip.setEnabled(enabled);
+    }
+
+    private static void showError(JLabel error, JLabel status, String message) {
+        error.setText(message);
+        status.setForeground(Color.GRAY);
+        status.setText("请检查输入后重试。");
+    }
+
+    private static boolean validQq(String value) {
+        return value != null && value.length() >= 5 && digitsOnly(value);
+    }
+
+    private static boolean digitsOnly(String value) {
+        return value != null && value.matches("\\d+");
     }
 
     private static void setConnectionStatus(JLabel icon, JLabel label, ConnectionState state) {
@@ -350,6 +596,30 @@ public final class IrcLoginWindow {
             Object instance = clientClass.getMethod("getInstance").invoke(null);
             Method method = clientClass.getMethod("loginBlocking", String.class, String.class, long.class);
             Object result = method.invoke(instance, username, passwordHash, LOGIN_TIMEOUT_MS);
+            return result == null ? "" : result.toString();
+        } catch (ReflectiveOperationException e) {
+            return IrcBridge.MISSING_CORE_MESSAGE;
+        }
+    }
+
+    private static String requestRegistrationCode(String username, String passwordHash, String qq) {
+        try {
+            Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
+            Object instance = clientClass.getMethod("getInstance").invoke(null);
+            Method method = clientClass.getMethod("requestRegistrationCodeBlocking", String.class, String.class, String.class, long.class);
+            Object result = method.invoke(instance, username, passwordHash, qq, REGISTER_TIMEOUT_MS);
+            return result == null ? "" : result.toString();
+        } catch (ReflectiveOperationException e) {
+            return IrcBridge.MISSING_CORE_MESSAGE;
+        }
+    }
+
+    private static String registerAccount(String username, String passwordHash, String qq, String code) {
+        try {
+            Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
+            Object instance = clientClass.getMethod("getInstance").invoke(null);
+            Method method = clientClass.getMethod("registerBlocking", String.class, String.class, String.class, String.class, long.class);
+            Object result = method.invoke(instance, username, passwordHash, qq, code, REGISTER_TIMEOUT_MS);
             return result == null ? "" : result.toString();
         } catch (ReflectiveOperationException e) {
             return IrcBridge.MISSING_CORE_MESSAGE;
