@@ -38,6 +38,7 @@ public class Config {
     public static boolean elytraAutoFirework = true;
     public static boolean lowHealthNotify = false;
     public static boolean damageNumbers = false;
+    public static boolean attackReachDisplay = false;
     public static boolean arraylist = false;
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
@@ -618,6 +619,7 @@ public class Config {
             new ModuleRule("FoodInfo", "foodInfo", "foodInfo"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
             new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
+            new ModuleRule("AttackReachDisplay", "attackReachDisplay", "attackReachDisplay"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),

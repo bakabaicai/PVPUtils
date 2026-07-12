@@ -248,6 +248,8 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
+                .addSub(UiText.t("攻击距离", "Attack Reach"), UiText.t("在命中时在目标名字旁显示与目标的距离", "Show distance to target next to name when hitting"),
+                        new SettingToggle(() -> Config.attackReachDisplay, v -> { Config.attackReachDisplay = v; Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),

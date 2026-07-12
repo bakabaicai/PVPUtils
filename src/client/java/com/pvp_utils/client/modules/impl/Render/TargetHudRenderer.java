@@ -27,6 +27,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.InputStream;
@@ -68,6 +69,8 @@ public class TargetHudRenderer {
     private int lastTextureHealth = -1;
     private int lastTextureAbsorption = -1;
     private int lastTextureHealthTextAnim = -1;
+    private String lastTextureDistText = "";
+    private int lastTextureDistTextAnim = -1;
     private Config.HudTheme lastTextureTheme = null;
     private Config.HudTheme lastOverlayTextureTheme = null;
     private Config.HudTheme lastAvatarMaskTheme = null;
@@ -103,11 +106,19 @@ public class TargetHudRenderer {
     private long lastDamageTime = 0;
     private long lastHealTime = 0;
     private float lastObservedHealth = -1f;
+    private float lastAttackDistance = -1f;
+    private long lastAttackDistanceTime = 0;
+    private String currentDistText = "";
+    private String previousDistText = "";
+    private long distTextAnimStart = 0L;
+    private int distTextDirection = 0;
+    private float lastDistTextValue = -1f;
     private static final long DAMAGE_FLASH_DURATION = 300;
 
     private static final long HIDE_DELAY = 3000;
     private static final long ANIM_DURATION = 200;
     private static final long HEALTH_TEXT_ANIM_DURATION = 220;
+    private static final long ATTACK_DISTANCE_DISPLAY_DURATION = 2000;
 
     private static final int HUD_WIDTH = 160;
     private static final int HUD_HEIGHT = 40;
@@ -196,6 +207,14 @@ public class TargetHudRenderer {
         }
         this.target = entity;
         this.lastHitTime = now;
+
+        Minecraft client = Minecraft.getInstance();
+        if (client.player != null && Config.attackReachDisplay) {
+            Vec3 playerPos = client.player.position().add(0, client.player.getEyeHeight(), 0);
+            Vec3 targetPos = entity.position().add(0, entity.getBbHeight() * 0.5, 0);
+            this.lastAttackDistance = (float) playerPos.distanceTo(targetPos);
+            this.lastAttackDistanceTime = now;
+        }
     }
 
     public void render(GuiGraphics graphics) {
@@ -337,6 +356,17 @@ public class TargetHudRenderer {
         String name = target.getDisplayName().getString();
         if (name.length() > 16) name = name.substring(0, 16) + "..";
         graphics.drawString(client.font, Component.literal(name), infoX, y + PADDING + 2, whiteWithAlpha, false);
+
+        if (Config.attackReachDisplay && lastAttackDistance >= 0f && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION) {
+            long elapsed = now - lastAttackDistanceTime;
+            float distAlpha = elapsed < 150f ? elapsed / 150f : (elapsed > ATTACK_DISTANCE_DISPLAY_DURATION - 400f ? (float)(ATTACK_DISTANCE_DISPLAY_DURATION - elapsed) / 400f : 1.0f);
+            distAlpha = Math.max(0f, Math.min(1f, distAlpha));
+            int distAlphaInt = Math.round(distAlpha * alpha * 255);
+            int distColor = (distAlphaInt << 24) | 0xFFAA00;
+            String distText = String.format(java.util.Locale.ROOT, "%.2fm", lastAttackDistance);
+            int nameWidth = client.font.width(name);
+            graphics.drawString(client.font, Component.literal(distText), infoX + nameWidth + 4, y + PADDING + 2, distColor, false);
+        }
 
         float maxHealth = target.getMaxHealth();
         float currentHealth = target.getHealth();
@@ -637,7 +667,8 @@ public class TargetHudRenderer {
         int healthKey = Math.round(healthRatio * 120f);
         int absorptionKey = Math.round(absorptionRatio * 80f);
         int healthTextAnimKey = getHealthTextAnimKey(now);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode) return;
+        int distTextAnimKey = getDistTextAnimKey(now);
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && currentDistText.equals(lastTextureDistText) && distTextAnimKey == lastTextureDistTextAnim && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -657,6 +688,11 @@ public class TargetHudRenderer {
         c.scale(targetScale, targetScale);
         c.translate(-NEW_OVERLAY_X, -NEW_OVERLAY_Y);
         drawAnimatedHealthText(c, healthText, now, blurMode);
+        if (Config.attackReachDisplay && lastAttackDistance >= 0f && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION) {
+            updateDistTextAnimation(lastAttackDistance, now);
+            float healthTextEndX = 60f + FontRenderer.measureTextWidth(healthText, 10f) + 4f;
+            drawAnimatedDistText(c, currentDistText, healthTextEndX, now, blurMode);
+        }
 
         float barX = 60f;
         float barY = 45f;
@@ -679,6 +715,8 @@ public class TargetHudRenderer {
         lastTextureHealth = healthKey;
         lastTextureAbsorption = absorptionKey;
         lastTextureHealthTextAnim = healthTextAnimKey;
+        lastTextureDistText = currentDistText;
+        lastTextureDistTextAnim = distTextAnimKey;
         lastOverlayTextureTheme = Config.hudTheme;
         lastOverlayTextureBlurMode = blurMode;
     }
@@ -700,6 +738,23 @@ public class TargetHudRenderer {
         }
     }
 
+    private void updateDistTextAnimation(float distance, long now) {
+        String text = String.format(java.util.Locale.ROOT, "%.2fm", distance);
+        if (currentDistText.isEmpty()) {
+            currentDistText = text;
+            previousDistText = text;
+            lastDistTextValue = distance;
+            return;
+        }
+        if (!text.equals(currentDistText)) {
+            previousDistText = currentDistText;
+            distTextDirection = distance > lastDistTextValue ? 1 : -1;
+            distTextAnimStart = now;
+            currentDistText = text;
+            lastDistTextValue = distance;
+        }
+    }
+
     private void drawAnimatedHealthText(Canvas c, String healthText, long now, boolean blurMode) {
         float progress = healthTextAnimStart == 0L ? 1f : Mth.clamp((now - healthTextAnimStart) / (float) HEALTH_TEXT_ANIM_DURATION, 0f, 1f);
         float eased = 1f - (1f - progress) * (1f - progress) * (1f - progress);
@@ -717,6 +772,34 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
+                FontRenderer.drawText(c, oldCh, x, oldY, 10f, newHudMutedTextColor(blurMode));
+                FontRenderer.drawText(c, ch, x, newY, 10f, newHudMutedTextColor(blurMode));
+            } else {
+                FontRenderer.drawText(c, ch, x, baseY, 10f, newHudMutedTextColor(blurMode));
+            }
+            x += w;
+        }
+        c.restore();
+    }
+
+    private void drawAnimatedDistText(Canvas c, String distText, float startX, long now, boolean blurMode) {
+        if (distText.isEmpty()) return;
+        float progress = distTextAnimStart == 0L ? 1f : Mth.clamp((now - distTextAnimStart) / (float) HEALTH_TEXT_ANIM_DURATION, 0f, 1f);
+        float eased = 1f - (1f - progress) * (1f - progress) * (1f - progress);
+        float baseY = 40f;
+        float height = 14f;
+        float x = startX;
+        c.save();
+        c.clipRect(Rect.makeXYWH(startX - 2f, 28f, 80f, 16f));
+        for (int i = 0; i < distText.length(); i++) {
+            String ch = distText.substring(i, i + 1);
+            String oldCh = i < previousDistText.length() ? previousDistText.substring(i, i + 1) : ch;
+            boolean digit = Character.isDigit(ch.charAt(0));
+            boolean changed = digit && progress < 1f && distTextDirection != 0 && !ch.equals(oldCh);
+            float w = getHealthCharWidth(ch);
+            if (changed) {
+                float oldY = baseY + (distTextDirection > 0 ? -height * eased : height * eased);
+                float newY = baseY + (distTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
                 FontRenderer.drawText(c, oldCh, x, oldY, 10f, newHudMutedTextColor(blurMode));
                 FontRenderer.drawText(c, ch, x, newY, 10f, newHudMutedTextColor(blurMode));
             } else {
@@ -757,6 +840,13 @@ public class TargetHudRenderer {
         return Math.round(progress * 24f);
     }
 
+    private int getDistTextAnimKey(long now) {
+        if (distTextAnimStart == 0L) return 100;
+        float progress = Mth.clamp((now - distTextAnimStart) / (float) HEALTH_TEXT_ANIM_DURATION, 0f, 1f);
+        if (progress >= 1f) return 100;
+        return Math.round(progress * 24f);
+    }
+
     private void resetHealthTextAnimation() {
         currentHealthText = "";
         previousHealthText = "";
@@ -774,6 +864,15 @@ public class TargetHudRenderer {
         lastTextureHealth = -1;
         lastTextureAbsorption = -1;
         lastTextureHealthTextAnim = -1;
+        lastTextureDistText = "";
+        lastTextureDistTextAnim = -1;
+        lastAttackDistance = -1f;
+        lastAttackDistanceTime = 0;
+        currentDistText = "";
+        previousDistText = "";
+        distTextAnimStart = 0L;
+        distTextDirection = 0;
+        lastDistTextValue = -1f;
     }
 
     private void updateHealthTransition(float currentHealth, long now) {
