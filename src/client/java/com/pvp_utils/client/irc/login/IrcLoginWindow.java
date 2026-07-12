@@ -71,12 +71,12 @@ public final class IrcLoginWindow {
         dialog.setAlwaysOnTop(true);
 
         JPanel outer = new AntiAliasPanel(new BorderLayout(0, 0));
-        JPanel root = new AntiAliasPanel(new BorderLayout(0, 14));
-        root.setBorder(javax.swing.BorderFactory.createEmptyBorder(18, 28, 24, 28));
+        JPanel root = new AntiAliasPanel(new BorderLayout(0, 16));
+        root.setBorder(javax.swing.BorderFactory.createEmptyBorder(22, 34, 28, 34));
         Font uiFont = new Font("Microsoft YaHei UI", Font.PLAIN, 15);
         Font titleFont = new Font("Microsoft YaHei UI", Font.BOLD, 28);
         Font iconFont = loadFont("/fonts/MaterialSymbolsRounded.ttf", 15f);
-        Dimension fieldSize = new Dimension(300, 36);
+        Dimension fieldSize = new Dimension(330, 38);
         Dimension smallButtonSize = new Dimension(98, 34);
         Dimension wideButtonSize = new Dimension(128, 34);
 
@@ -85,6 +85,7 @@ public final class IrcLoginWindow {
         JLabel error = new JLabel(" ", SwingConstants.CENTER);
         error.setFont(uiFont.deriveFont(Font.BOLD, 13f));
         error.setForeground(new Color(190, 40, 40));
+        error.setPreferredSize(new Dimension(480, 58));
 
         JPanel tabs = new AntiAliasPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         JButton loginTab = new JButton("登录");
@@ -141,8 +142,8 @@ public final class IrcLoginWindow {
         applyFixedSize(fieldSize, loginUsername, loginPassword, registerUsername, registerPassword, registerQq, registerCode);
 
         JPanel cards = new AntiAliasPanel(new CardLayout());
-        cards.setPreferredSize(new Dimension(460, 310));
-        cards.setMinimumSize(new Dimension(460, 310));
+        cards.setPreferredSize(new Dimension(510, 350));
+        cards.setMinimumSize(new Dimension(510, 350));
         JPanel loginForm = loginForm(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip);
         JPanel registerForm = registerForm(uiFont, registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
         cards.add(loginForm, LOGIN_CARD);
@@ -163,7 +164,7 @@ public final class IrcLoginWindow {
         outer.add(root, BorderLayout.CENTER);
         outer.add(statusBar, BorderLayout.SOUTH);
         dialog.setContentPane(outer);
-        dialog.setPreferredSize(new Dimension(560, 560));
+        dialog.setPreferredSize(new Dimension(620, 620));
         dialog.pack();
         dialog.setLocationRelativeTo(null);
         startServerPing(connectionIcon, connectionStatus, finished);
@@ -510,22 +511,39 @@ public final class IrcLoginWindow {
 
     private static void showError(JLabel error, String message) {
         error.setForeground(new Color(190, 40, 40));
-        error.setText(message);
+        error.setText(formatLabelMessage(message));
     }
 
     private static void showSuccessMessage(JLabel label, String message) {
         label.setForeground(new Color(35, 150, 60));
-        label.setText(message);
+        label.setText(formatLabelMessage(message));
     }
 
     private static void showInfo(JLabel label, String message) {
         label.setForeground(Color.GRAY);
-        label.setText(message);
+        label.setText(formatLabelMessage(message));
     }
 
     private static void clearMessage(JLabel label) {
         label.setForeground(new Color(190, 40, 40));
         label.setText(" ");
+    }
+
+    private static String formatLabelMessage(String message) {
+        String value = message == null ? "" : message.trim();
+        if (value.isBlank()) {
+            return " ";
+        }
+        return "<html><div style='text-align:center;'>" + escapeHtml(value).replace("\n", "<br>") + "</div></html>";
+    }
+
+    private static String escapeHtml(String value) {
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private static boolean validQq(String value) {
