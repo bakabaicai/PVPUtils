@@ -4,6 +4,10 @@
   <a href="./README.zh-CN.md"><strong>简体中文</strong></a>
 </p>
 
+## Obfuscation Notice
+
+Starting from PVPUtils-v1.6-beta.1, PVPUtils introduces a built-in IRC system. To protect its core implementation, the project uses [PAHP](./docs/PAHP.md) for protection, and the related IRC code is not publicly released. The GitHub repository still keeps all non-IRC functionality available; third-party platforms receive no-IRC builds. Users who need IRC access can obtain the IRC build from the official QQ group.
+
 ## Introduction
 
 PVPUtils is a client-side utility mod for Minecraft 1.21.11 Fabric. It brings practical survival and PVP tools to the vanilla game, together with a wide range of polished visual components. All interfaces and visual elements are powered by Skija, balancing refined visuals with smooth performance. The mod also supports automatic update checks, so you do not need to manually visit mod platforms to see whether a new version is available. You can also run a command to check for updates manually.
