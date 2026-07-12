@@ -56,6 +56,15 @@ public final class IrcBridge {
         invoke(instance, "connect", new Class<?>[0]);
     }
 
+    public static void reconnect() {
+        Object instance = clientInstance();
+        if (instance == null) {
+            missingCore();
+            return;
+        }
+        invoke(instance, "reconnect", new Class<?>[0]);
+    }
+
     public static void disconnect() {
         Object instance = clientInstance();
         if (instance == null) {

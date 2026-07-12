@@ -35,7 +35,7 @@ public final class IrcCommand implements DotCommand {
                 }
                 Config.ircEnabled = true;
                 Config.save();
-                IrcBridge.connect();
+                IrcBridge.reconnect();
                 ChatUtils.success(Config.isChinese ? "正在尝试重新连接IRC服务器。" : "Trying to reconnect to the IRC server.");
             }
             case "kick" -> executeModeratorCommand("KICK", subArgs, false);

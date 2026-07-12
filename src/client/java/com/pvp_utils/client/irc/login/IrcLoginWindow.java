@@ -264,8 +264,8 @@ public final class IrcLoginWindow {
             }, "PVPUtils-IRC-Register").start();
         });
 
-        loginSkip.addActionListener(event -> skipIrc(dialog, finished));
-        registerSkip.addActionListener(event -> skipIrc(dialog, finished));
+        loginSkip.addActionListener(event -> skipIrc(dialog, finished, error));
+        registerSkip.addActionListener(event -> skipIrc(dialog, finished, error));
         dialog.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent event) {
@@ -580,8 +580,13 @@ public final class IrcLoginWindow {
         }
     }
 
-    private static void skipIrc(JDialog dialog, AtomicBoolean finished) {
+    private static void skipIrc(JDialog dialog, AtomicBoolean finished, JLabel error) {
         if (finished.get()) {
+            return;
+        }
+        String gateMessage = checkBuildGate();
+        if (!gateMessage.isBlank()) {
+            showError(error, gateMessage);
             return;
         }
         Config.ircEnabled = false;
@@ -589,6 +594,18 @@ public final class IrcLoginWindow {
         Config.save();
         finished.set(true);
         dialog.dispose();
+    }
+
+    private static String checkBuildGate() {
+        try {
+            Class<?> gateClass = Class.forName("com.pvp_utils.client.irc.network.IrcBuildGate");
+            Method method = gateClass.getDeclaredMethod("check");
+            method.setAccessible(true);
+            Object result = method.invoke(null);
+            return result == null ? "" : result.toString();
+        } catch (ReflectiveOperationException e) {
+            return IrcBridge.MISSING_CORE_MESSAGE;
+        }
     }
 
     private static String loginWithHash(String username, String passwordHash) {
