@@ -52,8 +52,17 @@ public final class CommandManager {
         if (input == null || !input.startsWith(".")) {
             return List.of();
         }
-        if (!input.contains(" ")) {
+        if (input.length() == 1) {
             return rootNames();
+        }
+        if (!input.contains(" ")) {
+            String prefix = input.substring(1).toLowerCase(Locale.ROOT);
+            return rootNames().stream()
+                    .filter(name -> {
+                        String commandName = name.substring(1).toLowerCase(Locale.ROOT);
+                        return commandName.startsWith(prefix) && !commandName.equals(prefix);
+                    })
+                    .toList();
         }
         String withoutPrefix = input.substring(1);
         DotCommand command = find(firstToken(withoutPrefix));

@@ -25,6 +25,7 @@ public final class UpdateCommand implements DotCommand {
         if (args.contains(" ") || trimmed.isBlank()) {
             return List.of();
         }
-        return "qqgroup".startsWith(trimmed.toLowerCase(java.util.Locale.ROOT)) ? List.of("qqgroup") : List.of();
+        String prefix = trimmed.toLowerCase(java.util.Locale.ROOT);
+        return "qqgroup".startsWith(prefix) && !"qqgroup".equals(prefix) ? List.of("qqgroup") : List.of();
     }
 }

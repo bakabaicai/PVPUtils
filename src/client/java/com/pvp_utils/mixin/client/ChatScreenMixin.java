@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.EditBox;
@@ -49,6 +50,11 @@ public class ChatScreenMixin {
     @Inject(method = "onEdited", at = @At("TAIL"))
     private void showDotCommandSuggestions(String value, CallbackInfo ci) {
         if (input == null || commandSuggestions == null || value == null || !value.startsWith(".")) {
+            return;
+        }
+        if (CommandManager.vanillaTabSuggestions(value).isEmpty()) {
+            commandSuggestions.hide();
+            commandSuggestions.setAllowSuggestions(false);
             return;
         }
         commandSuggestions.setAllowSuggestions(true);

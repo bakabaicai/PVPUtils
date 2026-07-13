@@ -384,6 +384,14 @@ public class Config {
         }
     }
 
+    public static void clearIrcCredentials() {
+        ircEnabled = false;
+        ircAutoConnect = false;
+        ircUsername = "";
+        ircToken = "";
+        ircPasswordHash = "";
+    }
+
     private static void loadJsonConfig(Path path) {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             JsonElement element = JsonParser.parseReader(reader);

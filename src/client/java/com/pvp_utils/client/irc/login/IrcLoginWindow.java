@@ -602,22 +602,21 @@ public final class IrcLoginWindow {
         if (finished.get()) {
             return;
         }
-        String gateMessage = checkBuildGate();
+        String gateMessage = checkBuildExpiryOnly();
         if (!gateMessage.isBlank()) {
             showError(error, gateMessage);
             return;
         }
-        Config.ircEnabled = false;
-        Config.ircAutoConnect = false;
+        Config.clearIrcCredentials();
         Config.save();
         finished.set(true);
         dialog.dispose();
     }
 
-    private static String checkBuildGate() {
+    private static String checkBuildExpiryOnly() {
         try {
             Class<?> gateClass = Class.forName("com.pvp_utils.client.irc.network.IrcBuildGate");
-            Method method = gateClass.getDeclaredMethod("check");
+            Method method = gateClass.getDeclaredMethod("checkExpiryOnly");
             method.setAccessible(true);
             Object result = method.invoke(null);
             return result == null ? "" : result.toString();

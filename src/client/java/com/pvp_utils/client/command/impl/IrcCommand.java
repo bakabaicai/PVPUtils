@@ -33,6 +33,12 @@ public final class IrcCommand implements DotCommand {
                     ChatUtils.error(Config.isChinese ? "您已经连接到IRC服务器了！" : "You are already connected to the IRC server!");
                     return;
                 }
+                if (Config.ircToken == null || Config.ircToken.isBlank()) {
+                    ChatUtils.warning(Config.isChinese
+                            ? "当前未连接至IRC服务器，IRC相关功能将无法使用，您可以稍后重新启动游戏并尝试登录IRC服务器。"
+                            : "You are not connected to the IRC server. IRC features are unavailable. You can restart the game later and try logging in to the IRC server.");
+                    return;
+                }
                 Config.ircEnabled = true;
                 Config.save();
                 IrcBridge.reconnect();
@@ -53,12 +59,12 @@ public final class IrcCommand implements DotCommand {
     public List<String> suggestions(String args) {
         String value = args == null ? "" : args;
         String trimmed = value.trim();
-        if (trimmed.contains(" ")) {
+        if (value.contains(" ")) {
             return List.of();
         }
         String prefix = trimmed.toLowerCase(Locale.ROOT);
         return visibleSubCommands().stream()
-                .filter(command -> command.startsWith(prefix))
+                .filter(command -> command.startsWith(prefix) && !command.equals(prefix))
                 .toList();
     }
 
