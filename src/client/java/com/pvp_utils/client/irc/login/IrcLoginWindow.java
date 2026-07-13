@@ -455,6 +455,8 @@ public final class IrcLoginWindow {
         UserSummary user = currentUserSummary();
         title.setText("欢迎" + blankFallback(user.username(), Config.ircUsername) + "！");
         error.setText(" ");
+        status.setText(" ");
+        status.setVisible(false);
         root.remove(cards);
         JPanel success = new AntiAliasPanel(new GridBagLayout());
         Font font = new Font("Microsoft YaHei UI", Font.PLAIN, 17);
