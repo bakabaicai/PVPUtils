@@ -17,6 +17,7 @@ import javax.swing.Timer;
 import javax.swing.WindowConstants;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -42,6 +43,8 @@ public final class IrcLoginWindow {
     private static final long MIN_MANUAL_LOGIN_BUTTON_MS = 1500L;
     private static final long SUCCESS_WINDOW_MS = 3000L;
     private static final int CODE_COOLDOWN_SECONDS = 60;
+    private static final int WINDOW_WIDTH = 620;
+    private static final int WINDOW_HEIGHT = 620;
     private static final String SAVED_PASSWORD_PLACEHOLDER = "********";
     private static final String LOGIN_CARD = "login";
     private static final String REGISTER_CARD = "register";
@@ -70,7 +73,8 @@ public final class IrcLoginWindow {
         dialog.setResizable(false);
         dialog.setAlwaysOnTop(true);
 
-        JPanel outer = new AntiAliasPanel(new BorderLayout(0, 0));
+        AlphaPanel outer = new AlphaPanel(new BorderLayout(0, 0));
+        outer.setAlpha(0f);
         JPanel root = new AntiAliasPanel(new BorderLayout(0, 16));
         root.setBorder(javax.swing.BorderFactory.createEmptyBorder(22, 34, 28, 34));
         Font uiFont = new Font("Microsoft YaHei UI", Font.PLAIN, 15);
@@ -87,14 +91,14 @@ public final class IrcLoginWindow {
         error.setForeground(new Color(190, 40, 40));
         error.setPreferredSize(new Dimension(480, 58));
 
-        JPanel tabs = new AntiAliasPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        SlidingTabPanel tabs = new SlidingTabPanel();
         JButton loginTab = new JButton("登录");
         JButton registerTab = new JButton("注册");
         applyFont(uiFont.deriveFont(Font.BOLD, 13f), loginTab, registerTab);
         styleTabButton(loginTab, true);
         styleTabButton(registerTab, false);
-        tabs.add(loginTab);
-        tabs.add(registerTab);
+        tabs.addTab(loginTab);
+        tabs.addTab(registerTab);
 
         JPanel header = new AntiAliasPanel(new BorderLayout(0, 6));
         header.add(tabs, BorderLayout.NORTH);
@@ -141,15 +145,17 @@ public final class IrcLoginWindow {
                 registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
         applyFixedSize(fieldSize, loginUsername, loginPassword, registerUsername, registerPassword, registerQq, registerCode);
 
-        JPanel cards = new AntiAliasPanel(new CardLayout());
+        AlphaPanel cards = new AlphaPanel(new CardLayout());
         cards.setPreferredSize(new Dimension(510, 350));
         cards.setMinimumSize(new Dimension(510, 350));
         JPanel loginForm = loginForm(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip);
         JPanel registerForm = registerForm(uiFont, registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
         cards.add(loginForm, LOGIN_CARD);
         cards.add(registerForm, REGISTER_CARD);
+        AlphaPanel statusFade = new AlphaPanel(new BorderLayout());
+        statusFade.add(status, BorderLayout.CENTER);
         root.add(cards, BorderLayout.CENTER);
-        root.add(status, BorderLayout.SOUTH);
+        root.add(statusFade, BorderLayout.SOUTH);
 
         JPanel statusBar = new AntiAliasPanel(new BorderLayout());
         statusBar.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 10, 10, 10));
@@ -164,25 +170,32 @@ public final class IrcLoginWindow {
         outer.add(root, BorderLayout.CENTER);
         outer.add(statusBar, BorderLayout.SOUTH);
         dialog.setContentPane(outer);
-        dialog.setPreferredSize(new Dimension(620, 620));
+        dialog.setPreferredSize(new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT));
         dialog.pack();
         dialog.setLocationRelativeTo(null);
+        playOpenAnimation(dialog, outer, WINDOW_WIDTH, WINDOW_HEIGHT);
         startServerPing(connectionIcon, connectionStatus, finished);
 
         loginTab.addActionListener(event -> {
-            ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
-            styleTabButton(loginTab, true);
-            styleTabButton(registerTab, false);
-            clearMessage(error);
-            status.setText("未注册用户请切换到注册页。");
+            switchLoginPage(cards, statusFade, () -> {
+                ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
+                tabs.select(0);
+                styleTabButton(loginTab, true);
+                styleTabButton(registerTab, false);
+                clearMessage(error);
+                status.setText("未注册用户请切换到注册页。");
+            });
         });
         registerTab.addActionListener(event -> {
-            registerUsername.setText(loginUsername.getText().trim());
-            ((CardLayout) cards.getLayout()).show(cards, REGISTER_CARD);
-            styleTabButton(loginTab, false);
-            styleTabButton(registerTab, true);
-            clearMessage(error);
-            status.setText(" ");
+            switchLoginPage(cards, statusFade, () -> {
+                registerUsername.setText(loginUsername.getText().trim());
+                ((CardLayout) cards.getLayout()).show(cards, REGISTER_CARD);
+                tabs.select(1);
+                styleTabButton(loginTab, false);
+                styleTabButton(registerTab, true);
+                clearMessage(error);
+                status.setText(" ");
+            });
         });
 
         login.addActionListener(event -> {
@@ -194,7 +207,7 @@ public final class IrcLoginWindow {
                 return;
             }
             String hash = useSavedPassword ? Config.ircPasswordHash : sha256(pass);
-            runLogin(dialog, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
+            runLogin(dialog, outer, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
                     login, loginSkip, finished, user, hash, false);
         });
 
@@ -255,6 +268,7 @@ public final class IrcLoginWindow {
                         registerPassword.setText("");
                         registerCode.setText("");
                         ((CardLayout) cards.getLayout()).show(cards, LOGIN_CARD);
+                        tabs.select(0);
                         styleTabButton(loginTab, true);
                         styleTabButton(registerTab, false);
                         showSuccessMessage(error, "注册成功，请登录。");
@@ -265,8 +279,8 @@ public final class IrcLoginWindow {
             }, "PVPUtils-IRC-Register").start();
         });
 
-        loginSkip.addActionListener(event -> skipIrc(dialog, finished, error));
-        registerSkip.addActionListener(event -> skipIrc(dialog, finished, error));
+        loginSkip.addActionListener(event -> skipIrc(dialog, outer, finished, error));
+        registerSkip.addActionListener(event -> skipIrc(dialog, outer, finished, error));
         dialog.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent event) {
@@ -276,7 +290,7 @@ public final class IrcLoginWindow {
             }
         });
         if (Config.ircAutoConnect && !Config.ircUsername.isBlank() && !Config.ircPasswordHash.isBlank()) {
-            runLogin(dialog, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
+            runLogin(dialog, outer, root, cards, title, error, status, connectionStatus, rememberPassword, autoLogin,
                     login, loginSkip, finished, Config.ircUsername, Config.ircPasswordHash, true);
         }
         return dialog;
@@ -380,13 +394,13 @@ public final class IrcLoginWindow {
 
     private static void styleTabButton(JButton button, boolean selected) {
         button.setFocusPainted(false);
-        button.setOpaque(true);
+        button.setOpaque(false);
+        button.setContentAreaFilled(false);
         button.setPreferredSize(new Dimension(76, 30));
         button.setMinimumSize(new Dimension(76, 30));
         button.setForeground(selected ? Color.WHITE : new Color(70, 75, 85));
-        button.setBackground(selected ? new Color(55, 120, 220) : new Color(238, 241, 246));
         button.setBorder(javax.swing.BorderFactory.createCompoundBorder(
-                javax.swing.BorderFactory.createLineBorder(selected ? new Color(35, 95, 190) : new Color(205, 210, 220), 1),
+                javax.swing.BorderFactory.createLineBorder(new Color(205, 210, 220, selected ? 0 : 255), 1),
                 javax.swing.BorderFactory.createEmptyBorder(4, 14, 4, 14)
         ));
     }
@@ -398,7 +412,139 @@ public final class IrcLoginWindow {
         }
     }
 
-    private static void runLogin(JDialog dialog, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
+    private static void playOpenAnimation(JDialog dialog, AlphaPanel content, int targetW, int targetH) {
+        int startW = 80;
+        int startH = 80;
+        int overshootW = Math.round(targetW * 1.045f);
+        int overshootH = Math.round(targetH * 1.045f);
+        int centerX = dialog.getX() + targetW / 2;
+        int centerY = dialog.getY() + targetH / 2;
+        dialog.setBounds(centerX - startW / 2, centerY - startH / 2, startW, startH);
+
+        long startMs = System.currentTimeMillis();
+        int growDuration = 260;
+        int settleDuration = 180;
+        Timer timer = new Timer(16, null);
+        timer.addActionListener(event -> {
+            long elapsed = System.currentTimeMillis() - startMs;
+            int width;
+            int height;
+            if (elapsed <= growDuration) {
+                float t = easeOutCubic(elapsed / (float) growDuration);
+                width = lerp(startW, overshootW, t);
+                height = lerp(startH, overshootH, t);
+            } else {
+                float t = easeOutBack(Math.min(1f, (elapsed - growDuration) / (float) settleDuration));
+                width = lerp(overshootW, targetW, t);
+                height = lerp(overshootH, targetH, t);
+            }
+            dialog.setBounds(centerX - width / 2, centerY - height / 2, width, height);
+            dialog.revalidate();
+            if (elapsed >= growDuration + settleDuration) {
+                timer.stop();
+                dialog.setBounds(centerX - targetW / 2, centerY - targetH / 2, targetW, targetH);
+                dialog.revalidate();
+                fadeContent(content, 0f, 1f, 220, null);
+            }
+        });
+        timer.start();
+    }
+
+    private static void playCloseAnimation(JDialog dialog, AlphaPanel content, Runnable onComplete) {
+        fadeContent(content, content.getAlpha(), 0f, 180, () -> {
+            int startW = dialog.getWidth();
+            int startH = dialog.getHeight();
+            int overshootW = Math.round(WINDOW_WIDTH * 1.045f);
+            int overshootH = Math.round(WINDOW_HEIGHT * 1.045f);
+            int targetW = 80;
+            int targetH = 80;
+            int centerX = dialog.getX() + startW / 2;
+            int centerY = dialog.getY() + startH / 2;
+            long startMs = System.currentTimeMillis();
+            int expandDuration = 140;
+            int shrinkDuration = 260;
+            Timer timer = new Timer(16, null);
+            timer.addActionListener(event -> {
+                long elapsed = System.currentTimeMillis() - startMs;
+                int width;
+                int height;
+                if (elapsed <= expandDuration) {
+                    float t = easeOutCubic(elapsed / (float) expandDuration);
+                    width = lerp(startW, overshootW, t);
+                    height = lerp(startH, overshootH, t);
+                } else {
+                    float t = easeInCubic((elapsed - expandDuration) / (float) shrinkDuration);
+                    width = lerp(overshootW, targetW, t);
+                    height = lerp(overshootH, targetH, t);
+                }
+                dialog.setBounds(centerX - width / 2, centerY - height / 2, width, height);
+                dialog.revalidate();
+                if (elapsed >= expandDuration + shrinkDuration) {
+                    timer.stop();
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
+                }
+            });
+            timer.start();
+        });
+    }
+
+    private static void fadeContent(AlphaPanel content, float from, float to, int durationMs, Runnable onComplete) {
+        long startMs = System.currentTimeMillis();
+        Timer timer = new Timer(16, null);
+        timer.addActionListener(event -> {
+            float t = easeOutCubic((System.currentTimeMillis() - startMs) / (float) durationMs);
+            content.setAlpha(from + (to - from) * t);
+            if (t >= 1f) {
+                timer.stop();
+                content.setAlpha(to);
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+            }
+        });
+        timer.start();
+    }
+
+    private static void switchLoginPage(AlphaPanel cards, AlphaPanel status, Runnable switcher) {
+        fadeContent(cards, cards.getAlpha(), 0f, 120, () -> {
+            fadeContent(status, status.getAlpha(), 0f, 80, () -> {
+                if (switcher != null) {
+                    switcher.run();
+                }
+                cards.revalidate();
+                cards.repaint();
+                status.revalidate();
+                status.repaint();
+                fadeContent(status, 0f, 1f, 120, null);
+                fadeContent(cards, 0f, 1f, 160, null);
+            });
+        });
+    }
+
+    private static int lerp(int start, int end, float t) {
+        return Math.round(start + (end - start) * t);
+    }
+
+    private static float easeOutCubic(float value) {
+        float t = 1f - Math.max(0f, Math.min(1f, value));
+        return 1f - t * t * t;
+    }
+
+    private static float easeInCubic(float value) {
+        float t = Math.max(0f, Math.min(1f, value));
+        return t * t * t;
+    }
+
+    private static float easeOutBack(float value) {
+        float t = Math.max(0f, Math.min(1f, value)) - 1f;
+        float c1 = 1.70158f;
+        float c3 = c1 + 1f;
+        return 1f + c3 * t * t * t + c1 * t * t;
+    }
+
+    private static void runLogin(JDialog dialog, AlphaPanel outer, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
                                  JLabel connectionStatus, JCheckBox rememberPassword, JCheckBox autoLogin,
                                  JButton login, JButton skip, AtomicBoolean finished, String username,
                                  String passwordHash, boolean automatic) {
@@ -423,7 +569,7 @@ public final class IrcLoginWindow {
                     Config.ircAutoConnect = autoLogin.isSelected();
                     Config.ircEnabled = true;
                     Config.save();
-                    showSuccess(dialog, root, cards, title, error, status, connectionStatus, finished);
+                    showSuccess(dialog, outer, root, cards, title, error, status, connectionStatus, finished);
                 } else {
                     showError(error, result);
                     login.setEnabled(true);
@@ -450,7 +596,7 @@ public final class IrcLoginWindow {
         }, "PVPUtils-IRC-ServerPing").start();
     }
 
-    private static void showSuccess(JDialog dialog, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
+    private static void showSuccess(JDialog dialog, AlphaPanel outer, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,
                                     JLabel connectionStatus, AtomicBoolean finished) {
         UserSummary user = currentUserSummary();
         title.setText("欢迎" + blankFallback(user.username(), Config.ircUsername) + "！");
@@ -487,8 +633,10 @@ public final class IrcLoginWindow {
             sleep(SUCCESS_WINDOW_MS);
             SwingUtilities.invokeLater(() -> {
                 refresh.stop();
-                finished.set(true);
-                dialog.dispose();
+                playCloseAnimation(dialog, outer, () -> {
+                    finished.set(true);
+                    dialog.dispose();
+                });
             });
         }, "PVPUtils-IRC-LoginSuccess").start();
     }
@@ -522,6 +670,7 @@ public final class IrcLoginWindow {
     private static void showError(JLabel error, String message) {
         error.setForeground(new Color(190, 40, 40));
         error.setText(formatLabelMessage(message));
+        shakeWindow(error);
     }
 
     private static void showSuccessMessage(JLabel label, String message) {
@@ -537,6 +686,28 @@ public final class IrcLoginWindow {
     private static void clearMessage(JLabel label) {
         label.setForeground(new Color(190, 40, 40));
         label.setText(" ");
+    }
+
+    private static void shakeWindow(JComponent component) {
+        java.awt.Window window = SwingUtilities.getWindowAncestor(component);
+        if (window == null || !window.isShowing()) {
+            return;
+        }
+        int originX = window.getX();
+        int originY = window.getY();
+        int[] offsets = {0, -10, 10, -8, 8, -5, 5, -2, 2, 0};
+        final int[] frame = {0};
+        Timer timer = new Timer(18, null);
+        timer.addActionListener(event -> {
+            if (frame[0] >= offsets.length) {
+                timer.stop();
+                window.setLocation(originX, originY);
+                return;
+            }
+            window.setLocation(originX + offsets[frame[0]], originY);
+            frame[0]++;
+        });
+        timer.start();
     }
 
     private static String formatLabelMessage(String message) {
@@ -593,7 +764,7 @@ public final class IrcLoginWindow {
         }
     }
 
-    private static final class AntiAliasPanel extends JPanel {
+    private static class AntiAliasPanel extends JPanel {
         private AntiAliasPanel(java.awt.LayoutManager layout) {
             super(layout);
         }
@@ -608,7 +779,7 @@ public final class IrcLoginWindow {
         }
     }
 
-    private static void skipIrc(JDialog dialog, AtomicBoolean finished, JLabel error) {
+    private static void skipIrc(JDialog dialog, AlphaPanel outer, AtomicBoolean finished, JLabel error) {
         if (finished.get()) {
             return;
         }
@@ -619,8 +790,99 @@ public final class IrcLoginWindow {
         }
         Config.clearIrcSession();
         Config.save();
-        finished.set(true);
-        dialog.dispose();
+        playCloseAnimation(dialog, outer, () -> {
+            finished.set(true);
+            dialog.dispose();
+        });
+    }
+
+    private static final class AlphaPanel extends AntiAliasPanel {
+        private float alpha = 1f;
+
+        private AlphaPanel(java.awt.LayoutManager layout) {
+            super(layout);
+        }
+
+        private float getAlpha() {
+            return alpha;
+        }
+
+        private void setAlpha(float alpha) {
+            this.alpha = Math.max(0f, Math.min(1f, alpha));
+            repaint();
+            if (getParent() != null) {
+                getParent().repaint();
+            }
+        }
+
+        @Override
+        public void paint(Graphics graphics) {
+            if (!(graphics instanceof Graphics2D g)) {
+                super.paint(graphics);
+                return;
+            }
+            Graphics2D copy = (Graphics2D) g.create();
+            super.paintComponent(copy);
+            super.paintBorder(copy);
+            copy.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            super.paintChildren(copy);
+            copy.dispose();
+        }
+    }
+
+    private static final class SlidingTabPanel extends AntiAliasPanel {
+        private static final int TAB_W = 76;
+        private static final int TAB_H = 30;
+        private float indicatorX = 0f;
+        private float targetX = 0f;
+        private Timer timer;
+
+        private SlidingTabPanel() {
+            super(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            setOpaque(false);
+            setPreferredSize(new Dimension(TAB_W * 2, TAB_H));
+            setMinimumSize(new Dimension(TAB_W * 2, TAB_H));
+        }
+
+        private void addTab(JButton button) {
+            add(button);
+        }
+
+        private void select(int index) {
+            targetX = Math.max(0, index) * TAB_W;
+            if (timer != null && timer.isRunning()) {
+                timer.stop();
+            }
+            long startedAt = System.currentTimeMillis();
+            float startX = indicatorX;
+            int duration = 180;
+            timer = new Timer(16, event -> {
+                float t = easeOutCubic((System.currentTimeMillis() - startedAt) / (float) duration);
+                indicatorX = startX + (targetX - startX) * t;
+                repaint();
+                if (t >= 1f) {
+                    indicatorX = targetX;
+                    timer.stop();
+                    repaint();
+                }
+            });
+            timer.start();
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            if (!(graphics instanceof Graphics2D g)) {
+                return;
+            }
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(238, 241, 246));
+            g.fillRoundRect(0, 0, TAB_W * 2, TAB_H, 10, 10);
+            g.setColor(new Color(55, 120, 220));
+            g.fillRoundRect(Math.round(indicatorX), 0, TAB_W, TAB_H, 10, 10);
+            g.setColor(new Color(205, 210, 220));
+            g.drawRoundRect(0, 0, TAB_W * 2 - 1, TAB_H - 1, 10, 10);
+        }
     }
 
     private static String checkBuildExpiryOnly() {
