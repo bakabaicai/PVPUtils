@@ -92,6 +92,15 @@ public final class IrcBridge {
         invokeStatic(chatService, "sendChat", new Class<?>[]{String.class}, message);
     }
 
+    public static void sendPrivateMessage(String target, String message) {
+        Class<?> chatService = findClass(CHAT_SERVICE_CLASS);
+        if (chatService == null) {
+            missingCore();
+            return;
+        }
+        invokeStatic(chatService, "sendPrivateMessage", new Class<?>[]{String.class, String.class}, target, message);
+    }
+
     public static Component decorateName(Component original, UUID minecraftUuid) {
         Class<?> tabListService = findClass(TAB_LIST_SERVICE_CLASS);
         if (tabListService == null || original == null || minecraftUuid == null) {

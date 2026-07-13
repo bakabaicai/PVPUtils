@@ -471,12 +471,20 @@ public final class IrcLoginWindow {
         rank.setFont(font);
         success.add(rank, c);
         root.add(success, BorderLayout.CENTER);
+        Timer refresh = new Timer(250, event -> {
+            UserSummary latest = currentUserSummary();
+            title.setText("欢迎" + blankFallback(latest.username(), Config.ircUsername) + "！");
+            group.setText("当前身份组：" + blankFallback(latest.role(), "USER"));
+            rank.setText("当前头衔：" + blankFallback(latest.title(), "无"));
+        });
+        refresh.start();
         showSuccessMessage(error, "登录成功，正在启动游戏...");
         root.revalidate();
         root.repaint();
         new Thread(() -> {
             sleep(SUCCESS_WINDOW_MS);
             SwingUtilities.invokeLater(() -> {
+                refresh.stop();
                 finished.set(true);
                 dialog.dispose();
             });

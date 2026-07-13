@@ -657,9 +657,13 @@ public class DynamicIslandRenderer {
             PlayerInfo player = players.get(i);
             int baseColor = player.getGameMode() == GameType.SPECTATOR ? TAB_SPECTATOR_NAME_COLOR : TAB_DEFAULT_NAME_COLOR;
             Map.Entry<String, Integer> formattedName = resolveTabName(player, baseColor);
-            String name = trimToWidth(formattedName.getKey(), columnW - 46f, TAB_NAME_SIZE);
-            int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.getValue();
-            FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
+            if (ircHasProfile(player)) {
+                drawIrcTabName(canvas, player, formattedName.getKey(), x, y, columnW - 46f, alpha);
+            } else {
+                String name = trimToWidth(formattedName.getKey(), columnW - 46f, TAB_NAME_SIZE);
+                int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.getValue();
+                FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
+            }
 
             String latency = formatLatency(player.getLatency());
             float latencyW = FontRenderer.measureTextWidth(latency, 9f);
@@ -689,17 +693,39 @@ public class DynamicIslandRenderer {
         return withIrcTitle(player, parseLegacyTabName(player.getProfile().name(), teamColor));
     }
 
+    private void drawIrcTabName(Canvas canvas, PlayerInfo player, String fallbackName, float x, float y, float maxWidth, int alpha) {
+        String prefix = "[P]  ";
+        FontRenderer.drawText(canvas, prefix, x, y, TAB_NAME_SIZE, withAlpha(0xFFFFAA00, alpha));
+        x += FontRenderer.measureTextWidth(prefix, TAB_NAME_SIZE);
+        maxWidth -= FontRenderer.measureTextWidth(prefix, TAB_NAME_SIZE);
+
+        String title = ircTitle(player);
+        if (!title.isBlank()) {
+            String titleText = "[" + title + "]  ";
+            int titleColor = parseIrcTitleColor(player, TAB_DEFAULT_NAME_COLOR);
+            FontRenderer.drawText(canvas, titleText, x, y, TAB_NAME_SIZE, withAlpha(titleColor, alpha));
+            float titleW = FontRenderer.measureTextWidth(titleText, TAB_NAME_SIZE);
+            x += titleW;
+            maxWidth -= titleW;
+        }
+
+        String username = ircUsername(player);
+        String name = username.isBlank() ? stripIrcPrefix(fallbackName) : username;
+        FontRenderer.drawText(canvas, trimToWidth(name, Math.max(0f, maxWidth), TAB_NAME_SIZE), x, y, TAB_NAME_SIZE, withAlpha(TAB_SELF_NAME_COLOR, alpha));
+    }
+
     private Map.Entry<String, Integer> withIrcTitle(PlayerInfo player, Map.Entry<String, Integer> name) {
         if (!ircHasProfile(player)) {
             return name;
         }
         String title = ircTitle(player);
+        String username = ircUsername(player);
         StringBuilder decorated = new StringBuilder("[P]  ");
         if (!title.isBlank()) {
             decorated.append("[").append(title).append("]  ");
         }
-        decorated.append(name.getKey());
-        return Map.entry(decorated.toString(), title.isBlank() ? name.getValue() : parseIrcTitleColor(player, name.getValue()));
+        decorated.append(username.isBlank() ? name.getKey() : username);
+        return Map.entry(decorated.toString(), name.getValue());
     }
 
     private boolean ircHasProfile(PlayerInfo player) {
@@ -717,6 +743,17 @@ public class DynamicIslandRenderer {
         try {
             Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
             Method method = service.getMethod("title", java.util.UUID.class);
+            Object value = method.invoke(null, player.getProfile().id());
+            return value == null ? "" : value.toString().trim();
+        } catch (ReflectiveOperationException ignored) {
+            return "";
+        }
+    }
+
+    private String ircUsername(PlayerInfo player) {
+        try {
+            Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
+            Method method = service.getMethod("username", java.util.UUID.class);
             Object value = method.invoke(null, player.getProfile().id());
             return value == null ? "" : value.toString().trim();
         } catch (ReflectiveOperationException ignored) {
@@ -744,6 +781,13 @@ public class DynamicIslandRenderer {
             }
         }
         return fallbackColor;
+    }
+
+    private String stripIrcPrefix(String name) {
+        if (name == null) {
+            return "";
+        }
+        return name.replaceFirst("^\\[P]\\s*(\\[[^]]+])?\\s*", "").trim();
     }
 
     private Map.Entry<String, Integer> parseComponentTabName(Component component, int fallbackColor) {

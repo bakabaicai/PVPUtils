@@ -7,6 +7,7 @@ import com.pvp_utils.client.command.impl.DotCommand;
 import com.pvp_utils.client.command.impl.HelpCommand;
 import com.pvp_utils.client.command.impl.IrcChatCommand;
 import com.pvp_utils.client.command.impl.IrcCommand;
+import com.pvp_utils.client.command.impl.IrcPrivateMessageCommand;
 import com.pvp_utils.client.command.impl.UpdateCommand;
 import com.pvp_utils.client.util.ChatUtils;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -22,6 +23,7 @@ public final class CommandManager {
             new ClientNameCommand(),
             new AutoGGCommand(),
             new IrcCommand(),
+            new IrcPrivateMessageCommand(),
             new IrcChatCommand()
     );
 
