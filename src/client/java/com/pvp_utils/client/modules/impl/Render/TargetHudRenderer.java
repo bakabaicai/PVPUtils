@@ -269,6 +269,8 @@ public class TargetHudRenderer {
             return;
         }
 
+        updateAttackDistance(client, now);
+
         if (Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR) {
             renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
             return;
@@ -886,6 +888,18 @@ public class TargetHudRenderer {
             lastDamageTime = now;
         }
         lastObservedHealth = currentHealth;
+    }
+
+    private void updateAttackDistance(Minecraft client, long now) {
+        if (!Config.attackReachDisplay || client.player == null || target == null || lastAttackDistanceTime <= 0L) {
+            return;
+        }
+        if (now - lastAttackDistanceTime >= ATTACK_DISTANCE_DISPLAY_DURATION) {
+            return;
+        }
+        Vec3 playerPos = client.player.position().add(0, client.player.getEyeHeight(), 0);
+        Vec3 targetPos = target.position().add(0, target.getBbHeight() * 0.5, 0);
+        lastAttackDistance = (float) playerPos.distanceTo(targetPos);
     }
 
     private float getFlashFactor(long now, long startTime) {
