@@ -2,7 +2,6 @@ package com.pvp_utils.client.command.impl;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.irc.IrcBridge;
-import com.pvp_utils.client.irc.user.IrcUserManager;
 import com.pvp_utils.client.util.ChatUtils;
 
 import java.util.List;
@@ -30,9 +29,20 @@ public final class IrcPrivateMessageCommand implements DotCommand {
         if (value.contains(" ")) {
             return List.of();
         }
-        return IrcUserManager.usernamesStartingWith(value).stream()
+        return usernamesStartingWith(value).stream()
                 .filter(name -> !name.equalsIgnoreCase(value))
                 .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> usernamesStartingWith(String prefix) {
+        try {
+            Class<?> userManager = Class.forName("com.pvp_utils.client.irc.user.IrcUserManager");
+            Object result = userManager.getMethod("usernamesStartingWith", String.class).invoke(null, prefix);
+            return result instanceof List<?> list ? (List<String>) list : List.of();
+        } catch (ReflectiveOperationException ignored) {
+            return List.of();
+        }
     }
 
     private static String firstToken(String input) {
