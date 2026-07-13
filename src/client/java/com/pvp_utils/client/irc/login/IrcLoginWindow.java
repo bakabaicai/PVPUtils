@@ -607,7 +607,7 @@ public final class IrcLoginWindow {
             showError(error, gateMessage);
             return;
         }
-        Config.clearIrcCredentials();
+        Config.clearIrcSession();
         Config.save();
         finished.set(true);
         dialog.dispose();

@@ -384,12 +384,10 @@ public class Config {
         }
     }
 
-    public static void clearIrcCredentials() {
+    public static void clearIrcSession() {
         ircEnabled = false;
         ircAutoConnect = false;
-        ircUsername = "";
         ircToken = "";
-        ircPasswordHash = "";
     }
 
     private static void loadJsonConfig(Path path) {

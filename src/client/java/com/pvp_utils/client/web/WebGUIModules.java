@@ -106,6 +106,7 @@ final class WebGUIModules {
                     module("Low Health Warning", "低血量提示", "Show a warning when health is low.", "血量过低时显示警告", "lowHealthNotify"),
                     module("Damage Numbers", "伤害数值显示", "Show target health changes.", "显示目标血量变化", "damageNumbers"),
                     module("Target HUD", "目标 HUD", "Show target information panel.", "显示目标信息面板", "targetHud",
+                            check("attackReachDisplay", "Attack Reach", "攻击距离"),
                             select("targetHudMode", "Mode", "模式")),
                     module("Keystrokes", "按键显示", "Show WASD and mouse button states.", "显示 WASD 和鼠标按键状态", "keystrokes",
                             select("keystrokesMode", "Mode", "模式")),
