@@ -99,6 +99,7 @@ public class SettingsScreen extends Screen {
                     Config.lowHealthNotify = true;
                     Config.targetHud = false;
                     Config.diggingStatus = false;
+                    Config.betterPingDisplay = false;
                     Config.fallDamagePredict = false;
                     Config.victorySound = false;
                     Config.gammaOverride = false;

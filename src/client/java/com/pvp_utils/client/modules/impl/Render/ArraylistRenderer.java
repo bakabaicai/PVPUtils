@@ -30,6 +30,7 @@ public class ArraylistRenderer {
             new Entry("Attack Effects", () -> Config.attackEffectsCritParticles || Config.attackEffectsSharpnessParticles || Config.attackEffectsFlameParticles || Config.attackEffectsBloodParticles || Config.attackEffectsLightning),
             new Entry("Better Chat", () -> Config.betterChat),
             new Entry("Better Mouse Logic", () -> Config.betterMouseLogic),
+            new Entry("Better Ping Display", () -> Config.betterPingDisplay),
             new Entry("Better Scoreboard", () -> Config.betterScoreboard),
             new Entry("Block Count Display", () -> Config.blockCountDisplay),
             new Entry("Custom Cape", () -> Config.customCape),

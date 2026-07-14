@@ -42,6 +42,7 @@ public class Config {
     public static boolean arraylist = false;
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
+    public static boolean betterPingDisplay = false;
     public static boolean fallDamagePredict = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
@@ -632,6 +633,7 @@ public class Config {
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
+            new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),
             new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
             new ModuleRule("Arraylist", "arraylist", "arraylist"),
             new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),

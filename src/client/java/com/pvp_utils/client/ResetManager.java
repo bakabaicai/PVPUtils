@@ -35,6 +35,7 @@ public class ResetManager {
         Config.arraylist = false;
         Config.targetHud = false;
         Config.diggingStatus = false;
+        Config.betterPingDisplay = false;
         Config.fallDamagePredict = false;
         Config.victorySound = false;
         Config.gammaOverride = false;
