@@ -731,8 +731,8 @@ public class DynamicIslandRenderer {
     private boolean ircHasProfile(PlayerInfo player) {
         try {
             Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
-            Method method = service.getMethod("hasProfile", java.util.UUID.class);
-            Object value = method.invoke(null, player.getProfile().id());
+            Method method = service.getMethod("hasProfile", java.util.UUID.class, String.class);
+            Object value = method.invoke(null, player.getProfile().id(), player.getProfile().name());
             return Boolean.TRUE.equals(value);
         } catch (ReflectiveOperationException ignored) {
             return false;
@@ -742,8 +742,8 @@ public class DynamicIslandRenderer {
     private String ircTitle(PlayerInfo player) {
         try {
             Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
-            Method method = service.getMethod("title", java.util.UUID.class);
-            Object value = method.invoke(null, player.getProfile().id());
+            Method method = service.getMethod("title", java.util.UUID.class, String.class);
+            Object value = method.invoke(null, player.getProfile().id(), player.getProfile().name());
             return value == null ? "" : value.toString().trim();
         } catch (ReflectiveOperationException ignored) {
             return "";
@@ -753,8 +753,8 @@ public class DynamicIslandRenderer {
     private String ircUsername(PlayerInfo player) {
         try {
             Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
-            Method method = service.getMethod("username", java.util.UUID.class);
-            Object value = method.invoke(null, player.getProfile().id());
+            Method method = service.getMethod("username", java.util.UUID.class, String.class);
+            Object value = method.invoke(null, player.getProfile().id(), player.getProfile().name());
             return value == null ? "" : value.toString().trim();
         } catch (ReflectiveOperationException ignored) {
             return "";
@@ -764,8 +764,8 @@ public class DynamicIslandRenderer {
     private String ircTitleColor(PlayerInfo player) {
         try {
             Class<?> service = Class.forName("com.pvp_utils.client.irc.tablist.IrcTabListService");
-            Method method = service.getMethod("titleColor", java.util.UUID.class);
-            Object value = method.invoke(null, player.getProfile().id());
+            Method method = service.getMethod("titleColor", java.util.UUID.class, String.class);
+            Object value = method.invoke(null, player.getProfile().id(), player.getProfile().name());
             return value == null ? "" : value.toString().trim();
         } catch (ReflectiveOperationException ignored) {
             return "";

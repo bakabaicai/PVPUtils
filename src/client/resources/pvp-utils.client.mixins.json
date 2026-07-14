@@ -69,6 +69,7 @@
     "BetterChatTextCollectorMixin",
     "BetterChatPlayerChatMessageMixin",
     "BetterScoreboardGuiMixin",
+    "CreativeModeTabMixin",
     "BetterMouseLogicContainerAccessor",
     "BetterMouseLogicContainerMixin",
     "ChatComponentAccessor",
