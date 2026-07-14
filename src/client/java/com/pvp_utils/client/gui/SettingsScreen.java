@@ -162,6 +162,8 @@ public class SettingsScreen extends Screen {
                     Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
                     Config.targetHudMode = Config.TargetHudMode.NEW;
                     Config.keystrokesMode = Config.KeystrokesMode.NEW;
+                    Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
+                    Config.mainUIGlslShader = "Galaxy.frag.glsl";
                     Config.animationMode = Config.AnimMode.MODE_1_7;
                     Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
                     Config.save();

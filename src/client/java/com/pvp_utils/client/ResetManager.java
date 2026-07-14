@@ -182,6 +182,8 @@ public class ResetManager {
         Config.hudTheme = Config.HudTheme.LIGHT;
         Config.skiaBlurStrength = 1.0f;
         Config.mainUIBackgroundMode = Config.MainUIBackgroundMode.GLSL;
+        Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
+        Config.mainUIGlslShader = "Galaxy.frag.glsl";
         Config.mainUIVideoBackground = "background.mp4";
         Config.applyGameLanguageDefault();
         Config.termsRead = false;

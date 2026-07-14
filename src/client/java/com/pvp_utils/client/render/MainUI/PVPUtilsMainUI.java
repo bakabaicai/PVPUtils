@@ -43,6 +43,8 @@ public class PVPUtilsMainUI extends Screen {
     private static final long HINT_DURATION_MS = 5000L;
     private static final long HINT_FADE_IN_MS = 400L;
     private static final long HINT_FADE_OUT_MS = 800L;
+    private static final long ENTRY_FADE_DELAY_MS = 2100L;
+    private static final long ENTRY_FADE_IN_MS = 850L;
     private static final float SETTINGS_SIZE = 36f;
     private static final float SETTINGS_MARGIN = 24f;
     private static final Identifier BACKGROUND_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_custom_background");
@@ -50,6 +52,8 @@ public class PVPUtilsMainUI extends Screen {
     private MainUIShader shader;
     private final boolean showEntryHint;
     private final String fixedShaderPath;
+    private final boolean entryFade;
+    private final boolean entryFadeDelay;
     private final List<MenuButton> buttons = new ArrayList<>();
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
     private Surface textSurface;
@@ -81,6 +85,7 @@ public class PVPUtilsMainUI extends Screen {
     private String loadedBackground = "";
     private boolean lightSettingsTheme;
     private long lastRenderMs;
+    private long entryFadeStartMs;
 
     public PVPUtilsMainUI(Screen parent) {
         this(parent, false);
@@ -94,14 +99,18 @@ public class PVPUtilsMainUI extends Screen {
         super(Component.literal("Minecraft"));
         this.showEntryHint = showEntryHint;
         this.fixedShaderPath = fixedShaderPath;
+        this.entryFade = showEntryHint || parent instanceof TitleScreen;
+        this.entryFadeDelay = parent instanceof TitleScreen && !showEntryHint;
     }
 
     @Override
     protected void init() {
         if (shader != null) shader.close();
-        shader = fixedShaderPath == null ? MainUIShader.random() : MainUIShader.named(fixedShaderPath);
+        String sharedShaderPath = initialShaderPath();
+        shader = sharedShaderPath == null ? MainUIShader.random() : MainUIShader.named(sharedShaderPath);
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
+        entryFadeStartMs = entryFade ? System.currentTimeMillis() : 0L;
         invalidateTextTexture();
         refreshThemeFromBackground();
         buttons.clear();
@@ -132,11 +141,12 @@ public class PVPUtilsMainUI extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         updateSettingsPanel(mouseX, mouseY);
         renderMainBackground(graphics, mouseX, mouseY);
+        float entryAlpha = entryAlpha();
         for (int i = 0; i < buttons.size(); i++) {
-            buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex);
+            buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
         }
-        renderText(graphics);
-        renderEntryHint(graphics);
+        renderText(graphics, entryAlpha);
+        renderEntryHint(graphics, entryAlpha);
     }
 
     @Override
@@ -166,6 +176,29 @@ public class PVPUtilsMainUI extends Screen {
                 setBackgroundMode(Config.MainUIBackgroundMode.GLSL);
                 Config.save();
                 lightSettingsTheme = true;
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (isGlslBackground() && isInsideGlslModeRandom((float) event.x(), (float) event.y())) {
+                Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
+                Config.save();
+                refreshShader();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (isGlslBackground() && isInsideGlslModeFixed((float) event.x(), (float) event.y())) {
+                Config.mainUIGlslMode = Config.MainUIGlslMode.FIXED;
+                Config.mainUIGlslShader = MainUIShader.normalizeShader(shader == null ? Config.mainUIGlslShader : shader.fragmentPath());
+                Config.save();
+                reloadConfiguredShader();
+                playClickSound();
+                invalidateTextTexture();
+                return true;
+            }
+            if (isGlslBackground() && Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED && isInsideGlslShaderSelect((float) event.x(), (float) event.y())) {
+                cycleGlslShader();
                 playClickSound();
                 invalidateTextTexture();
                 return true;
@@ -270,10 +303,11 @@ public class PVPUtilsMainUI extends Screen {
         return 48f * scale;
     }
 
-    private void renderText(GuiGraphics graphics) {
+    private void renderText(GuiGraphics graphics, float alpha) {
         ensureTextTexture();
         if (textTexture == null) return;
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXT_TEXTURE_ID, textX, textY, 0f, 0f, textW, textH, textPixelW, textPixelH, textPixelW, textPixelH);
+        int color = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f) << 24 | 0xFFFFFF;
+        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXT_TEXTURE_ID, textX, textY, 0f, 0f, textW, textH, textPixelW, textPixelH, textPixelW, textPixelH, color);
     }
 
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -409,7 +443,7 @@ public class PVPUtilsMainUI extends Screen {
         }
     }
 
-    private void renderEntryHint(GuiGraphics graphics) {
+    private void renderEntryHint(GuiGraphics graphics, float entryAlpha) {
         if (hintStartMs <= 0L) return;
         long elapsed = System.currentTimeMillis() - hintStartMs;
         if (elapsed >= HINT_DURATION_MS) return;
@@ -422,7 +456,7 @@ public class PVPUtilsMainUI extends Screen {
         } else {
             alpha = 1f;
         }
-        alpha = Math.max(0f, Math.min(1f, alpha));
+        alpha = Math.max(0f, Math.min(1f, alpha)) * Math.max(0f, Math.min(1f, entryAlpha));
         int a = Math.round(alpha * 255f);
         if (a <= 0) return;
 
@@ -438,6 +472,22 @@ public class PVPUtilsMainUI extends Screen {
         int bgY = y - 15;
         graphics.fill(bgX, bgY, bgX + bgW, bgY + bgH, (Math.round(alpha * 150f) << 24));
         graphics.drawString(this.font, text, x, y - 4, (a << 24) | 0xFFFFFF, false);
+    }
+
+    private float entryAlpha() {
+        if (!entryFade || entryFadeStartMs <= 0L) {
+            return 1f;
+        }
+        long elapsed = System.currentTimeMillis() - entryFadeStartMs;
+        long delay = entryFadeDelay ? ENTRY_FADE_DELAY_MS : 0L;
+        if (elapsed <= delay) {
+            return 0f;
+        }
+        elapsed -= delay;
+        if (elapsed >= ENTRY_FADE_IN_MS) {
+            return 1f;
+        }
+        return easeOutCubic(elapsed / (float) ENTRY_FADE_IN_MS);
     }
 
     private void ensureTextTexture() {
@@ -516,7 +566,52 @@ public class PVPUtilsMainUI extends Screen {
     private void refreshShader() {
         if (shader != null) shader.close();
         shader = MainUIShader.random();
+        if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
+            Config.mainUIGlslShader = shader.fragmentPath();
+            Config.save();
+        }
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
+    }
+
+    private String initialShaderPath() {
+        if (fixedShaderPath != null) {
+            return fixedShaderPath;
+        }
+        if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
+            Config.mainUIGlslShader = MainUIShader.normalizeShader(Config.mainUIGlslShader);
+            return Config.mainUIGlslShader;
+        }
+        return MainUISharedBackground.activeShaderPath();
+    }
+
+    private void reloadConfiguredShader() {
+        if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
+            Config.mainUIGlslShader = MainUIShader.normalizeShader(Config.mainUIGlslShader);
+            if (shader != null && Config.mainUIGlslShader.equals(shader.fragmentPath())) {
+                MainUISharedBackground.setActiveShader(shader.fragmentPath());
+                return;
+            }
+            if (shader != null) shader.close();
+            shader = MainUIShader.named(Config.mainUIGlslShader);
+            MainUISharedBackground.setActiveShader(shader.fragmentPath());
+            return;
+        }
+        if (shader == null) {
+            shader = MainUIShader.random();
+        }
+        MainUISharedBackground.setActiveShader(shader.fragmentPath());
+    }
+
+    private void cycleGlslShader() {
+        List<String> shaders = MainUIShader.shaderFiles();
+        if (shaders.isEmpty()) {
+            return;
+        }
+        String selected = MainUIShader.normalizeShader(Config.mainUIGlslShader);
+        int index = shaders.indexOf(selected);
+        Config.mainUIGlslShader = shaders.get((index + 1 + shaders.size()) % shaders.size());
+        Config.save();
+        reloadConfiguredShader();
     }
 
     private PVPUtilsMainUI returnParent() {
@@ -726,6 +821,16 @@ public class PVPUtilsMainUI extends Screen {
                     ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
                     : Config.mainUIVideoBackground;
             renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
+        } else {
+            float glslY = y + 148f;
+            FontRenderer.drawText(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, glslY, 12f, secondary);
+            renderChoice(canvas, contentX + 112f, glslY - 16f, 72f, Config.isChinese ? "\u968f\u673a" : "Random", Config.mainUIGlslMode == Config.MainUIGlslMode.RANDOM, textAlpha);
+            renderChoice(canvas, contentX + 194f, glslY - 16f, 76f, Config.isChinese ? "\u56fa\u5b9a" : "Fixed", Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED, textAlpha);
+            if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
+                float shaderY = y + 184f;
+                FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, shaderY, 12f, secondary);
+                renderButton(canvas, contentX + 112f, shaderY - 16f, 158f, MainUIShader.normalizeShader(Config.mainUIGlslShader), textAlpha);
+            }
         }
     }
 
@@ -868,6 +973,24 @@ public class PVPUtilsMainUI extends Screen {
         return mx >= x && mx <= x + 76f && my >= y && my <= y + 28f;
     }
 
+    private boolean isInsideGlslModeRandom(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 134f;
+        float y = getSettingsY() + 132f;
+        return mx >= x && mx <= x + 72f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideGlslModeFixed(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 216f;
+        float y = getSettingsY() + 132f;
+        return mx >= x && mx <= x + 76f && my >= y && my <= y + 28f;
+    }
+
+    private boolean isInsideGlslShaderSelect(float mx, float my) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 134f;
+        float y = getSettingsY() + 168f;
+        return mx >= x && mx <= x + 158f && my >= y && my <= y + 28f;
+    }
+
     private boolean isInsideOpenBackgroundFolder(float mx, float my) {
         float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 198f;
         float y = getSettingsY() + 132f;
@@ -895,7 +1018,7 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private float getSettingsPanelHeight() {
-        return isImageBackground() ? 276f : isVideoBackground() ? 220f : 146f;
+        return isImageBackground() ? 276f : isVideoBackground() ? 220f : Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED ? 220f : 184f;
     }
 
     private float getSettingsPanelMaxHeight() {
@@ -905,6 +1028,9 @@ public class PVPUtilsMainUI extends Screen {
     private void setBackgroundMode(Config.MainUIBackgroundMode mode) {
         Config.mainUIBackgroundMode = mode == null ? Config.MainUIBackgroundMode.GLSL : mode;
         Config.mainUICustomBackground = Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE;
+        if (isGlslBackground()) {
+            reloadConfiguredShader();
+        }
         if (!isVideoBackground()) {
             closeVideoBackground();
         }
@@ -985,10 +1111,11 @@ public class PVPUtilsMainUI extends Screen {
             return mx >= x && mx <= x + w && my >= y && my <= y + h;
         }
 
-        private void render(GuiGraphics graphics, int mouseX, int mouseY, boolean pressed) {
+        private void render(GuiGraphics graphics, int mouseX, int mouseY, boolean pressed, float alpha) {
             hover += ((contains(mouseX, mouseY) ? 1f : 0f) - hover) * 0.2f;
-            int lineColor = lerpColor(0xFFB7B7B7, pressed ? 0xFFAC6120 : 0xFFD77927, hover);
-            graphics.fill(Math.round(x + 1f), Math.round(y + 1f), Math.round(x + w + 2f), Math.round(y + 5f), 0xA0404040);
+            int a = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
+            int lineColor = withAlpha(lerpColor(0xFFB7B7B7, pressed ? 0xFFAC6120 : 0xFFD77927, hover), a);
+            graphics.fill(Math.round(x + 1f), Math.round(y + 1f), Math.round(x + w + 2f), Math.round(y + 5f), withAlpha(0xA0404040, Math.round(a * 0.63f)));
             graphics.fill(Math.round(x), Math.round(y), Math.round(x + w), Math.round(y + 4f), lineColor);
         }
 
@@ -1027,6 +1154,10 @@ public class PVPUtilsMainUI extends Screen {
 
     private static int lerpRgb(int from, int to, float t) {
         return lerpColor(0xFF000000 | from, 0xFF000000 | to, t) & 0xFFFFFF;
+    }
+
+    private static int withAlpha(int color, int alpha) {
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0xFFFFFF);
     }
 
     private int themedTextColor(int alpha) {

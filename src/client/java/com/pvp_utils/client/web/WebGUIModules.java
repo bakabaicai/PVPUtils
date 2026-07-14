@@ -167,6 +167,7 @@ final class WebGUIModules {
             new Category("Misc", "其他", List.of(
                     module("Main UI", "主界面", "Use the custom PVPUtils main menu.", "使用 PVPUtils 自定义主界面", "useMainUI",
                             select("mainUIBackgroundMode", "Background Mode", "背景模式"),
+                            select("mainUIGlslMode", "GLSL Mode", "GLSL 模式"),
                             check("mainUICustomBackground", "Custom Background", "自定义背景"),
                             check("mainUIMouseEffect", "Mouse Effect", "鼠标效果")),
                     settingsModule("HUD Theme", "HUD 主题", "Control the shared HUD theme and blur style.", "控制 HUD 通用主题和模糊风格",

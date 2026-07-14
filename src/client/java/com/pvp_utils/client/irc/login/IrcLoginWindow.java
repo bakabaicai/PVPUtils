@@ -423,7 +423,7 @@ public final class IrcLoginWindow {
 
         long startMs = System.currentTimeMillis();
         int growDuration = 260;
-        int settleDuration = 180;
+        int settleDuration = 140;
         Timer timer = new Timer(16, null);
         timer.addActionListener(event -> {
             long elapsed = System.currentTimeMillis() - startMs;
@@ -434,7 +434,7 @@ public final class IrcLoginWindow {
                 width = lerp(startW, overshootW, t);
                 height = lerp(startH, overshootH, t);
             } else {
-                float t = easeOutBack(Math.min(1f, (elapsed - growDuration) / (float) settleDuration));
+                float t = easeInCubic((elapsed - growDuration) / (float) settleDuration);
                 width = lerp(overshootW, targetW, t);
                 height = lerp(overshootH, targetH, t);
             }
@@ -535,13 +535,6 @@ public final class IrcLoginWindow {
     private static float easeInCubic(float value) {
         float t = Math.max(0f, Math.min(1f, value));
         return t * t * t;
-    }
-
-    private static float easeOutBack(float value) {
-        float t = Math.max(0f, Math.min(1f, value)) - 1f;
-        float c1 = 1.70158f;
-        float c3 = c1 + 1f;
-        return 1f + c3 * t * t * t + c1 * t * t;
     }
 
     private static void runLogin(JDialog dialog, AlphaPanel outer, JPanel root, JPanel cards, JLabel title, JLabel error, JLabel status,

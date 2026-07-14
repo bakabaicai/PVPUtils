@@ -116,6 +116,7 @@ public class Config {
     public static int hotbarRollover = 0;
     public static boolean useMainUI = false;
     public static MainUIBackgroundMode mainUIBackgroundMode = MainUIBackgroundMode.GLSL;
+    public static MainUIGlslMode mainUIGlslMode = MainUIGlslMode.RANDOM;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
     public static boolean termsRead = false;
@@ -128,6 +129,7 @@ public class Config {
     public static String ircToken = "";
     public static String ircPasswordHash = "";
     public static String mainUIBackgroundImage = "1.png";
+    public static String mainUIGlslShader = "Galaxy.frag.glsl";
     public static String mainUIVideoBackground = "background.mp4";
     public static String customCapeImage = "default.png";
     public static HitSoundType hitSoundType = HitSoundType.NETHERITE;
@@ -234,6 +236,7 @@ public class Config {
     public enum ItemUseStatusMode { LITE, NEW }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
+    public enum MainUIGlslMode { RANDOM, FIXED }
 
     public static int skiaBlurTintColor() {
         return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
@@ -658,7 +661,7 @@ public class Config {
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
             new ModuleRule("BetterMouseLogic", "betterMouseLogic", "betterMouseLogic"),
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
-            new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage"),
+            new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage", "mainUIGlslShader"),
             new ModuleRule("TargetHUD", "targetHud", "targetHud"),
             new ModuleRule("NameTags", "nameTag", "nameTag"),
             new ModuleRule("DynamicMotionBlur", "dynamicMotionBlur", "dynamicMotionBlur", "motionBlurAlgorithm"),

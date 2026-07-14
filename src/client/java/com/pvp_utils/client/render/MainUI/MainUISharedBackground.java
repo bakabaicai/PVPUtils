@@ -21,11 +21,23 @@ public final class MainUISharedBackground {
         activeShaderPath = shaderPath;
     }
 
+    public static String activeShaderPath() {
+        return activeShaderPath;
+    }
+
     public static boolean shouldReplace(Screen screen) {
         Minecraft client = Minecraft.getInstance();
         return Config.useMainUI
                 && screen != null
                 && !(screen instanceof TitleScreen)
+                && client.level == null;
+    }
+
+    public static boolean shouldReplaceLoadingOverlay() {
+        Minecraft client = Minecraft.getInstance();
+        return Config.useMainUI
+                && Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.GLSL
+                && client != null
                 && client.level == null;
     }
 
@@ -42,13 +54,28 @@ public final class MainUISharedBackground {
             renderVideoUnavailable(graphics, client);
             return;
         }
-        if (shader == null || activeShaderPath == null || !activeShaderPath.equals(shader.fragmentPath())) {
+        String fixedShaderPath = fixedShaderPath();
+        if (fixedShaderPath != null && !fixedShaderPath.equals(activeShaderPath)) {
+            activeShaderPath = fixedShaderPath;
+        }
+        if (shader == null) {
+            shader = activeShaderPath == null ? MainUIShader.random() : MainUIShader.named(activeShaderPath);
+            activeShaderPath = shader.fragmentPath();
+        } else if (activeShaderPath != null && !activeShaderPath.equals(shader.fragmentPath())) {
             if (shader != null) {
                 shader.close();
             }
-            shader = activeShaderPath == null ? MainUIShader.random() : MainUIShader.named(activeShaderPath);
+            shader = MainUIShader.named(activeShaderPath);
         }
         shader.render(graphics, mouseX, mouseY);
+    }
+
+    private static String fixedShaderPath() {
+        if (Config.mainUIBackgroundMode != Config.MainUIBackgroundMode.GLSL || Config.mainUIGlslMode != Config.MainUIGlslMode.FIXED) {
+            return null;
+        }
+        Config.mainUIGlslShader = MainUIShader.normalizeShader(Config.mainUIGlslShader);
+        return Config.mainUIGlslShader;
     }
 
     private static void renderVideoUnavailable(GuiGraphics graphics, Minecraft client) {

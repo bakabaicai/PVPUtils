@@ -96,6 +96,14 @@ public final class MainUIShader {
         return new MainUIShader(fragmentPath);
     }
 
+    public static List<String> shaderFiles() {
+        return SHADERS;
+    }
+
+    public static String normalizeShader(String fragmentPath) {
+        return fragmentPath == null || fragmentPath.isBlank() || !SHADERS.contains(fragmentPath) ? SHADERS.get(0) : fragmentPath;
+    }
+
     public String fragmentPath() {
         return fragmentPath;
     }
