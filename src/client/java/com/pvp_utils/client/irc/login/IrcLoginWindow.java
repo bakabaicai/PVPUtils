@@ -788,6 +788,11 @@ public final class IrcLoginWindow {
             showError(error, gateMessage);
             return;
         }
+        String deviceBanMessage = checkDeviceBan();
+        if (!deviceBanMessage.isBlank()) {
+            showError(error, deviceBanMessage);
+            return;
+        }
         Config.clearIrcSession();
         Config.save();
         playCloseAnimation(dialog, outer, () -> {
@@ -894,6 +899,18 @@ public final class IrcLoginWindow {
             return result == null ? "" : result.toString();
         } catch (ReflectiveOperationException e) {
             return IrcBridge.MISSING_CORE_MESSAGE;
+        }
+    }
+
+    private static String checkDeviceBan() {
+        try {
+            Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
+            Object instance = clientClass.getMethod("getInstance").invoke(null);
+            Method method = clientClass.getMethod("checkDeviceBanBlocking", long.class);
+            Object result = method.invoke(instance, 5000L);
+            return result == null ? "" : result.toString();
+        } catch (ReflectiveOperationException ignored) {
+            return "";
         }
     }
 
