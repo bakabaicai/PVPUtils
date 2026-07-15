@@ -154,19 +154,16 @@ public final class Update {
     private static UpdateResult fetchResultOnce() throws IOException, InterruptedException {
         CompletableFuture<UpdateResponse> domestic = CompletableFuture.supplyAsync(() -> fetchResponse(1, Update::fetchDomesticUpdateText));
         CompletableFuture<UpdateResponse> git = CompletableFuture.supplyAsync(() -> fetchResponse(2, Update::fetchGitUpdateText));
-        UpdateResponse first = (UpdateResponse) CompletableFuture.anyOf(domestic, git).join();
+        UpdateResponse domesticResponse = domestic.join();
+        UpdateResponse gitResponse = git.join();
 
         UpdateResponse selected;
-        if (domestic.isDone() && domestic.join().success()) {
-            selected = domestic.join();
-        } else if (first.success()) {
-            selected = first;
+        if (domesticResponse.success()) {
+            selected = domesticResponse;
+        } else if (gitResponse.success()) {
+            selected = gitResponse;
         } else {
-            UpdateResponse other = first.line() == 1 ? git.join() : domestic.join();
-            if (!other.success()) {
-                throw new IOException(allLinesFailedMessage());
-            }
-            selected = other;
+            throw new IOException(allLinesFailedMessage(domesticResponse, gitResponse));
         }
 
         System.out.println("[PVPUtils][Update] response received from line " + selected.line());
@@ -334,9 +331,6 @@ public final class Update {
     }
 
     private static String normalizeReason(String reason, boolean chinese) {
-        if (allLinesFailedMessage().equals(reason)) {
-            return chinese ? "线路1和线路2均不可用" : "line 1 and line 2 are unavailable";
-        }
         if (reason == null || reason.isBlank()) {
             return chinese ? "未知" : "unknown";
         }
@@ -470,8 +464,29 @@ public final class Update {
 
     private record VersionCandidate(String type, String version, VersionToken token) {}
 
-    private static String allLinesFailedMessage() {
-        return "LINE_1_AND_LINE_2_UNAVAILABLE";
+    private static String allLinesFailedMessage(UpdateResponse domestic, UpdateResponse git) {
+        return "线路1：" + failureReason(domestic.error()) + "；线路2：" + failureReason(git.error());
+    }
+
+    private static String failureReason(Exception error) {
+        Throwable cause = error;
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null && message.contains("Missing update metadata")) {
+                return "更新数据缺少 Version: 字段";
+            }
+            if (message != null && message.contains("timed out")) {
+                return "请求超时";
+            }
+            if (message != null && message.contains("HTTP")) {
+                return "服务器返回异常状态";
+            }
+            if (cause instanceof ClassNotFoundException || cause instanceof NoSuchMethodException) {
+                return "本地更新模块不可用";
+            }
+            cause = cause.getCause();
+        }
+        return "请求失败";
     }
 
     @FunctionalInterface
