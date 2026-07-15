@@ -32,6 +32,10 @@ public class LocalPlayerMixin {
 
     @Inject(method = "aiStep", at = @At("TAIL"))
     private void pvp_utils$captureItemUseStatus(CallbackInfo ci) {
-        ItemUseStatusRenderer.getInstance().captureFromMixin((LocalPlayer) (Object) this);
+        LocalPlayer player = (LocalPlayer) (Object) this;
+        ItemUseStatusRenderer.getInstance().captureFromMixin(player);
+        if (Config.noSwimming && player.isInWater() && player.isSprinting()) {
+            player.setSprinting(false);
+        }
     }
 }

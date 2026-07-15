@@ -31,6 +31,9 @@ final class WebGUIModules {
                             slider("offsetZ", "Offset Z", "偏移 Z", -1, 1, 0.01),
                             slider("animSpeed", "Animation Speed", "动画速度", 0, 4, 0.01)),
                     module("Remove Attack Cooldown Animation", "去除攻击冷却动画", "Remove the extra hand raise after weapon swings.", "去除武器挥动后的额外抬手动画", "noAttackCooldownAnimation"),
+                    module("Motion camera", "运动相机", "Better third-person view.", "更好的第三人称视角", "motionCamera",
+                            slider("motionCameraFollowSpeed", "Follow Speed", "跟随速度", 0, 1.0, 0.01),
+                            slider("motionCameraDistance", "Camera Distance", "相机距离", 1, 8, 0.1)),
                     module("Attack Effects", "攻击特效", "Control particles shown when attacking.", "控制攻击时显示的粒子效果", "attackEffectsCritParticles",
                             check("attackEffectsCritParticles", "Crit Particles", "暴击粒子"),
                             slider("attackEffectsCritMultiplier", "Crit Multiplier", "暴击粒子倍数", 1, 10, 0.1, "attackEffectsCritParticles"),
@@ -123,6 +126,7 @@ final class WebGUIModules {
                     module("Food Info", "食物信息显示", "Show food-related information.", "显示食物相关信息", "foodInfo"),
                     module("Fall Damage Prediction", "摔落伤害预测", "Predict fall damage value.", "预测摔落伤害数值", "fallDamagePredict"),
                     module("Auto Sprint", "自动疾跑", "Automatically sprint while moving forward.", "前进时自动进入疾跑状态", "autoSprint"),
+                    module("No Swimming", "禁止游泳", "Prevent entering the swimming state in water, which can avoid setbacks on some older servers.", "在水里时禁止进入游泳状态，这在某些低版本服务器上可避免回弹", "noSwimming"),
                     module("Remove Container Background", "去除容器半透明背景", "Remove the translucent background from inventory and container screens.", "去除背包和容器界面的半透明背景", "removeContainerBackground"),
                     module("Fishing Rod Assist", "钓鱼竿辅助", "Automatically right-click when switching to a fishing rod.", "切换到钓鱼竿时自动右键使用", "fishingRodAssist",
                             slider("fishingRodAssistUseDelay", "Use Delay (tick)", "使用间隔(tick)", 0, 20, 1)),
@@ -327,6 +331,7 @@ final class WebGUIModules {
             case "blockCountDisplay" -> Config.setBlockCountDisplay(value);
             case "dynamicIslandItemUseStatus" -> Config.setDynamicIslandItemUseStatus(value);
             case "itemUseStatus" -> Config.setItemUseStatus(value);
+            case "motionCamera" -> Config.setMotionCamera(value);
             case "itemPhysics" -> {
                 Config.itemPhysics = value;
                 if (value) Config.item2DRender = false;

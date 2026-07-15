@@ -30,6 +30,9 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("在水里时禁止进入游泳状态，这在某些低版本服务器上可避免回弹", "Prevent entering the swimming state in water, which can avoid setbacks on some older servers"),
+                new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("去除容器半透明背景", "Remove Container Background"), UiText.t("去除背包和容器界面的半透明背景", "Remove the translucent background from inventory and container screens"),
                 new SettingToggle(() -> Config.removeContainerBackground, v -> { Config.removeContainerBackground = v; Config.save(); })));
 

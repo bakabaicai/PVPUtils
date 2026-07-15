@@ -92,15 +92,19 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     public PVPUtilsMainUI(Screen parent, boolean showEntryHint) {
-        this(parent, showEntryHint, null);
+        this(parent, showEntryHint, false, null);
     }
 
-    private PVPUtilsMainUI(Screen parent, boolean showEntryHint, String fixedShaderPath) {
+    public PVPUtilsMainUI(Screen parent, boolean showEntryHint, boolean entryFadeDelay) {
+        this(parent, showEntryHint, entryFadeDelay, null);
+    }
+
+    private PVPUtilsMainUI(Screen parent, boolean showEntryHint, boolean entryFadeDelay, String fixedShaderPath) {
         super(Component.literal("Minecraft"));
         this.showEntryHint = showEntryHint;
         this.fixedShaderPath = fixedShaderPath;
-        this.entryFade = showEntryHint || parent instanceof TitleScreen;
-        this.entryFadeDelay = parent instanceof TitleScreen && !showEntryHint;
+        this.entryFade = showEntryHint || parent instanceof TitleScreen || entryFadeDelay;
+        this.entryFadeDelay = entryFadeDelay;
     }
 
     @Override
@@ -615,7 +619,7 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private PVPUtilsMainUI returnParent() {
-        return new PVPUtilsMainUI(null, false, shader == null ? null : shader.fragmentPath());
+        return new PVPUtilsMainUI(null, false, false, shader == null ? null : shader.fragmentPath());
     }
 
     private void cycleBackgroundImage() {

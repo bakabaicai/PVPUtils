@@ -19,6 +19,7 @@ import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,6 +35,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Gui.class)
 public class GuiMixin {
+    @ModifyExpressionValue(
+            method = "renderCrosshair",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/CameraType;isFirstPerson()Z")
+    )
+    private boolean pvp_utils$showCrosshairInThirdPerson(boolean original, GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+        return true;
+    }
 
     @Inject(method = "setTitle", at = @At("HEAD"))
     private void onSetTitle(Component title, CallbackInfo ci) {

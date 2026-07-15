@@ -33,6 +33,13 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("去除攻击冷却动画", "Remove Attack Cooldown Animation"), UiText.t("去除武器挥动后高版本额外的抬手动画", "Remove the extra hand raise after weapon swings"),
                 new SettingToggle(() -> Config.noAttackCooldownAnimation, v -> { Config.noAttackCooldownAnimation = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("运动相机", "Motion camera"), UiText.t("更好的第三人称视角", "Better third-person view"),
+                new SettingToggle(() -> Config.motionCamera, v -> { Config.setMotionCamera(v); Config.save(); }))
+                .addSub(UiText.t("跟随速度", "Follow Speed"), UiText.t("控制相机追上玩家的速度", "Controls how fast the camera catches up to the player"),
+                        new SettingSlider(0.0, 1.0, "%.2f", () -> (double) Config.motionCameraFollowSpeed, v -> { Config.motionCameraFollowSpeed = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("相机距离", "Camera Distance"), UiText.t("控制第三人称相机距离身体的距离", "Controls the third-person camera distance from the body"),
+                        new SettingSlider(1.0, 8.0, "%.1f", () -> (double) Config.motionCameraDistance, v -> { Config.motionCameraDistance = v.floatValue(); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("攻击特效", "Attack Effects"), UiText.t("控制攻击时显示的粒子效果", "Control particles shown when attacking"), null)
                 .addSub(UiText.t("暴击粒子", "Crit Particles"), UiText.t("攻击时常驻显示暴击粒子", "Always show crit particles when attacking"),
                         new SettingToggle(() -> Config.attackEffectsCritParticles, v -> { Config.attackEffectsCritParticles = v; Config.save(); }))

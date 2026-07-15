@@ -47,6 +47,7 @@ public class Config {
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
+    public static boolean noSwimming = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
@@ -98,6 +99,7 @@ public class Config {
     public static boolean attackEffectsLightning = false;
     public static boolean hitColor = false;
     public static boolean customEnchantmentGlint = false;
+    public static boolean motionCamera = false;
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
@@ -157,6 +159,8 @@ public class Config {
     public static boolean dynamicMotionBlur = false;
     public static float dynamicMotionBlurStrength = 1.0f;
     public static boolean dynamicMotionBlurRefreshRateScaling = true;
+    public static float motionCameraFollowSpeed = 0.12f;
+    public static float motionCameraDistance = 4.0f;
     public static float attackEffectsCritMultiplier = 1.0f;
     public static float attackEffectsSharpnessMultiplier = 1.0f;
     public static float attackEffectsFlameMultiplier = 1.0f;
@@ -237,6 +241,10 @@ public class Config {
     public enum FreelookTriggerMode { HOLD, TOGGLE }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
+
+    public static void setMotionCamera(boolean value) {
+        motionCamera = value;
+    }
 
     public static int skiaBlurTintColor() {
         return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
@@ -634,6 +642,7 @@ public class Config {
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
+            new ModuleRule("NoSwimming", "noSwimming", "noSwimming"),
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),
@@ -656,6 +665,7 @@ public class Config {
             new ModuleRule("AttackEffects", "attackEffects", ""),
             new ModuleRule("HitColor", "hitColor", "hitColor"),
             new ModuleRule("RainbowEnchantmentGlint", "customEnchantmentGlint", "customEnchantmentGlint"),
+            new ModuleRule("MotionCamera", "motionCamera", "motionCamera"),
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),

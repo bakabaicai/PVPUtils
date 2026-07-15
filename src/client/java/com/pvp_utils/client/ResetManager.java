@@ -41,6 +41,7 @@ public class ResetManager {
         Config.gammaOverride = false;
         Config.gammaValue = 15.0;
         Config.autoSprint = false;
+        Config.noSwimming = false;
         Config.fishingRodAssist = false;
         Config.fishingRodAssistUseDelay = 4;
         Config.autoGGDelayTicks = 20;
@@ -117,6 +118,9 @@ public class ResetManager {
         Config.hitColorBlue = 0;
         Config.hitColorAlpha = 179;
         Config.customEnchantmentGlint = false;
+        Config.motionCamera = false;
+        Config.motionCameraFollowSpeed = 0.12f;
+        Config.motionCameraDistance = 4.0f;
         Config.blockCountDisplayX = 0f;
         Config.blockCountDisplayY = 0f;
         Config.blockCountDisplayScale = 1.0f;

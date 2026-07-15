@@ -10,13 +10,17 @@ import net.minecraft.client.gui.screens.options.AccessibilityOptionsScreen;
 import net.minecraft.network.chat.Component;
 
 public final class MainUIScreenManager {
+    private static boolean firstMainUIAutoOpen = true;
+
     private MainUIScreenManager() {}
 
     public static void init() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof TitleScreen titleScreen)) return;
             if (Config.useMainUI) {
-                client.setScreen(new PVPUtilsMainUI(titleScreen));
+                boolean delayEntryFade = firstMainUIAutoOpen;
+                firstMainUIAutoOpen = false;
+                client.setScreen(new PVPUtilsMainUI(titleScreen, false, delayEntryFade));
                 return;
             }
             Button button = Button.builder(Component.literal("P"), b -> {
