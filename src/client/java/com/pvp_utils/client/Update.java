@@ -14,14 +14,17 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public final class Update {
-    private static final String UPDATE_URL = "https://raw.githubusercontent.com/bakabaicai/PVPUtils/main/Update";
+    private static final String GIT_UPDATE_URL = "https://raw.githubusercontent.com/bakabaicai/PVPUtils/main/Update";
     private static final String CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/pvputils";
     private static final String MODRINTH_URL = "https://modrinth.com/mod/pvp_utils";
     private static final String GITHUB_URL = "https://github.com/bakabaicai/PVPUtils/releases";
@@ -149,7 +152,41 @@ public final class Update {
     }
 
     private static UpdateResult fetchResultOnce() throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder(buildUpdateUri())
+        CompletableFuture<UpdateResponse> domestic = CompletableFuture.supplyAsync(() -> fetchResponse(1, Update::fetchDomesticUpdateText));
+        CompletableFuture<UpdateResponse> git = CompletableFuture.supplyAsync(() -> fetchResponse(2, Update::fetchGitUpdateText));
+        UpdateResponse first = (UpdateResponse) CompletableFuture.anyOf(domestic, git).join();
+
+        UpdateResponse selected;
+        if (domestic.isDone() && domestic.join().success()) {
+            selected = domestic.join();
+        } else if (first.success()) {
+            selected = first;
+        } else {
+            UpdateResponse other = first.line() == 1 ? git.join() : domestic.join();
+            if (!other.success()) {
+                throw new IOException(allLinesFailedMessage());
+            }
+            selected = other;
+        }
+
+        System.out.println("[PVPUtils][Update] response received from line " + selected.line());
+        return parse(selected.body());
+    }
+
+    private static UpdateResponse fetchResponse(int line, UpdateTextFetcher fetcher) {
+        try {
+            String body = fetcher.fetch();
+            if (findLine(body, "Version:") == null) {
+                throw new IOException("Missing update metadata");
+            }
+            return new UpdateResponse(line, body, null);
+        } catch (Exception e) {
+            return new UpdateResponse(line, null, e);
+        }
+    }
+
+    private static String fetchGitUpdateText() throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(buildGitUpdateUri())
                 .timeout(Duration.ofSeconds(8))
                 .header("User-Agent", "PVPUtils-UpdateChecker")
                 .header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -157,14 +194,37 @@ public final class Update {
                 .header("Expires", "0")
                 .GET()
                 .build();
-        String body = HTTP.send(request, HttpResponse.BodyHandlers.ofString()).body();
-        System.out.println("[PVPUtils][Update] raw body received");
-        return parse(body);
+        HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IOException("Git update request failed");
+        }
+        return response.body() == null ? "" : response.body();
     }
 
-    private static URI buildUpdateUri() {
-        String separator = UPDATE_URL.contains("?") ? "&" : "?";
-        return URI.create(UPDATE_URL + separator + "t=" + System.currentTimeMillis());
+    private static String fetchDomesticUpdateText() throws IOException, InterruptedException {
+        try {
+            Class<?> gateClass = Class.forName("com.pvp_utils.client.irc.network.IrcBuildGate");
+            Method method = gateClass.getDeclaredMethod("fetchUpdateText");
+            method.setAccessible(true);
+            Object body = method.invoke(null);
+            return body == null ? "" : body.toString();
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
+            throw new IOException("Line 1 is unavailable", e);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof InterruptedException interrupted) {
+                throw interrupted;
+            }
+            if (cause instanceof IOException io) {
+                throw io;
+            }
+            throw new IOException("Line 1 request failed", cause);
+        }
+    }
+
+    private static URI buildGitUpdateUri() {
+        String separator = GIT_UPDATE_URL.contains("?") ? "&" : "?";
+        return URI.create(GIT_UPDATE_URL + separator + "t=" + System.currentTimeMillis());
     }
 
     private static UpdateResult parse(String body) {
@@ -274,6 +334,9 @@ public final class Update {
     }
 
     private static String normalizeReason(String reason, boolean chinese) {
+        if (allLinesFailedMessage().equals(reason)) {
+            return chinese ? "线路1和线路2均不可用" : "line 1 and line 2 are unavailable";
+        }
         if (reason == null || reason.isBlank()) {
             return chinese ? "未知" : "unknown";
         }
@@ -406,4 +469,19 @@ public final class Update {
     }
 
     private record VersionCandidate(String type, String version, VersionToken token) {}
+
+    private static String allLinesFailedMessage() {
+        return "LINE_1_AND_LINE_2_UNAVAILABLE";
+    }
+
+    @FunctionalInterface
+    private interface UpdateTextFetcher {
+        String fetch() throws Exception;
+    }
+
+    private record UpdateResponse(int line, String body, Exception error) {
+        boolean success() {
+            return error == null;
+        }
+    }
 }
