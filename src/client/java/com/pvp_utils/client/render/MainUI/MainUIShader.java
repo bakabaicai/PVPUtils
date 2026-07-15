@@ -51,6 +51,7 @@ public final class MainUIShader {
             "Tube.frag.glsl"
     );
     private static String lastRandomShader = "";
+    private static final long TIMELINE_START_TIME = System.currentTimeMillis();
     private static int nextTextureId;
     private static final String DEFAULT_VERTEX_SOURCE = """
             #version 150 core
@@ -62,7 +63,6 @@ public final class MainUIShader {
 
     private final Identifier textureId;
     private final String fragmentPath;
-    private final long startTime;
     private int program;
     private int vao;
     private int vbo;
@@ -78,7 +78,6 @@ public final class MainUIShader {
     private MainUIShader(String fragmentPath) {
         this.textureId = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_shader_" + nextTextureId++);
         this.fragmentPath = fragmentPath;
-        this.startTime = System.currentTimeMillis();
     }
 
     public static MainUIShader random() {
@@ -121,7 +120,7 @@ public final class MainUIShader {
         int guiW = window.getGuiScaledWidth();
         int guiH = window.getGuiScaledHeight();
         float scale = (float) window.getGuiScale();
-        float time = (System.currentTimeMillis() - startTime) / 1000f;
+        float time = (System.currentTimeMillis() - TIMELINE_START_TIME) / 1000f;
 
         RenderSystem.assertOnRenderThread();
         ensureFramebuffer(fbW, fbH);
