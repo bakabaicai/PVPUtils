@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class Update {
     private static final String GIT_UPDATE_URL = "https://raw.githubusercontent.com/bakabaicai/PVPUtils/main/Update";
@@ -29,6 +31,7 @@ public final class Update {
     private static final String MODRINTH_URL = "https://modrinth.com/mod/pvp_utils";
     private static final String GITHUB_URL = "https://github.com/bakabaicai/PVPUtils/releases";
     private static final String QQ_GROUP_NUMBER = "947119584";
+    private static final Pattern UPDATE_FIELD_PATTERN = Pattern.compile("(?i)(Version Alpha|Version Beta|Version|Announcement)\\s*:");
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6))
@@ -173,7 +176,7 @@ public final class Update {
     private static UpdateResponse fetchResponse(int line, UpdateTextFetcher fetcher) {
         try {
             String body = fetcher.fetch();
-            if (findLine(body, "Version:") == null) {
+            if (findValue(body, "Version") == null) {
                 throw new IOException("Missing update metadata");
             }
             return new UpdateResponse(line, body, null);
@@ -225,13 +228,9 @@ public final class Update {
     }
 
     private static UpdateResult parse(String body) {
-        String releaseLine = findLine(body, "Version:");
-        String betaLine = findLine(body, "Version Beta:");
-        String alphaLine = findLine(body, "Version Alpha:");
-
-        String releaseVersion = extractVersion(releaseLine);
-        String betaVersion = extractVersion(betaLine);
-        String alphaVersion = extractVersion(alphaLine);
+        String releaseVersion = findValue(body, "Version");
+        String betaVersion = findValue(body, "Version Beta");
+        String alphaVersion = findValue(body, "Version Alpha");
 
         System.out.println("[PVPUtils][Update] parse current=" + currentTypedVersion()
                 + " release=" + releaseVersion
@@ -311,23 +310,30 @@ public final class Update {
                 .withStyle(ChatFormatting.GREEN);
     }
 
-    private static String findLine(String body, String prefix) {
-        String[] lines = body.split("\\R");
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith(prefix)) {
-                return trimmed;
+    private static String findValue(String body, String field) {
+        if (body == null || field == null) return null;
+        Matcher matcher = UPDATE_FIELD_PATTERN.matcher(body);
+        while (matcher.find()) {
+            if (!matcher.group(1).equalsIgnoreCase(field)) {
+                continue;
             }
+            int start = matcher.end();
+            int end = body.length();
+            if (matcher.find()) {
+                end = matcher.start();
+            }
+            String value = body.substring(start, end).trim();
+            return value.isEmpty() ? null : value;
         }
         return null;
     }
 
-    private static String extractVersion(String line) {
-        if (line == null) return null;
-        int idx = line.indexOf(':');
-        if (idx < 0) return null;
-        String value = line.substring(idx + 1).trim();
-        return value.isEmpty() ? null : value;
+    public static String parseAnnouncement(String body) {
+        String value = findValue(body, "Announcement");
+        if (value == null || value.isBlank() || "无".equals(value.trim())) {
+            return "";
+        }
+        return value.trim();
     }
 
     private static String normalizeReason(String reason, boolean chinese) {

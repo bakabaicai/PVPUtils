@@ -629,6 +629,7 @@ public final class IrcLoginWindow {
                 playCloseAnimation(dialog, outer, () -> {
                     finished.set(true);
                     dialog.dispose();
+                    UpdateAnnouncementWindow.showAfterLoginAsync();
                 });
             });
         }, "PVPUtils-IRC-LoginSuccess").start();
