@@ -44,6 +44,7 @@ public class Config {
     public static boolean diggingStatus = false;
     public static boolean betterPingDisplay = false;
     public static boolean fallDamagePredict = false;
+    public static boolean fireballLandingPredict = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
@@ -98,6 +99,9 @@ public class Config {
     public static boolean attackEffectsBloodParticles = false;
     public static boolean attackEffectsLightning = false;
     public static boolean hitColor = false;
+    public static boolean customBlockOutline = false;
+    public static boolean customBlockOutlineFill = false;
+    public static boolean customBlockOutlineAnimation = false;
     public static boolean customEnchantmentGlint = false;
     public static boolean motionCamera = false;
     public static boolean noAttackCooldownAnimation = false;
@@ -170,6 +174,14 @@ public class Config {
     public static int hitColorGreen = 0;
     public static int hitColorBlue = 0;
     public static int hitColorAlpha = 179;
+    public static int customBlockOutlineRed = 255;
+    public static int customBlockOutlineGreen = 255;
+    public static int customBlockOutlineBlue = 255;
+    public static int customBlockOutlineAlpha = 255;
+    public static int customBlockOutlineFillRed = 255;
+    public static int customBlockOutlineFillGreen = 255;
+    public static int customBlockOutlineFillBlue = 255;
+    public static int customBlockOutlineFillAlpha = 64;
     public static float blockCountDisplayX = 0f;
     public static float blockCountDisplayY = 0f;
     public static float blockCountDisplayScale = 1.0f;
@@ -204,6 +216,9 @@ public class Config {
     public static float arraylistGradientSpeed = 1.0f;
     public static boolean arraylistBorder = false;
     public static float arraylistBorderWidth = 1.0f;
+    public static float customBlockOutlineWidth = 1.0f;
+    public static float customBlockOutlineAnimationSpeed = 8.0f;
+    public static float customBlockOutlineMoveSpeed = 12.0f;
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
@@ -639,6 +654,7 @@ public class Config {
             new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
             new ModuleRule("AttackReachDisplay", "attackReachDisplay", "attackReachDisplay"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
+            new ModuleRule("FireballLandingPrediction", "fireballLandingPredict", "fireballLandingPredict"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
@@ -664,6 +680,7 @@ public class Config {
             new ModuleRule("RenderControl", "hide", ""),
             new ModuleRule("AttackEffects", "attackEffects", ""),
             new ModuleRule("HitColor", "hitColor", "hitColor"),
+            new ModuleRule("CustomBlockOutline", "customBlockOutline", "customBlockOutline", "customBlockOutlineFill", "customBlockOutlineAnimation", "customBlockOutlineRed", "customBlockOutlineGreen", "customBlockOutlineBlue", "customBlockOutlineAlpha", "customBlockOutlineFillRed", "customBlockOutlineFillGreen", "customBlockOutlineFillBlue", "customBlockOutlineFillAlpha", "customBlockOutlineWidth", "customBlockOutlineAnimationSpeed", "customBlockOutlineMoveSpeed"),
             new ModuleRule("RainbowEnchantmentGlint", "customEnchantmentGlint", "customEnchantmentGlint"),
             new ModuleRule("MotionCamera", "motionCamera", "motionCamera"),
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),

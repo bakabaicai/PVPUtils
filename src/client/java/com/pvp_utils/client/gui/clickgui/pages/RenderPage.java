@@ -75,6 +75,37 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示当前受击覆盖颜色", "Preview the current hit overlay color"),
                         new SettingColorPreview(() -> hitColorArgb())));
 
+        modules.add(new SettingModule(UiText.t("自定义方块轮廓", "Custom Block Outline"), UiText.t("自定义准星指向方块的轮廓样式", "Customize the outline of the block under the crosshair"),
+                new SettingToggle(() -> Config.customBlockOutline, v -> { Config.customBlockOutline = v; Config.save(); }))
+                .addSub(UiText.t("边框粗细", "Border Width"), "",
+                        new SettingSlider(1.0, 4.0, "%.1f", () -> (double) Config.customBlockOutlineWidth, v -> { Config.customBlockOutlineWidth = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("边框 R", "Border R"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineRed, v -> { Config.customBlockOutlineRed = clampColor(v); Config.save(); }))
+                .addSub(UiText.t("边框 G", "Border G"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineGreen, v -> { Config.customBlockOutlineGreen = clampColor(v); Config.save(); }))
+                .addSub(UiText.t("边框 B", "Border B"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineBlue, v -> { Config.customBlockOutlineBlue = clampColor(v); Config.save(); }))
+                .addSub(UiText.t("边框透明度", "Border Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.customBlockOutlineAlpha), v -> { Config.customBlockOutlineAlpha = transparencyPercentToAlpha(v); Config.save(); }))
+                .addSub(UiText.t("填充", "Fill"), "",
+                        new SettingToggle(() -> Config.customBlockOutlineFill, v -> { Config.customBlockOutlineFill = v; Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 R", "Fill R"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillRed, v -> { Config.customBlockOutlineFillRed = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 G", "Fill G"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillGreen, v -> { Config.customBlockOutlineFillGreen = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 B", "Fill B"), "",
+                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillBlue, v -> { Config.customBlockOutlineFillBlue = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充透明度", "Fill Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.customBlockOutlineFillAlpha), v -> { Config.customBlockOutlineFillAlpha = transparencyPercentToAlpha(v); Config.save(); }))
+                .addSub(UiText.t("动画改进", "Animation Improvements"), UiText.t("为轮廓出现、退出和目标移动添加缓动动画", "Add eased animations for appearance, exit, and target movement"),
+                        new SettingToggle(() -> Config.customBlockOutlineAnimation, v -> { Config.customBlockOutlineAnimation = v; Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineAnimation, UiText.t("进入/退出速度", "Enter/Exit Speed"), "",
+                        new SettingSlider(1.0, 20.0, "%.1f", () -> (double) Config.customBlockOutlineAnimationSpeed, v -> { Config.customBlockOutlineAnimationSpeed = v.floatValue(); Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineAnimation, UiText.t("移动速度", "Move Speed"), "",
+                        new SettingSlider(1.0, 20.0, "%.1f", () -> (double) Config.customBlockOutlineMoveSpeed, v -> { Config.customBlockOutlineMoveSpeed = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示边框和填充颜色", "Preview the outline and fill colors"),
+                        new SettingColorPreview(RenderPage::customBlockOutlineArgb, RenderPage::customBlockOutlineFillArgb, () -> Config.customBlockOutlineFill)));
+
         modules.add(new SettingModule(UiText.t("彩虹附魔光效", "Rainbow Enchantment Glint"), UiText.t("将附魔光效更改为彩虹色", "Change the enchantment glint to rainbow colors"),
                 new SettingToggle(() -> Config.customEnchantmentGlint, v -> { Config.customEnchantmentGlint = v; Config.save(); })));
 
@@ -297,6 +328,20 @@ public class RenderPage extends BasePage {
                 | ((Config.hitColorRed & 0xFF) << 16)
                 | ((Config.hitColorGreen & 0xFF) << 8)
                 | (Config.hitColorBlue & 0xFF);
+    }
+
+    private static int customBlockOutlineArgb() {
+        return ((Config.customBlockOutlineAlpha & 0xFF) << 24)
+                | ((Config.customBlockOutlineRed & 0xFF) << 16)
+                | ((Config.customBlockOutlineGreen & 0xFF) << 8)
+                | (Config.customBlockOutlineBlue & 0xFF);
+    }
+
+    private static int customBlockOutlineFillArgb() {
+        return ((Config.customBlockOutlineFillAlpha & 0xFF) << 24)
+                | ((Config.customBlockOutlineFillRed & 0xFF) << 16)
+                | ((Config.customBlockOutlineFillGreen & 0xFF) << 8)
+                | (Config.customBlockOutlineFillBlue & 0xFF);
     }
 
     private static int arraylistColorArgb() {

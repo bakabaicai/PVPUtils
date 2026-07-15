@@ -54,6 +54,8 @@
     "GameRendererTotemMixin",
     "MotionBlurGameRendererMixin",
     "MotionBlurLevelRendererMixin",
+    "WorldRenderLevelRendererMixin",
+    "CustomBlockOutlineLevelRendererMixin",
     "InputMethodFixMinecraftMixin",
     "InputMethodFixEditBoxMixin",
     "InputMethodFixMultiLineEditBoxMixin",

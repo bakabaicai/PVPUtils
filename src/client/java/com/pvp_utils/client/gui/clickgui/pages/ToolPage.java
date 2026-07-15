@@ -27,6 +27,9 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
+                new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
 

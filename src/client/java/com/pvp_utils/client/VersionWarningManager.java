@@ -32,7 +32,7 @@ public final class VersionWarningManager {
                     .append(Component.literal(" 版本。该版本属于先行测试阶段，稳定性较低，可能存在大量已知或未知 Bug，且无法保证在所有设备上均可正常运行。发布此类版本的主要目的在于收集错误信息，以便开发者后续持续修复和完善模组内容，因此仅建议用于尝鲜体验。若在使用过程中遇到报错或异常情况，请优先通过 ")
                             .withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal("GitHub Issues").withStyle(linkStyle()))
-                    .append(Component.literal(" 向开发者反馈问题。").withStyle(ChatFormatting.YELLOW));
+                    .append(Component.literal(" 向开发者反馈问题。输入 .versionwarning off 即可永久关闭此提示。").withStyle(ChatFormatting.YELLOW));
         }
 
         return Component.literal("您当前正在使用 " + Version.NAME + " 的 ")
@@ -41,7 +41,7 @@ public final class VersionWarningManager {
                 .append(Component.literal(" 版本。该版本已进入公开测试阶段，整体完成度与可用性相对更高，但仍可能存在部分 Bug、细节问题或兼容性异常。发布此类版本的主要目的在于进一步收集反馈并完善正式版体验，因此仍不保证在所有设备与环境下都能完全稳定运行。若在使用过程中发现异常，请通过 ")
                         .withStyle(ChatFormatting.GREEN))
                 .append(Component.literal("GitHub Issues").withStyle(linkStyle()))
-                .append(Component.literal(" 提交反馈，帮助开发者在正式版发布前进一步优化体验。").withStyle(ChatFormatting.GREEN));
+                .append(Component.literal(" 提交反馈，帮助开发者在正式版发布前进一步优化体验。输入 .versionwarning off 即可永久关闭此提示。").withStyle(ChatFormatting.GREEN));
     }
 
     private static MutableComponent englishMessage() {
@@ -52,7 +52,7 @@ public final class VersionWarningManager {
                     .append(Component.literal(" version of " + Version.NAME + ". This build is part of the early testing stage and may be highly unstable, with many known or unknown bugs. Normal operation on all devices cannot be guaranteed. The main purpose of releasing this kind of version is to collect error reports so the mod can be improved and maintained more effectively. It is intended only for users who want an early preview. If you encounter crashes or abnormal behavior, please report them through ")
                             .withStyle(ChatFormatting.YELLOW))
                     .append(Component.literal("GitHub Issues").withStyle(linkStyle()))
-                    .append(Component.literal(" first.").withStyle(ChatFormatting.YELLOW));
+                    .append(Component.literal(" first. Enter .versionwarning off to permanently disable this warning.").withStyle(ChatFormatting.YELLOW));
         }
 
         return Component.literal("You are currently using a ")
@@ -61,7 +61,7 @@ public final class VersionWarningManager {
                 .append(Component.literal(" version of " + Version.NAME + ". This build has entered the public testing stage, with a higher overall level of completion and usability, but some bugs, edge-case issues, or compatibility problems may still remain. The main purpose of releasing this kind of version is to gather more feedback and improve the final release. Stable operation on all devices and environments is still not guaranteed. If you find any issues during use, please submit them through ")
                         .withStyle(ChatFormatting.GREEN))
                 .append(Component.literal("GitHub Issues").withStyle(linkStyle()))
-                .append(Component.literal(" to help improve the release version.").withStyle(ChatFormatting.GREEN));
+                .append(Component.literal(" to help improve the release version. Enter .versionwarning off to permanently disable this warning.").withStyle(ChatFormatting.GREEN));
     }
 
     private static MutableComponent versionTypeText() {
