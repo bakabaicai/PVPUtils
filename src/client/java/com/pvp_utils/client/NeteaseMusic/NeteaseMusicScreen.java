@@ -735,8 +735,10 @@ public class NeteaseMusicScreen extends Screen {
         int visualBase = scroll.base();
         float rowOffset = scroll.offset();
         int visibleCards = (visibleRows + 1) * columns;
-        canvas.save();
-        canvas.clipRect(Rect.makeLTRB(gridX - 8, gridY, gridX + availableW + 8, height - PLAYER_HEIGHT - 16));
+        int clipBottom = height - PLAYER_HEIGHT - 16;
+        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) {
+            return;
+        }
         try {
             for (int slot = 0; slot < visibleCards; slot++) {
                 int index = visualBase + slot;
@@ -784,8 +786,10 @@ public class NeteaseMusicScreen extends Screen {
         int visualBase = scroll.base();
         float rowOffset = scroll.offset();
         int visibleCards = (visibleRows + 1) * columns;
-        canvas.save();
-        canvas.clipRect(Rect.makeLTRB(gridX - 8, gridY, gridX + availableW + 8, height - PLAYER_HEIGHT - 16));
+        int clipBottom = height - PLAYER_HEIGHT - 16;
+        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) {
+            return;
+        }
         try {
             for (int slot = 0; slot < visibleCards; slot++) {
                 int index = visualBase + slot;
@@ -834,8 +838,9 @@ public class NeteaseMusicScreen extends Screen {
             drawSkiaButtonLabel(canvas, "\uE043", Config.isChinese ? "乱序播放歌单" : "Shuffle", infoX + 102, buttonY, 112, localAlpha);
         }
         int clipBottom = height - PLAYER_HEIGHT - 8;
-        canvas.save();
-        canvas.clipRect(Rect.makeLTRB(contentX, listY, width - 26, clipBottom));
+        if (!safeClipRect(canvas, contentX, listY, width - 26, clipBottom)) {
+            return;
+        }
         try {
             for (int row = 0; row < visibleRows + 2; row++) {
                 int index = visualBase + row;
@@ -857,6 +862,15 @@ public class NeteaseMusicScreen extends Screen {
         } finally {
             canvas.restore();
         }
+    }
+
+    private boolean safeClipRect(Canvas canvas, float left, float top, float right, float bottom) {
+        if (right <= left || bottom <= top) {
+            return false;
+        }
+        canvas.save();
+        canvas.clipRect(Rect.makeLTRB(left, top, right, bottom));
+        return true;
     }
 
     private void renderPlayerSkiaText(Canvas canvas, int alpha) {

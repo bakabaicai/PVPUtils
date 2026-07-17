@@ -15,9 +15,9 @@ import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
+import com.pvp_utils.client.modules.impl.Render.LyricsDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
-import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -62,10 +62,6 @@ public class GuiMixin {
         Canvas canvas = null;
 
         boolean skiaScreenOpen = mc.screen instanceof SkiaScreen;
-        boolean musicScreenOpen = mc.screen instanceof NeteaseMusicScreen;
-        if (musicScreenOpen) {
-            return;
-        }
         if (!skiaScreenOpen && NotificationOverlay.getInstance().needsStandaloneCanvas()) {
             int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
             if (bounds != null) {
@@ -90,6 +86,7 @@ public class GuiMixin {
         DamageNumberRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
+        LyricsDisplayRenderer.getInstance().render(guiGraphics);
         ArraylistRenderer.getInstance().render(guiGraphics);
         KeystrokesRenderer.getInstance().render(guiGraphics);
         ArmorHudRenderer.getInstance().render(guiGraphics);

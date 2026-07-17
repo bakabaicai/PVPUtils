@@ -22,7 +22,7 @@ import java.util.function.BooleanSupplier;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, BETTER_SCOREBOARD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, BETTER_SCOREBOARD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -185,6 +185,7 @@ public class HudEditOverlay {
     private List<EditItemState> buildEditItems(int guiW, int guiH) {
         ArrayList<EditItemState> items = new ArrayList<>();
         addItem(items, DragTarget.POTION_STATUS, "Potion Status", Config.potionStatus, getPotionStatusRect(guiW, guiH), this::movePotionStatus, delta -> setScale(v -> Config.potionStatusScale = v, Config.potionStatusScale, delta));
+        addItem(items, DragTarget.LYRICS_DISPLAY, "Lyrics Display", Config.lyricsDisplay, getLyricsDisplayRect(guiW, guiH), this::moveLyricsDisplay, delta -> setScale(v -> Config.lyricsDisplayScale = v, Config.lyricsDisplayScale, delta));
         addItem(items, DragTarget.NOTIFICATION, "Notification", true, getNotificationRect(guiW, guiH), this::moveNotification, delta -> setScale(v -> Config.notificationScale = v, Config.notificationScale, delta));
         addItem(items, DragTarget.BETTER_SCOREBOARD, "Better Scoreboard", Config.betterScoreboard, getBetterScoreboardRect(guiW, guiH), this::moveBetterScoreboard, delta -> setScale(v -> Config.betterScoreboardScale = v, Config.betterScoreboardScale, delta));
         addItem(items, DragTarget.BLOCK_COUNT, "Block Count", Config.blockCountDisplay, getBlockCountRect(guiW, guiH), this::moveBlockCount, delta -> setScale(v -> Config.blockCountDisplayScale = v, Config.blockCountDisplayScale, delta));
@@ -319,6 +320,12 @@ public class HudEditOverlay {
         Config.potionStatusY = rect.y - (guiH - rect.h) * 0.5f;
     }
 
+    private void moveLyricsDisplay(RectState rect, int guiW, int guiH) {
+        LyricsDisplayRenderer renderer = LyricsDisplayRenderer.getInstance();
+        Config.lyricsDisplayX = rect.x - renderer.getDefaultX(guiW);
+        Config.lyricsDisplayY = rect.y - renderer.getDefaultY(guiH);
+    }
+
     private void moveBetterScoreboard(RectState rect, int guiW, int guiH) {
         BetterScoreboardManager.Rect baseRect = BetterScoreboardManager.getCurrentRect(guiW, guiH);
         float scale = BetterScoreboardManager.getScale();
@@ -367,9 +374,44 @@ public class HudEditOverlay {
         for (EditItemState item : items) {
             RectState rect = item.rect();
             float alpha = hoverAlpha[item.definition().target().ordinal()];
+            if (item.definition().target() == DragTarget.LYRICS_DISPLAY) {
+                drawLyricsPreview(canvas, rect, progress);
+            }
             drawOutline(canvas, rect.x, rect.y, rect.w, rect.h, item.definition().label(), alpha, progress);
         }
         drawHint(canvas, guiW, guiH, progress);
+    }
+
+    private void drawLyricsPreview(Canvas canvas, RectState rect, float progress) {
+        float scale = Math.max(0.5f, Config.lyricsDisplayScale);
+        float centerX = rect.x + rect.w * 0.5f;
+        float centerY = rect.y + rect.h * 0.5f + 7f * scale;
+        String[] lines = Config.isChinese
+                ? new String[]{"光从耳边慢慢经过", "这一句会停在屏幕中央", "下一句跟着节拍上移"}
+                : new String[]{"Light drifts slowly past my ears", "This line stays in the center", "The next line rises with the beat"};
+        float[] offsets = {-27f, 0f, 27f};
+        float[] sizes = {15f, 21f, 15f};
+        int[] colors = {0xC8CDD8, 0xFFFFFF, 0xC8CDD8};
+        int[] alphas = {120, 245, 120};
+        for (int i = 0; i < lines.length; i++) {
+            float size = sizes[i] * scale;
+            String text = trimToWidth(lines[i], Math.max(24f, rect.w - 32f * scale), size);
+            float textW = FontRenderer.measureTextWidth(text, size);
+            int alpha = Math.round(alphas[i] * progress);
+            float x = centerX - textW * 0.5f;
+            float y = centerY + offsets[i] * scale;
+            FontRenderer.drawText(canvas, text, x + 1.2f * scale, y + 1.2f * scale, size, alpha << 24);
+            FontRenderer.drawText(canvas, text, x, y, size, (alpha << 24) | colors[i]);
+        }
+    }
+
+    private String trimToWidth(String text, float maxWidth, float size) {
+        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
+        String ellipsis = "...";
+        while (text.length() > 1 && FontRenderer.measureTextWidth(text + ellipsis, size) > maxWidth) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return text + ellipsis;
     }
 
     private void drawOutline(Canvas canvas, float x, float y, float w, float h, String label, float hoverAlpha, float alpha) {
@@ -457,6 +499,11 @@ public class HudEditOverlay {
 
     private RectState getPotionStatusRect(int guiW, int guiH) {
         PotionStatusRenderer renderer = PotionStatusRenderer.getInstance();
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
+    }
+
+    private RectState getLyricsDisplayRect(int guiW, int guiH) {
+        LyricsDisplayRenderer renderer = LyricsDisplayRenderer.getInstance();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
     }
 

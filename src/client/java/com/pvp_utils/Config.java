@@ -43,6 +43,7 @@ public class Config {
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
     public static boolean betterPingDisplay = false;
+    public static boolean lyricsDisplay = false;
     public static boolean fallDamagePredict = false;
     public static boolean fireballLandingPredict = false;
     public static boolean victorySound = false;
@@ -200,6 +201,9 @@ public class Config {
     public static float potionStatusX = 0f;
     public static float potionStatusY = 0f;
     public static float potionStatusScale = 1.0f;
+    public static float lyricsDisplayX = 0f;
+    public static float lyricsDisplayY = 0f;
+    public static float lyricsDisplayScale = 1.0f;
     public static float betterScoreboardX = 0f;
     public static float betterScoreboardY = 0f;
     public static float betterScoreboardScale = 1.0f;
@@ -662,6 +666,7 @@ public class Config {
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),
+            new ModuleRule("LyricsDisplay", "lyricsDisplay", "lyricsDisplay"),
             new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
             new ModuleRule("Arraylist", "arraylist", "arraylist"),
             new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),
@@ -709,6 +714,7 @@ public class Config {
             new HudComponent("DynamicIsland", "dynamicIsland", "dynamicIslandX", "dynamicIslandY", "dynamicIslandScale"),
             new HudComponent("Notification", "notification", "notificationX", "notificationY", "notificationScale"),
             new HudComponent("PotionStatus", "potionStatus", "potionStatusX", "potionStatusY", "potionStatusScale"),
+            new HudComponent("LyricsDisplay", "lyricsDisplay", "lyricsDisplayX", "lyricsDisplayY", "lyricsDisplayScale"),
             new HudComponent("BetterScoreboard", "betterScoreboard", "betterScoreboardX", "betterScoreboardY", "betterScoreboardScale"),
     };
 
