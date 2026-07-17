@@ -96,8 +96,9 @@ public class GuiMixin {
         if (canvas != null) {
             SkiaRenderer.endRegion(guiGraphics);
         }
-
+        guiGraphics.renderDeferredElements();
         LyricsDisplayRenderer.getInstance().render(guiGraphics);
+        guiGraphics.renderDeferredElements();
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
         guiGraphics.renderDeferredElements();
     }
