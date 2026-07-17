@@ -126,6 +126,9 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("歌词显示", "Lyrics Display"), UiText.t("显示当前播放音乐的歌词", "Show lyrics for the currently playing music"),
                 new SettingToggle(() -> Config.lyricsDisplay, v -> { Config.lyricsDisplay = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("音乐信息显示", "Music Info HUD"), UiText.t("显示当前播放的网易云音乐信息", "Show current Netease Music playback information"),
+                new SettingToggle(() -> Config.musicInfoHud, v -> { Config.musicInfoHud = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
                 new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); })));
 

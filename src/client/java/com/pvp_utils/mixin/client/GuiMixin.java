@@ -16,6 +16,7 @@ import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRende
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LyricsDisplayRenderer;
+import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
@@ -98,6 +99,8 @@ public class GuiMixin {
         }
         guiGraphics.renderDeferredElements();
         LyricsDisplayRenderer.getInstance().render(guiGraphics);
+        guiGraphics.renderDeferredElements();
+        MusicInfoHudRenderer.getInstance().render(guiGraphics);
         guiGraphics.renderDeferredElements();
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
         guiGraphics.renderDeferredElements();

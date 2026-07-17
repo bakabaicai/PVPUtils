@@ -97,7 +97,10 @@ public final class NeteaseMusicApi {
 
     public static List<LyricLine> getLyric(long id) throws IOException, InterruptedException {
         JsonObject root = getJsonObject("/lyric?id=" + id);
-        return LyricLineProcessor.parse(string(object(root.get("lrc")), "lyric"));
+        return LyricLineProcessor.parse(
+                string(object(root.get("lrc")), "lyric"),
+                string(object(root.get("tlyric")), "lyric")
+        );
     }
 
     public static QrLogin createQrLogin() throws IOException, InterruptedException {
@@ -155,7 +158,7 @@ public final class NeteaseMusicApi {
                 + "&password=" + encode(password)
                 + "&timestamp=" + System.currentTimeMillis());
         JsonObject profile = object(root.get("profile"));
-        LoginSession session = new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), string(root, "cookie"));
+        LoginSession session = refreshSessionProfile(new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), string(root, "cookie")));
         if (session.uid() <= 0L || session.cookie().isBlank()) {
             throw new IOException("Netease login failed");
         }
@@ -189,7 +192,13 @@ public final class NeteaseMusicApi {
     }
 
     public static List<Song> getPlaylistDetail(long id) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject(withSession("/playlist/track/all?id=" + id + "&limit=80"));
+        return getPlaylistDetail(id, 80, 0);
+    }
+
+    public static List<Song> getPlaylistDetail(long id, int limit, int offset) throws IOException, InterruptedException {
+        JsonObject root = getJsonObject(withSession("/playlist/track/all?id=" + id
+                + "&limit=" + Math.max(1, limit)
+                + "&offset=" + Math.max(0, offset)));
         List<Song> result = new ArrayList<>();
         JsonArray songs = array(root, "songs");
         for (JsonElement element : songs) {
@@ -215,11 +224,13 @@ public final class NeteaseMusicApi {
         try {
             JsonElement element = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
             JsonObject object = object(element);
-            LoginSession session = new LoginSession(number(object, "uid"), string(object, "nickname"), string(object, "avatarUrl"), string(object, "cookie"));
+            LoginSession session = new LoginSession(number(object, "uid"), string(object, "nickname"), appendImageSize(string(object, "avatarUrl")), string(object, "cookie"));
             if (session.uid() <= 0L || session.cookie().isBlank()) {
                 return false;
             }
+            session = refreshSessionProfile(session);
             loginSession = session;
+            saveSession(session);
             return true;
         } catch (Exception ignored) {
             return false;
@@ -227,7 +238,11 @@ public final class NeteaseMusicApi {
     }
 
     public static LoginSession currentSession() {
-        return loginSession;
+        LoginSession session = loginSession;
+        if (session != null && (session.avatarUrl().isBlank() || session.nickname().isBlank())) {
+            requestSessionProfileRefresh(session);
+        }
+        return session;
     }
 
     public static void logout() {
@@ -277,11 +292,51 @@ public final class NeteaseMusicApi {
         JsonObject root = getJsonObject("/user/account?cookie=" + encode(cookie)
                 + "&timestamp=" + System.currentTimeMillis());
         JsonObject profile = object(root.get("profile"));
-        LoginSession session = new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), cookie);
+        LoginSession session = refreshSessionProfile(new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), cookie));
         if (session.uid() <= 0L || session.cookie().isBlank()) {
             throw new IOException("Netease account response did not include a usable session");
         }
         return session;
+    }
+
+    private static LoginSession refreshSessionProfile(LoginSession session) {
+        if (session == null || session.uid() <= 0L || session.cookie().isBlank()) {
+            return session;
+        }
+        try {
+            JsonObject root = getJsonObject("/user/detail?uid=" + session.uid()
+                    + "&cookie=" + encode(session.cookie())
+                    + "&timestamp=" + System.currentTimeMillis());
+            JsonObject profile = object(root.get("profile"));
+            String nickname = string(profile, "nickname");
+            String avatarUrl = appendImageSize(string(profile, "avatarUrl"));
+            return new LoginSession(
+                    session.uid(),
+                    nickname.isBlank() ? session.nickname() : nickname,
+                    avatarUrl.isBlank() ? session.avatarUrl() : avatarUrl,
+                    session.cookie()
+            );
+        } catch (Exception ignored) {
+            return session;
+        }
+    }
+
+    private static void requestSessionProfileRefresh(LoginSession session) {
+        if (profileRefreshInFlight) {
+            return;
+        }
+        profileRefreshInFlight = true;
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                LoginSession refreshed = refreshSessionProfile(session);
+                if (refreshed != null && refreshed.uid() > 0L && !refreshed.cookie().isBlank()) {
+                    loginSession = refreshed;
+                    saveSession(refreshed);
+                }
+            } finally {
+                profileRefreshInFlight = false;
+            }
+        });
     }
 
     private static void saveSession(LoginSession session) {
@@ -313,6 +368,7 @@ public final class NeteaseMusicApi {
     }
 
     private static volatile LoginSession loginSession;
+    private static volatile boolean profileRefreshInFlight;
 
     private static String withSession(String path) {
         LoginSession session = loginSession;
@@ -345,10 +401,10 @@ public final class NeteaseMusicApi {
     }
 
     private static String appendImageSize(String url) {
-        if (url == null || url.isBlank() || url.contains("?param=")) {
+        if (url == null || url.isBlank() || url.contains("param=")) {
             return url == null ? "" : url;
         }
-        return url + "?param=512y512";
+        return url + (url.contains("?") ? "&" : "?") + "param=512y512";
     }
 
     private static JsonArray array(JsonObject object, String name) {

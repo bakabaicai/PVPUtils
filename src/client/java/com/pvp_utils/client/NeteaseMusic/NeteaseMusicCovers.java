@@ -18,8 +18,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-final class NeteaseMusicCovers {
-    static final int TEXTURE_SIZE = 256;
+public final class NeteaseMusicCovers {
+    public static final int TEXTURE_SIZE = 256;
 
     private static final ExecutorService IO = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "PVPUtils-NeteaseCover");
@@ -32,7 +32,7 @@ final class NeteaseMusicCovers {
     private NeteaseMusicCovers() {
     }
 
-    static Identifier texture(String url) {
+    public static Identifier texture(String url) {
         if (url == null || url.isBlank()) {
             return null;
         }
@@ -40,11 +40,22 @@ final class NeteaseMusicCovers {
         return cover.location;
     }
 
-    static void preload(String url) {
+    public static void preload(String url) {
         if (url == null || url.isBlank()) {
             return;
         }
         CACHE.computeIfAbsent(url, NeteaseMusicCovers::request);
+    }
+
+    public static void clear() {
+        Minecraft client = Minecraft.getInstance();
+        for (CoverTexture cover : CACHE.values()) {
+            Identifier location = cover.location;
+            if (location != null && client.getTextureManager() != null) {
+                client.getTextureManager().release(location);
+            }
+        }
+        CACHE.clear();
     }
 
     private static CoverTexture request(String url) {

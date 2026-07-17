@@ -52,6 +52,7 @@ public class ArraylistRenderer {
             new Entry("Keystrokes", () -> Config.keystrokes),
             new Entry("Low Health Warning", () -> Config.lowHealthNotify),
             new Entry("Motion camera", () -> Config.motionCamera),
+            new Entry("Music Info HUD", () -> Config.musicInfoHud),
             new Entry("Name Tag", () -> Config.nameTag),
             new Entry("No Swimming", () -> Config.noSwimming),
             new Entry("Potion Status", () -> Config.potionStatus),

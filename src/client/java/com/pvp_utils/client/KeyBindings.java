@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 public class KeyBindings {
 
     public static KeyMapping openSettings;
+    public static KeyMapping openMusic;
     public static KeyMapping zoom;
     public static KeyMapping freelook;
 
@@ -20,6 +21,12 @@ public class KeyBindings {
         openSettings = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.pvp_utils.open_settings",
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
+                category
+        ));
+
+        openMusic = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.pvp_utils.open_music",
+                GLFW.GLFW_KEY_RIGHT_CONTROL,
                 category
         ));
 

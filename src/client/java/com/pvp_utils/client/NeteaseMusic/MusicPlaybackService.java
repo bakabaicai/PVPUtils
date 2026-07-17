@@ -1,6 +1,7 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.PVPUtils;
+import com.pvp_utils.Config;
 import com.goxr3plus.streamplayer.enums.Status;
 import com.goxr3plus.streamplayer.stream.StreamPlayer;
 import com.goxr3plus.streamplayer.stream.StreamPlayerEvent;
@@ -10,13 +11,23 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public final class MusicPlaybackService implements StreamPlayerListener {
+    private static final int MAX_CACHED_SONGS = 15;
+
+    static {
+        Logger.getLogger("com.goxr3plus.streamplayer").setLevel(Level.WARNING);
+        Logger.getLogger("com.goxr3plus.streamplayer.stream").setLevel(Level.WARNING);
+    }
+
     public static final MusicPlaybackService INSTANCE = new MusicPlaybackService();
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
@@ -35,7 +46,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     private volatile long playStartedAtMs;
     private volatile long totalDurationMs;
     private volatile long progressOffsetMs;
-    private volatile float volume = 1.0F;
+    private volatile float volume = Math.max(0.0F, Math.min(1.0F, Config.neteaseMusicVolume));
     private volatile String status = "Idle";
     private volatile PlaybackMode playbackMode = PlaybackMode.LIST;
     private volatile int currentIndex;
@@ -87,12 +98,14 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                     status = "Downloading " + song.name();
                     Files.write(cachedFile, NeteaseMusicApi.getBytes(songFile.url()));
                 }
+                touchCacheFile(cachedFile);
+                trimSongCache(cachedFile);
                 List<LyricLine> loadedLyrics;
                 try {
                     loadedLyrics = NeteaseMusicApi.getLyric(song.id());
-                } catch (Exception ignored) {
+                } catch (Exception exception) {
                     loadedLyrics = List.of();
-                    PVPUtils.LOGGER.warn("[LyricsDisplay] lyric-load-failed id={} reason={}", song.id(), cleanMessage(ignored));
+                    PVPUtils.LOGGER.error("[LyricsDisplay] Failed to load lyrics id={} reason={}", song.id(), cleanMessage(exception), exception);
                 }
                 synchronized (lyrics) {
                     lyrics.clear();
@@ -209,8 +222,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         long position = basePositionMs + (System.currentTimeMillis() - playStartedAtMs);
         if (totalDurationMs > 0L && position >= totalDurationMs) {
             if (playbackMode == PlaybackMode.LOOP) {
-                basePositionMs = 0L;
-                playStartedAtMs = System.currentTimeMillis();
+                restartCurrentSong();
                 return 0L;
             }
             playing = false;
@@ -231,7 +243,15 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     public void setVolume(float volume) {
+        setVolume(volume, true);
+    }
+
+    public void setVolume(float volume, boolean persist) {
         this.volume = Math.max(0.0F, Math.min(1.0F, volume));
+        if (persist) {
+            Config.neteaseMusicVolume = this.volume;
+            Config.save();
+        }
         executor.execute(() -> {
             try {
                 player.setGain(this.volume);
@@ -247,10 +267,14 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     public void seekToProgress(float progress) {
         progress = Math.max(0.0F, Math.min(1.0F, progress));
         long targetMs = Math.round(totalDurationMs * progress);
+        if (totalDurationMs > 0L) {
+            targetMs = Math.min(targetMs, Math.max(0L, totalDurationMs - 500L));
+        }
         basePositionMs = targetMs;
         progressOffsetMs = targetMs;
         playStartedAtMs = playing ? System.currentTimeMillis() : 0L;
-        executor.execute(() -> trySeek(targetMs));
+        long seekTargetMs = targetMs;
+        executor.execute(() -> trySeek(seekTargetMs));
     }
 
     public String status() {
@@ -294,12 +318,46 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             playing = false;
             status = "Paused";
         } else if (playerStatus == Status.STOPPED) {
-            boolean ended = totalDurationMs > 0L && basePositionMs >= totalDurationMs * 0.90F;
+            long endToleranceMs = Math.min(1500L, Math.max(250L, totalDurationMs / 100L));
+            boolean ended = totalDurationMs > 0L && basePositionMs >= totalDurationMs - endToleranceMs;
             playing = false;
             if (ended && !changingSong) {
-                playNext();
+                if (playbackMode == PlaybackMode.LOOP) {
+                    restartCurrentSong();
+                } else {
+                    playNext();
+                }
             }
         }
+    }
+
+    private void restartCurrentSong() {
+        if (currentFile == null) {
+            Song song = currentSong;
+            if (song != null) {
+                playSong(song);
+            }
+            return;
+        }
+        changingSong = true;
+        basePositionMs = 0L;
+        progressOffsetMs = 0L;
+        playStartedAtMs = System.currentTimeMillis();
+        playing = true;
+        status = "Playing";
+        executor.execute(() -> {
+            try {
+                player.stop();
+                player.open(currentFile);
+                player.setGain(volume);
+                player.play();
+            } catch (Exception exception) {
+                status = "Replay failed: " + cleanMessage(exception);
+                playing = false;
+            } finally {
+                changingSong = false;
+            }
+        });
     }
 
     private void trySeek(long targetMs) {
@@ -314,9 +372,42 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     private static Path cachePath(Song song) throws Exception {
-        Path cacheDir = FabricLoader.getInstance().getGameDir().resolve("PVPUtils").resolve("music-cache");
+        Path cacheDir = cacheDirectory();
         Files.createDirectories(cacheDir);
         return cacheDir.resolve(song.id() + ".mp3");
+    }
+
+    private static Path cacheDirectory() {
+        return FabricLoader.getInstance().getGameDir().resolve("PVPUtils").resolve("music-cache");
+    }
+
+    private static void touchCacheFile(Path cachedFile) {
+        try {
+            Files.setLastModifiedTime(cachedFile, FileTime.fromMillis(System.currentTimeMillis()));
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void trimSongCache(Path activeFile) {
+        try (var stream = Files.list(cacheDirectory())) {
+            List<Path> cachedSongs = stream
+                    .filter(path -> Files.isRegularFile(path) && path.getFileName().toString().endsWith(".mp3"))
+                    .sorted((left, right) -> {
+                        try {
+                            return Files.getLastModifiedTime(right).compareTo(Files.getLastModifiedTime(left));
+                        } catch (Exception ignored) {
+                            return 0;
+                        }
+                    })
+                    .toList();
+            for (int i = MAX_CACHED_SONGS; i < cachedSongs.size(); i++) {
+                Path path = cachedSongs.get(i);
+                if (!path.equals(activeFile)) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     public static String formatTime(long ms) {

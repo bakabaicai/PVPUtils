@@ -9,6 +9,7 @@ import com.pvp_utils.client.command.impl.IrcChatCommand;
 import com.pvp_utils.client.command.impl.IrcCommand;
 import com.pvp_utils.client.command.impl.IrcPrivateMessageCommand;
 import com.pvp_utils.client.command.impl.UpdateCommand;
+import com.pvp_utils.client.command.impl.VersionWarningCommand;
 import com.pvp_utils.client.util.ChatUtils;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 
@@ -20,6 +21,7 @@ public final class CommandManager {
     private static final List<DotCommand> COMMANDS = List.of(
             new HelpCommand(),
             new UpdateCommand(),
+            new VersionWarningCommand(),
             new ClientNameCommand(),
             new AutoGGCommand(),
             new IrcCommand(),

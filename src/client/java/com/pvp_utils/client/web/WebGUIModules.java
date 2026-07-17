@@ -71,6 +71,7 @@ final class WebGUIModules {
                     module("Digging Status", "挖掘状态显示", "Show current digging progress under the crosshair.", "在准星下方显示当前挖掘进度", "diggingStatus"),
                     module("Better Ping Display", "更好的延迟显示", "Show latency as numbers in the player list.", "在玩家列表中用数字显示延迟", "betterPingDisplay"),
                     module("Lyrics Display", "歌词显示", "Show lyrics for the currently playing music.", "显示当前播放音乐的歌词", "lyricsDisplay"),
+                    module("Music Info HUD", "音乐信息显示", "Show current Netease Music playback information.", "显示当前播放的网易云音乐信息", "musicInfoHud"),
                     module("Item Use Status", "物品使用状态显示", "Show current item use progress or status on the screen.", "在屏幕上显示当前物品使用进度或状态", "itemUseStatus",
                             select("itemUseStatusMode", "Mode", "模式")),
                     module("Arraylist", "功能列表", "Show currently enabled modules on the HUD.", "在HUD上显示当前启用的功能。", "arraylist",
@@ -192,7 +193,8 @@ final class WebGUIModules {
                             check("mainUIMouseEffect", "Mouse Effect", "鼠标效果")),
                     settingsModule("HUD Theme", "HUD 主题", "Control the shared HUD theme and blur style.", "控制 HUD 通用主题和模糊风格",
                             select("hudTheme", "Theme", "主题"),
-                            slider("skiaBlurStrength", "Blur Strength", "模糊强度", 0, 5, 0.05)),
+                            slider("skiaBlurStrength", "Blur Strength", "模糊强度", 0, 5, 0.05),
+                            select("musicInfoHudMode", "Music Info HUD", "音乐信息显示")),
                     module("Victory Sound", "胜利音效", "Play a custom sound when you win.", "在你胜利时播放自定义音效", "victorySound")
             ))
     );
