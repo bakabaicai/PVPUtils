@@ -1,15 +1,11 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.pvp_utils.Config;
-import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.NeteaseMusic.LyricLine;
 import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.impl.Library;
@@ -27,15 +23,7 @@ public class LyricsDisplayRenderer {
     private static final float CURRENT_SIZE = 21f;
     private static final float SIDE_SIZE = 15f;
 
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
-    private boolean pendingFrame = false;
-    private float pendingX;
-    private float pendingY;
-    private float pendingScale;
-    private List<LyricLine> pendingLyrics = List.of();
-    private long pendingPositionMs;
-    private float pendingAlpha = 1f;
     private float visualIndex = 0f;
     private float displayAlpha = 1f;
     private long lastFrameMs = 0L;
@@ -43,8 +31,6 @@ public class LyricsDisplayRenderer {
     private long pausedSinceMs = 0L;
     private long lastObservedPositionMs = -1L;
     private long lastPositionChangeMs = 0L;
-    private long lastDebugMs = 0L;
-    private String lastDebugKey = "";
 
     public static LyricsDisplayRenderer getInstance() {
         return INSTANCE;
@@ -53,26 +39,19 @@ public class LyricsDisplayRenderer {
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.lyricsDisplay) {
-            debug("render-skip", "disabled");
             clearState();
             return;
         }
         if (client.options.hideGui || shouldSkipScreen(client)) {
-            debug("render-skip", "hideGui=" + client.options.hideGui + " screen=" + screenName(client));
-            clearPendingFrame();
             return;
         }
 
         MusicPlaybackService player = MusicPlaybackService.INSTANCE;
         if (HudEditOverlay.getInstance().isActive()) {
-            debug("render-skip", "hudEditActive screen=" + screenName(client));
-            clearPendingFrame();
             return;
         }
         List<LyricLine> lyrics = lyricsOrFallback(player);
         if (lyrics.isEmpty()) {
-            debug("render-skip", playerState(player) + " lyrics=0 fallback=false screen=" + screenName(client));
-            clearPendingFrame();
             return;
         }
 
@@ -89,8 +68,6 @@ public class LyricsDisplayRenderer {
         long positionMs = player.positionMs();
         float alpha = updateDisplayAlpha(player, positionMs, now, dt);
         if (alpha <= 0.01f) {
-            debug("render-skip", playerState(player) + " lyrics=" + lyrics.size() + " alpha=" + fmt(alpha) + " pausedSince=" + pausedSinceMs);
-            clearPendingFrame();
             return;
         }
         int currentIndex = Math.max(0, LyricLineProcessor.currentIndex(lyrics, positionMs));
@@ -105,62 +82,25 @@ public class LyricsDisplayRenderer {
         float y = getRenderY(screenH);
         float scale = getScale();
 
-        pendingX = x;
-        pendingY = y;
-        pendingScale = scale;
-        pendingLyrics = lyrics;
-        pendingPositionMs = positionMs;
-        pendingAlpha = alpha;
-        pendingFrame = true;
-        debug("render-ready", playerState(player)
-                + " lyrics=" + lyrics.size()
-                + " pos=" + positionMs
-                + " currentIndex=" + currentIndex
-                + " visualIndex=" + fmt(visualIndex)
-                + " alpha=" + fmt(alpha)
-                + " x=" + fmt(x)
-                + " y=" + fmt(y)
-                + " scale=" + fmt(scale)
-                + " screen=" + screenName(client));
+        renderRegion(graphics, x, y, scale, lyrics, positionMs, alpha);
     }
 
-    public void renderFrameEnd() {
-        if (!pendingFrame) {
-            debug("frameEnd-skip", "pendingFrame=false");
-            return;
-        }
-        Minecraft client = Minecraft.getInstance();
-        if (!Config.lyricsDisplay || client.options.hideGui || shouldSkipScreen(client)) {
-            debug("frameEnd-skip", "enabled=" + Config.lyricsDisplay + " hideGui=" + client.options.hideGui + " screen=" + screenName(client));
-            clearPendingFrame();
-            return;
-        }
+    private void renderRegion(GuiGraphics graphics, float x, float y, float scale, List<LyricLine> lyrics, long positionMs, float alpha) {
         ensureNativeLoaded();
-        int framebufferId = mainFramebufferId(client);
-        Canvas canvas = glBackend.begin(framebufferId);
-        if (canvas == null) {
-            debug("frameEnd-fail", "canvas=null framebuffer=" + framebufferId + " lyrics=" + pendingLyrics.size());
-            return;
-        }
+        int regionX = Math.max(0, (int) Math.floor(x - 2f));
+        int regionY = Math.max(0, (int) Math.floor(y - 2f));
+        int regionW = Math.max(1, (int) Math.ceil(BASE_W * scale + 4f));
+        int regionH = Math.max(1, (int) Math.ceil(BASE_H * scale + 4f));
+        Canvas canvas = SkiaRenderer.beginRegion(regionX, regionY, regionW, regionH);
+        if (canvas == null) return;
         try {
             canvas.save();
-            canvas.translate(pendingX, pendingY);
-            canvas.scale(pendingScale, pendingScale);
-            DrawStats stats = drawLyrics(canvas, pendingLyrics, pendingPositionMs, pendingAlpha);
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
+            drawLyrics(canvas, lyrics, positionMs, alpha);
             canvas.restore();
-            debug("frameEnd-draw", "framebuffer=" + framebufferId
-                    + " lyrics=" + pendingLyrics.size()
-                    + " drawn=" + stats.drawn
-                    + " blankSkipped=" + stats.blankSkipped
-                    + " distanceSkipped=" + stats.distanceSkipped
-                    + " alpha=" + fmt(pendingAlpha)
-                    + " pos=" + pendingPositionMs
-                    + " x=" + fmt(pendingX)
-                    + " y=" + fmt(pendingY)
-                    + " scale=" + fmt(pendingScale));
         } finally {
-            glBackend.end();
-            clearPendingFrame();
+            SkiaRenderer.endRegion(graphics);
         }
     }
 
@@ -188,36 +128,25 @@ public class LyricsDisplayRenderer {
         return screenH * 0.42f - getEditHeight() * 0.5f;
     }
 
-    private DrawStats drawLyrics(Canvas canvas, List<LyricLine> lyrics, long positionMs, float globalAlpha) {
+    private void drawLyrics(Canvas canvas, List<LyricLine> lyrics, long positionMs, float globalAlpha) {
         int currentIndex = Math.max(0, LyricLineProcessor.currentIndex(lyrics, positionMs));
         float centerX = BASE_W * 0.5f;
         float centerY = BASE_H * 0.5f + 7f;
         int from = Math.max(0, currentIndex - 3);
         int to = Math.min(lyrics.size() - 1, currentIndex + 3);
-        int drawn = 0;
-        int blankSkipped = 0;
-        int distanceSkipped = 0;
         for (int i = from; i <= to; i++) {
             LyricLine line = lyrics.get(i);
             String text = displayText(line.text());
-            if (text.isBlank()) {
-                blankSkipped++;
-                continue;
-            }
+            if (text.isBlank()) continue;
             float distance = Math.abs(i - visualIndex);
-            if (distance > 3.2f) {
-                distanceSkipped++;
-                continue;
-            }
+            if (distance > 3.2f) continue;
             float focus = clamp(1f - distance / 2.6f);
             float size = SIDE_SIZE + (CURRENT_SIZE - SIDE_SIZE) * focus;
             int alpha = Math.round((54 + 201 * focus) * globalAlpha);
             int color = focus > 0.72f ? 0xFFFFFF : 0xC8CDD8;
             float y = centerY + (i - visualIndex) * LINE_SPACING;
             drawCenteredShadowed(canvas, text, centerX, y, size, withAlpha(color, alpha));
-            drawn++;
         }
-        return new DrawStats(drawn, blankSkipped, distanceSkipped);
     }
 
     private float updateDisplayAlpha(MusicPlaybackService player, long positionMs, long now, float dt) {
@@ -290,17 +219,9 @@ public class LyricsDisplayRenderer {
         return Math.max(0.5f, Config.lyricsDisplayScale);
     }
 
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
-    }
-
     private void ensureNativeLoaded() {
         if (!nativeLoaded) {
-            Library.staticLoad();
+            Library.load();
             nativeLoaded = true;
         }
     }
@@ -313,48 +234,11 @@ public class LyricsDisplayRenderer {
         pausedSinceMs = 0L;
         lastObservedPositionMs = -1L;
         lastPositionChangeMs = 0L;
-        clearPendingFrame();
-    }
-
-    private void clearPendingFrame() {
-        pendingFrame = false;
-        pendingLyrics = List.of();
-    }
-
-    private void debug(String stage, String message) {
-        long now = System.currentTimeMillis();
-        String key = stage + "|" + message;
-        if (key.equals(lastDebugKey) && now - lastDebugMs < 1000L) {
-            return;
-        }
-        if (!key.equals(lastDebugKey) || now - lastDebugMs >= 1000L) {
-            PVPUtils.LOGGER.info("[LyricsDisplay] {} {}", stage, message);
-            lastDebugKey = key;
-            lastDebugMs = now;
-        }
-    }
-
-    private String playerState(MusicPlaybackService player) {
-        String song = player.currentSong() == null
-                ? "null"
-                : player.currentSong().id() + ":" + player.currentSong().name() + " / " + player.currentSong().displayArtist();
-        return "song=" + song + " status=" + player.status() + " playing=" + player.isPlaying();
-    }
-
-    private String screenName(Minecraft client) {
-        return client.screen == null ? "null" : client.screen.getClass().getName();
     }
 
     private boolean shouldSkipScreen(Minecraft client) {
         return client.screen instanceof SkiaScreen
                 || (client.screen != null && !(client.screen instanceof ChatScreen));
-    }
-
-    private String fmt(float value) {
-        return String.format(java.util.Locale.ROOT, "%.2f", value);
-    }
-
-    private record DrawStats(int drawn, int blankSkipped, int distanceSkipped) {
     }
 
     private float clamp(float value) {

@@ -39,8 +39,6 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     private volatile String status = "Idle";
     private volatile PlaybackMode playbackMode = PlaybackMode.LIST;
     private volatile int currentIndex;
-    private volatile long lastLyricsSnapshotLogMs;
-    private volatile String lastLyricsSnapshotKey = "";
 
     private MusicPlaybackService() {
         player.addStreamPlayerListener(this);
@@ -67,8 +65,6 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             }
         }
         currentSong = song;
-        PVPUtils.LOGGER.info("[LyricsDisplay] playback playSong id={} name={} artist={} duration={}",
-                song.id(), song.name(), song.displayArtist(), song.durationMs());
         basePositionMs = 0L;
         playStartedAtMs = 0L;
         progressOffsetMs = 0L;
@@ -94,7 +90,6 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 List<LyricLine> loadedLyrics;
                 try {
                     loadedLyrics = NeteaseMusicApi.getLyric(song.id());
-                    PVPUtils.LOGGER.info("[LyricsDisplay] lyric-load-success id={} count={}", song.id(), loadedLyrics.size());
                 } catch (Exception ignored) {
                     loadedLyrics = List.of();
                     PVPUtils.LOGGER.warn("[LyricsDisplay] lyric-load-failed id={} reason={}", song.id(), cleanMessage(ignored));
@@ -102,7 +97,6 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 synchronized (lyrics) {
                     lyrics.clear();
                     lyrics.addAll(loadedLyrics);
-                    PVPUtils.LOGGER.info("[LyricsDisplay] lyric-cache-updated id={} count={}", song.id(), lyrics.size());
                 }
                 currentFile = cachedFile.toFile();
                 player.stop();
@@ -117,7 +111,6 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             } catch (Exception exception) {
                 status = "Load failed: " + cleanMessage(exception);
                 playing = false;
-                PVPUtils.LOGGER.warn("[LyricsDisplay] playback-load-failed id={} reason={}", song.id(), cleanMessage(exception));
             } finally {
                 changingSong = false;
             }
@@ -270,23 +263,8 @@ public final class MusicPlaybackService implements StreamPlayerListener {
 
     public List<LyricLine> lyricsSnapshot() {
         synchronized (lyrics) {
-            List<LyricLine> snapshot = List.copyOf(lyrics);
-            logLyricsSnapshot(snapshot.size());
-            return snapshot;
+            return List.copyOf(lyrics);
         }
-    }
-
-    private void logLyricsSnapshot(int size) {
-        long now = System.currentTimeMillis();
-        long songId = currentSong == null ? Long.MIN_VALUE : currentSong.id();
-        String key = songId + "|" + size + "|" + status + "|" + playing;
-        if (key.equals(lastLyricsSnapshotKey) && now - lastLyricsSnapshotLogMs < 2000L) {
-            return;
-        }
-        PVPUtils.LOGGER.info("[LyricsDisplay] lyric-snapshot songId={} count={} status={} playing={} position={} total={}",
-                songId, size, status, playing, positionMs(), totalDurationMs);
-        lastLyricsSnapshotKey = key;
-        lastLyricsSnapshotLogMs = now;
     }
 
     private static String cleanMessage(Exception exception) {

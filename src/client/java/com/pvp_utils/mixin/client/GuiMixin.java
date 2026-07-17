@@ -86,7 +86,6 @@ public class GuiMixin {
         DamageNumberRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
-        LyricsDisplayRenderer.getInstance().render(guiGraphics);
         ArraylistRenderer.getInstance().render(guiGraphics);
         KeystrokesRenderer.getInstance().render(guiGraphics);
         ArmorHudRenderer.getInstance().render(guiGraphics);
@@ -98,6 +97,7 @@ public class GuiMixin {
             SkiaRenderer.endRegion(guiGraphics);
         }
 
+        LyricsDisplayRenderer.getInstance().render(guiGraphics);
         BlockCountDisplayRenderer.getInstance().render(guiGraphics, null);
         guiGraphics.renderDeferredElements();
     }
