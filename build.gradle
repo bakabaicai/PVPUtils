@@ -94,8 +94,22 @@ dependencies {
 
     implementation "com.github.goxr3plus:java-stream-player:10.0.2"
     include "com.github.goxr3plus:java-stream-player:10.0.2"
-    implementation "javazoom:jlayer:1.0.1"
-    include "javazoom:jlayer:1.0.1"
+    implementation "com.googlecode.soundlibs:mp3spi:1.9.5.4"
+    include "com.googlecode.soundlibs:mp3spi:1.9.5.4"
+    implementation "com.googlecode.soundlibs:jlayer:1.0.1.4"
+    include "com.googlecode.soundlibs:jlayer:1.0.1.4"
+    implementation "com.googlecode.soundlibs:tritonus-all:0.3.7.2"
+    include "com.googlecode.soundlibs:tritonus-all:0.3.7.2"
+    implementation "com.googlecode.soundlibs:jorbis:0.0.17-2"
+    include "com.googlecode.soundlibs:jorbis:0.0.17-2"
+    implementation "org.jflac:jflac-codec:1.5.2"
+    include "org.jflac:jflac-codec:1.5.2"
+    implementation "com.github.trilarion:vorbis-support:1.1.0"
+    include "com.github.trilarion:vorbis-support:1.1.0"
+    implementation "com.github.goxr3plus:jaudiotagger:2.2.7"
+    include "com.github.goxr3plus:jaudiotagger:2.2.7"
+    implementation "commons-io:commons-io:2.20.0"
+    include "commons-io:commons-io:2.20.0"
 
 }
 

@@ -124,6 +124,8 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             } catch (Exception exception) {
                 status = "Load failed: " + cleanMessage(exception);
                 playing = false;
+                PVPUtils.LOGGER.error("[NeteaseMusic] Failed to play song id={} name={} file={} reason={}",
+                        song.id(), song.name(), currentFile, cleanMessage(exception), exception);
             } finally {
                 changingSong = false;
             }
@@ -229,6 +231,9 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             basePositionMs = totalDurationMs;
             playStartedAtMs = 0L;
             status = "Ended";
+            if (!changingSong) {
+                playNext();
+            }
             return totalDurationMs;
         }
         return position;
