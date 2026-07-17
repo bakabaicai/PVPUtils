@@ -803,7 +803,9 @@ public class NeteaseMusicScreen extends Screen {
         graphics.fill(x, y, x + w, y + h, withAlpha(0x14181F, alpha));
         graphics.fill(x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
         graphics.drawCenteredString(font, "Netease Music Login", x + w / 2, y + 14, withAlpha(0xFFFFFF, alpha));
-        graphics.drawCenteredString(font, trim(statusText, 42), x + w / 2, y + 32, withAlpha(loading ? 0xE6C45B : 0xB8C0D4, alpha));
+        if (loginMode == LoginMode.PASSWORD) {
+            graphics.drawCenteredString(font, trim(statusText, 42), x + w / 2, y + 32, withAlpha(loading ? 0xE6C45B : 0xB8C0D4, alpha));
+        }
         drawButton(graphics, x + 62, y + 52, 88, 22, mouseX, mouseY, "QR", alpha);
         drawButton(graphics, x + 170, y + 52, 88, 22, mouseX, mouseY, "Password", alpha);
 
@@ -832,7 +834,7 @@ public class NeteaseMusicScreen extends Screen {
             graphics.drawCenteredString(font, "QR", qrX + qrSize / 2, qrY + 42, withAlpha(0x111111, alpha));
         }
         graphics.drawString(font, Config.isChinese ? "使用网易云音乐扫码" : "Scan with Netease app", qrX + qrSize + 20, qrY + 12, withAlpha(0xFFFFFF, alpha), false);
-        drawButton(graphics, qrX + qrSize + 20, qrY + 42, 110, 24, mouseX, mouseY, qrPolling ? "Waiting" : "Refresh QR", alpha);
+        drawButton(graphics, qrX + qrSize + 20, qrY + 42, 110, 24, mouseX, mouseY, qrButtonText(), alpha);
     }
 
     private void renderGridSlider(GuiGraphics graphics, int x, int y, int h, int columns, int visibleCards, int mouseX, int mouseY, int alpha) {
@@ -992,10 +994,18 @@ public class NeteaseMusicScreen extends Screen {
             }
             renderPlayerSkiaText(canvas, alpha);
             renderSidebarSkiaText(canvas, alpha, mouseSafeViewMode());
+            renderPoweredBy(canvas, alpha);
         } finally {
             canvas.restore();
             SkiaRenderer.endRegion(graphics);
         }
+    }
+
+    private void renderPoweredBy(Canvas canvas, int alpha) {
+        String text = "Powered by GPT-5.6 Sol, Claude Opus 4.8 & Claude Fable 5.";
+        float size = 9.0F;
+        float textWidth = FontRenderer.measureTextWidth(text, size);
+        FontRenderer.drawText(canvas, text, width - textWidth - 10f, height - 8f, size, withAlpha(0x8A8F98, Math.round(alpha * 0.42F)));
     }
 
     private ViewMode mouseSafeViewMode() {
@@ -1988,7 +1998,7 @@ public class NeteaseMusicScreen extends Screen {
                 return;
             }
             qrLogin = login;
-            statusText = "Scan in Netease app";
+            statusText = qrStatusText(801, "Waiting for scan");
             pollQrLogin(serial, login.key());
         }));
     }
@@ -2000,7 +2010,7 @@ public class NeteaseMusicScreen extends Screen {
                     NeteaseMusicApi.QrLoginStatus status = NeteaseMusicApi.checkQrLogin(key);
                     Minecraft.getInstance().execute(() -> {
                         if (serial == qrSerial && loginMode == LoginMode.QR) {
-                            statusText = status.message();
+                            statusText = qrStatusText(status.code(), status.message());
                         }
                     });
                     if (status.session() != null) {
@@ -2035,6 +2045,35 @@ public class NeteaseMusicScreen extends Screen {
         qrSerial++;
         qrLogin = null;
         qrPolling = false;
+    }
+
+    private String qrButtonText() {
+        if (!qrPolling) {
+            return Config.isChinese ? "刷新二维码" : "Refresh QR";
+        }
+        if (statusText.contains("confirm") || statusText.contains("确认")) {
+            return Config.isChinese ? "等待确认" : "Confirm";
+        }
+        if (statusText.contains("scan") || statusText.contains("扫码")) {
+            return Config.isChinese ? "等待扫码" : "Scan";
+        }
+        if (statusText.contains("Creating") || statusText.contains("创建")) {
+            return Config.isChinese ? "生成中" : "Creating";
+        }
+        return Config.isChinese ? "连接中" : "Polling";
+    }
+
+    private String qrStatusText(int code, String fallback) {
+        if (!Config.isChinese) {
+            return fallback;
+        }
+        return switch (code) {
+            case 800 -> "二维码已过期";
+            case 801 -> "等待扫码";
+            case 802 -> "等待手机确认";
+            case 803 -> "登录成功";
+            default -> fallback;
+        };
     }
 
     private int songIndexAt(double mouseX, double mouseY) {
