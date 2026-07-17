@@ -86,7 +86,7 @@ public final class NeteaseMusicApi {
     }
 
     public static SongFile getSongFile(long id) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject("/song/url/v1?id=" + id + "&level=exhigh&UnblockNeteaseMusic=true");
+        JsonObject root = getJsonObject(withSession("/song/url/v1?id=" + id + "&level=exhigh"));
         JsonArray data = array(root, "data");
         if (data.isEmpty()) {
             return new SongFile("", 0L);
