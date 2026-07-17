@@ -4,6 +4,7 @@ import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
@@ -72,7 +73,7 @@ public class KeystrokesRenderer {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof SkiaScreen) return;
+        if (client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -163,7 +164,7 @@ public class KeystrokesRenderer {
     public void renderFrameEnd() {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen) {
+        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }

@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Optimize.InputMethodFix;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -63,6 +64,7 @@ public final class InputMethodFix {
         if (screen instanceof ChatScreen || screen instanceof InBedChatScreen) return true;
         if (screen instanceof AbstractSignEditScreen || screen instanceof BookEditScreen) return true;
         if (screen instanceof AbstractCommandBlockEditScreen || screen instanceof AnvilScreen) return true;
+        if (screen instanceof NeteaseMusicScreen) return true;
 
         GuiEventListener focused = screen.getFocused();
         return focused instanceof EditBox || focused instanceof MultiLineEditBox;

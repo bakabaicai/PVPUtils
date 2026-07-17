@@ -92,6 +92,11 @@ dependencies {
     implementation "org.jcodec:jcodec-javase:0.2.5"
     include "org.jcodec:jcodec-javase:0.2.5"
 
+    implementation "com.github.goxr3plus:java-stream-player:10.0.2"
+    include "com.github.goxr3plus:java-stream-player:10.0.2"
+    implementation "javazoom:jlayer:1.0.1"
+    include "javazoom:jlayer:1.0.1"
+
 }
 
 processResources {

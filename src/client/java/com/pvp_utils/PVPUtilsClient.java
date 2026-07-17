@@ -6,6 +6,7 @@ import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicLocalService;
 import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
@@ -43,6 +44,8 @@ public class PVPUtilsClient implements ClientModInitializer {
         MainUIScreenManager.init();
         CommandManager.register();
         Update.startAutoCheck();
+        NeteaseMusicLocalService.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(NeteaseMusicLocalService::stop, "PVPUtils-NeteaseMusic-Shutdown"));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);

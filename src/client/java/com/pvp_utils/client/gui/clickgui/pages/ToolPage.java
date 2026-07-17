@@ -2,6 +2,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
@@ -23,6 +24,9 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
                 new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云音乐播放器", "Open the Netease Cloud Music player"),
+                new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open)));
 
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));

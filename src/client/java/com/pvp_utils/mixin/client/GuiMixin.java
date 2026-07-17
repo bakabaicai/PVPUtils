@@ -17,6 +17,7 @@ import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.skia.SkiaRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -61,6 +62,10 @@ public class GuiMixin {
         Canvas canvas = null;
 
         boolean skiaScreenOpen = mc.screen instanceof SkiaScreen;
+        boolean musicScreenOpen = mc.screen instanceof NeteaseMusicScreen;
+        if (musicScreenOpen) {
+            return;
+        }
         if (!skiaScreenOpen && NotificationOverlay.getInstance().needsStandaloneCanvas()) {
             int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
             if (bounds != null) {
