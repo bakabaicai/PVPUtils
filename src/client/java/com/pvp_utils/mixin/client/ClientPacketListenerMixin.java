@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
+import com.pvp_utils.client.modules.impl.Render.ArmorTransparency.ArmorTransparencyManager;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.Config;
@@ -14,6 +15,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -71,6 +73,13 @@ public class ClientPacketListenerMixin {
         Minecraft client = Minecraft.getInstance();
         if (client.level != null && client.player != null) {
             Entity target = client.level.getEntity(packet.entityId());
+            if (target instanceof Player targetPlayer) {
+                ArmorTransparencyManager.markCombat(targetPlayer);
+            }
+            Entity sourceCause = client.level.getEntity(packet.sourceCauseId());
+            if (sourceCause instanceof Player sourcePlayer) {
+                ArmorTransparencyManager.markCombat(sourcePlayer);
+            }
             if (target instanceof LivingEntity livingTarget && packet.sourceCauseId() == client.player.getId()) {
                 Entity source = client.level.getEntity(packet.sourceDirectId());
                 boolean isRanged = source instanceof Projectile;

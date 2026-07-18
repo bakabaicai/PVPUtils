@@ -136,6 +136,12 @@ public class ResetManager {
         Config.armorHudX = 0f;
         Config.armorHudY = 0f;
         Config.armorHudScale = 1.0f;
+        Config.armorTransparency = false;
+        Config.armorTransparencyHead = 50;
+        Config.armorTransparencyChest = 50;
+        Config.armorTransparencyLegs = 50;
+        Config.armorTransparencyFeet = 50;
+        Config.armorTransparencyShowInCombat = true;
         Config.itemUseStatusX = 0f;
         Config.itemUseStatusY = 0f;
         Config.itemUseStatusScale = 1.0f;

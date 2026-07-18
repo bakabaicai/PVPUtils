@@ -83,6 +83,8 @@ public class Config {
     public static boolean armorHud = false;
     public static boolean armorHudShowPercentage = true;
     public static boolean armorHudShowBar = true;
+    public static boolean armorTransparency = false;
+    public static boolean armorTransparencyShowInCombat = true;
     public static ArmorHudDisplayMode armorHudDisplayMode = ArmorHudDisplayMode.BOTH;
     public static boolean potionStatus = false;
     public static boolean potionStatusBackground = true;
@@ -186,6 +188,10 @@ public class Config {
     public static int hitColorGreen = 0;
     public static int hitColorBlue = 0;
     public static int hitColorAlpha = 179;
+    public static int armorTransparencyHead = 50;
+    public static int armorTransparencyChest = 50;
+    public static int armorTransparencyLegs = 50;
+    public static int armorTransparencyFeet = 50;
     public static int customBlockOutlineRed = 255;
     public static int customBlockOutlineGreen = 255;
     public static int customBlockOutlineBlue = 255;
@@ -695,6 +701,7 @@ public class Config {
             new ModuleRule("Zoom", "zoom", "zoom"),
             new ModuleRule("Freelook", "freelook", "freelook"),
             new ModuleRule("ArmorHUD", "armorHud", "armorHud"),
+            new ModuleRule("ArmorTransparency", "armorTransparency", "armorTransparency", "armorTransparencyHead", "armorTransparencyChest", "armorTransparencyLegs", "armorTransparencyFeet", "armorTransparencyShowInCombat"),
             new ModuleRule("PotionStatus", "potionStatus", "potionStatus"),
             new ModuleRule("QuickDeposit", "autoChestDeposit", "autoChestDeposit"),
             new ModuleRule("RemoveContainerBackground", "removeContainerBackground", "removeContainerBackground"),

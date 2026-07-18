@@ -229,6 +229,19 @@ public class RenderPage extends BasePage {
                                     Config.save();
                                 })));
 
+        modules.add(new SettingModule(UiText.t("装备透明度调整", "Armor Transparency"), UiText.t("单独调整四个装备槽位的盔甲透明度", "Adjust armor transparency for each equipment slot"),
+                new SettingToggle(() -> Config.armorTransparency, v -> { Config.armorTransparency = v; Config.save(); }))
+                .addSub(UiText.t("头盔透明度", "Helmet Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.armorTransparencyHead, v -> { Config.armorTransparencyHead = clampPercent(v); Config.save(); }))
+                .addSub(UiText.t("胸甲透明度", "Chestplate Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.armorTransparencyChest, v -> { Config.armorTransparencyChest = clampPercent(v); Config.save(); }))
+                .addSub(UiText.t("护腿透明度", "Leggings Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.armorTransparencyLegs, v -> { Config.armorTransparencyLegs = clampPercent(v); Config.save(); }))
+                .addSub(UiText.t("靴子透明度", "Boots Transparency"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.armorTransparencyFeet, v -> { Config.armorTransparencyFeet = clampPercent(v); Config.save(); }))
+                .addSub(UiText.t("战斗中显示", "Show In Combat"), UiText.t("最近参与战斗时临时恢复盔甲显示", "Temporarily restore armor visibility while recently in combat"),
+                        new SettingToggle(() -> Config.armorTransparencyShowInCombat, v -> { Config.armorTransparencyShowInCombat = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示当前药水效果和剩余时间。", "Show active potion effects and remaining time."),
                 new SettingToggle(() -> Config.potionStatus, v -> { Config.potionStatus = v; Config.save(); }))
                 .addSub(UiText.t("灰色遮罩", "Gray Background"), UiText.t("控制外层灰色背景是否显示", "Control whether the outer gray background is visible"),
@@ -317,6 +330,10 @@ public class RenderPage extends BasePage {
 
     private static int clampColor(Double value) {
         return Math.max(0, Math.min(255, value.intValue()));
+    }
+
+    private static int clampPercent(Double value) {
+        return Math.max(0, Math.min(100, value.intValue()));
     }
 
     private static double alphaToTransparencyPercent(int alpha) {
