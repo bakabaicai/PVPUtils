@@ -957,23 +957,33 @@ public class NeteaseMusicScreen extends Screen {
     private void maskRoundedCorners(GuiGraphics graphics, int x, int y, int size, int radius, int color, int alpha) {
         int r = Math.max(1, radius);
         int mask = withAlpha(color, alpha);
+        // For each row the masked pixels form a contiguous run from the outer edge inward
+        // (dx = 0 has the largest offset). Find where the run ends and fill it as a single
+        // span per corner instead of one quad per pixel: 4*r fills instead of ~4*r*r.
         for (int dy = 0; dy < r; dy++) {
-            for (int dx = 0; dx < r; dx++) {
-                float ox = r - dx - 0.5F;
-                float oy = r - dy - 0.5F;
+            float oy = r - dy - 0.5F;
+            int cut = 0;
+            while (cut < r) {
+                float ox = r - cut - 0.5F;
                 if (ox * ox + oy * oy <= r * r) {
-                    continue;
+                    break;
                 }
-                graphics.fill(x + dx, y + dy, x + dx + 1, y + dy + 1, mask);
-                graphics.fill(x + size - dx - 1, y + dy, x + size - dx, y + dy + 1, mask);
-                graphics.fill(x + dx, y + size - dy - 1, x + dx + 1, y + size - dy, mask);
-                graphics.fill(x + size - dx - 1, y + size - dy - 1, x + size - dx, y + size - dy, mask);
+                cut++;
             }
+            if (cut <= 0) {
+                continue;
+            }
+            graphics.fill(x, y + dy, x + cut, y + dy + 1, mask);
+            graphics.fill(x + size - cut, y + dy, x + size, y + dy + 1, mask);
+            graphics.fill(x, y + size - dy - 1, x + cut, y + size - dy, mask);
+            graphics.fill(x + size - cut, y + size - dy - 1, x + size, y + size - dy, mask);
         }
     }
 
     private void renderSkiaTextLayer(GuiGraphics graphics, int alpha, ContentTransition transition, float uiScale, float uiOffsetX, float uiOffsetY, int actualW, int actualH) {
-        Canvas canvas = SkiaRenderer.beginRegion(0, 0, actualW, actualH);
+        // This layer draws only text through FontRenderer, so the content-hash cache is safe:
+        // when the interface is static the whole peekPixels + GPU upload is skipped each frame.
+        Canvas canvas = SkiaRenderer.beginRegion(0, 0, actualW, actualH, true);
         if (canvas == null) {
             return;
         }

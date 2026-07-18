@@ -1,5 +1,6 @@
 package com.pvp_utils.client.render.font;
 
+import com.pvp_utils.client.render.skia.SkiaRenderer;
 import io.github.humbleui.skija.*;
 
 import java.io.IOException;
@@ -64,6 +65,7 @@ public class FontRenderer {
         Font font = makeFont(fontName, size);
         textPaint.setColor(argb);
         canvas.drawString(text, x, y, font, textPaint);
+        SkiaRenderer.feedRegionContent(text, x, y, size, argb, fontName);
     }
 
     public static void drawSegmented(Canvas canvas, Segment[] segments, float x, float y) {

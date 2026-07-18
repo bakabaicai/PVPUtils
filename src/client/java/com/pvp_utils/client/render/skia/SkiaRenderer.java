@@ -54,6 +54,14 @@ public class SkiaRenderer {
     private static boolean regionDirty = true;
     private static long lastFrameUseMs = 0L;
     private static long lastRegionUseMs = 0L;
+    // Content-hash cache for the region layer: if the accumulated draw commands and the
+    // region geometry are byte-for-byte identical to the last uploaded frame, we skip the
+    // expensive peekPixels + writeToTexture and just re-blit the cached texture.
+    private static long regionContentHash = 1L;
+    private static long lastUploadedRegionHash = 0L;
+    private static boolean regionCacheValid = false;
+    // Whether the current region pass opted into content-hash caching (text-only callers).
+    private static boolean regionCacheAllowed = false;
 
     private static void ensureNativeLoaded() {
         if (nativeLoaded) return;
@@ -105,9 +113,18 @@ public class SkiaRenderer {
     }
 
     public static Canvas beginRegion(int x, int y, int w, int h) {
+        return beginRegion(x, y, w, h, false);
+    }
+
+    // allowContentCache: only pass true when the region draws *nothing but* text through
+    // FontRenderer. Callers that draw shapes directly on the canvas (drawRect/drawRRect/
+    // drawLine/drawCircle) must leave it false, otherwise the content hash misses those
+    // draws and a static hash would freeze animated shapes.
+    public static Canvas beginRegion(int x, int y, int w, int h, boolean allowContentCache) {
         if (regionDrawing) return regionSurface != null ? regionSurface.getCanvas() : null;
         ensureNativeLoaded();
         pruneIdleSurfaces();
+        regionCacheAllowed = allowContentCache;
 
         var window = Minecraft.getInstance().getWindow();
         currentScale = (float) window.getGuiScale();
@@ -129,6 +146,7 @@ public class SkiaRenderer {
             regionCapacityPixelW = newPixelW;
             regionCapacityPixelH = newPixelH;
             regionDirty = true;
+            regionCacheValid = false;
         }
 
         Canvas canvas = regionSurface.getCanvas();
@@ -140,8 +158,38 @@ public class SkiaRenderer {
         canvas.translate(-regionX, -regionY);
         regionDrawing = true;
         regionDirty = true;
+        // Seed the content hash with the region geometry so any layout/scale change forces
+        // a re-upload; each draw command mixes its parameters in via feedRegionContent.
+        regionContentHash = 1L;
+        mixRegionHash(Float.floatToIntBits(currentScale));
+        mixRegionHash(regionX);
+        mixRegionHash(regionY);
+        mixRegionHash(regionW);
+        mixRegionHash(regionH);
         lastRegionUseMs = System.currentTimeMillis();
         return canvas;
+    }
+
+    private static void mixRegionHash(long value) {
+        regionContentHash = regionContentHash * 31L + value;
+    }
+
+    // Called by FontRenderer for every text draw while a region pass is active, so the hash
+    // reflects the exact rendered content without the screen having to describe its state.
+    public static void feedRegionContent(String text, float x, float y, float size, int argb, String fontName) {
+        if (!regionDrawing) {
+            return;
+        }
+        mixRegionHash(text == null ? 0 : text.hashCode());
+        mixRegionHash(Float.floatToIntBits(x));
+        mixRegionHash(Float.floatToIntBits(y));
+        mixRegionHash(Float.floatToIntBits(size));
+        mixRegionHash(argb);
+        mixRegionHash(fontName == null ? 0 : fontName.hashCode());
+    }
+
+    public static boolean isRegionDrawing() {
+        return regionDrawing;
     }
 
     public static float getScale() {
@@ -177,8 +225,16 @@ public class SkiaRenderer {
         regionDrawing = false;
         try {
             regionSurface.getCanvas().restore();
-            if (regionDirty && !uploadSurface(regionSurface, regionTexture, regionCapacityPixelW, regionCapacityPixelH)) {
-                return;
+            // Skip the expensive peekPixels copy + full GPU upload when the drawn content and
+            // geometry are byte-for-byte identical to the last uploaded frame; the cached
+            // region texture is still valid so we only need to blit it again.
+            boolean contentUnchanged = regionCacheAllowed && regionCacheValid && regionContentHash == lastUploadedRegionHash;
+            if (!contentUnchanged) {
+                if (!uploadSurface(regionSurface, regionTexture, regionCapacityPixelW, regionCapacityPixelH)) {
+                    return;
+                }
+                lastUploadedRegionHash = regionContentHash;
+                regionCacheValid = true;
             }
             graphics.blit(RenderPipelines.GUI_TEXTURED, REGION_TEXTURE_ID, regionX, regionY, 0f, 0f, regionW, regionH, regionPixelW, regionPixelH, regionCapacityPixelW, regionCapacityPixelH);
             regionDirty = false;
@@ -226,6 +282,7 @@ public class SkiaRenderer {
 
     public static void markRegionDirty() {
         regionDirty = true;
+        regionCacheValid = false;
     }
 
     private static boolean uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int uploadW, int uploadH) {
@@ -286,6 +343,8 @@ public class SkiaRenderer {
             Minecraft.getInstance().getTextureManager().release(REGION_TEXTURE_ID);
             regionTexture = null;
         }
+        // The cached texture is gone, so the next pass must re-upload.
+        regionCacheValid = false;
     }
 
     public static void destroy() {

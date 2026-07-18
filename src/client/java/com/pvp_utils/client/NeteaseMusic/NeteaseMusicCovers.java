@@ -93,9 +93,11 @@ public final class NeteaseMusicCovers {
                 graphics.dispose();
             }
             NativeImage image = new NativeImage(TEXTURE_SIZE, TEXTURE_SIZE, true);
+            int[] row = new int[TEXTURE_SIZE];
             for (int y = 0; y < TEXTURE_SIZE; y++) {
+                scaled.getRGB(0, y, TEXTURE_SIZE, 1, row, 0, TEXTURE_SIZE);
                 for (int x = 0; x < TEXTURE_SIZE; x++) {
-                    image.setPixel(x, y, scaled.getRGB(x, y));
+                    image.setPixel(x, y, row[x]);
                 }
             }
             return image;
