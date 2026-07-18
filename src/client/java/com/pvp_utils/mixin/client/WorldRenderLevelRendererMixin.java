@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.pvp_utils.client.modules.impl.Tool.FireballLandingPredictor;
+import com.pvp_utils.client.modules.impl.Tool.ArrowTrajectoryPredictor;
 import com.pvp_utils.client.render.world.CustomBlockOutlineRenderer;
 import com.pvp_utils.client.render.world.CustomBlockOutlineRenderer;
 import com.pvp_utils.client.render.world.WorldRender;
@@ -24,6 +25,7 @@ public class WorldRenderLevelRendererMixin {
         WorldRender.capture(camera, modelViewMatrix, projectionMatrix);
         try (Gizmos.TemporaryCollection ignored = ((LevelRenderer) (Object) this).collectPerFrameGizmos()) {
             FireballLandingPredictor.render();
+            ArrowTrajectoryPredictor.render(deltaTracker.getGameTimeDeltaPartialTick(false));
             CustomBlockOutlineRenderer.render();
             CustomBlockOutlineRenderer.render();
         }

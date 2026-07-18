@@ -25,6 +25,7 @@ public class ArraylistRenderer {
             new Entry("Auto GG", () -> Config.autoGG),
             new Entry("Auto Main Hand", () -> Config.mainHandAssist),
             new Entry("Auto Sprint", () -> Config.autoSprint),
+            new Entry("Arrow Trajectory Predict", () -> Config.arrowTrajectoryPredict),
             new Entry("Arraylist", () -> Config.arraylist),
             new Entry("Armor HUD", () -> Config.armorHud),
             new Entry("Attack Effects", () -> Config.attackEffectsCritParticles || Config.attackEffectsSharpnessParticles || Config.attackEffectsFlameParticles || Config.attackEffectsBloodParticles || Config.attackEffectsLightning),

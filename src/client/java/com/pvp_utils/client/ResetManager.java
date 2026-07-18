@@ -37,6 +37,12 @@ public class ResetManager {
         Config.diggingStatus = false;
         Config.betterPingDisplay = false;
         Config.fallDamagePredict = false;
+        Config.fireballLandingPredict = false;
+        Config.arrowTrajectoryPredict = false;
+        Config.arrowTrajectoryPredictBlock = true;
+        Config.arrowTrajectoryPredictEntity = true;
+        Config.arrowTrajectoryPredictEntityMovement = true;
+        Config.arrowTrajectoryPredictOtherPlayers = false;
         Config.victorySound = false;
         Config.gammaOverride = false;
         Config.gammaValue = 15.0;

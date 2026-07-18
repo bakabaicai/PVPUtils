@@ -47,6 +47,11 @@ public class Config {
     public static boolean musicInfoHud = false;
     public static boolean fallDamagePredict = false;
     public static boolean fireballLandingPredict = false;
+    public static boolean arrowTrajectoryPredict = false;
+    public static boolean arrowTrajectoryPredictBlock = true;
+    public static boolean arrowTrajectoryPredictEntity = true;
+    public static boolean arrowTrajectoryPredictEntityMovement = true;
+    public static boolean arrowTrajectoryPredictOtherPlayers = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
@@ -667,6 +672,7 @@ public class Config {
             new ModuleRule("AttackReachDisplay", "attackReachDisplay", "attackReachDisplay"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
             new ModuleRule("FireballLandingPrediction", "fireballLandingPredict", "fireballLandingPredict"),
+            new ModuleRule("ArrowTrajectoryPrediction", "arrowTrajectoryPredict", "arrowTrajectoryPredict", "arrowTrajectoryPredictBlock", "arrowTrajectoryPredictEntity", "arrowTrajectoryPredictEntityMovement", "arrowTrajectoryPredictOtherPlayers"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
