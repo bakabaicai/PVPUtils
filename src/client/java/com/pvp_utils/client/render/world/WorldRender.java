@@ -2,6 +2,7 @@ package com.pvp_utils.client.render.world;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.Direction;
 import net.minecraft.gizmos.GizmoStyle;
 import net.minecraft.gizmos.Gizmos;
 import net.minecraft.world.phys.AABB;
@@ -93,6 +94,64 @@ public final class WorldRender {
             b = new Vec3(box.minX, box.maxY, faceZ);
             c = new Vec3(box.maxX, box.maxY, faceZ);
             d = new Vec3(box.maxX, box.minY, faceZ);
+        }
+
+        line(a, b, color, width);
+        line(b, c, color, width);
+        line(c, d, color, width);
+        line(d, a, color, width);
+    }
+
+    public static void face(AABB box, Direction direction, int color, float width) {
+        double offset = 0.002;
+        Vec3 a;
+        Vec3 b;
+        Vec3 c;
+        Vec3 d;
+
+        switch (direction) {
+            case UP -> {
+                double y = box.maxY + offset;
+                a = new Vec3(box.minX, y, box.minZ);
+                b = new Vec3(box.maxX, y, box.minZ);
+                c = new Vec3(box.maxX, y, box.maxZ);
+                d = new Vec3(box.minX, y, box.maxZ);
+            }
+            case DOWN -> {
+                double y = box.minY - offset;
+                a = new Vec3(box.minX, y, box.minZ);
+                b = new Vec3(box.maxX, y, box.minZ);
+                c = new Vec3(box.maxX, y, box.maxZ);
+                d = new Vec3(box.minX, y, box.maxZ);
+            }
+            case EAST -> {
+                double x = box.maxX + offset;
+                a = new Vec3(x, box.minY, box.minZ);
+                b = new Vec3(x, box.maxY, box.minZ);
+                c = new Vec3(x, box.maxY, box.maxZ);
+                d = new Vec3(x, box.minY, box.maxZ);
+            }
+            case WEST -> {
+                double x = box.minX - offset;
+                a = new Vec3(x, box.minY, box.minZ);
+                b = new Vec3(x, box.maxY, box.minZ);
+                c = new Vec3(x, box.maxY, box.maxZ);
+                d = new Vec3(x, box.minY, box.maxZ);
+            }
+            case SOUTH -> {
+                double z = box.maxZ + offset;
+                a = new Vec3(box.minX, box.minY, z);
+                b = new Vec3(box.minX, box.maxY, z);
+                c = new Vec3(box.maxX, box.maxY, z);
+                d = new Vec3(box.maxX, box.minY, z);
+            }
+            default -> {
+                double z = box.minZ - offset;
+                a = new Vec3(box.minX, box.minY, z);
+                b = new Vec3(box.minX, box.maxY, z);
+                c = new Vec3(box.maxX, box.maxY, z);
+                d = new Vec3(box.maxX, box.minY, z);
+            }
         }
 
         line(a, b, color, width);

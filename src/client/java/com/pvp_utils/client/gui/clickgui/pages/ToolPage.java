@@ -34,16 +34,22 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
                 new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("箭矢轨迹预测", "Arrow Trajectory Prediction"), UiText.t("拉弓时显示箭矢的预测轨迹和落点", "Show the predicted arrow trajectory and impact point while drawing a bow"),
-                new SettingToggle(() -> Config.arrowTrajectoryPredict, v -> { Config.arrowTrajectoryPredict = v; Config.save(); }))
+        modules.add(new SettingModule(UiText.t("投掷物与弓箭轨迹预测", "Projectile Trajectory Prediction"), UiText.t("预测弓箭、雪球和末影珍珠的飞行轨迹与落点", "Predict the flight trajectory and impact point of arrows, snowballs and ender pearls"),
+                new SettingToggle(() -> Config.projectileTrajectoryPredict, v -> { Config.projectileTrajectoryPredict = v; Config.save(); }))
+                .addSub(UiText.t("弓箭轨迹预测", "Bow Trajectory Prediction"), UiText.t("拉弓时显示箭矢的预测轨迹和落点", "Show the predicted arrow trajectory and impact point while drawing a bow"),
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictBow, v -> { Config.projectileTrajectoryPredictBow = v; Config.save(); }))
+                .addSub(UiText.t("雪球轨迹预测", "Snowball Trajectory Prediction"), UiText.t("手持雪球时常驻显示白色抛物线，落点显示绿色平面框", "Always show a white trajectory while holding a snowball, with a green face at the impact point"),
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictSnowball, v -> { Config.projectileTrajectoryPredictSnowball = v; Config.save(); }))
+                .addSub(UiText.t("末影珍珠轨迹预测", "Ender Pearl Trajectory Prediction"), UiText.t("手持末影珍珠时显示紫色轨迹，落点显示你将被传送到的两格高紫色框", "Show a purple trajectory while holding an ender pearl, with a two-block-tall purple box at the teleport destination"),
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictEnderPearl, v -> { Config.projectileTrajectoryPredictEnderPearl = v; Config.save(); }))
                 .addSub(UiText.t("落点方块预测", "Block Impact Prediction"), UiText.t("预测箭矢命中的方块", "Predict blocks hit by the arrow"),
-                        new SettingToggle(() -> Config.arrowTrajectoryPredictBlock, v -> { Config.arrowTrajectoryPredictBlock = v; Config.save(); }))
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictBlock, v -> { Config.projectileTrajectoryPredictBlock = v; Config.save(); }))
                 .addSub(UiText.t("落点实体预测", "Entity Impact Prediction"), UiText.t("预测箭矢命中的实体", "Predict entities hit by the arrow"),
-                        new SettingToggle(() -> Config.arrowTrajectoryPredictEntity, v -> { Config.arrowTrajectoryPredictEntity = v; Config.save(); }))
-                .addSubWhen(() -> Config.arrowTrajectoryPredictEntity, UiText.t("实体运动预测", "Entity Movement Prediction"), UiText.t("根据实体当前移动方向预测其落点位置", "Predict entity positions from their current movement direction"),
-                        new SettingToggle(() -> Config.arrowTrajectoryPredictEntityMovement, v -> { Config.arrowTrajectoryPredictEntityMovement = v; Config.save(); }))
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictEntity, v -> { Config.projectileTrajectoryPredictEntity = v; Config.save(); }))
+                .addSubWhen(() -> Config.projectileTrajectoryPredictEntity, UiText.t("实体运动预测", "Entity Movement Prediction"), UiText.t("根据实体当前移动方向预测其落点位置", "Predict entity positions from their current movement direction"),
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictEntityMovement, v -> { Config.projectileTrajectoryPredictEntityMovement = v; Config.save(); }))
                 .addSub(UiText.t("其他玩家箭矢预警", "Other Player Arrow Warning"), UiText.t("仅显示预测会命中自己的其他玩家箭矢", "Only show other player arrows predicted to hit you"),
-                        new SettingToggle(() -> Config.arrowTrajectoryPredictOtherPlayers, v -> { Config.arrowTrajectoryPredictOtherPlayers = v; Config.save(); })));
+                        new SettingToggle(() -> Config.projectileTrajectoryPredictOtherPlayers, v -> { Config.projectileTrajectoryPredictOtherPlayers = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));

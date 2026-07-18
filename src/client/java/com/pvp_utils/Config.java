@@ -47,11 +47,14 @@ public class Config {
     public static boolean musicInfoHud = false;
     public static boolean fallDamagePredict = false;
     public static boolean fireballLandingPredict = false;
-    public static boolean arrowTrajectoryPredict = false;
-    public static boolean arrowTrajectoryPredictBlock = true;
-    public static boolean arrowTrajectoryPredictEntity = true;
-    public static boolean arrowTrajectoryPredictEntityMovement = true;
-    public static boolean arrowTrajectoryPredictOtherPlayers = false;
+    public static boolean projectileTrajectoryPredict = false;
+    public static boolean projectileTrajectoryPredictBow = true;
+    public static boolean projectileTrajectoryPredictSnowball = true;
+    public static boolean projectileTrajectoryPredictEnderPearl = true;
+    public static boolean projectileTrajectoryPredictBlock = true;
+    public static boolean projectileTrajectoryPredictEntity = true;
+    public static boolean projectileTrajectoryPredictEntityMovement = true;
+    public static boolean projectileTrajectoryPredictOtherPlayers = false;
     public static boolean victorySound = false;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
@@ -672,7 +675,7 @@ public class Config {
             new ModuleRule("AttackReachDisplay", "attackReachDisplay", "attackReachDisplay"),
             new ModuleRule("FallDamagePrediction", "fallDamagePredict", "fallDamagePredict"),
             new ModuleRule("FireballLandingPrediction", "fireballLandingPredict", "fireballLandingPredict"),
-            new ModuleRule("ArrowTrajectoryPrediction", "arrowTrajectoryPredict", "arrowTrajectoryPredict", "arrowTrajectoryPredictBlock", "arrowTrajectoryPredictEntity", "arrowTrajectoryPredictEntityMovement", "arrowTrajectoryPredictOtherPlayers"),
+            new ModuleRule("ProjectileTrajectoryPrediction", "projectileTrajectoryPredict", "projectileTrajectoryPredict", "projectileTrajectoryPredictBow", "projectileTrajectoryPredictSnowball", "projectileTrajectoryPredictEnderPearl", "projectileTrajectoryPredictBlock", "projectileTrajectoryPredictEntity", "projectileTrajectoryPredictEntityMovement", "projectileTrajectoryPredictOtherPlayers"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
