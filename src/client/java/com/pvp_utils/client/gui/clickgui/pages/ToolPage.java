@@ -34,6 +34,17 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
                 new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("箭矢轨迹预测", "Arrow Trajectory Prediction"), UiText.t("拉弓时显示箭矢的预测轨迹和落点", "Show the predicted arrow trajectory and impact point while drawing a bow"),
+                new SettingToggle(() -> Config.arrowTrajectoryPredict, v -> { Config.arrowTrajectoryPredict = v; Config.save(); }))
+                .addSub(UiText.t("落点方块预测", "Block Impact Prediction"), UiText.t("预测箭矢命中的方块", "Predict blocks hit by the arrow"),
+                        new SettingToggle(() -> Config.arrowTrajectoryPredictBlock, v -> { Config.arrowTrajectoryPredictBlock = v; Config.save(); }))
+                .addSub(UiText.t("落点实体预测", "Entity Impact Prediction"), UiText.t("预测箭矢命中的实体", "Predict entities hit by the arrow"),
+                        new SettingToggle(() -> Config.arrowTrajectoryPredictEntity, v -> { Config.arrowTrajectoryPredictEntity = v; Config.save(); }))
+                .addSubWhen(() -> Config.arrowTrajectoryPredictEntity, UiText.t("实体运动预测", "Entity Movement Prediction"), UiText.t("根据实体当前移动方向预测其落点位置", "Predict entity positions from their current movement direction"),
+                        new SettingToggle(() -> Config.arrowTrajectoryPredictEntityMovement, v -> { Config.arrowTrajectoryPredictEntityMovement = v; Config.save(); }))
+                .addSub(UiText.t("其他玩家箭矢预警", "Other Player Arrow Warning"), UiText.t("仅显示预测会命中自己的其他玩家箭矢", "Only show other player arrows predicted to hit you"),
+                        new SettingToggle(() -> Config.arrowTrajectoryPredictOtherPlayers, v -> { Config.arrowTrajectoryPredictOtherPlayers = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
                 new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
 
