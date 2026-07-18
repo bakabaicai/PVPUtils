@@ -10,12 +10,14 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -27,6 +29,8 @@ public final class NeteaseMusicLocalService {
     private static final String RESOURCE_ROOT = "/assets/pvp_utils/music-service/";
     private static final String API_ARCHIVE = RESOURCE_ROOT + "netease-cloud-music-api.zip";
     private static final String SERVICE_VERSION = "netease-4.32.0-node-22.13.1-v1";
+    private static final String PLATFORM_FIX_MOD_ID = "pvputils-skija-patch";
+    private static final String PLATFORM_FIX_CLASS = "com.pvp_utils_skija_patch.NeteaseMusicPlatformFix";
     private static final Duration HEALTH_TIMEOUT = Duration.ofSeconds(2);
     private static final Duration READY_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration READY_INTERVAL = Duration.ofMillis(500);
@@ -38,6 +42,7 @@ public final class NeteaseMusicLocalService {
     private static Process process;
     private static volatile boolean lastAvailable;
     private static volatile long lastHealthCheckNanos;
+    private static volatile boolean externalStartAttempted;
 
     private NeteaseMusicLocalService() {
     }
@@ -46,8 +51,16 @@ public final class NeteaseMusicLocalService {
         return "http://" + HOST + ":" + PORT;
     }
 
+    public static boolean isSupportedPlatformReady() {
+        return isWindows() || FabricLoader.getInstance().isModLoaded(PLATFORM_FIX_MOD_ID);
+    }
+
     public static void start() {
         synchronized (LOCK) {
+            if (!isWindows()) {
+                startExternalPlatformService();
+                return;
+            }
             if (process != null && process.isAlive()) {
                 return;
             }
@@ -71,6 +84,11 @@ public final class NeteaseMusicLocalService {
     }
 
     public static void stop() {
+        if (!isWindows()) {
+            stopExternalPlatformService();
+            return;
+        }
+
         Process current;
         synchronized (LOCK) {
             current = process;
@@ -96,6 +114,9 @@ public final class NeteaseMusicLocalService {
         long now = System.nanoTime();
         if (now - lastHealthCheckNanos < Duration.ofSeconds(2).toNanos()) {
             return lastAvailable;
+        }
+        if (!isWindows() && !lastAvailable) {
+            startExternalPlatformService();
         }
         return checkServiceAvailable(false);
     }
@@ -232,10 +253,74 @@ public final class NeteaseMusicLocalService {
     }
 
     private static String nodeArchiveName() throws IOException {
-        if (!System.getProperty("os.name", "").toLowerCase().contains("win")) {
+        if (!isWindows()) {
             throw new IOException("Bundled Netease music service currently supports Windows only");
         }
         return "node-windows-x64.zip";
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    private static void startExternalPlatformService() {
+        synchronized (LOCK) {
+            if (checkServiceAvailable(true)) {
+                return;
+            }
+            if (externalStartAttempted) {
+                return;
+            }
+            externalStartAttempted = true;
+        }
+
+        if (!FabricLoader.getInstance().isModLoaded(PLATFORM_FIX_MOD_ID)) {
+            return;
+        }
+
+        try {
+            invokePlatformFix("start");
+            waitUntilExternalReady();
+        } catch (ReflectiveOperationException exception) {
+            System.err.println("PVPUtils Netease Music platform bridge failed: " + exception.getMessage());
+        }
+    }
+
+    private static void stopExternalPlatformService() {
+        if (!FabricLoader.getInstance().isModLoaded(PLATFORM_FIX_MOD_ID)) {
+            return;
+        }
+        try {
+            invokePlatformFix("stop");
+        } catch (ReflectiveOperationException exception) {
+            System.err.println("PVPUtils Netease Music platform bridge stop failed: " + exception.getMessage());
+        }
+    }
+
+    private static void invokePlatformFix(String methodName) throws ReflectiveOperationException {
+        Class<?> type = Class.forName(PLATFORM_FIX_CLASS);
+        Method method = type.getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        method.invoke(null);
+    }
+
+    private static void waitUntilExternalReady() {
+        Thread thread = new Thread(() -> {
+            long deadline = System.nanoTime() + READY_TIMEOUT.toNanos();
+            while (System.nanoTime() < deadline) {
+                if (checkServiceAvailable(true)) {
+                    return;
+                }
+                try {
+                    Thread.sleep(READY_INTERVAL.toMillis());
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }, "PVPUtils-NeteaseMusic-ExternalReady");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private static void waitUntilReady(Process startedProcess) {
