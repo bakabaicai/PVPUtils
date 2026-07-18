@@ -2,7 +2,9 @@ package com.pvp_utils.client.NeteaseMusic;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,6 +15,34 @@ public final class LyricLineProcessor {
     }
 
     public static List<LyricLine> parse(String text) {
+        return parse(text, "");
+    }
+
+    public static List<LyricLine> parse(String text, String translatedText) {
+        List<LyricLine> rawLines = parsePlain(text);
+        if (rawLines.isEmpty()) {
+            return rawLines;
+        }
+        Map<Long, String> translations = new HashMap<>();
+        for (LyricLine line : parsePlain(translatedText)) {
+            if (line.text() == null || line.text().isBlank()) continue;
+            translations.put(line.timeMs(), line.text().trim());
+        }
+        if (translations.isEmpty()) {
+            return rawLines;
+        }
+        List<LyricLine> merged = new ArrayList<>(rawLines.size());
+        for (LyricLine line : rawLines) {
+            String translation = translations.getOrDefault(line.timeMs(), "");
+            if (translation.equalsIgnoreCase(line.text())) {
+                translation = "";
+            }
+            merged.add(new LyricLine(line.text(), translation, line.timeMs()));
+        }
+        return merged;
+    }
+
+    private static List<LyricLine> parsePlain(String text) {
         List<LyricLine> lines = new ArrayList<>();
         if (text == null || text.isBlank()) {
             return lines;

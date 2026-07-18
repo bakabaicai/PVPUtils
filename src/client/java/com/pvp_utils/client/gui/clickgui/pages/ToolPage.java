@@ -25,7 +25,7 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
                 new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云音乐播放器", "Open the Netease Cloud Music player"),
+        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器，默认按键右Ctrl，可以在MC按键设置中自定义按键绑定。", "Open the Netease Music player. The default key is Right Ctrl and can be changed in Minecraft Controls."),
                 new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open)));
 
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),

@@ -51,6 +51,21 @@ public class ThemePage extends BasePage {
                                         default -> Config.ItemUseStatusMode.LITE;
                                     };
                                     Config.save();
+                                }))
+                .addSub(UiText.t("音乐信息显示", "Music Info HUD"), UiText.t("选择音乐信息 HUD 样式", "Choose the Music Info HUD style"),
+                        new SettingCycle(List.of("Lite", "New", "Blur"),
+                                () -> switch (Config.musicInfoHudMode) {
+                                    case LITE -> 0;
+                                    case NEW -> 1;
+                                    case BLUR -> 2;
+                                },
+                                i -> {
+                                    Config.musicInfoHudMode = switch (i) {
+                                        case 1 -> Config.MusicInfoHudMode.NEW;
+                                        case 2 -> Config.MusicInfoHudMode.BLUR;
+                                        default -> Config.MusicInfoHudMode.LITE;
+                                    };
+                                    Config.save();
                                 })));
     }
 

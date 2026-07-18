@@ -17,6 +17,7 @@ public final class VersionWarningManager {
     private VersionWarningManager() {}
 
     public static void tick(Minecraft client) {
+        if (Config.versionWarningDisabled) return;
         if (shown || client.player == null || client.level == null) return;
         if (Version.TYPE != 1 && Version.TYPE != 2) return;
 

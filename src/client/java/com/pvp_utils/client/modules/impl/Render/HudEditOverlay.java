@@ -22,7 +22,7 @@ import java.util.function.BooleanSupplier;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, BETTER_SCOREBOARD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -186,6 +186,7 @@ public class HudEditOverlay {
         ArrayList<EditItemState> items = new ArrayList<>();
         addItem(items, DragTarget.POTION_STATUS, "Potion Status", Config.potionStatus, getPotionStatusRect(guiW, guiH), this::movePotionStatus, delta -> setScale(v -> Config.potionStatusScale = v, Config.potionStatusScale, delta));
         addItem(items, DragTarget.LYRICS_DISPLAY, "Lyrics Display", Config.lyricsDisplay, getLyricsDisplayRect(guiW, guiH), this::moveLyricsDisplay, delta -> setScale(v -> Config.lyricsDisplayScale = v, Config.lyricsDisplayScale, delta));
+        addItem(items, DragTarget.MUSIC_INFO_HUD, "Music Info HUD", Config.musicInfoHud, getMusicInfoHudRect(guiW, guiH), this::moveMusicInfoHud, delta -> setScale(v -> Config.musicInfoHudScale = v, Config.musicInfoHudScale, delta));
         addItem(items, DragTarget.NOTIFICATION, "Notification", true, getNotificationRect(guiW, guiH), this::moveNotification, delta -> setScale(v -> Config.notificationScale = v, Config.notificationScale, delta));
         addItem(items, DragTarget.BETTER_SCOREBOARD, "Better Scoreboard", Config.betterScoreboard, getBetterScoreboardRect(guiW, guiH), this::moveBetterScoreboard, delta -> setScale(v -> Config.betterScoreboardScale = v, Config.betterScoreboardScale, delta));
         addItem(items, DragTarget.BLOCK_COUNT, "Block Count", Config.blockCountDisplay, getBlockCountRect(guiW, guiH), this::moveBlockCount, delta -> setScale(v -> Config.blockCountDisplayScale = v, Config.blockCountDisplayScale, delta));
@@ -324,6 +325,12 @@ public class HudEditOverlay {
         LyricsDisplayRenderer renderer = LyricsDisplayRenderer.getInstance();
         Config.lyricsDisplayX = rect.x - renderer.getDefaultX(guiW);
         Config.lyricsDisplayY = rect.y - renderer.getDefaultY(guiH);
+    }
+
+    private void moveMusicInfoHud(RectState rect, int guiW, int guiH) {
+        MusicInfoHudRenderer renderer = MusicInfoHudRenderer.getInstance();
+        Config.musicInfoHudX = rect.x - renderer.getDefaultX(guiW);
+        Config.musicInfoHudY = rect.y - renderer.getDefaultY(guiH);
     }
 
     private void moveBetterScoreboard(RectState rect, int guiW, int guiH) {
@@ -504,6 +511,11 @@ public class HudEditOverlay {
 
     private RectState getLyricsDisplayRect(int guiW, int guiH) {
         LyricsDisplayRenderer renderer = LyricsDisplayRenderer.getInstance();
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
+    }
+
+    private RectState getMusicInfoHudRect(int guiW, int guiH) {
+        MusicInfoHudRenderer renderer = MusicInfoHudRenderer.getInstance();
         return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
     }
 

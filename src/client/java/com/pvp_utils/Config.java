@@ -44,6 +44,7 @@ public class Config {
     public static boolean diggingStatus = false;
     public static boolean betterPingDisplay = false;
     public static boolean lyricsDisplay = false;
+    public static boolean musicInfoHud = false;
     public static boolean fallDamagePredict = false;
     public static boolean fireballLandingPredict = false;
     public static boolean arrowTrajectoryPredict = false;
@@ -132,6 +133,7 @@ public class Config {
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
     public static boolean termsRead = false;
+    public static boolean versionWarningDisabled = false;
     public static boolean fullMode = false;
     public static boolean ircEnabled = false;
     public static boolean ircAutoConnect = false;
@@ -151,6 +153,7 @@ public class Config {
     public static ArmorHudMode armorHudMode = ArmorHudMode.LITE;
     public static ArmorHudLayout armorHudLayout = ArmorHudLayout.SEPARATED;
     public static ItemUseStatusMode itemUseStatusMode = ItemUseStatusMode.LITE;
+    public static MusicInfoHudMode musicInfoHudMode = MusicInfoHudMode.LITE;
     public static double range = 3.0;
     public static float animSpeed = 1.0f;
     public static float sneakDropScale = 0.5f;
@@ -209,6 +212,10 @@ public class Config {
     public static float lyricsDisplayX = 0f;
     public static float lyricsDisplayY = 0f;
     public static float lyricsDisplayScale = 1.0f;
+    public static float musicInfoHudX = 0f;
+    public static float musicInfoHudY = 0f;
+    public static float musicInfoHudScale = 1.0f;
+    public static float neteaseMusicVolume = 1.0f;
     public static float betterScoreboardX = 0f;
     public static float betterScoreboardY = 0f;
     public static float betterScoreboardScale = 1.0f;
@@ -258,6 +265,7 @@ public class Config {
     public enum ArmorHudMode { LITE, NEW }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
+    public enum MusicInfoHudMode { LITE, NEW, BLUR }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
@@ -673,6 +681,7 @@ public class Config {
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),
             new ModuleRule("LyricsDisplay", "lyricsDisplay", "lyricsDisplay"),
+            new ModuleRule("MusicInfoHUD", "musicInfoHud", "musicInfoHud"),
             new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
             new ModuleRule("Arraylist", "arraylist", "arraylist"),
             new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),
@@ -721,6 +730,7 @@ public class Config {
             new HudComponent("Notification", "notification", "notificationX", "notificationY", "notificationScale"),
             new HudComponent("PotionStatus", "potionStatus", "potionStatusX", "potionStatusY", "potionStatusScale"),
             new HudComponent("LyricsDisplay", "lyricsDisplay", "lyricsDisplayX", "lyricsDisplayY", "lyricsDisplayScale"),
+            new HudComponent("MusicInfoHUD", "musicInfoHud", "musicInfoHudX", "musicInfoHudY", "musicInfoHudScale"),
             new HudComponent("BetterScoreboard", "betterScoreboard", "betterScoreboardX", "betterScoreboardY", "betterScoreboardScale"),
     };
 
