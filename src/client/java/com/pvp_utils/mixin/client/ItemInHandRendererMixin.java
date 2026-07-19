@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.SettingsScreen;
+import com.pvp_utils.client.modules.impl.Tool.HeldItemPositionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
@@ -84,6 +85,7 @@ public abstract class ItemInHandRendererMixin {
 
     @Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
     private void injectOldAnimation(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
+        HeldItemPositionManager.beginHandRender(interactionHand);
         Minecraft client = Minecraft.getInstance();
         ItemStack mainHandStack = abstractClientPlayer.getMainHandItem();
         ItemStack offHandStack = abstractClientPlayer.getOffhandItem();
@@ -96,6 +98,7 @@ public abstract class ItemInHandRendererMixin {
 
         if (interactionHand == InteractionHand.OFF_HAND && isBlocking && hasShield) {
             ci.cancel();
+            HeldItemPositionManager.endHandRender();
             return;
         }
 
@@ -108,6 +111,7 @@ public abstract class ItemInHandRendererMixin {
                 int side = arm == HumanoidArm.RIGHT ? 1 : -1;
 
                 poseStack.pushPose();
+                applyHeldItemPositionOffset(interactionHand, poseStack);
 
                 if (isBlocking) {
                     poseStack.translate(Config.offsetX * side, Config.offsetY, Config.offsetZ);
@@ -180,7 +184,33 @@ public abstract class ItemInHandRendererMixin {
                 ItemStack renderStack = isBlocking ? mainHandStack : itemStack;
                 this.renderItem(abstractClientPlayer, renderStack, arm == HumanoidArm.RIGHT ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND, poseStack, submitNodeCollector, j);
                 poseStack.popPose();
+                HeldItemPositionManager.endHandRender();
             }
+        }
+    }
+
+    @Inject(method = "renderArmWithItem", at = @At("RETURN"))
+    private void pvp_utils$clearHeldItemRenderState(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
+        HeldItemPositionManager.endHandRender();
+    }
+
+    @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0))
+    private void applyHeldItemPosition(AbstractClientPlayer abstractClientPlayer, float f, float g, InteractionHand interactionHand, float h, ItemStack itemStack, float i, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int j, CallbackInfo ci) {
+        applyHeldItemPositionOffset(interactionHand, poseStack);
+    }
+
+    private void applyHeldItemPositionOffset(InteractionHand interactionHand, PoseStack poseStack) {
+        if (!Config.heldItemPosition) {
+            return;
+        }
+        if (interactionHand == InteractionHand.MAIN_HAND) {
+            poseStack.translate(Config.heldItemMainX, Config.heldItemMainY, Config.heldItemMainZ);
+            poseStack.mulPose(Axis.XP.rotationDegrees(Config.heldItemMainRotX));
+            poseStack.mulPose(Axis.YP.rotationDegrees(Config.heldItemMainRotY));
+        } else {
+            poseStack.translate(Config.heldItemOffX, Config.heldItemOffY, Config.heldItemOffZ);
+            poseStack.mulPose(Axis.XP.rotationDegrees(Config.heldItemOffRotX));
+            poseStack.mulPose(Axis.YP.rotationDegrees(Config.heldItemOffRotY));
         }
     }
 

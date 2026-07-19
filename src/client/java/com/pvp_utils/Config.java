@@ -59,6 +59,7 @@ public class Config {
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean noSwimming = false;
+    public static boolean heldItemPosition = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
@@ -247,6 +248,20 @@ public class Config {
     public static float offsetX = 0f;
     public static float offsetY = 0f;
     public static float offsetZ = 0f;
+    public static float heldItemMainX = 0f;
+    public static float heldItemMainY = 0f;
+    public static float heldItemMainZ = 0f;
+    public static float heldItemMainRotX = 0f;
+    public static float heldItemMainRotY = 0f;
+    public static float heldItemMainSwingSpeed = 1f;
+    public static int heldItemMainAlpha = 100;
+    public static float heldItemOffX = 0f;
+    public static float heldItemOffY = 0f;
+    public static float heldItemOffZ = 0f;
+    public static float heldItemOffRotX = 0f;
+    public static float heldItemOffRotY = 0f;
+    public static float heldItemOffSwingSpeed = 1f;
+    public static int heldItemOffAlpha = 100;
     public static double gammaValue = 15.0;
     public static int fishingRodAssistUseDelay = 4;
     public static int autoGGDelayTicks = 20;
@@ -686,6 +701,7 @@ public class Config {
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
             new ModuleRule("NoSwimming", "noSwimming", "noSwimming"),
+            new ModuleRule("HeldItemPosition", "heldItem", "heldItemPosition"),
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),

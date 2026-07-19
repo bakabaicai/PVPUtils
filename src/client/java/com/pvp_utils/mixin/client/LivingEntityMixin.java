@@ -2,7 +2,9 @@ package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
+import com.pvp_utils.client.modules.impl.Tool.HeldItemPositionManager;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin {
     @Shadow public int swingTime;
+    @Shadow public InteractionHand swingingArm;
     @Shadow public abstract float getHealth();
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -27,15 +30,15 @@ public abstract class LivingEntityMixin {
 
     @Inject(method = "getCurrentSwingDuration", at = @At("RETURN"), cancellable = true)
     private void modifySwingDuration(CallbackInfoReturnable<Integer> cir) {
-        if ((Object) this instanceof Player) {
+        if ((Object) this instanceof Player player) {
             int original = cir.getReturnValue();
-            cir.setReturnValue((int) (original / Config.animSpeed));
+            cir.setReturnValue(HeldItemPositionManager.swingDuration(original, player, this.swingingArm));
         }
     }
 
     @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;Z)V", at = @At("HEAD"), cancellable = true)
     private void preventSwingReset(CallbackInfo ci) {
-        if ((Object) this instanceof Player && this.swingTime > 0 && Config.animSpeed < 1.0f) {
+        if ((Object) this instanceof Player player && this.swingTime > 0 && HeldItemPositionManager.swingDuration(1, player, this.swingingArm) > 1) {
             ci.cancel();
         }
     }

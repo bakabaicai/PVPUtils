@@ -57,6 +57,51 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("在水里时禁止进入游泳状态，这在某些低版本服务器上可避免回弹", "Prevent entering the swimming state in water, which can avoid setbacks on some older servers"),
                 new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("手持物品位置调整", "Held Item Position"), UiText.t("调整第一人称主手与副手物品的位置", "Adjust first-person main-hand and off-hand item position"),
+                new SettingToggle(() -> Config.heldItemPosition, v -> { Config.heldItemPosition = v; Config.save(); }))
+                .addSub(UiText.t("主手 X", "Main Hand X"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainX,
+                                v -> { Config.heldItemMainX = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手 Y", "Main Hand Y"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainY,
+                                v -> { Config.heldItemMainY = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手 Z", "Main Hand Z"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainZ,
+                                v -> { Config.heldItemMainZ = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手旋转 X", "Main Hand Rotation X"), "",
+                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemMainRotX,
+                                v -> { Config.heldItemMainRotX = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手旋转 Y", "Main Hand Rotation Y"), "",
+                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemMainRotY,
+                                v -> { Config.heldItemMainRotY = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手挥手速度", "Main Hand Swing Speed"), "",
+                        new SettingSlider(0.0, 3.0, "%.2fx", () -> (double) Config.heldItemMainSwingSpeed,
+                                v -> { Config.heldItemMainSwingSpeed = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("主手透明度", "Main Hand Alpha"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.heldItemMainAlpha,
+                                v -> { Config.heldItemMainAlpha = Math.max(0, Math.min(100, v.intValue())); Config.save(); }))
+                .addSub(UiText.t("副手 X", "Off Hand X"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffX,
+                                v -> { Config.heldItemOffX = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手 Y", "Off Hand Y"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffY,
+                                v -> { Config.heldItemOffY = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手 Z", "Off Hand Z"), "",
+                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffZ,
+                                v -> { Config.heldItemOffZ = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手旋转 X", "Off Hand Rotation X"), "",
+                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemOffRotX,
+                                v -> { Config.heldItemOffRotX = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手旋转 Y", "Off Hand Rotation Y"), "",
+                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemOffRotY,
+                                v -> { Config.heldItemOffRotY = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手挥手速度", "Off Hand Swing Speed"), "",
+                        new SettingSlider(0.0, 3.0, "%.2fx", () -> (double) Config.heldItemOffSwingSpeed,
+                                v -> { Config.heldItemOffSwingSpeed = v.floatValue(); Config.save(); }))
+                .addSub(UiText.t("副手透明度", "Off Hand Alpha"), "",
+                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.heldItemOffAlpha,
+                                v -> { Config.heldItemOffAlpha = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("去除容器半透明背景", "Remove Container Background"), UiText.t("去除背包和容器界面的半透明背景", "Remove the translucent background from inventory and container screens"),
                 new SettingToggle(() -> Config.removeContainerBackground, v -> { Config.removeContainerBackground = v; Config.save(); })));
 

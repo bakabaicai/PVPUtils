@@ -4,7 +4,13 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "RenderTypeMixin",
+    "RenderTypeStateAccessor",
+    "RenderSetupAccessor",
+    "RenderTextureBindingAccessor",
     "ItemInHandRendererMixin",
+    "ItemFeatureRendererMixin",
+    "ItemRendererMixin",
+    "ItemStackLayerRenderStateMixin",
     "AbstractClientPlayerCapeMixin",
     "AbstractContainerScreenMixin",
     "LivingEntityMixin",
