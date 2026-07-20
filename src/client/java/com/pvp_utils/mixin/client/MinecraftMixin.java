@@ -131,10 +131,8 @@ public class MinecraftMixin {
                     target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V"
             )
     )
-    private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
+    private void pvp_utils$renderClickGuiFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
-        KeystrokesRenderer.getInstance().renderFrameEnd();
-        HudEditOverlay.getInstance().renderFrameEnd();
         Minecraft client = (Minecraft) (Object) this;
         if (client.screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();
@@ -145,14 +143,11 @@ public class MinecraftMixin {
             method = "runTick",
             at = @At(
                     value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V",
-                    shift = At.Shift.AFTER
+                    target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"
             )
     )
-    private void pvp_utils$traceClickGuiPresentation(boolean advanceGameTime, CallbackInfo ci) {
-        Minecraft client = (Minecraft) (Object) this;
-        if (client.screen instanceof NewSettingsScreen settingsScreen) {
-            settingsScreen.tracePresentedFramebuffer();
-        }
+    private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
+        KeystrokesRenderer.getInstance().renderFrameEnd();
+        HudEditOverlay.getInstance().renderFrameEnd();
     }
 }
