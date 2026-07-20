@@ -18,16 +18,27 @@ import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.lwjgl.opengl.GL45.*;
 
 public final class SkiaBlurRenderer {
     private static final SkiaBlurRenderer INSTANCE = new SkiaBlurRenderer();
     private static final float MIN_CAPTURE_MARGIN = 18f;
+    private static final int MAX_CAPTURE_TARGETS = 16;
 
     private final Paint blurPaint = new Paint().setAntiAlias(true);
     private final Paint frostPaint = new Paint().setAntiAlias(true);
     private final Paint tintPaint = new Paint().setAntiAlias(true);
     private final SkiaGlBackend framebufferBackend = new SkiaGlBackend();
+    private final LinkedHashMap<Long, CaptureTarget> captureTargets = new LinkedHashMap<>(16, 0.75f, true);
+    private DirectContext captureContext;
+    private ImageFilter linearizeFilter;
+    private ImageFilter blurFilter;
+    private ImageFilter encodeFilter;
+    private float filterSigma = Float.NaN;
     private boolean nativeLoaded = false;
 
     private SkiaBlurRenderer() {}
@@ -65,50 +76,35 @@ public final class SkiaBlurRenderer {
 
         float scale = (float) client.getWindow().getGuiScale();
         float blurSigma = blurSigma(strength);
-        Capture capture = captureRegion(client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
-        if (capture.textureId == 0) return false;
+        Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
+        if (capture.image == null) return false;
 
-        Image image = null;
-        ImageFilter linearize = null;
-        ImageFilter blur = null;
-        ImageFilter encode = null;
+        ensureFilters(blurSigma);
+        canvas.save();
         try {
-            image = Image.adoptGLTextureFrom(context, capture.textureId, GL_TEXTURE_2D, capture.width, capture.height,
-                    GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
-            capture.textureId = 0;
-
-            canvas.save();
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, radius), true);
-
-            linearize = ImageFilter.makeColorFilter(ColorFilter.getSRGBToLinearGamma(), null);
-            blur = ImageFilter.makeBlur(blurSigma, blurSigma, FilterTileMode.CLAMP, linearize, (Rect) null);
-            encode = ImageFilter.makeColorFilter(ColorFilter.getLinearToSRGBGamma(), blur);
-            blurPaint.setImageFilter(encode);
-            canvas.drawImageRect(image,
+            blurPaint.setImageFilter(encodeFilter);
+            canvas.drawImageRect(capture.image,
                     Rect.makeXYWH(0f, 0f, capture.width, capture.height),
                     Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH),
                     SamplingMode.LINEAR,
                     blurPaint,
                     true);
-            blurPaint.setImageFilter(null);
 
             frostPaint.setColor(0x10000000);
             canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), frostPaint);
 
             tintPaint.setColor(tintColor);
             canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), tintPaint);
-            canvas.restore();
             return true;
         } finally {
-            if (encode != null) encode.close();
-            if (blur != null) blur.close();
-            if (linearize != null) linearize.close();
-            if (image != null) image.close();
-            if (capture.textureId != 0) glDeleteTextures(capture.textureId);
+            blurPaint.setImageFilter(null);
+            canvas.restore();
         }
     }
 
-    private Capture captureRegion(Minecraft client, int sourceFramebufferId, float x, float y, float width, float height, float scale, float margin) {
+    private Capture captureRegion(DirectContext context, Minecraft client, int sourceFramebufferId,
+                                  float x, float y, float width, float height, float scale, float margin) {
         int framebufferW = client.getWindow().getWidth();
         int framebufferH = client.getWindow().getHeight();
         int left = Math.max(0, (int) Math.floor((x - margin) * scale));
@@ -119,8 +115,6 @@ public final class SkiaBlurRenderer {
         int copyH = Math.max(1, bottom - top);
         int sourceY = Math.max(0, framebufferH - bottom);
 
-        int textureId = glGenTextures();
-        int resolveFramebufferId = glGenFramebuffers();
         int[] oldTexture = new int[1];
         int[] oldActiveTexture = new int[1];
         int[] oldSampler = new int[1];
@@ -142,30 +136,21 @@ public final class SkiaBlurRenderer {
         glGetIntegerv(GL_VIEWPORT, oldViewport);
         glGetIntegerv(GL_SCISSOR_BOX, oldScissorBox);
         try {
-            glDisable(GL_FRAMEBUFFER_SRGB);
-            glBindTexture(GL_TEXTURE_2D, textureId);
-            glBindSampler(0, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, copyW, copyH, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0L);
+            CaptureTarget target = ensureCaptureTarget(context, copyW, copyH);
+            if (target == null) return Capture.EMPTY;
 
-            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFramebufferId);
-            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+            glDisable(GL_FRAMEBUFFER_SRGB);
+            glBindTexture(GL_TEXTURE_2D, target.textureId);
+            glBindSampler(0, 0);
+
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.framebufferId);
             glDrawBuffer(GL_COLOR_ATTACHMENT0);
             if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-                glDeleteFramebuffers(resolveFramebufferId);
-                glDeleteTextures(textureId);
-                textureId = 0;
                 return Capture.EMPTY;
             }
 
             int readBuffer = prepareReadFramebuffer(sourceFramebufferId);
             if (readBuffer == 0) {
-                glDeleteFramebuffers(resolveFramebufferId);
-                glDeleteTextures(textureId);
-                textureId = 0;
                 return Capture.EMPTY;
             }
             glReadBuffer(readBuffer);
@@ -175,7 +160,8 @@ public final class SkiaBlurRenderer {
                     GL_COLOR_BUFFER_BIT,
                     GL_NEAREST
             );
-            glFlush();
+            return new Capture(target.image, copyW, copyH,
+                    left / scale, top / scale, copyW / scale, copyH / scale);
         } finally {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, oldReadFramebuffer[0]);
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oldDrawFramebuffer[0]);
@@ -192,10 +178,94 @@ public final class SkiaBlurRenderer {
             } else {
                 glDisable(GL_FRAMEBUFFER_SRGB);
             }
-            if (resolveFramebufferId != 0) glDeleteFramebuffers(resolveFramebufferId);
+        }
+    }
+
+    private CaptureTarget ensureCaptureTarget(DirectContext context, int requiredW, int requiredH) {
+        if (captureContext != context) {
+            destroyCaptureTargets();
+            captureContext = context;
         }
 
-        return new Capture(textureId, copyW, copyH, left / scale, top / scale, copyW / scale, copyH / scale);
+        long key = ((long) requiredW << 32) | (requiredH & 0xFFFFFFFFL);
+        CaptureTarget cached = captureTargets.get(key);
+        if (cached != null) return cached;
+
+        int textureId = glGenTextures();
+        int framebufferId = glGenFramebuffers();
+        Image image = null;
+        CaptureTarget created = null;
+        try {
+            glBindTexture(GL_TEXTURE_2D, textureId);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, requiredW, requiredH, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0L);
+
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebufferId);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+            glDrawBuffer(GL_COLOR_ATTACHMENT0);
+            if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+                return null;
+            }
+
+            image = Image.adoptGLTextureFrom(context, textureId, GL_TEXTURE_2D, requiredW, requiredH,
+                    GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
+            created = new CaptureTarget(textureId, framebufferId, requiredW, requiredH, image);
+            captureTargets.put(key, created);
+            evictCaptureTargets();
+            return created;
+        } finally {
+            if (created == null) {
+                if (framebufferId != 0) glDeleteFramebuffers(framebufferId);
+                if (image != null) {
+                    image.close();
+                } else if (textureId != 0) {
+                    glDeleteTextures(textureId);
+                }
+            }
+        }
+    }
+
+    private void evictCaptureTargets() {
+        Iterator<Map.Entry<Long, CaptureTarget>> iterator = captureTargets.entrySet().iterator();
+        while (captureTargets.size() > MAX_CAPTURE_TARGETS && iterator.hasNext()) {
+            CaptureTarget target = iterator.next().getValue();
+            iterator.remove();
+            destroyCaptureTarget(target);
+        }
+    }
+
+    private void ensureFilters(float sigma) {
+        if (encodeFilter != null && Math.abs(filterSigma - sigma) < 0.001f) return;
+        destroyFilters();
+        linearizeFilter = ImageFilter.makeColorFilter(ColorFilter.getSRGBToLinearGamma(), null);
+        blurFilter = ImageFilter.makeBlur(sigma, sigma, FilterTileMode.CLAMP, linearizeFilter, (Rect) null);
+        encodeFilter = ImageFilter.makeColorFilter(ColorFilter.getLinearToSRGBGamma(), blurFilter);
+        filterSigma = sigma;
+    }
+
+    private void destroyFilters() {
+        if (encodeFilter != null) encodeFilter.close();
+        if (blurFilter != null) blurFilter.close();
+        if (linearizeFilter != null) linearizeFilter.close();
+        encodeFilter = null;
+        blurFilter = null;
+        linearizeFilter = null;
+        filterSigma = Float.NaN;
+    }
+
+    private void destroyCaptureTargets() {
+        for (CaptureTarget target : captureTargets.values()) {
+            destroyCaptureTarget(target);
+        }
+        captureTargets.clear();
+    }
+
+    private void destroyCaptureTarget(CaptureTarget target) {
+        if (target.framebufferId != 0) glDeleteFramebuffers(target.framebufferId);
+        target.image.close();
     }
 
     private int prepareReadFramebuffer(int framebufferId) {
@@ -273,9 +343,9 @@ public final class SkiaBlurRenderer {
     }
 
     private static class Capture {
-        private static final Capture EMPTY = new Capture(0, 0, 0, 0f, 0f, 0f, 0f);
+        private static final Capture EMPTY = new Capture(null, 0, 0, 0f, 0f, 0f, 0f);
 
-        private int textureId;
+        private final Image image;
         private final int width;
         private final int height;
         private final float dstX;
@@ -283,8 +353,8 @@ public final class SkiaBlurRenderer {
         private final float dstW;
         private final float dstH;
 
-        private Capture(int textureId, int width, int height, float dstX, float dstY, float dstW, float dstH) {
-            this.textureId = textureId;
+        private Capture(Image image, int width, int height, float dstX, float dstY, float dstW, float dstH) {
+            this.image = image;
             this.width = width;
             this.height = height;
             this.dstX = dstX;
@@ -293,4 +363,6 @@ public final class SkiaBlurRenderer {
             this.dstH = dstH;
         }
     }
+
+    private record CaptureTarget(int textureId, int framebufferId, int width, int height, Image image) {}
 }
