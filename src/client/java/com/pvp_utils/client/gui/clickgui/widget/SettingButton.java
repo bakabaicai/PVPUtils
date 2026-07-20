@@ -11,7 +11,7 @@ public class SettingButton extends SettingWidget {
     private final Supplier<String> label;
     private final Runnable action;
     private float pressT = 0f;
-    private final Paint bgPaint = new Paint();
+    private final Paint bgPaint = new Paint().setAntiAlias(true);
     private String cachedText = "";
     private float cachedTextWidth = 0f;
 

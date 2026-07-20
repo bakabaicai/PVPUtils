@@ -14,8 +14,8 @@ public class SettingToggle extends SettingWidget {
     private float thumbX = -1f;
     private float colorT = -1f;
     private float lastDrawX = 0f;
-    private final Paint trackPaint = new Paint();
-    private final Paint thumbPaint = new Paint();
+    private final Paint trackPaint = new Paint().setAntiAlias(true);
+    private final Paint thumbPaint = new Paint().setAntiAlias(true);
 
     private static final int COLOR_TRACK_ON  = 0xFF2F54EB;
     private static final int COLOR_TRACK_OFF = 0xFFCCCCCC;

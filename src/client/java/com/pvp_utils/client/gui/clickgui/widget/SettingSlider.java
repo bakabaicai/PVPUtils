@@ -19,9 +19,9 @@ public class SettingSlider extends SettingWidget {
     private double cachedValue = Double.NaN;
     private String cachedText = "";
     private float cachedTextWidth = 0f;
-    private final Paint trackPaint = new Paint();
-    private final Paint fillPaint = new Paint();
-    private final Paint thumbPaint = new Paint();
+    private final Paint trackPaint = new Paint().setAntiAlias(true);
+    private final Paint fillPaint = new Paint().setAntiAlias(true);
+    private final Paint thumbPaint = new Paint().setAntiAlias(true);
 
     private static final int COLOR_TRACK    = 0xFFE0E0E0;
     private static final int COLOR_FILL     = 0xFF2F54EB;

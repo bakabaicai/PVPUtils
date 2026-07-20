@@ -1,11 +1,12 @@
 package com.pvp_utils.client.gui.clickgui;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
 import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
@@ -15,9 +16,27 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.systems.RenderSystem;
+import org.lwjgl.BufferUtils;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.lwjgl.opengl.GL11.GL_BACK;
+import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.glGetInteger;
+import static org.lwjgl.opengl.GL11.glReadBuffer;
+import static org.lwjgl.opengl.GL11.glReadPixels;
+import static org.lwjgl.opengl.GL30.GL_COLOR_ATTACHMENT0;
+import static org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_COMPLETE;
+import static org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER;
+import static org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER_BINDING;
+import static org.lwjgl.opengl.GL30.glBindFramebuffer;
+import static org.lwjgl.opengl.GL30.glCheckFramebufferStatus;
 
 public class NewSettingsScreen extends SkiaScreen {
 
@@ -47,24 +66,20 @@ public class NewSettingsScreen extends SkiaScreen {
     private boolean draggingInContent = false;
     private boolean draggingScrollbar = false;
     private float scrollbarDragOffset = 0f;
-    private boolean redrawRequested = true;
-    private int cachedRegionX = 0;
-    private int cachedRegionY = 0;
-    private int cachedRegionW = 0;
-    private int cachedRegionH = 0;
     private static final float OPEN_DURATION = 0.16f;
     private static final float BASE_CARD_W = 740f;
     private static final float BASE_CARD_H = 500f;
     private static final float SCREEN_MARGIN = 24f;
-    private final Paint cardPaint = new Paint();
-    private final Paint sidebarPaint = new Paint();
-    private final Paint dividerPaint = new Paint();
-    private final Paint indicatorPaint = new Paint();
-    private final Paint hoverPaint = new Paint();
-    private final Paint resetBgPaint = new Paint();
-    private final Paint closeBgPaint = new Paint();
-    private final Paint scrollbarTrackPaint = new Paint();
-    private final Paint scrollbarThumbPaint = new Paint();
+    private final Paint cardPaint = new Paint().setAntiAlias(true);
+    private final Paint sidebarPaint = new Paint().setAntiAlias(true);
+    private final Paint dividerPaint = new Paint().setAntiAlias(true);
+    private final Paint indicatorPaint = new Paint().setAntiAlias(true);
+    private final Paint hoverPaint = new Paint().setAntiAlias(true);
+    private final Paint resetBgPaint = new Paint().setAntiAlias(true);
+    private final Paint closeBgPaint = new Paint().setAntiAlias(true);
+    private final Paint scrollbarTrackPaint = new Paint().setAntiAlias(true);
+    private final Paint scrollbarThumbPaint = new Paint().setAntiAlias(true);
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final float resetIconWidth = FontRenderer.measureTextWidth("\uE042", 13f, FontRenderer.MATERIAL_SYMBOLS);
     private String cachedResetText = "";
     private float cachedResetTextWidth = 0f;
@@ -81,6 +96,18 @@ public class NewSettingsScreen extends SkiaScreen {
     private int debugVisibleModules = 0;
     private int debugExpandedModules = 0;
     private int debugAnimatingModules = 0;
+    private boolean pendingFrame = false;
+    private int pendingMouseX = 0;
+    private int pendingMouseY = 0;
+    private float pendingDelta = 0f;
+    private final ByteBuffer diagnosticPixel = BufferUtils.createByteBuffer(4);
+    private int diagnosticFrame = 0;
+    private int diagnosticSampleFrame = -1;
+    private int diagnosticSampleX = 0;
+    private int diagnosticSampleY = 0;
+    private int diagnosticMainColor = 0;
+    private int diagnosticMainStatus = 0;
+    private int diagnosticReadStatus = 0;
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"), parent);
@@ -126,38 +153,78 @@ public class NewSettingsScreen extends SkiaScreen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        float visualScale = getVisualScale(this.width, this.height);
-        float[] l = layout(this.width, this.height);
-        float cx = this.width / 2f;
-        float cy = this.height / 2f;
-        float pad = 28f;
-        int regionX = (int) Math.floor(cx + (l[0] - cx) * visualScale - pad);
-        int regionY = (int) Math.floor(cy + (l[1] - cy) * visualScale - pad);
-        int regionW = (int) Math.ceil(l[2] * visualScale + pad * 2f);
-        int regionH = (int) Math.ceil(l[3] * visualScale + pad * 2f);
-        regionX = Math.max(0, regionX);
-        regionY = Math.max(0, regionY);
-        regionW = Math.min(this.width - regionX, Math.max(1, regionW));
-        regionH = Math.min(this.height - regionY, Math.max(1, regionH));
+        pendingMouseX = mouseX;
+        pendingMouseY = mouseY;
+        pendingDelta = delta;
+        pendingFrame = true;
+    }
 
-        boolean regionChanged = regionX != cachedRegionX || regionY != cachedRegionY || regionW != cachedRegionW || regionH != cachedRegionH;
-        boolean needsRedraw = redrawRequested || regionChanged || needsContinuousRedraw() || !SkiaRenderer.hasRegionCache();
-
-        if (needsRedraw) {
-            Canvas canvas = SkiaRenderer.beginRegion(regionX, regionY, regionW, regionH);
-            if (canvas != null) {
-                drawSkia(canvas, this.width, this.height, mouseX, mouseY, delta);
-            }
-            SkiaRenderer.endRegion(graphics);
-            redrawRequested = false;
-            cachedRegionX = regionX;
-            cachedRegionY = regionY;
-            cachedRegionW = regionW;
-            cachedRegionH = regionH;
+    public void renderFrameEnd() {
+        if (!pendingFrame || this.minecraft == null || this.minecraft.screen != this) {
+            pendingFrame = false;
             return;
         }
+        int framebufferId = mainFramebufferId();
+        Canvas canvas = glBackend.begin(framebufferId);
+        if (canvas == null) {
+            return;
+        }
+        try {
+            drawSkia(canvas, this.width, this.height, pendingMouseX, pendingMouseY, pendingDelta);
+        } finally {
+            glBackend.end();
+            pendingFrame = false;
+        }
+        diagnosticFrame++;
+        if (diagnosticFrame <= 5 || diagnosticFrame % 120 == 0) {
+            captureMainFramebuffer(framebufferId);
+        }
+    }
 
-        SkiaRenderer.drawCachedRegion(graphics);
+    public void tracePresentedFramebuffer() {
+        if (diagnosticSampleFrame != diagnosticFrame) return;
+        int presentedColor = readFramebufferColor(0, diagnosticSampleX, diagnosticSampleY);
+        int presentedStatus = diagnosticReadStatus;
+        PVPUtils.LOGGER.info(
+                "[ClickGUI GPU] frame={} pixel={},{} main={} presented={} mainStatus={} presentedStatus={} complete={}",
+                diagnosticFrame,
+                diagnosticSampleX,
+                diagnosticSampleY,
+                String.format("%08X", diagnosticMainColor),
+                String.format("%08X", presentedColor),
+                Integer.toHexString(diagnosticMainStatus),
+                Integer.toHexString(presentedStatus),
+                diagnosticMainStatus == GL_FRAMEBUFFER_COMPLETE && presentedStatus == GL_FRAMEBUFFER_COMPLETE
+        );
+        diagnosticSampleFrame = -1;
+    }
+
+    private void captureMainFramebuffer(int framebufferId) {
+        var window = minecraft.getWindow();
+        float[] l = layout(width, height);
+        float visualScale = getVisualScale(width, height);
+        float guiX = width * 0.5f + (l[0] + l[4] + 12f - width * 0.5f) * visualScale;
+        float guiY = height * 0.5f + (l[1] + 12f - height * 0.5f) * visualScale;
+        diagnosticSampleX = Math.max(0, Math.min(window.getWidth() - 1, Math.round(guiX * (float) window.getGuiScale())));
+        diagnosticSampleY = Math.max(0, Math.min(window.getHeight() - 1, window.getHeight() - 1 - Math.round(guiY * (float) window.getGuiScale())));
+        diagnosticMainColor = readFramebufferColor(framebufferId, diagnosticSampleX, diagnosticSampleY);
+        diagnosticMainStatus = diagnosticReadStatus;
+        diagnosticSampleFrame = diagnosticFrame;
+    }
+
+    private int readFramebufferColor(int framebufferId, int x, int y) {
+        int previousFramebuffer = glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferId);
+        glReadBuffer(framebufferId == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0);
+        diagnosticReadStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+        diagnosticPixel.clear();
+        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, diagnosticPixel);
+        int color = (diagnosticPixel.get(0) & 0xFF) << 24
+                | (diagnosticPixel.get(1) & 0xFF) << 16
+                | (diagnosticPixel.get(2) & 0xFF) << 8
+                | diagnosticPixel.get(3) & 0xFF;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, previousFramebuffer);
+        return color;
     }
 
     private float toLayoutX(double x, int width, float scale) {
@@ -218,10 +285,23 @@ public class NewSettingsScreen extends SkiaScreen {
         cachedScrollMax = Math.max(0f, cachedContentTotalHeight - cachedScrollAreaHeight);
     }
 
-    private void requestRegionRedraw() {
-        redrawRequested = true;
+    private void invalidateScrollLayout() {
         cachedScrollPage = null;
-        SkiaRenderer.markRegionDirty();
+    }
+
+    private int mainFramebufferId() {
+        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
+        }
+        return 0;
+    }
+
+    @Override
+    public void removed() {
+        pendingFrame = false;
+        glBackend.destroy();
+        super.removed();
     }
 
     private void updateDebugStats(BasePage page) {
@@ -250,7 +330,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float h = 42f;
         float x = cardX + cardW - w - 14f;
         float y = cardY + 14f;
-        Paint bg = new Paint();
+        Paint bg = new Paint().setAntiAlias(true);
         bg.setColor(withAlpha(0xF7F7F8, alpha));
         canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 8f), bg);
         FontRenderer.drawText(canvas, line1, x + padding, y + 13f, textSize, withAlpha(0x444444, alpha));
@@ -438,8 +518,9 @@ public class NewSettingsScreen extends SkiaScreen {
 
         float clipTop = contentY + 54f;
         float clipBottom = contentY + contentH;
+        Rect contentClip = Rect.makeXYWH(contentX, clipTop, contentW, clipBottom - clipTop);
         canvas.save();
-        canvas.clipRect(Rect.makeXYWH(contentX, clipTop, contentW, clipBottom - clipTop));
+        canvas.clipRect(contentClip);
 
         float moduleStartY = contentY + 54f;
         page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset);
@@ -523,14 +604,16 @@ public class NewSettingsScreen extends SkiaScreen {
         targetScrollOffset = maxScroll * ((thumbTop - trackTop) / available);
     }
 
-    @Override public void onClose() { closing = true; }
+    @Override public void onClose() {
+        closing = true;
+    }
 
     @Override
     public void mouseMoved(double mouseX, double mouseY) {
         int hoverSignature = computeHoverSignature(mouseX, mouseY);
         if (hoverSignature != lastHoverSignature) {
             lastHoverSignature = hoverSignature;
-            requestRegionRedraw();
+            invalidateScrollLayout();
         }
     }
 
@@ -553,14 +636,14 @@ public class NewSettingsScreen extends SkiaScreen {
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
-                if (button == 0) { selectedTab = i; targetScrollOffset = 0f; contentScrollOffset = 0f; requestRegionRedraw(); }
+                if (button == 0) { selectedTab = i; targetScrollOffset = 0f; contentScrollOffset = 0f; invalidateScrollLayout(); }
                 return true;
             }
         }
 
         if (button == 0 && mx >= closeX && mx <= closeX + tabW && my >= closeY && my <= closeY + closeH) {
             closing = true;
-            requestRegionRedraw();
+            invalidateScrollLayout();
             return true;
         }
 
@@ -579,7 +662,7 @@ public class NewSettingsScreen extends SkiaScreen {
             } else {
                 resetConfirm = true;
             }
-            requestRegionRedraw();
+            invalidateScrollLayout();
             return true;
         }
 
@@ -593,14 +676,14 @@ public class NewSettingsScreen extends SkiaScreen {
                 scrollbarDragOffset = my >= thumbTop && my <= thumbTop + thumbH ? my - thumbTop : thumbH * 0.5f;
                 setScrollFromScrollbar(page, my, contentY, contentH);
                 contentScrollOffset = targetScrollOffset;
-                requestRegionRedraw();
+                invalidateScrollLayout();
                 return true;
             }
             float moduleStartY = contentY + 54f;
             boolean hit = page.onClick(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
             if (hit) {
                 draggingInContent = true;
-                requestRegionRedraw();
+                invalidateScrollLayout();
             }
             return hit;
         }
@@ -617,7 +700,7 @@ public class NewSettingsScreen extends SkiaScreen {
             BasePage page = pages.get(selectedTab);
             setScrollFromScrollbar(page, my, l[15], l[17]);
             contentScrollOffset = targetScrollOffset;
-            requestRegionRedraw();
+            invalidateScrollLayout();
             return true;
         }
         if (draggingInContent) {
@@ -628,7 +711,7 @@ public class NewSettingsScreen extends SkiaScreen {
             float contentX = l[14], contentY = l[15], contentW = l[16];
             float moduleStartY = contentY + 54f;
             pages.get(selectedTab).onDrag(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
-            requestRegionRedraw();
+            invalidateScrollLayout();
             return true;
         }
         return false;
@@ -639,7 +722,7 @@ public class NewSettingsScreen extends SkiaScreen {
         draggingInContent = false;
         draggingScrollbar = false;
         pages.get(selectedTab).releaseDrag();
-        requestRegionRedraw();
+        invalidateScrollLayout();
         return false;
     }
 
@@ -655,7 +738,7 @@ public class NewSettingsScreen extends SkiaScreen {
             BasePage page = pages.get(selectedTab);
             updateScrollCache(page, contentH);
             targetScrollOffset = Math.max(0f, Math.min(cachedScrollMax, targetScrollOffset + (float)(-vScroll * 16f)));
-            requestRegionRedraw();
+            invalidateScrollLayout();
             return true;
         }
         return false;

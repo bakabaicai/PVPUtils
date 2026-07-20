@@ -3,10 +3,7 @@ package com.pvp_utils.client.gui.clickgui.widget;
 import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.Picture;
-import io.github.humbleui.skija.PictureRecorder;
 import io.github.humbleui.types.RRect;
-import io.github.humbleui.types.Rect;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,11 +25,8 @@ public class SettingModule {
     private static final float PAD_X = 20f;
     private static final String ARROW_EXPANDED = "\uE5CF";
     private static final String ARROW_COLLAPSED = "\uE5CC";
-    private final Paint modulePaint = new Paint();
-    private final Paint subPaint = new Paint();
-    private Picture staticPicture;
-    private float staticPictureWidth = -1f;
-    private boolean staticPictureExpanded = false;
+    private final Paint modulePaint = new Paint().setAntiAlias(true);
+    private final Paint subPaint = new Paint().setAntiAlias(true);
 
     public SettingModule(String title, String subtitle, SettingWidget mainWidget) {
         this.title = title;
@@ -41,26 +35,22 @@ public class SettingModule {
     }
 
     public SettingModule addSub(String title, String subtitle, SettingWidget widget) {
-        subEntries.add(new SubEntry(title, subtitle, widget, () -> true, false));
-        disposeStaticPicture();
+        subEntries.add(new SubEntry(title, subtitle, widget, () -> true));
         return this;
     }
 
     public SettingModule addSub(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier) {
-        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, true));
-        disposeStaticPicture();
+        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier));
         return this;
     }
 
     public SettingModule addSubWhen(BooleanSupplier visibleSupplier, String title, String subtitle, SettingWidget widget) {
-        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, true));
-        disposeStaticPicture();
+        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier));
         return this;
     }
 
     public SettingModule visibleWhen(BooleanSupplier supplier) {
         this.visibleSupplier = supplier;
-        disposeStaticPicture();
         return this;
     }
 
@@ -94,22 +84,7 @@ public class SettingModule {
     }
 
     public void draw(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom) {
-        boolean stableExpanded = expandProgress >= 0.99f;
-        boolean stableCollapsed = expandProgress <= 0.01f;
-        boolean canUseStaticPicture = alpha >= 0.999f && (stableExpanded || stableCollapsed) && !hasConditionalSubEntries();
-
-        if (canUseStaticPicture) {
-            boolean expandedState = stableExpanded && hasVisibleSubEntries();
-            ensureStaticPicture(contentW, expandedState);
-            if (staticPicture != null) {
-                canvas.save();
-                canvas.translate(x, y);
-                canvas.drawPicture(staticPicture);
-                canvas.restore();
-            }
-        } else {
-            drawStaticContent(canvas, x, y, contentW, alpha, viewportTop, viewportBottom, expandProgress);
-        }
+        drawStaticContent(canvas, x, y, contentW, alpha, viewportTop, viewportBottom, expandProgress);
 
         if (mainWidget != null) {
             float wx = x + contentW - PAD_X - mainWidget.getWidth();
@@ -131,18 +106,6 @@ public class SettingModule {
                 sy += SUB_H;
             }
         }
-    }
-
-    private void ensureStaticPicture(float contentW, boolean expandedState) {
-        if (staticPicture != null && Math.abs(staticPictureWidth - contentW) < 0.01f && staticPictureExpanded == expandedState) return;
-        disposeStaticPicture();
-        PictureRecorder recorder = new PictureRecorder();
-        float totalHeight = MODULE_H + (expandedState ? getVisibleSubCount() * SUB_H : 0f);
-        Canvas pictureCanvas = recorder.beginRecording(Rect.makeXYWH(0f, 0f, contentW, totalHeight));
-        drawStaticContent(pictureCanvas, 0f, 0f, contentW, 1f, 0f, totalHeight, expandedState ? 1f : 0f);
-        staticPicture = recorder.finishRecordingAsPicture();
-        staticPictureWidth = contentW;
-        staticPictureExpanded = expandedState;
     }
 
     private void drawStaticContent(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom, float progress) {
@@ -185,7 +148,6 @@ public class SettingModule {
         if (my >= y && my <= moduleBottom) {
             if (button == 1 && hasVisibleSubEntries()) {
                 expanded = !expanded;
-                disposeStaticPicture();
                 return true;
             }
             if (button == 0 && mainWidget != null) {
@@ -240,13 +202,6 @@ public class SettingModule {
         }
     }
 
-    private void disposeStaticPicture() {
-        if (staticPicture != null) {
-            staticPicture.close();
-            staticPicture = null;
-        }
-    }
-
     private static int withAlpha(int color, float alpha) {
         return ((int) (alpha * 255) << 24) | (color & 0x00FFFFFF);
     }
@@ -266,14 +221,7 @@ public class SettingModule {
         return false;
     }
 
-    private boolean hasConditionalSubEntries() {
-        for (SubEntry sub : subEntries) {
-            if (sub.conditional) return true;
-        }
-        return false;
-    }
-
-    private record SubEntry(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier, boolean conditional) {
+    private record SubEntry(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier) {
         private boolean isVisible() {
             return visibleSupplier.getAsBoolean();
         }

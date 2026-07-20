@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.util.NameTagPlayerFilterState;
 import com.pvp_utils.client.util.NameTagPlayerFilterContext;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -10,12 +11,14 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public class EntityRendererMixin {
@@ -32,6 +35,14 @@ public class EntityRendererMixin {
     @Inject(method = "submitNameTag", at = @At("RETURN"))
     private void pvp_utils$endNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
         NameTagPlayerFilterContext.clear();
+    }
+
+    @Inject(method = "getNameTag", at = @At("RETURN"), cancellable = true)
+    private void pvp_utils$decorateIrcNameTag(Entity entity, CallbackInfoReturnable<Component> cir) {
+        if (!(entity instanceof Player)) {
+            return;
+        }
+        cir.setReturnValue(IrcBridge.decorateName(cir.getReturnValue(), entity.getUUID()));
     }
 
     private static boolean isRealPlayer(Entity entity) {
