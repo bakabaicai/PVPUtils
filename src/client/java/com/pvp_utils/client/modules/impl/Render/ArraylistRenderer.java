@@ -75,7 +75,7 @@ public class ArraylistRenderer {
 
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
-        if (!Config.arraylist && !HudEditOverlay.getInstance().isActive()) return;
+        if (!Config.arraylist) return;
         if (client.player == null || client.options.hideGui) return;
         if (client.screen != null && !(client.screen instanceof ChatScreen) && !HudEditOverlay.getInstance().isActive()) return;
 
