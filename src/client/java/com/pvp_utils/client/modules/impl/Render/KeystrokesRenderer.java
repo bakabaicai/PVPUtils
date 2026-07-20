@@ -22,7 +22,6 @@ public class KeystrokesRenderer {
     private static final int GAP = 3;
     private static final int BG_COLOR = 0x7A0E1117;
     private static final int BG_ACTIVE_COLOR = 0xDDF2F4F8;
-    private static final int BORDER_COLOR = 0x30FFFFFF;
     private static final int GLOW_COLOR = 0x38FFFFFF;
     private static final int TEXT_COLOR = 0xEFFFFFFF;
     private static final int ACTIVE_TEXT_COLOR = 0xFF171724;
@@ -46,7 +45,6 @@ public class KeystrokesRenderer {
     private final Paint glowPaint = new Paint().setAntiAlias(true);
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ripplePaint = new Paint().setAntiAlias(true);
-    private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE);
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
     private long lastFrameMs = 0L;
@@ -323,9 +321,6 @@ public class KeystrokesRenderer {
             canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), ripplePaint);
         }
 
-        borderPaint.setColor(lerpColor(BORDER_COLOR, 0x99FFFFFF, press));
-        borderPaint.setStrokeWidth(1f);
-        canvas.drawRRect(RRect.makeXYWH(drawX + 0.5f, drawY + 0.5f, drawW - 1f, drawH - 1f, radius), borderPaint);
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float height, float size, int color) {
