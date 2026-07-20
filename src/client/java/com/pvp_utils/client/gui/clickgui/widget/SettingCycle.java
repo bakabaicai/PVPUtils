@@ -14,7 +14,7 @@ public class SettingCycle extends SettingWidget {
     private final List<String> options;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
-    private final Paint bgPaint = new Paint();
+    private final Paint bgPaint = new Paint().setAntiAlias(true);
     private int cachedIndex = Integer.MIN_VALUE;
     private String cachedLabel = "";
     private float cachedTextWidth = 0f;

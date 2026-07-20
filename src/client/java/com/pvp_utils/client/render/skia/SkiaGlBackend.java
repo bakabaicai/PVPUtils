@@ -1,7 +1,6 @@
 package com.pvp_utils.client.render.skia;
 
 import io.github.humbleui.skija.BackendRenderTarget;
-import io.github.humbleui.skija.BackendState;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ColorSpace;
 import io.github.humbleui.skija.ColorType;
@@ -12,21 +11,19 @@ import io.github.humbleui.skija.SurfaceOrigin;
 import net.minecraft.client.Minecraft;
 
 import static org.lwjgl.opengl.GL11.GL_CULL_FACE;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11.GL_SCISSOR_TEST;
+import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
 import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glColorMask;
 import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glDepthMask;
+import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL30.GL_MAJOR_VERSION;
 import static org.lwjgl.opengl.GL30.GL_MINOR_VERSION;
 import static org.lwjgl.opengl.GL30.glGetIntegerv;
 
 public final class SkiaGlBackend {
-    private static final BackendState[] RESET_STATES = {
-            BackendState.GL_BLEND,
-            BackendState.GL_VERTEX,
-            BackendState.GL_PIXEL_STORE,
-            BackendState.GL_TEXTURE_BINDING,
-            BackendState.GL_MISC
-    };
-
     private DirectContext context;
     private BackendRenderTarget renderTarget;
     private Surface surface;
@@ -55,9 +52,15 @@ public final class SkiaGlBackend {
                 return null;
             }
 
+            context.resetGLAll();
             glDisable(GL_CULL_FACE);
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_SCISSOR_TEST);
+            glDisable(GL_STENCIL_TEST);
+            glDepthMask(false);
+            glColorMask(true, true, true, true);
+            glViewport(0, 0, targetW, targetH);
             glClearColor(0f, 0f, 0f, 0f);
-            context.reset(RESET_STATES);
 
             canvas.restoreToCount(1);
             canvas.resetMatrix();
@@ -103,6 +106,9 @@ public final class SkiaGlBackend {
     }
 
     public void destroy() {
+        if (drawing) {
+            end();
+        }
         resetCanvasState();
         if (surface != null) {
             surface.close();
@@ -136,7 +142,7 @@ public final class SkiaGlBackend {
             renderTarget = null;
         }
 
-        renderTarget = BackendRenderTarget.makeGL(targetW, targetH, 0, 8, targetFramebufferId, FramebufferFormat.GR_GL_RGBA8);
+        renderTarget = BackendRenderTarget.makeGL(targetW, targetH, 0, 0, targetFramebufferId, FramebufferFormat.GR_GL_RGBA8);
         surface = Surface.wrapBackendRenderTarget(
                 context,
                 renderTarget,

@@ -9,6 +9,7 @@ import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
+import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -127,12 +128,31 @@ public class MinecraftMixin {
             method = "runTick",
             at = @At(
                     value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"
+                    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V"
             )
     )
     private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
         HudEditOverlay.getInstance().renderFrameEnd();
+        Minecraft client = (Minecraft) (Object) this;
+        if (client.screen instanceof NewSettingsScreen settingsScreen) {
+            settingsScreen.renderFrameEnd();
+        }
+    }
+
+    @Inject(
+            method = "runTick",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V",
+                    shift = At.Shift.AFTER
+            )
+    )
+    private void pvp_utils$traceClickGuiPresentation(boolean advanceGameTime, CallbackInfo ci) {
+        Minecraft client = (Minecraft) (Object) this;
+        if (client.screen instanceof NewSettingsScreen settingsScreen) {
+            settingsScreen.tracePresentedFramebuffer();
+        }
     }
 }
