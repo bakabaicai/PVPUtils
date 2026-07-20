@@ -114,13 +114,14 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 currentFile = cachedFile.toFile();
                 player.stop();
                 player.open(currentFile);
-                player.setGain(volume);
+                applyVolumeToPlayer();
                 basePositionMs = 0L;
                 progressOffsetMs = 0L;
                 playStartedAtMs = System.currentTimeMillis();
                 playing = true;
                 status = "Playing";
                 player.play();
+                applyVolumeToPlayer();
             } catch (Exception exception) {
                 status = "Load failed: " + cleanMessage(exception);
                 playing = false;
@@ -156,6 +157,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         executor.execute(() -> {
             try {
                 player.resume();
+                applyVolumeToPlayer();
             } catch (Exception ignored) {
             }
         });
@@ -259,7 +261,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         }
         executor.execute(() -> {
             try {
-                player.setGain(this.volume);
+                applyVolumeToPlayer();
             } catch (Exception ignored) {
             }
         });
@@ -319,6 +321,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         if (playerStatus == Status.PLAYING || playerStatus == Status.RESUMED) {
             playing = true;
             status = "Playing";
+            applyVolumeToPlayer();
         } else if (playerStatus == Status.PAUSED) {
             playing = false;
             status = "Paused";
@@ -354,8 +357,9 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             try {
                 player.stop();
                 player.open(currentFile);
-                player.setGain(volume);
+                applyVolumeToPlayer();
                 player.play();
+                applyVolumeToPlayer();
             } catch (Exception exception) {
                 status = "Replay failed: " + cleanMessage(exception);
                 playing = false;
@@ -373,6 +377,13 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             status = playing ? "Playing" : "Paused";
         } catch (Exception exception) {
             status = "Seek failed: " + cleanMessage(exception);
+        }
+    }
+
+    private void applyVolumeToPlayer() {
+        try {
+            player.setGain(volume);
+        } catch (Exception ignored) {
         }
     }
 
