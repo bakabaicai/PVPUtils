@@ -581,9 +581,6 @@ public final class IrcLoginWindow {
                     return;
                 }
                 SwingUtilities.invokeLater(() -> setConnectionStatus(connectionIcon, connectionStatus, alive ? ConnectionState.CONNECTED : ConnectionState.DISCONNECTED));
-                if (alive) {
-                    return;
-                }
                 sleep(5000L);
             }
         }, "PVPUtils-IRC-ServerPing").start();
