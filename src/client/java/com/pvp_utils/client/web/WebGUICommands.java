@@ -2,6 +2,7 @@ package com.pvp_utils.client.web;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Update;
+import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandNotifications;
 import com.pvp_utils.client.util.ChatUtils;
 
@@ -9,6 +10,7 @@ import java.util.List;
 
 final class WebGUICommands {
     private static final List<CommandItem> COMMANDS = List.of(
+            new CommandItem("clientcommand", "Client Command Prefix", "客户端指令前缀", "Change the symbol-only prefix used for client commands.", "修改客户端指令使用的仅符号前缀。", "text", true, "."),
             new CommandItem("clientname", "Client Name", "客户端名称", "Change the text shown as the client name.", "修改灵动岛里显示的客户端名称。", "text", true, "PVPUtils"),
             new CommandItem("autogg", "Auto GG Text", "自动GG文本", "Change the text sent by Auto GG.", "修改自动GG获胜后发送的文字。", "text", true, "gg"),
             new CommandItem("update", "Check Update", "检查更新", "Run a manual update check.", "手动检查是否有可用更新。", "", false, ""),
@@ -39,6 +41,18 @@ final class WebGUICommands {
     static String executeJson(String id, String value) {
         String text = value == null ? "" : value.trim();
         switch (id) {
+            case "clientcommand" -> {
+                if (!CommandManager.setPrefix(text)) {
+                    String message = Config.isChinese ? "前缀必须为单个符号。" : "The prefix must be a single symbol.";
+                    ChatUtils.error(message);
+                    DynamicIslandNotifications.error(message);
+                    return ok(message);
+                }
+                String message = Config.isChinese ? "客户端指令前缀已更改为：" + text : "Client command prefix changed to: " + text;
+                ChatUtils.success(message);
+                DynamicIslandNotifications.success(message);
+                return ok(message);
+            }
             case "clientname" -> {
                 if (text.isEmpty()) {
                     Config.clientName = "PVPUtils";
@@ -118,6 +132,7 @@ final class WebGUICommands {
 
         String currentValue() {
             return switch (id) {
+                case "clientcommand" -> CommandManager.getPrefix();
                 case "clientname" -> Config.clientName == null || Config.clientName.isBlank() ? "PVPUtils" : Config.clientName;
                 case "autogg" -> Config.autoGGText == null || Config.autoGGText.isBlank() ? "gg" : Config.autoGGText;
                 default -> "";

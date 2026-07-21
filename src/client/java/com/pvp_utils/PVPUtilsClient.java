@@ -1,7 +1,6 @@
 package com.pvp_utils;
 
-import com.pvp_utils.client.KeyBindings;
-import com.pvp_utils.client.KeyInputHandler;
+import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
@@ -39,8 +38,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         MainUIBackgrounds.init();
         TermsManager.ensure();
         CustomCapeManager.init();
-        KeyBindings.register();
-        KeyInputHandler.register();
+        ModuleKeybindManager.initialize();
         MainUIScreenManager.init();
         CommandManager.register();
         Update.startAutoCheck();
@@ -63,6 +61,7 @@ public class PVPUtilsClient implements ClientModInitializer {
             VersionWarningManager.tick(client);
             Update.tick(client);
             IrcBridge.tick(client);
+            ModuleKeybindManager.tick(client);
         });
 
     }

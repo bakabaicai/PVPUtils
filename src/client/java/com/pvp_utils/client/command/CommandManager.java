@@ -2,6 +2,7 @@ package com.pvp_utils.client.command;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.command.impl.AutoGGCommand;
+import com.pvp_utils.client.command.impl.ClientCommandPrefixCommand;
 import com.pvp_utils.client.command.impl.ClientNameCommand;
 import com.pvp_utils.client.command.impl.DotCommand;
 import com.pvp_utils.client.command.impl.HelpCommand;
@@ -20,6 +21,7 @@ import java.util.Locale;
 public final class CommandManager {
     private static final List<DotCommand> COMMANDS = List.of(
             new HelpCommand(),
+            new ClientCommandPrefixCommand(),
             new UpdateCommand(),
             new VersionWarningCommand(),
             new ClientNameCommand(),
@@ -37,15 +39,16 @@ public final class CommandManager {
     }
 
     public static boolean execute(String rawMessage) {
-        if (rawMessage == null || !rawMessage.startsWith(".")) {
+        String prefix = getPrefix();
+        if (rawMessage == null || !rawMessage.startsWith(prefix)) {
             return false;
         }
-        String withoutPrefix = rawMessage.trim().substring(1);
+        String withoutPrefix = rawMessage.substring(prefix.length()).trim();
         DotCommand command = find(firstToken(withoutPrefix));
         if (command == null) {
             ChatUtils.warning(Config.isChinese
-                    ? "未知指令，输入 .help 查看可用指令。"
-                    : "Unknown command. Type .help for available commands.");
+                    ? "未知指令，输入" + prefix + "help 查看可用指令。"
+                    : "Unknown command. Type " + prefix + "help for available commands.");
             return true;
         }
         command.execute(rest(withoutPrefix));
@@ -53,22 +56,23 @@ public final class CommandManager {
     }
 
     public static List<String> vanillaTabSuggestions(String input) {
-        if (input == null || !input.startsWith(".")) {
+        String commandPrefix = getPrefix();
+        if (input == null || !input.startsWith(commandPrefix)) {
             return List.of();
         }
-        if (input.length() == 1) {
+        if (input.length() == commandPrefix.length()) {
             return rootNames();
         }
         if (!input.contains(" ")) {
-            String prefix = input.substring(1).toLowerCase(Locale.ROOT);
+            String prefix = input.substring(commandPrefix.length()).toLowerCase(Locale.ROOT);
             return rootNames().stream()
                     .filter(name -> {
-                        String commandName = name.substring(1).toLowerCase(Locale.ROOT);
+                        String commandName = name.substring(commandPrefix.length()).toLowerCase(Locale.ROOT);
                         return commandName.startsWith(prefix) && !commandName.equals(prefix);
                     })
                     .toList();
         }
-        String withoutPrefix = input.substring(1);
+        String withoutPrefix = input.substring(commandPrefix.length());
         DotCommand command = find(firstToken(withoutPrefix));
         if (command == null || command.acceptsFreeText()) {
             return List.of();
@@ -76,11 +80,34 @@ public final class CommandManager {
         return command.suggestions(restPreserveTrailing(withoutPrefix));
     }
 
+    public static String getPrefix() {
+        return isValidPrefix(Config.clientCommandPrefix) ? Config.clientCommandPrefix : ".";
+    }
+
+    public static boolean isClientCommandInput(String input) {
+        return input != null && input.startsWith(getPrefix());
+    }
+
+    public static boolean setPrefix(String value) {
+        if (!isValidPrefix(value)) {
+            return false;
+        }
+        Config.clientCommandPrefix = value;
+        Config.save();
+        return true;
+    }
+
+    public static boolean isValidPrefix(String value) {
+        return value != null
+                && value.codePointCount(0, value.length()) == 1
+                && value.codePoints().allMatch(codePoint -> !Character.isLetterOrDigit(codePoint) && !Character.isWhitespace(codePoint));
+    }
+
     private static List<String> rootNames() {
         ArrayList<String> names = new ArrayList<>();
         for (DotCommand command : COMMANDS) {
             for (String name : command.names()) {
-                names.add("." + name);
+                names.add(getPrefix() + name);
             }
         }
         return names;

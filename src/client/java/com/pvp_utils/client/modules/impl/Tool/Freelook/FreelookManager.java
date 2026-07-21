@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool.Freelook;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.KeyBindings;
+import com.pvp_utils.client.ModuleKeybindManager;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
@@ -19,11 +19,10 @@ public final class FreelookManager {
 
     public static void tick(Minecraft client) {
         boolean canUse = Config.freelook
-                && KeyBindings.freelook != null
                 && client.player != null
                 && client.level != null
                 && client.screen == null;
-        boolean keyDown = canUse && KeyBindings.freelook.isDown();
+        boolean keyDown = canUse && ModuleKeybindManager.isKeyDown(client, ModuleKeybindManager.ACTION_FREELOOK);
 
         if (!canUse) {
             toggleActive = false;

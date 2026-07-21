@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
@@ -25,8 +26,9 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
                 new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器，默认按键右Ctrl，可以在MC按键设置中自定义按键绑定。", "Open the Netease Music player. The default key is Right Ctrl and can be changed in Minecraft Controls."),
-                new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open)));
+        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器，默认按键右Ctrl，可以在此处修改按键绑定。", "Open the Netease Music player. The default key is Right Ctrl and can be changed here."),
+                new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open))
+                .keybindAction(ModuleKeybindManager.ACTION_OPEN_MUSIC));
 
         modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
                 new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
@@ -137,6 +139,7 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("自由视角", "Freelook"), UiText.t("开启功能后，使用按键进行触发（默认Mouse 5），可以自由观看四周而不影响原本视角朝向。", "Use a keybind to activate freelook (default Mouse 5), allowing you to look around freely without changing your original view direction."),
                 new SettingToggle(() -> Config.freelook, v -> { Config.freelook = v; Config.save(); }))
+                .keybindAction(ModuleKeybindManager.ACTION_FREELOOK)
                 .addSub(UiText.t("触发模式", "Trigger Mode"), UiText.t("选择自由视角按键的触发方式", "Choose how the freelook key activates"),
                         new SettingCycle(List.of(
                                 UiText.t("长按", "Hold"),
@@ -147,8 +150,9 @@ public class ToolPage extends BasePage {
                         new SettingSlider(1.0, 100.0, "%.0f%%", () -> (double) Config.freelookSensitivity,
                                 v -> { Config.freelookSensitivity = Math.max(1, Math.min(100, v.intValue())); Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("缩放", "Zoom"), UiText.t("使用快捷键进行缩放，在设置中可以调整键位", "Use a keybind to zoom. The key can be changed in controls"),
+        modules.add(new SettingModule(UiText.t("缩放", "Zoom"), UiText.t("使用快捷键进行缩放，可以在此处调整键位", "Use a keybind to zoom. The key can be changed here"),
                 new SettingToggle(() -> Config.zoom, v -> { Config.zoom = v; Config.save(); }))
+                .keybindAction(ModuleKeybindManager.ACTION_ZOOM)
                 .addSub(UiText.t("缩放倍率", "Zoom Amount"), UiText.t("按下缩放键时的初始缩放倍率", "Initial zoom multiplier while holding the zoom key"),
                         new SettingSlider(2.0, 20.0, "%.0fx", () -> (double) Config.zoomAmount,
                                 v -> { Config.zoomAmount = Math.max(2, Math.min(20, v.intValue())); Config.save(); }))

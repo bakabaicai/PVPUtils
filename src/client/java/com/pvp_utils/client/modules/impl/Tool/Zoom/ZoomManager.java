@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool.Zoom;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.KeyBindings;
+import com.pvp_utils.client.ModuleKeybindManager;
 import net.minecraft.client.Minecraft;
 
 public final class ZoomManager {
@@ -15,7 +15,7 @@ public final class ZoomManager {
     }
 
     public static void tick(Minecraft client) {
-        boolean active = Config.zoom && KeyBindings.zoom != null && KeyBindings.zoom.isDown() && client.screen == null;
+        boolean active = Config.zoom && ModuleKeybindManager.isKeyDown(client, ModuleKeybindManager.ACTION_ZOOM) && client.screen == null;
         zooming = active;
 
         double target = active ? targetDivisor() : 1.0;

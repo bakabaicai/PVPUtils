@@ -4,7 +4,10 @@ import com.pvp_utils.Config;
 import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
+import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.ResetManager;
+import com.pvp_utils.client.ModuleKeybindManager;
+import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaScreen;
@@ -14,12 +17,15 @@ import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFW;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -53,12 +59,18 @@ public class NewSettingsScreen extends SkiaScreen {
     private boolean resetHovered = false;
     private boolean resetConfirm = false;
     private boolean closing = false;
+    private boolean searchFocused = false;
+    private String searchText = "";
+    private BasePage searchResultsPage;
 
     private final float[] tabHoverAlpha = new float[TAB_KEYS_ZH.length];
     private float closeHoverAlpha = 0f;
     private float resetHoverAlpha = 0f;
     private float indicatorY = -1f;
     private float openProgress = 0f;
+    private float searchFocusAlpha = 0f;
+    private float searchTextOffset = 0f;
+    private float searchCursorTime = 0f;
     private long lastRenderMs = 0;
 
     private float contentScrollOffset = 0f;
@@ -79,6 +91,8 @@ public class NewSettingsScreen extends SkiaScreen {
     private final Paint closeBgPaint = new Paint().setAntiAlias(true);
     private final Paint scrollbarTrackPaint = new Paint().setAntiAlias(true);
     private final Paint scrollbarThumbPaint = new Paint().setAntiAlias(true);
+    private final Paint searchBgPaint = new Paint().setAntiAlias(true);
+    private final Paint searchLinePaint = new Paint().setAntiAlias(true);
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final float resetIconWidth = FontRenderer.measureTextWidth("\uE042", 13f, FontRenderer.MATERIAL_SYMBOLS);
     private String cachedResetText = "";
@@ -374,12 +388,13 @@ public class NewSettingsScreen extends SkiaScreen {
         if (Math.abs(contentScrollOffset - targetScrollOffset) > 0.35f) return true;
         if (closeHoverAlpha > 0.01f || closeHovered) return true;
         if (resetHoverAlpha > 0.01f || resetHovered) return true;
+        if (searchFocused || searchFocusAlpha > 0.01f || Math.abs(searchTextOffset) > 0.01f) return true;
         if (indicatorY < 0f) return true;
         float[] l = layout(this.width, this.height);
         float targetIndicatorY = l[5] + selectedTab * (l[6] + l[7]);
         if (Math.abs(indicatorY - targetIndicatorY) > 0.35f) return true;
         for (float alpha : tabHoverAlpha) if (alpha > 0.01f && alpha < 0.99f) return true;
-        return pages.get(selectedTab).hasAnimatingModules();
+        return activePage().hasAnimatingModules();
     }
 
     @Override
@@ -405,7 +420,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float layoutMouseX = toLayoutX(mouseX, width, visualScale);
         float layoutMouseY = toLayoutY(mouseY, height, visualScale);
         float[] l = layout(width, height);
-        BasePage currentPage = pages.get(selectedTab);
+        BasePage currentPage = activePage();
         updateScrollCache(currentPage, l[17]);
         targetScrollOffset = Math.min(targetScrollOffset, cachedScrollMax);
         contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
@@ -413,6 +428,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11], resetY = l[12], resetH = l[13];
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
+        float searchX = cardX + 18f, searchY = cardY + 66f, searchW = sidebarW - 36f, searchH = 28f;
 
         hoveredTab = -1;
         closeHovered = false;
@@ -433,6 +449,8 @@ public class NewSettingsScreen extends SkiaScreen {
         }
         closeHoverAlpha = lerp(closeHoverAlpha, closeHovered ? 1f : 0f, dt * 12f);
         resetHoverAlpha = lerp(resetHoverAlpha, resetHovered ? 1f : 0f, dt * 12f);
+        searchFocusAlpha = lerp(searchFocusAlpha, searchFocused ? 1f : 0f, dt * 14f);
+        searchCursorTime += dt;
 
         float targetIndicatorY = tabStartY + selectedTab * (tabH + tabGap);
         if (indicatorY < 0f) indicatorY = targetIndicatorY;
@@ -470,6 +488,7 @@ public class NewSettingsScreen extends SkiaScreen {
         FontRenderer.drawText(canvas, "PVPUtils", cardX + 18f, cardY + 38f, 16f, withAlpha(0x111111, alpha));
         drawDebugOverlay(canvas, cardX, cardY, cardW, alpha);
         FontRenderer.drawText(canvas, UiText.t("在下方调整设置...", "Adjust the settings below..."), cardX + 18f, cardY + 54f, 10f, withAlpha(0xAAAAAA, alpha));
+        drawSearchBox(canvas, searchX, searchY, searchW, searchH, alpha, dt);
 
         indicatorPaint.setColor(withAlpha(0xE8EEFF, alpha));
         canvas.drawRRect(RRect.makeXYWH(cardX + 12f, indicatorY, tabW, tabH, 8f), indicatorPaint);
@@ -523,7 +542,7 @@ public class NewSettingsScreen extends SkiaScreen {
         canvas.clipRect(contentClip);
 
         float moduleStartY = contentY + 54f;
-        page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset);
+        page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset, layoutMouseX, layoutMouseY);
         drawScrollbar(canvas, page, contentX, contentY, contentW, contentH, alpha);
 
         canvas.restore();
@@ -552,6 +571,78 @@ public class NewSettingsScreen extends SkiaScreen {
         canvas.drawRRect(RRect.makeXYWH(trackX, trackTop, 4f, trackH, 2f), scrollbarTrackPaint);
         scrollbarThumbPaint.setColor(withAlpha(0xBBBBBB, alpha));
         canvas.drawRRect(RRect.makeXYWH(trackX, thumbTop, 4f, thumbH, 2f), scrollbarThumbPaint);
+    }
+
+    private void drawSearchBox(Canvas canvas, float x, float y, float width, float height, float alpha, float dt) {
+        int background = lerpColor(0xF1F2F5, 0xE9EEFF, searchFocusAlpha);
+        searchBgPaint.setColor(withAlpha(background, alpha));
+        canvas.drawRRect(RRect.makeXYWH(x, y, width, height, 7f), searchBgPaint);
+
+        FontRenderer.drawText(canvas, "\uE8B6", x + 9f, y + 19f, 12f, withAlpha(0x7D8493, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        float textX = x + 28f;
+        float textW = Math.max(1f, width - 36f);
+        boolean empty = searchText.isEmpty();
+        String display = empty ? UiText.t("\u8F93\u5165\u4EE5\u67E5\u627E...", "Type to search...") : searchText;
+        float realTextWidth = FontRenderer.measureTextWidth(searchText, 10f);
+        float targetOffset = empty ? 0f : Math.max(0f, realTextWidth - textW + 3f);
+        searchTextOffset = lerp(searchTextOffset, targetOffset, dt * 16f);
+
+        canvas.save();
+        canvas.clipRect(Rect.makeXYWH(textX, y + 2f, textW, height - 4f));
+        FontRenderer.drawText(canvas, display, textX - (empty ? 0f : searchTextOffset), y + 18.5f, 10f,
+                withAlpha(empty ? 0x9BA1AE : 0x343842, alpha));
+        if (searchFocused) {
+            float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(searchCursorTime * 6f));
+            float cursorX = textX + Math.min(textW - 1f, Math.max(0f, realTextWidth - searchTextOffset));
+            searchLinePaint.setColor(withAlpha(0x5A73E8, alpha * cursorPulse));
+            canvas.drawRect(Rect.makeXYWH(cursorX, y + 7f, 1f, 14f), searchLinePaint);
+        }
+        canvas.restore();
+
+        float linePulse = 0.3f + 0.7f * (0.5f + 0.5f * (float) Math.sin(searchCursorTime * 6f));
+        searchLinePaint.setColor(withAlpha(0x5A73E8, alpha * searchFocusAlpha * linePulse));
+        canvas.drawRect(Rect.makeXYWH(x + 8f, y + height - 2f, width - 16f, 1f), searchLinePaint);
+    }
+
+    private void applySearch() {
+        for (BasePage page : pages) {
+            page.setSearchQuery(searchText);
+        }
+        if (searchText.isBlank()) {
+            searchResultsPage = null;
+        } else {
+            List<SettingModule> results = new ArrayList<>();
+            for (BasePage page : pages) {
+                for (SettingModule module : page.getModules()) {
+                    if (module.isVisible() && module.matchesSearch(searchText)) {
+                        results.add(module);
+                    }
+                }
+            }
+            searchResultsPage = new SearchResultsPage(searchText, results);
+        }
+        targetScrollOffset = 0f;
+        contentScrollOffset = 0f;
+        invalidateScrollLayout();
+    }
+
+    private BasePage activePage() {
+        return searchResultsPage == null ? pages.get(selectedTab) : searchResultsPage;
+    }
+
+    private void clearSearch() {
+        setSearchFocused(false);
+        searchText = "";
+        searchTextOffset = 0f;
+        applySearch();
+    }
+
+    private void setSearchFocused(boolean focused) {
+        if (searchFocused == focused) {
+            return;
+        }
+        searchFocused = focused;
+        InputMethodFix.setCustomTextInputActive(focused, minecraft);
     }
 
     private boolean hasScrollbar(BasePage page, float contentH) {
@@ -604,7 +695,40 @@ public class NewSettingsScreen extends SkiaScreen {
         targetScrollOffset = maxScroll * ((thumbTop - trackTop) / available);
     }
 
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (ModuleKeybindManager.captureKey(event.key())) {
+            invalidateScrollLayout();
+            return true;
+        }
+        if (searchFocused) {
+            if (event.key() == GLFW.GLFW_KEY_BACKSPACE && !searchText.isEmpty()) {
+                int end = searchText.offsetByCodePoints(searchText.length(), -1);
+                searchText = searchText.substring(0, end);
+                applySearch();
+            } else if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+                clearSearch();
+            }
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (!searchFocused) {
+            return super.charTyped(event);
+        }
+        String typed = event.codepointAsString();
+        if (typed != null && !typed.isEmpty()) {
+            searchText += typed;
+            applySearch();
+        }
+        return true;
+    }
+
     @Override public void onClose() {
+        clearSearch();
         closing = true;
     }
 
@@ -631,12 +755,29 @@ public class NewSettingsScreen extends SkiaScreen {
         float closeX = l[9], closeY = l[10], closeH = l[11];
         float resetY = l[12], resetH = l[13];
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
-        BasePage page = pages.get(selectedTab);
+        float searchX = cardX + 18f, searchY = l[1] + 66f, searchW = sidebarW - 36f, searchH = 28f;
+        BasePage page = activePage();
+
+        if (button == 0 && mx >= searchX && mx <= searchX + searchW && my >= searchY && my <= searchY + searchH) {
+            setSearchFocused(true);
+            searchCursorTime = 0f;
+            invalidateScrollLayout();
+            return true;
+        }
+        if (button == 0) {
+            setSearchFocused(false);
+        }
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
-                if (button == 0) { selectedTab = i; targetScrollOffset = 0f; contentScrollOffset = 0f; invalidateScrollLayout(); }
+                if (button == 0) {
+                    clearSearch();
+                    selectedTab = i;
+                    targetScrollOffset = 0f;
+                    contentScrollOffset = 0f;
+                    invalidateScrollLayout();
+                }
                 return true;
             }
         }
@@ -659,6 +800,7 @@ public class NewSettingsScreen extends SkiaScreen {
                     case 4 -> new MiscPage();
                     default -> new ThemePage();
                 });
+                applySearch();
             } else {
                 resetConfirm = true;
             }
@@ -697,7 +839,7 @@ public class NewSettingsScreen extends SkiaScreen {
             float visualScale = getVisualScale(this.width, this.height);
             float my = toLayoutY(event.y(), this.height, visualScale);
             float[] l = layout(this.width, this.height);
-            BasePage page = pages.get(selectedTab);
+            BasePage page = activePage();
             setScrollFromScrollbar(page, my, l[15], l[17]);
             contentScrollOffset = targetScrollOffset;
             invalidateScrollLayout();
@@ -710,7 +852,7 @@ public class NewSettingsScreen extends SkiaScreen {
             float[] l = layout(this.width, this.height);
             float contentX = l[14], contentY = l[15], contentW = l[16];
             float moduleStartY = contentY + 54f;
-            pages.get(selectedTab).onDrag(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
+            activePage().onDrag(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset);
             invalidateScrollLayout();
             return true;
         }
@@ -721,7 +863,7 @@ public class NewSettingsScreen extends SkiaScreen {
     public boolean mouseReleased(MouseButtonEvent event) {
         draggingInContent = false;
         draggingScrollbar = false;
-        pages.get(selectedTab).releaseDrag();
+        activePage().releaseDrag();
         invalidateScrollLayout();
         return false;
     }
@@ -735,7 +877,7 @@ public class NewSettingsScreen extends SkiaScreen {
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
         if (layoutMx >= contentX && layoutMx <= contentX + contentW && layoutMy >= contentY && layoutMy <= contentY + contentH) {
-            BasePage page = pages.get(selectedTab);
+            BasePage page = activePage();
             updateScrollCache(page, contentH);
             targetScrollOffset = Math.max(0f, Math.min(cachedScrollMax, targetScrollOffset + (float)(-vScroll * 16f)));
             invalidateScrollLayout();

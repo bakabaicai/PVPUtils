@@ -18,7 +18,7 @@ public class ClientSuggestionProviderMixin {
     @Inject(method = "getCustomTabSugggestions", at = @At("RETURN"), cancellable = true)
     private void addPvpUtilsDotCommands(CallbackInfoReturnable<Collection<String>> cir) {
         String input = currentChatInput();
-        if (input != null && input.startsWith(".")) {
+        if (CommandManager.isClientCommandInput(input)) {
             cir.setReturnValue(CommandManager.vanillaTabSuggestions(input));
             return;
         }

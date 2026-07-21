@@ -237,6 +237,8 @@ public class ResetManager {
         Config.armorHudLayout = Config.ArmorHudLayout.SEPARATED;
         Config.animationMode = Config.AnimMode.MODE_1_7;
         Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
+        Config.clientCommandPrefix = ".";
+        ModuleKeybindManager.clearAll(false);
         Config.save();
     }
 
@@ -254,4 +256,3 @@ public class ResetManager {
         Config.save();
     }
 }
-

@@ -185,7 +185,7 @@ final class WebGUIModules {
                     module("Freelook", "自由视角", "Look around freely without changing your original view direction.", "自由观看四周而不影响原本视角朝向", "freelook",
                             select("freelookTriggerMode", "Trigger Mode", "触发模式"),
                             slider("freelookSensitivity", "Sensitivity", "灵敏度", 1, 100, 1)),
-                    module("Zoom", "缩放", "Use a keybind to zoom. The key can be changed in controls.", "使用快捷键进行缩放，在设置中可以调整键位", "zoom",
+                    module("Zoom", "缩放", "Use a keybind to zoom. The key can be changed in ClickGUI.", "使用快捷键进行缩放，可以在 ClickGUI 中调整键位", "zoom",
                             slider("zoomAmount", "Zoom Amount", "缩放倍率", 2, 20, 1),
                             check("zoomScroll", "Scroll Zoom", "滚轮缩放"),
                             slider("zoomScrollSteps", "Scroll Steps", "滚轮档位", 1, 20, 1, "zoomScroll"),

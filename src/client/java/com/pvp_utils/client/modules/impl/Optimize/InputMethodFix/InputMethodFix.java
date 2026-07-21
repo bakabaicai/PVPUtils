@@ -26,6 +26,7 @@ public final class InputMethodFix {
     private static Pointer windowHandle;
     private static Pointer previousInputContext;
     private static boolean disabled;
+    private static boolean customTextInputActive;
 
     private InputMethodFix() {}
 
@@ -33,7 +34,7 @@ public final class InputMethodFix {
         if (!WINDOWS || client == null || client.getWindow() == null) {
             return;
         }
-        if (!Config.disableImeInGame || client.player == null || shouldAllowInputMethod(client.screen)) {
+        if (!Config.disableImeInGame || client.player == null || customTextInputActive || shouldAllowInputMethod(client.screen)) {
             restore();
             return;
         }
@@ -52,11 +53,24 @@ public final class InputMethodFix {
         if (!WINDOWS) {
             return;
         }
+        customTextInputActive = false;
         if (!Config.disableImeInGame || client == null || client.player == null || shouldAllowInputMethod(screen)) {
             restore();
             return;
         }
         disable(client);
+    }
+
+    public static void setCustomTextInputActive(boolean active, Minecraft client) {
+        customTextInputActive = active;
+        if (!WINDOWS || client == null) {
+            return;
+        }
+        if (active) {
+            restore();
+        } else {
+            tick(client);
+        }
     }
 
     public static boolean shouldAllowInputMethod(Screen screen) {
@@ -72,7 +86,7 @@ public final class InputMethodFix {
 
     public static void refreshForFocusedTextField(Minecraft client) {
         if (!WINDOWS || client == null) return;
-        if (Config.disableImeInGame && client.player != null && shouldAllowInputMethod(client.screen)) {
+        if (Config.disableImeInGame && client.player != null && (customTextInputActive || shouldAllowInputMethod(client.screen))) {
             restore();
         }
     }

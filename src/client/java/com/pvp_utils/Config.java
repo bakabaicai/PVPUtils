@@ -23,6 +23,8 @@ public class Config {
     public static boolean noSneakAnimation = false;
     public static boolean noDoubleSneak = true;
     public static boolean isChinese = defaultChinese();
+    public static String moduleKeybinds = "";
+    public static String clientCommandPrefix = ".";
     public static boolean autoScreenshot = false;
     public static boolean autoGG = false;
     public static boolean foodInfo = false;
@@ -797,4 +799,3 @@ public class Config {
     }
 
 }
-

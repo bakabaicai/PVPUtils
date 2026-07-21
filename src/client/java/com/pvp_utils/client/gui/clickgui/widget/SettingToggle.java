@@ -26,6 +26,10 @@ public class SettingToggle extends SettingWidget {
         this.setter = setter;
     }
 
+    public void toggle() {
+        setter.accept(!getter.get());
+    }
+
     @Override public float getWidth() { return 44f; }
     @Override public float getHeight() { return 24f; }
 
@@ -63,7 +67,7 @@ public class SettingToggle extends SettingWidget {
     @Override
     public boolean onClick(float mx, float my, float x, float y, int button) {
         if (button != 0) return false;
-        setter.accept(!getter.get());
+        toggle();
         return true;
     }
 

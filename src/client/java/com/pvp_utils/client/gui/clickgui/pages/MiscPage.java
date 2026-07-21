@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
@@ -11,6 +12,9 @@ import java.util.List;
 public class MiscPage extends BasePage {
 
     public MiscPage() {
+        modules.add(new SettingModule("ClickGUI", UiText.t("打开模组设置界面，默认按键右Shift，可在此处修改按键绑定。", "Open the mod settings screen. The default key is Right Shift and can be changed here."), null)
+                .keybindAction(ModuleKeybindManager.ACTION_CLICK_GUI));
+
         modules.add(new SettingModule(UiText.t("打开 WebGUI", "Open WebGUI"), UiText.t("打开 WebHUD", "Open WebHUD"),
                 new SettingToggle(WebGUIServer::isEnabled, WebGUIServer::setEnabled)));
 
