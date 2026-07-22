@@ -21,7 +21,6 @@ public abstract class OverlayTextureMixin {
 
     @Inject(method = "getTextureView", at = @At("HEAD"))
     private void pvp_utils$updateHitColor(CallbackInfoReturnable<GpuTextureView> cir) {
-        if (!Config.hitColor && pvp_utils$lastHitColor == Integer.MIN_VALUE) return;
         int color = Config.hitColor ? hitColorArgb() : VANILLA_HIT_COLOR;
         if (pvp_utils$lastHitColor == color) return;
         NativeImage pixels = texture.getPixels();

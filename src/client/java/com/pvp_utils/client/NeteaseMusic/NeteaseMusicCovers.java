@@ -1,6 +1,7 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import io.github.humbleui.skija.Image;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -37,7 +38,15 @@ public final class NeteaseMusicCovers {
             return null;
         }
         CoverTexture cover = CACHE.computeIfAbsent(url, NeteaseMusicCovers::request);
+        requestMinecraftTexture(cover);
         return cover.location;
+    }
+
+    public static Image skiaImage(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        return CACHE.computeIfAbsent(url, NeteaseMusicCovers::request).skiaImage;
     }
 
     public static void preload(String url) {
@@ -54,30 +63,71 @@ public final class NeteaseMusicCovers {
             if (location != null && client.getTextureManager() != null) {
                 client.getTextureManager().release(location);
             }
+            if (cover.skiaImage != null) {
+                cover.skiaImage.close();
+                cover.skiaImage = null;
+            }
         }
         CACHE.clear();
     }
 
     private static CoverTexture request(String url) {
         CoverTexture cover = new CoverTexture();
-        CompletableFuture.supplyAsync(() -> load(url), IO).whenComplete((image, throwable) -> {
-            if (throwable != null || image == null) {
+        CompletableFuture.supplyAsync(() -> load(url), IO).whenComplete((loaded, throwable) -> {
+            if (throwable != null || loaded == null) {
                 cover.failed = true;
+                return;
+            }
+            cover.encoded = loaded.encoded();
+            cover.skiaImage = loaded.skiaImage();
+            if (cover.minecraftTextureRequested) {
+                requestMinecraftTexture(cover);
+            }
+        });
+        return cover;
+    }
+
+    private static LoadedCover load(String url) {
+        try {
+            byte[] bytes = url.startsWith("data:image/") ? decodeDataImage(url) : NeteaseMusicApi.getBytes(url);
+            Image image = Image.makeFromEncoded(bytes);
+            return image == null ? null : new LoadedCover(bytes, image);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static void requestMinecraftTexture(CoverTexture cover) {
+        byte[] encoded;
+        synchronized (cover) {
+            cover.minecraftTextureRequested = true;
+            if (cover.location != null || cover.minecraftTextureLoading || cover.encoded == null) {
+                return;
+            }
+            cover.minecraftTextureLoading = true;
+            encoded = cover.encoded;
+        }
+        CompletableFuture.supplyAsync(() -> makeNativeImage(encoded), IO).whenComplete((image, throwable) -> {
+            if (throwable != null || image == null) {
+                synchronized (cover) {
+                    cover.minecraftTextureLoading = false;
+                }
                 return;
             }
             Minecraft.getInstance().execute(() -> {
                 Identifier id = Identifier.fromNamespaceAndPath("pvp_utils", "netease_music/cover_" + IDS.incrementAndGet());
                 DynamicTexture texture = new DynamicTexture(() -> id.toString(), image);
                 Minecraft.getInstance().getTextureManager().register(id, texture);
-                cover.location = id;
+                synchronized (cover) {
+                    cover.location = id;
+                    cover.minecraftTextureLoading = false;
+                }
             });
         });
-        return cover;
     }
 
-    private static NativeImage load(String url) {
+    private static NativeImage makeNativeImage(byte[] bytes) {
         try {
-            byte[] bytes = url.startsWith("data:image/") ? decodeDataImage(url) : NeteaseMusicApi.getBytes(url);
             BufferedImage source = ImageIO.read(new ByteArrayInputStream(bytes));
             if (source == null) {
                 return null;
@@ -116,6 +166,13 @@ public final class NeteaseMusicCovers {
 
     private static final class CoverTexture {
         private volatile Identifier location;
+        private volatile Image skiaImage;
+        private volatile byte[] encoded;
         private volatile boolean failed;
+        private boolean minecraftTextureRequested;
+        private boolean minecraftTextureLoading;
+    }
+
+    private record LoadedCover(byte[] encoded, Image skiaImage) {
     }
 }

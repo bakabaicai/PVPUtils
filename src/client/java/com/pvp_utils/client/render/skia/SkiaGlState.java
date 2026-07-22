@@ -8,11 +8,12 @@ import java.nio.ByteBuffer;
 import static org.lwjgl.opengl.GL45.*;
 
 final class SkiaGlState {
+    private static final int TRACKED_TEXTURE_UNITS = 16;
     private final int glVersion;
     private final int[] lastActiveTexture = new int[1];
     private final int[] lastProgram = new int[1];
-    private final int[] lastTexture = new int[1];
-    private final int[] lastSampler = new int[1];
+    private final int[] lastTextures = new int[TRACKED_TEXTURE_UNITS];
+    private final int[] lastSamplers = new int[TRACKED_TEXTURE_UNITS];
     private final int[] lastArrayBuffer = new int[1];
     private final int[] lastElementArrayBuffer = new int[1];
     private final int[] lastUniformBuffer = new int[1];
@@ -58,6 +59,7 @@ final class SkiaGlState {
     private boolean lastEnableStencilTest;
     private boolean lastEnableScissorTest;
     private boolean lastEnablePrimitiveRestart;
+    private boolean lastEnableFramebufferSrgb;
     private boolean lastDepthMask;
 
     SkiaGlState(int glVersion) {
@@ -66,12 +68,15 @@ final class SkiaGlState {
 
     void push() {
         glGetIntegerv(GL_ACTIVE_TEXTURE, lastActiveTexture);
-        glActiveTexture(GL_TEXTURE0);
         glGetIntegerv(GL_CURRENT_PROGRAM, lastProgram);
-        glGetIntegerv(GL_TEXTURE_BINDING_2D, lastTexture);
-        if (glVersion >= 330 || GL.getCapabilities().GL_ARB_sampler_objects) {
-            glGetIntegerv(GL_SAMPLER_BINDING, lastSampler);
+        for (int unit = 0; unit < TRACKED_TEXTURE_UNITS; unit++) {
+            glActiveTexture(GL_TEXTURE0 + unit);
+            lastTextures[unit] = glGetInteger(GL_TEXTURE_BINDING_2D);
+            if (glVersion >= 330 || GL.getCapabilities().GL_ARB_sampler_objects) {
+                lastSamplers[unit] = glGetInteger(GL_SAMPLER_BINDING);
+            }
         }
+        glActiveTexture(GL_TEXTURE0);
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING, lastArrayBuffer);
         glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, lastElementArrayBuffer);
         glGetIntegerv(GL_UNIFORM_BUFFER_BINDING, lastUniformBuffer);
@@ -104,6 +109,7 @@ final class SkiaGlState {
         if (glVersion >= 310) {
             lastEnablePrimitiveRestart = glIsEnabled(GL_PRIMITIVE_RESTART);
         }
+        lastEnableFramebufferSrgb = glIsEnabled(GL_FRAMEBUFFER_SRGB);
         lastDepthMask = glGetBoolean(GL_DEPTH_WRITEMASK);
 
         glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, lastPixelUnpackBufferBinding);
@@ -137,11 +143,13 @@ final class SkiaGlState {
 
     void pop() {
         glUseProgram(lastProgram[0]);
-        glBindTexture(GL_TEXTURE_2D, lastTexture[0]);
-        if (glVersion >= 330 || GL.getCapabilities().GL_ARB_sampler_objects) {
-            glBindSampler(0, lastSampler[0]);
+        for (int unit = 0; unit < TRACKED_TEXTURE_UNITS; unit++) {
+            glActiveTexture(GL_TEXTURE0 + unit);
+            glBindTexture(GL_TEXTURE_2D, lastTextures[unit]);
+            if (glVersion >= 330 || GL.getCapabilities().GL_ARB_sampler_objects) {
+                glBindSampler(unit, lastSamplers[unit]);
+            }
         }
-        glActiveTexture(lastActiveTexture[0]);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, lastReadFramebuffer[0]);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lastDrawFramebuffer[0]);
         restoreReadBuffer(lastReadFramebuffer[0], lastReadBuffer[0]);
@@ -164,6 +172,7 @@ final class SkiaGlState {
         if (glVersion >= 310) {
             setEnabled(GL_PRIMITIVE_RESTART, lastEnablePrimitiveRestart);
         }
+        setEnabled(GL_FRAMEBUFFER_SRGB, lastEnableFramebufferSrgb);
         if (glVersion >= 200) {
             glPolygonMode(GL_FRONT_AND_BACK, lastPolygonMode[0]);
         }
@@ -190,6 +199,7 @@ final class SkiaGlState {
             glPixelStorei(GL_UNPACK_SKIP_IMAGES, lastUnpackSkipImages[0]);
         }
         glDepthMask(lastDepthMask);
+        glActiveTexture(lastActiveTexture[0]);
     }
 
     private static void setEnabled(int target, boolean enabled) {

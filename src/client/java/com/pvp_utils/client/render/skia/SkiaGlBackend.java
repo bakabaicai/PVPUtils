@@ -105,28 +105,48 @@ public final class SkiaGlBackend {
         }
     }
 
+    public void runWithSavedState(Runnable action) {
+        ensureState();
+        state.push();
+        try {
+            action.run();
+        } finally {
+            state.pop();
+        }
+    }
+
     public void destroy() {
         if (drawing) {
             end();
         }
-        resetCanvasState();
-        if (surface != null) {
-            surface.close();
-            surface = null;
+        SkiaGlState savedState = state;
+        if (savedState != null) {
+            savedState.push();
         }
-        if (renderTarget != null) {
-            renderTarget.close();
-            renderTarget = null;
+        try {
+            resetCanvasState();
+            if (surface != null) {
+                surface.close();
+                surface = null;
+            }
+            if (renderTarget != null) {
+                renderTarget.close();
+                renderTarget = null;
+            }
+            if (context != null) {
+                context.close();
+                context = null;
+            }
+            canvas = null;
+            width = -1;
+            height = -1;
+            framebufferId = -1;
+        } finally {
+            if (savedState != null) {
+                savedState.pop();
+            }
+            state = null;
         }
-        if (context != null) {
-            context.close();
-            context = null;
-        }
-        canvas = null;
-        state = null;
-        width = -1;
-        height = -1;
-        framebufferId = -1;
     }
 
     private void ensureSurface(int targetW, int targetH, int targetFramebufferId) {
