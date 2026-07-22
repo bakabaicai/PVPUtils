@@ -134,6 +134,7 @@ public class MinecraftMixin {
     )
     private void pvp_utils$renderClickGuiFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
+        KeystrokesRenderer.getInstance().renderFrameEnd();
         Minecraft client = (Minecraft) (Object) this;
         if (client.screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();
@@ -151,7 +152,6 @@ public class MinecraftMixin {
             )
     )
     private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        KeystrokesRenderer.getInstance().renderFrameEnd();
         HudEditOverlay.getInstance().renderFrameEnd();
     }
 }

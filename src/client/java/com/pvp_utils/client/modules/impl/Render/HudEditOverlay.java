@@ -394,22 +394,36 @@ public class HudEditOverlay {
         float centerX = rect.x + rect.w * 0.5f;
         float centerY = rect.y + rect.h * 0.5f + 7f * scale;
         String[] lines = Config.isChinese
-                ? new String[]{"光从耳边慢慢经过", "这一句会停在屏幕中央", "下一句跟着节拍上移"}
-                : new String[]{"Light drifts slowly past my ears", "This line stays in the center", "The next line rises with the beat"};
-        float[] offsets = {-27f, 0f, 27f};
-        float[] sizes = {15f, 21f, 15f};
-        int[] colors = {0xC8CDD8, 0xFFFFFF, 0xC8CDD8};
-        int[] alphas = {120, 245, 120};
-        for (int i = 0; i < lines.length; i++) {
-            float size = sizes[i] * scale;
-            String text = trimToWidth(lines[i], Math.max(24f, rect.w - 32f * scale), size);
+                ? new String[]{"第一行歌词", "第二行歌词", "第三行歌词"}
+                : new String[]{"First line of lyrics", "Second line of lyrics", "Third line of lyrics"};
+        long elapsed = Math.max(0L, System.currentTimeMillis() - animStartTime);
+        long cycle = elapsed / 2000L;
+        float cycleTime = elapsed % 2000L;
+        float slideProgress = Math.max(0f, Math.min(1f, (cycleTime - 1550f) / 450f));
+        slideProgress = slideProgress < 0.5f
+                ? 4f * slideProgress * slideProgress * slideProgress
+                : 1f - (float) Math.pow(-2f * slideProgress + 2f, 3f) * 0.5f;
+        float visualCenter = 1f + cycle + slideProgress;
+        int base = (int) Math.floor(visualCenter);
+        float spacing = 27f * scale;
+        canvas.save();
+        canvas.clipRRect(RRect.makeXYWH(rect.x, rect.y, rect.w, rect.h, 5f));
+        for (int virtualIndex = base - 2; virtualIndex <= base + 2; virtualIndex++) {
+            float distance = virtualIndex - visualCenter;
+            if (Math.abs(distance) > 1.6f) continue;
+            int lineIndex = Math.floorMod(virtualIndex, lines.length);
+            float focus = Math.max(0f, 1f - Math.abs(distance));
+            float size = (15f + 6f * focus) * scale;
+            String text = trimToWidth(lines[lineIndex], Math.max(24f, rect.w - 32f * scale), size);
             float textW = FontRenderer.measureTextWidth(text, size);
-            int alpha = Math.round(alphas[i] * progress);
+            int alpha = Math.round((120f + 125f * focus) * progress);
+            int color = focus > 0.7f ? 0xFFFFFF : 0xC8CDD8;
             float x = centerX - textW * 0.5f;
-            float y = centerY + offsets[i] * scale;
+            float y = centerY + distance * spacing;
             FontRenderer.drawText(canvas, text, x + 1.2f * scale, y + 1.2f * scale, size, alpha << 24);
-            FontRenderer.drawText(canvas, text, x, y, size, (alpha << 24) | colors[i]);
+            FontRenderer.drawText(canvas, text, x, y, size, (alpha << 24) | color);
         }
+        canvas.restore();
     }
 
     private String trimToWidth(String text, float maxWidth, float size) {

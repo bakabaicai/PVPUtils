@@ -567,10 +567,9 @@ public class NeteaseMusicScreen extends SkiaScreen {
     }
 
     private void renderCloseButtonSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        int x = width - 30, y = 12;
-        boolean hovered = hit(x, y, 18, 18, mouseX, mouseY);
-        rounded(canvas, x, y, 18, 18, 6f, withAlpha(hovered ? 0xE5484D : 0x252B35, alpha));
-        drawSkiaCentered(canvas, "x", x + 9f, y + 14f, 12f, withAlpha(0xFFFFFF, alpha));
+        int x = width - 40, y = 8;
+        boolean hovered = hit(x, y, 30, 30, mouseX, mouseY);
+        drawSkiaCentered(canvas, "\uE5CD", x + 15f, y + 22f, 21f, withAlpha(hovered ? 0xFF646B : 0xFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
     }
 
     private void drawInputSkia(Canvas canvas, int x, int y, int w, int h, int mouseX, int mouseY, String value, String placeholder, Focus field, int alpha) {
@@ -1277,11 +1276,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
     }
 
     private void renderCloseButton(GuiGraphics graphics, int mouseX, int mouseY, int alpha) {
-        int x = width - 30;
-        int y = 12;
-        boolean hovered = hit(x, y, 18, 18, mouseX, mouseY);
-        graphics.fill(x, y, x + 18, y + 18, withAlpha(hovered ? 0xE5484D : 0x252B35, alpha));
-        graphics.drawCenteredString(font, "x", x + 9, y + 5, withAlpha(0xFFFFFF, alpha));
+        int x = width - 40;
+        int y = 8;
+        boolean hovered = hit(x, y, 30, 30, mouseX, mouseY);
+        graphics.drawCenteredString(font, "\u00D7", x + 15, y + 9, withAlpha(hovered ? 0xFF646B : 0xFFFFFF, alpha));
     }
 
     private void drawInput(GuiGraphics graphics, int x, int y, int w, int h, int mouseX, int mouseY, String value, String placeholder, Focus field, int alpha) {
@@ -1797,7 +1795,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
         useVirtualLayout(actualW, actualH, uiScale);
         try {
 
-        if (hit(width - 30, 12, 18, 18, mouseX, mouseY)) {
+        if (hit(width - 40, 8, 30, 30, mouseX, mouseY)) {
             onClose();
             return true;
         }
