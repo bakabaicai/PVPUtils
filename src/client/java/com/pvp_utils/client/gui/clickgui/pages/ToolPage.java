@@ -60,7 +60,7 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("在水里时禁止进入游泳状态，这在某些低版本服务器上可避免回弹", "Prevent entering the swimming state in water, which can avoid setbacks on some older servers"),
                 new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); })));
 
-        modules.add(new SettingModule("Nick", UiText.t("在本地隐藏自己的真实用户名", "Hide your real username locally"),
+        modules.add(new SettingModule(UiText.t("隐藏昵称", "Hide Nickname"), UiText.t("在本地隐藏自己的昵称", "Hide your nickname locally"),
                 new SettingToggle(() -> Config.nickHider, v -> { Config.nickHider = v; Config.save(); }))
                 .addSub("Nickname", UiText.t("用于替换真实用户名的显示名称", "Display name used to replace your real username"),
                         new SettingTextBox(() -> Config.nickHiderNickname,

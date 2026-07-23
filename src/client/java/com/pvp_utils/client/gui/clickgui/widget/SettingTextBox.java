@@ -22,11 +22,14 @@ public class SettingTextBox extends SettingWidget {
     private final Consumer<String> valueConsumer;
     private final int maxLength;
     private final Paint bgPaint = new Paint().setAntiAlias(true);
-    private final Paint borderPaint = new Paint().setAntiAlias(true);
+    private final Paint linePaint = new Paint().setAntiAlias(true);
+    private final Paint selectionPaint = new Paint().setAntiAlias(true);
     private final Paint cursorPaint = new Paint().setAntiAlias(true);
     private float focusAlpha;
     private float textOffset;
     private float cursorTime;
+    private int cursor;
+    private int selectionAnchor = -1;
 
     public SettingTextBox(Supplier<String> valueSupplier, Consumer<String> valueConsumer, int maxLength) {
         this.valueSupplier = valueSupplier;
@@ -41,42 +44,57 @@ public class SettingTextBox extends SettingWidget {
     public void draw(Canvas canvas, float x, float y, float alpha) {
         boolean active = focused == this;
         focusAlpha += ((active ? 1f : 0f) - focusAlpha) * 0.22f;
-        cursorTime += 0.016f;
 
-        int bg = lerpColor(0xFFF5F6FA, 0xFFEFF3FF, focusAlpha);
-        bgPaint.setColor(withAlpha(bg, alpha));
+        int background = lerpColor(0xF1F2F5, 0xE9EEFF, focusAlpha);
+        bgPaint.setColor(withAlpha(background, alpha));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 7f), bgPaint);
 
-        borderPaint.setColor(withAlpha(0xFF5A73E8, alpha * focusAlpha));
-        canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 7f), borderPaint);
-        bgPaint.setColor(withAlpha(bg, alpha));
-        canvas.drawRRect(RRect.makeXYWH(x + 1f, y + 1f, getWidth() - 2f, getHeight() - 2f, 6f), bgPaint);
-
         String text = getValue();
+        clampCursor(text);
         boolean empty = text.isEmpty();
-        String display = empty && !active ? UiText.t("点击输入", "Click to type") : text;
+        String display = empty ? UiText.t("点击输入", "Click to type") : text;
         float textX = x + 9f;
         float textW = getWidth() - 18f;
         float realTextW = FontRenderer.measureTextWidth(text, 10f);
-        float targetOffset = active ? Math.max(0f, realTextW - textW + 3f) : 0f;
+        float cursorTextW = FontRenderer.measureTextWidth(text.substring(0, cursor), 10f);
+        float targetOffset = active ? Math.max(0f, cursorTextW - textW + 3f) : 0f;
         textOffset += (targetOffset - textOffset) * 0.22f;
 
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(textX, y + 2f, textW, getHeight() - 4f));
-        FontRenderer.drawText(canvas, display, textX - (active ? textOffset : 0f), y + 15.5f, 10f,
-                withAlpha(empty && !active ? 0x999999 : 0x333333, alpha));
+        if (active) {
+            int selectionStart = selectionStart();
+            int selectionEnd = selectionEnd();
+            if (selectionStart != selectionEnd) {
+                float selectionX = textX + FontRenderer.measureTextWidth(text.substring(0, selectionStart), 10f) - textOffset;
+                float selectionW = FontRenderer.measureTextWidth(text.substring(selectionStart, selectionEnd), 10f);
+                selectionPaint.setColor(withAlpha(0xB9C8FF, alpha));
+                canvas.drawRect(Rect.makeXYWH(selectionX, y + 4f, selectionW, 16f), selectionPaint);
+            }
+        }
+        FontRenderer.drawText(canvas, display, textX - (empty ? 0f : textOffset), y + 15.5f, 10f,
+                withAlpha(empty ? 0x9BA1AE : 0x343842, alpha));
         if (active) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(cursorTime * 6f));
-            float cursorX = textX + Math.min(textW - 1f, Math.max(0f, realTextW - textOffset));
+            float cursorX = textX + Math.min(textW - 1f, Math.max(0f, cursorTextW - textOffset));
             cursorPaint.setColor(withAlpha(0xFF5A73E8, alpha * cursorPulse));
             canvas.drawRect(Rect.makeXYWH(cursorX, y + 5f, 1f, 14f), cursorPaint);
         }
         canvas.restore();
+
+        float linePulse = 0.3f + 0.7f * (0.5f + 0.5f * (float) Math.sin(cursorTime * 6f));
+        linePaint.setColor(withAlpha(0x5A73E8, alpha * focusAlpha * linePulse));
+        canvas.drawRect(Rect.makeXYWH(x + 8f, y + getHeight() - 2f, getWidth() - 16f, 1f), linePaint);
     }
 
     @Override
     public boolean isAnimating() {
         return focused == this || focusAlpha > 0.01f || Math.abs(textOffset) > 0.01f;
+    }
+
+    @Override
+    public void update(float dt) {
+        cursorTime += dt;
     }
 
     @Override
@@ -87,23 +105,61 @@ public class SettingTextBox extends SettingWidget {
             return false;
         }
         focus(this);
+        moveCursorTo(cursorAt(getValue(), mx - (x + 9f) + textOffset), false);
+        return true;
+    }
+
+    @Override
+    public boolean onDrag(float mx, float my, float x, float y) {
+        if (focused != this) return false;
+        moveCursorTo(cursorAt(getValue(), mx - (x + 9f) + textOffset), true);
         return true;
     }
 
     public static boolean keyPressed(KeyEvent event) {
         if (focused == null) return false;
         boolean ctrlDown = isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
+        boolean shiftDown = isKeyDown(GLFW.GLFW_KEY_LEFT_SHIFT) || isKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
         if (ctrlDown && event.key() == GLFW.GLFW_KEY_V) {
             focused.insert(Minecraft.getInstance().keyboardHandler.getClipboard());
             return true;
         }
         if (ctrlDown && event.key() == GLFW.GLFW_KEY_A) {
-            focused.setValue("");
+            focused.selectAll();
+            return true;
+        }
+        if (ctrlDown && event.key() == GLFW.GLFW_KEY_C) {
+            focused.copySelection();
+            return true;
+        }
+        if (ctrlDown && event.key() == GLFW.GLFW_KEY_X) {
+            focused.copySelection();
+            focused.deleteSelection();
             return true;
         }
         switch (event.key()) {
             case GLFW.GLFW_KEY_BACKSPACE -> {
                 focused.deletePrevious();
+                return true;
+            }
+            case GLFW.GLFW_KEY_DELETE -> {
+                focused.deleteNext();
+                return true;
+            }
+            case GLFW.GLFW_KEY_LEFT -> {
+                focused.moveCursor(-1, shiftDown);
+                return true;
+            }
+            case GLFW.GLFW_KEY_RIGHT -> {
+                focused.moveCursor(1, shiftDown);
+                return true;
+            }
+            case GLFW.GLFW_KEY_HOME -> {
+                focused.moveCursorTo(0, shiftDown);
+                return true;
+            }
+            case GLFW.GLFW_KEY_END -> {
+                focused.moveCursorTo(focused.getValue().length(), shiftDown);
                 return true;
             }
             case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_ESCAPE -> {
@@ -140,20 +196,35 @@ public class SettingTextBox extends SettingWidget {
     }
 
     private void deletePrevious() {
+        if (deleteSelection()) return;
         String value = getValue();
-        if (value.isEmpty()) return;
-        int end = value.offsetByCodePoints(value.length(), -1);
-        setValue(value.substring(0, end));
+        if (cursor <= 0) return;
+        int start = value.offsetByCodePoints(cursor, -1);
+        setValue(value.substring(0, start) + value.substring(cursor));
+        cursor = start;
+    }
+
+    private void deleteNext() {
+        if (deleteSelection()) return;
+        String value = getValue();
+        if (cursor >= value.length()) return;
+        int end = value.offsetByCodePoints(cursor, 1);
+        setValue(value.substring(0, cursor) + value.substring(end));
     }
 
     private void insert(String text) {
         if (text == null || text.isEmpty()) return;
-        StringBuilder out = new StringBuilder(getValue());
+        StringBuilder out = new StringBuilder();
         text.codePoints().forEach(codepoint -> {
-            if (out.codePointCount(0, out.length()) >= maxLength) return;
             if (isAllowed(codepoint)) out.appendCodePoint(codepoint);
         });
-        setValue(out.toString());
+        if (out.isEmpty()) return;
+        String value = getValue();
+        int start = selectionStart();
+        int end = selectionEnd();
+        setValue(value.substring(0, start) + out + value.substring(end));
+        cursor = Math.min(start + out.length(), getValue().length());
+        selectionAnchor = -1;
     }
 
     private String getValue() {
@@ -163,6 +234,83 @@ public class SettingTextBox extends SettingWidget {
 
     private void setValue(String value) {
         valueConsumer.accept(trimToMaxLength(value == null ? "" : value));
+    }
+
+    private boolean deleteSelection() {
+        int start = selectionStart();
+        int end = selectionEnd();
+        if (start == end) {
+            selectionAnchor = -1;
+            return false;
+        }
+        String value = getValue();
+        setValue(value.substring(0, start) + value.substring(end));
+        cursor = start;
+        selectionAnchor = -1;
+        return true;
+    }
+
+    private void copySelection() {
+        int start = selectionStart();
+        int end = selectionEnd();
+        if (start != end) {
+            Minecraft.getInstance().keyboardHandler.setClipboard(getValue().substring(start, end));
+        }
+    }
+
+    private void moveCursor(int codePointDelta, boolean selecting) {
+        String value = getValue();
+        if (!selecting && selectionAnchor >= 0) {
+            moveCursorTo(codePointDelta < 0 ? selectionStart() : selectionEnd(), false);
+            return;
+        }
+        int next = cursor;
+        if (codePointDelta < 0 && cursor > 0) {
+            next = value.offsetByCodePoints(cursor, -1);
+        } else if (codePointDelta > 0 && cursor < value.length()) {
+            next = value.offsetByCodePoints(cursor, 1);
+        }
+        moveCursorTo(next, selecting);
+    }
+
+    private void moveCursorTo(int next, boolean selecting) {
+        if (selecting && selectionAnchor < 0) {
+            selectionAnchor = cursor;
+        } else if (!selecting) {
+            selectionAnchor = -1;
+        }
+        cursor = Math.max(0, Math.min(next, getValue().length()));
+    }
+
+    private void selectAll() {
+        selectionAnchor = 0;
+        cursor = getValue().length();
+    }
+
+    private int selectionStart() {
+        return Math.min(selectionAnchor < 0 ? cursor : selectionAnchor, cursor);
+    }
+
+    private int selectionEnd() {
+        return Math.max(selectionAnchor < 0 ? cursor : selectionAnchor, cursor);
+    }
+
+    private int cursorAt(String value, float relativeX) {
+        if (relativeX <= 0f || value.isEmpty()) return 0;
+        int index = 0;
+        while (index < value.length()) {
+            int next = value.offsetByCodePoints(index, 1);
+            float currentWidth = FontRenderer.measureTextWidth(value.substring(0, index), 10f);
+            float nextWidth = FontRenderer.measureTextWidth(value.substring(0, next), 10f);
+            if (relativeX < (currentWidth + nextWidth) * 0.5f) return index;
+            index = next;
+        }
+        return value.length();
+    }
+
+    private void clampCursor(String value) {
+        cursor = Math.max(0, Math.min(cursor, value.length()));
+        if (selectionAnchor > value.length()) selectionAnchor = value.length();
     }
 
     private String trimToMaxLength(String value) {

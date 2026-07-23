@@ -776,10 +776,8 @@ public class NewSettingsScreen extends SkiaScreen {
             invalidateScrollLayout();
             return true;
         }
-        if (button == 0) {
-            setSearchFocused(false);
-            SettingTextBox.clearFocus();
-        }
+        setSearchFocused(false);
+        SettingTextBox.clearFocus();
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);

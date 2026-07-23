@@ -49,7 +49,7 @@ public final class NickHiderManager {
                 out.appendCodePoint(codepoint);
             }
         });
-        return out.toString().strip();
+        return out.toString();
     }
 
     private static Component replace(Component component) {
