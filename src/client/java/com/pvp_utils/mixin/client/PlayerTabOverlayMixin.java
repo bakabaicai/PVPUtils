@@ -4,6 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.modules.impl.Render.BetterPingDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
+import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -49,6 +50,7 @@ public class PlayerTabOverlayMixin {
         if (playerInfo == null || playerInfo.getProfile() == null) {
             return;
         }
-        cir.setReturnValue(IrcBridge.decorateName(cir.getReturnValue(), playerInfo.getProfile().id()));
+        Component name = IrcBridge.decorateName(cir.getReturnValue(), playerInfo.getProfile().id());
+        cir.setReturnValue(NickHiderManager.replaceTabName(name, playerInfo));
     }
 }

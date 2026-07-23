@@ -8,6 +8,7 @@ import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
+import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 
 import java.util.List;
 
@@ -58,6 +59,18 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("在水里时禁止进入游泳状态，这在某些低版本服务器上可避免回弹", "Prevent entering the swimming state in water, which can avoid setbacks on some older servers"),
                 new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); })));
+
+        modules.add(new SettingModule("Nick", UiText.t("在本地隐藏自己的真实用户名", "Hide your real username locally"),
+                new SettingToggle(() -> Config.nickHider, v -> { Config.nickHider = v; Config.save(); }))
+                .addSub("Nickname", UiText.t("用于替换真实用户名的显示名称", "Display name used to replace your real username"),
+                        new SettingTextBox(() -> Config.nickHiderNickname,
+                                v -> { Config.nickHiderNickname = NickHiderManager.normalizeNickname(v); Config.save(); }, 32))
+                .addSub(UiText.t("聊天栏", "Chat"), UiText.t("替换聊天消息中的自己用户名", "Replace your username in chat messages"),
+                        new SettingToggle(() -> Config.nickHiderChat, v -> { Config.nickHiderChat = v; Config.save(); }))
+                .addSub(UiText.t("Tab栏", "Tab List"), UiText.t("替换玩家列表中的自己用户名", "Replace your username in the player list"),
+                        new SettingToggle(() -> Config.nickHiderTab, v -> { Config.nickHiderTab = v; Config.save(); }))
+                .addSub("Nametag", UiText.t("替换自己头顶名称标签", "Replace your overhead name tag"),
+                        new SettingToggle(() -> Config.nickHiderNametag, v -> { Config.nickHiderNametag = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("手持物品位置调整", "Held Item Position"), UiText.t("调整第一人称主手与副手物品的位置", "Adjust first-person main-hand and off-hand item position"),
                 new SettingToggle(() -> Config.heldItemPosition, v -> { Config.heldItemPosition = v; Config.save(); }))

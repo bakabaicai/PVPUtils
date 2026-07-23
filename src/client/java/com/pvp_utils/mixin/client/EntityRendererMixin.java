@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.irc.IrcBridge;
+import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import com.pvp_utils.client.util.NameTagPlayerFilterState;
 import com.pvp_utils.client.util.NameTagPlayerFilterContext;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -42,7 +43,8 @@ public class EntityRendererMixin {
         if (!(entity instanceof Player)) {
             return;
         }
-        cir.setReturnValue(IrcBridge.decorateName(cir.getReturnValue(), entity.getUUID()));
+        Component name = IrcBridge.decorateName(cir.getReturnValue(), entity.getUUID());
+        cir.setReturnValue(NickHiderManager.replaceNameTag(name, entity));
     }
 
     private static boolean isRealPlayer(Entity entity) {

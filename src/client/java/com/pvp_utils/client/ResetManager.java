@@ -51,6 +51,10 @@ public class ResetManager {
         Config.gammaValue = 15.0;
         Config.autoSprint = false;
         Config.noSwimming = false;
+        Config.nickHider = false;
+        Config.nickHiderChat = true;
+        Config.nickHiderTab = true;
+        Config.nickHiderNametag = true;
         Config.heldItemPosition = false;
         Config.heldItemMainX = 0.0f;
         Config.heldItemMainY = 0.0f;
@@ -229,6 +233,7 @@ public class ResetManager {
         Config.ircToken = "";
         Config.clientName = "PVPUtils";
         Config.autoGGText = "gg";
+        Config.nickHiderNickname = "You";
         Config.hitSoundType = Config.HitSoundType.NETHERITE;
         Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
         Config.targetHudMode = Config.TargetHudMode.LITE;
