@@ -5,6 +5,7 @@ import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
+import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
 import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
@@ -384,6 +385,7 @@ public class NewSettingsScreen extends SkiaScreen {
     protected boolean needsContinuousRedraw() {
         if (closing) return true;
         if (openProgress < 0.999f) return true;
+        if (SettingTextBox.isFocused()) return true;
         if (draggingInContent || draggingScrollbar) return true;
         if (Math.abs(contentScrollOffset - targetScrollOffset) > 0.35f) return true;
         if (closeHoverAlpha > 0.01f || closeHovered) return true;
@@ -701,6 +703,10 @@ public class NewSettingsScreen extends SkiaScreen {
             invalidateScrollLayout();
             return true;
         }
+        if (SettingTextBox.keyPressed(event)) {
+            invalidateScrollLayout();
+            return true;
+        }
         if (searchFocused) {
             if (event.key() == GLFW.GLFW_KEY_BACKSPACE && !searchText.isEmpty()) {
                 int end = searchText.offsetByCodePoints(searchText.length(), -1);
@@ -716,6 +722,10 @@ public class NewSettingsScreen extends SkiaScreen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (SettingTextBox.charTyped(event)) {
+            invalidateScrollLayout();
+            return true;
+        }
         if (!searchFocused) {
             return super.charTyped(event);
         }
@@ -728,6 +738,7 @@ public class NewSettingsScreen extends SkiaScreen {
     }
 
     @Override public void onClose() {
+        SettingTextBox.clearFocus();
         clearSearch();
         closing = true;
     }
@@ -768,14 +779,14 @@ public class NewSettingsScreen extends SkiaScreen {
         BasePage page = activePage();
 
         if (button == 0 && mx >= searchX && mx <= searchX + searchW && my >= searchY && my <= searchY + searchH) {
+            SettingTextBox.clearFocus();
             setSearchFocused(true);
             searchCursorTime = 0f;
             invalidateScrollLayout();
             return true;
         }
-        if (button == 0) {
-            setSearchFocused(false);
-        }
+        setSearchFocused(false);
+        SettingTextBox.clearFocus();
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);

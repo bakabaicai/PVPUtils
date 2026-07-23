@@ -137,6 +137,10 @@ public class SettingModule {
         if (expandProgress < 0.001f) expandProgress = 0f;
         if (expandProgress > 0.999f) expandProgress = 1f;
         if (isKeybindable()) keybindWidth += (targetKeybindWidth() - keybindWidth) * Math.min(1f, dt * 15f);
+        if (mainWidget != null) mainWidget.update(dt);
+        for (SubEntry sub : subEntries) {
+            if (sub.isVisible() && sub.widget != null) sub.widget.update(dt);
+        }
     }
 
     public void draw(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom, float mouseX, float mouseY) {
@@ -286,6 +290,11 @@ public class SettingModule {
     }
 
     public boolean onDrag(float mx, float my, float x, float y, float contentW) {
+        if (mainWidget instanceof SettingTextBox textBox) {
+            float wx = x + contentW - PAD_X - textBox.getWidth();
+            float wy = y + (MODULE_H - 8f - textBox.getHeight()) / 2f;
+            if (textBox.onDrag(mx, my, wx, wy)) return true;
+        }
         if (mainWidget instanceof SettingSlider s && s.isDragging()) {
             float wx = x + contentW - PAD_X - s.getWidth();
             float wy = y + (MODULE_H - 8f - s.getHeight()) / 2f;
@@ -295,6 +304,11 @@ public class SettingModule {
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
                 if (!sub.isVisible()) continue;
+                if (sub.widget instanceof SettingTextBox textBox) {
+                    float wx = x + contentW - PAD_X - textBox.getWidth();
+                    float wy = sy + (SUB_H - 6f - textBox.getHeight()) / 2f;
+                    if (textBox.onDrag(mx, my, wx, wy)) return true;
+                }
                 if (sub.widget instanceof SettingSlider s && s.isDragging()) {
                     float wx = x + contentW - PAD_X - s.getWidth();
                     float wy = sy + (SUB_H - 6f - s.getHeight()) / 2f;

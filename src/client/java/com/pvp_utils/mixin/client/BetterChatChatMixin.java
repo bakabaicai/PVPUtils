@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatState;
+import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import net.minecraft.client.GuiMessage;
 import net.minecraft.client.GuiMessageTag;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -45,6 +46,15 @@ public abstract class BetterChatChatMixin {
         if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
         int offset = BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
         context.pose().translate(0, -offset);
+    }
+
+    @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$nickHiderChat(Component message, MessageSignature signatureData, GuiMessageTag indicator, CallbackInfo ci) {
+        Component replaced = NickHiderManager.replaceChat(message);
+        if (replaced != message) {
+            ((ChatComponent) (Object) this).addMessage(replaced, signatureData, indicator);
+            ci.cancel();
+        }
     }
 
     @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V", at = @At("TAIL"))

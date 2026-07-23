@@ -61,6 +61,10 @@ public class Config {
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean noSwimming = false;
+    public static boolean nickHider = false;
+    public static boolean nickHiderChat = true;
+    public static boolean nickHiderTab = true;
+    public static boolean nickHiderNametag = true;
     public static boolean heldItemPosition = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
@@ -147,6 +151,7 @@ public class Config {
     public static boolean ircAutoConnect = false;
     public static String clientName = "PVPUtils";
     public static String autoGGText = "gg";
+    public static String nickHiderNickname = "You";
     public static String ircUsername = "";
     public static String ircToken = "";
     public static String ircPasswordHash = "";
@@ -703,6 +708,7 @@ public class Config {
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
             new ModuleRule("NoSwimming", "noSwimming", "noSwimming"),
+            new ModuleRule("NickHider", "nickHider", "nickHider"),
             new ModuleRule("HeldItemPosition", "heldItem", "heldItemPosition"),
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
