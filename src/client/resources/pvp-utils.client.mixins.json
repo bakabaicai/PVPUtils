@@ -87,7 +87,9 @@
     "ChatComponentAccessor",
     "ChatComponentDrawingBackgroundGraphicsAccessor",
     "ChatComponentDrawingFocusedGraphicsAccessor",
-    "BetterChatScreenMixin"
+    "BetterChatScreenMixin",
+    "ClientConfigurationMixin",
+    "ClientNetworkMixin"
   ],
   "injectors": {
     "defaultRequire": 1
