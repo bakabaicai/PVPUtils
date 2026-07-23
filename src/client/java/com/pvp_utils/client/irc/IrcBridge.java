@@ -153,6 +153,15 @@ public final class IrcBridge {
         return Boolean.TRUE.equals(result);
     }
 
+    public static boolean hasCurrentCosmetic(String kind) {
+        Class<?> service = findClass(COSMETIC_SERVICE_CLASS);
+        if (service == null) {
+            return false;
+        }
+        Object result = invokeStatic(service, "hasCurrentCosmetic", new Class<?>[]{String.class}, kind);
+        return Boolean.TRUE.equals(result);
+    }
+
     public static void missingCore() {
         ChatUtils.error(MISSING_CORE_MESSAGE);
     }

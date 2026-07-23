@@ -203,6 +203,9 @@ public class ResetManager {
         Config.noAttackCooldownAnimation = false;
         Config.customCape = false;
         Config.customCapeImage = "default.png";
+        Config.ircCapeReplacement = false;
+        Config.ircSkinReplacement = false;
+        Config.ircSkinSlim = false;
         Config.chatHudEditQuickEnable = true;
         Config.betterChat = false;
         Config.betterChatMessageAnimation = true;

@@ -6,6 +6,7 @@ import com.pvp_utils.client.Version;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
+import com.pvp_utils.client.irc.IrcBridge;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
@@ -193,6 +194,22 @@ public class ToolPage extends BasePage {
                         new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
                 .addSub(UiText.t("切换披风", "Switch Cape"), UiText.t("切换当前使用的披风文件", "Switch the selected cape file"),
                         new SettingButton(() -> Config.customCapeImage, CustomCapeManager::cycleCape)));
+
+        if (IrcBridge.hasCurrentCosmetic("cape")) {
+            modules.add(new SettingModule(UiText.t("向IRC用户显示自定义披风", "Show Custom Cape to IRC Users"), UiText.t("向IRC使用者展示您的披风，该功能需要您先上传材质文件后才能使用。", "Show your cape to IRC users. Upload a cosmetic file before using this feature."),
+                    new SettingToggle(() -> Config.ircCapeReplacement, value -> { Config.ircCapeReplacement = value; Config.save(); })));
+        }
+
+        if (IrcBridge.hasCurrentCosmetic("skin")) {
+            modules.add(new SettingModule(UiText.t("向IRC用户显示自定义皮肤", "Show Custom Skin to IRC Users"), UiText.t("向IRC使用者展示您的皮肤，该功能需要您先上传材质文件后才能使用。", "Show your skin to IRC users. Upload a cosmetic file before using this feature."),
+                    new SettingToggle(() -> Config.ircSkinReplacement, value -> { Config.ircSkinReplacement = value; Config.save(); }))
+                    .addSubWhen(() -> Config.ircSkinReplacement, UiText.t("皮肤模型", "Skin Model"), UiText.t("选择粗壮或纤细的手臂模型", "Choose wide or slim arms"),
+                            new SettingCycle(List.of(
+                                    UiText.t("粗壮", "Wide"),
+                                    UiText.t("纤细", "Slim")),
+                                    () -> Config.ircSkinSlim ? 1 : 0,
+                                    index -> { Config.ircSkinSlim = index == 1; Config.save(); })));
+        }
 
         if (Version.DEBUG) {
             modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),

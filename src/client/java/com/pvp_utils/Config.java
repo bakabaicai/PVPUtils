@@ -125,6 +125,9 @@ public class Config {
     public static boolean motionCamera = false;
     public static boolean noAttackCooldownAnimation = false;
     public static boolean customCape = false;
+    public static boolean ircCapeReplacement = false;
+    public static boolean ircSkinReplacement = false;
+    public static boolean ircSkinSlim = false;
     public static boolean chatHudEditQuickEnable = true;
     public static boolean betterChat = false;
     public static boolean betterChatMessageAnimation = true;
