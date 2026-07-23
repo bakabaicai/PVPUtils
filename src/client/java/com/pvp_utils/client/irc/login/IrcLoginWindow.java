@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class IrcLoginWindow {
     private static final long LOGIN_TIMEOUT_MS = 30000L;
     private static final long REGISTER_TIMEOUT_MS = 30000L;
+    private static final long ACTIVATE_TIMEOUT_MS = 30000L;
     private static final long MIN_AUTO_LOGIN_WINDOW_MS = 1200L;
     private static final long MIN_MANUAL_LOGIN_BUTTON_MS = 1500L;
     private static final long SUCCESS_WINDOW_MS = 3000L;
@@ -48,6 +49,7 @@ public final class IrcLoginWindow {
     private static final String SAVED_PASSWORD_PLACEHOLDER = "********";
     private static final String LOGIN_CARD = "login";
     private static final String REGISTER_CARD = "register";
+    private static final String ACTIVATE_CARD = "activate";
 
     private IrcLoginWindow() {
     }
@@ -91,14 +93,17 @@ public final class IrcLoginWindow {
         error.setForeground(new Color(190, 40, 40));
         error.setPreferredSize(new Dimension(480, 58));
 
-        SlidingTabPanel tabs = new SlidingTabPanel();
+        SlidingTabPanel tabs = new SlidingTabPanel(3);
         JButton loginTab = new JButton("登录");
         JButton registerTab = new JButton("注册");
-        applyFont(uiFont.deriveFont(Font.BOLD, 13f), loginTab, registerTab);
+        JButton activateTab = new JButton("激活");
+        applyFont(uiFont.deriveFont(Font.BOLD, 13f), loginTab, registerTab, activateTab);
         styleTabButton(loginTab, true);
         styleTabButton(registerTab, false);
+        styleTabButton(activateTab, false);
         tabs.addTab(loginTab);
         tabs.addTab(registerTab);
+        tabs.addTab(activateTab);
 
         JPanel header = new AntiAliasPanel(new BorderLayout(0, 6));
         header.add(tabs, BorderLayout.NORTH);
@@ -123,7 +128,10 @@ public final class IrcLoginWindow {
         JButton register = new JButton("注册");
         JButton sendCode = new JButton("发送验证码");
         JButton registerSkip = new JButton("不使用IRC");
-        applyFixedSize(smallButtonSize, login, register);
+        JTextField activationUsername = new JTextField(Config.ircUsername, 20);
+        JTextField activationKey = new JTextField(20);
+        JButton activate = new JButton("激活");
+        applyFixedSize(smallButtonSize, login, register, activate);
         applyFixedSize(wideButtonSize, loginSkip, registerSkip, sendCode);
 
         JLabel status = new JLabel("未注册用户请切换到注册页。", SwingConstants.CENTER);
@@ -142,16 +150,19 @@ public final class IrcLoginWindow {
         protectedText.setForeground(new Color(120, 120, 120));
         setConnectionStatus(connectionIcon, connectionStatus, ConnectionState.CONNECTING);
         applyFont(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip,
-                registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
-        applyFixedSize(fieldSize, loginUsername, loginPassword, registerUsername, registerPassword, registerQq, registerCode);
+                registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip,
+                activationUsername, activationKey, activate);
+        applyFixedSize(fieldSize, loginUsername, loginPassword, registerUsername, registerPassword, registerQq, registerCode, activationUsername, activationKey);
 
         AlphaPanel cards = new AlphaPanel(new CardLayout());
         cards.setPreferredSize(new Dimension(510, 350));
         cards.setMinimumSize(new Dimension(510, 350));
         JPanel loginForm = loginForm(uiFont, loginUsername, loginPassword, rememberPassword, autoLogin, login, loginSkip);
         JPanel registerForm = registerForm(uiFont, registerUsername, registerPassword, registerQq, registerCode, register, sendCode, registerSkip);
+        JPanel activateForm = activateForm(uiFont, activationUsername, activationKey, activate);
         cards.add(loginForm, LOGIN_CARD);
         cards.add(registerForm, REGISTER_CARD);
+        cards.add(activateForm, ACTIVATE_CARD);
         AlphaPanel statusFade = new AlphaPanel(new BorderLayout());
         statusFade.add(status, BorderLayout.CENTER);
         root.add(cards, BorderLayout.CENTER);
@@ -182,6 +193,7 @@ public final class IrcLoginWindow {
                 tabs.select(0);
                 styleTabButton(loginTab, true);
                 styleTabButton(registerTab, false);
+                styleTabButton(activateTab, false);
                 clearMessage(error);
                 status.setText("未注册用户请切换到注册页。");
             });
@@ -193,9 +205,48 @@ public final class IrcLoginWindow {
                 tabs.select(1);
                 styleTabButton(loginTab, false);
                 styleTabButton(registerTab, true);
+                styleTabButton(activateTab, false);
                 clearMessage(error);
                 status.setText(" ");
             });
+        });
+        activateTab.addActionListener(event -> {
+            switchLoginPage(cards, statusFade, () -> {
+                ((CardLayout) cards.getLayout()).show(cards, ACTIVATE_CARD);
+                tabs.select(2);
+                styleTabButton(loginTab, false);
+                styleTabButton(registerTab, false);
+                styleTabButton(activateTab, true);
+                clearMessage(error);
+                status.setText("请输入要激活的 IRC 账号和卡密。");
+            });
+        });
+
+        activate.addActionListener(event -> {
+            String username = activationUsername.getText().trim();
+            String key = activationKey.getText().trim();
+            if (username.isBlank()) {
+                showError(error, "Account cannot be empty.");
+                return;
+            }
+            if (key.isBlank()) {
+                showError(error, "Activation key cannot be empty.");
+                return;
+            }
+            activate.setEnabled(false);
+            showInfo(error, "Activating...");
+            new Thread(() -> {
+                String result = redeemKey(username, key);
+                SwingUtilities.invokeLater(() -> {
+                    activate.setEnabled(true);
+                    if (result.startsWith("Redeemed successfully!")) {
+                        activationKey.setText("");
+                        showSuccessMessage(error, result);
+                    } else {
+                        showError(error, result);
+                    }
+                });
+            }, "PVPUtils-IRC-Activation").start();
         });
 
         login.addActionListener(event -> {
@@ -271,6 +322,7 @@ public final class IrcLoginWindow {
                         tabs.select(0);
                         styleTabButton(loginTab, true);
                         styleTabButton(registerTab, false);
+                        styleTabButton(activateTab, false);
                         showSuccessMessage(error, "注册成功，请登录。");
                     } else {
                         showError(error, result);
@@ -344,6 +396,22 @@ public final class IrcLoginWindow {
         skipRow.add(skip);
         c.gridy = 5;
         form.add(skipRow, c);
+        return form;
+    }
+
+    private static JPanel activateForm(Font uiFont, JTextField username, JTextField activationKey, JButton activate) {
+        JPanel form = new AntiAliasPanel(new GridBagLayout());
+        form.setBorder(javax.swing.BorderFactory.createEmptyBorder(50, 24, 50, 24));
+        GridBagConstraints c = constraints();
+        addField(form, c, uiFont, 0, "账号", username, false);
+        addField(form, c, uiFont, 1, "卡密", activationKey, false);
+        JPanel actionRow = rowPanel();
+        actionRow.add(activate);
+        c.gridx = 0;
+        c.gridy = 2;
+        c.gridwidth = 3;
+        c.weightx = 1.0;
+        form.add(actionRow, c);
         return form;
     }
 
@@ -608,12 +676,17 @@ public final class IrcLoginWindow {
         JLabel rank = new JLabel("当前头衔：" + blankFallback(user.title(), "无"), SwingConstants.CENTER);
         rank.setFont(font);
         success.add(rank, c);
+        c.gridy = 2;
+        JLabel services = new JLabel(formatServices(user.services()), SwingConstants.CENTER);
+        services.setFont(font);
+        success.add(services, c);
         root.add(success, BorderLayout.CENTER);
         Timer refresh = new Timer(250, event -> {
             UserSummary latest = currentUserSummary();
             title.setText("欢迎" + blankFallback(latest.username(), Config.ircUsername) + "！");
             group.setText("当前身份组：" + blankFallback(latest.role(), "USER"));
             rank.setText("当前头衔：" + blankFallback(latest.title(), "无"));
+            services.setText(formatServices(latest.services()));
         });
         refresh.start();
         showSuccessMessage(error, "登录成功，正在启动游戏...");
@@ -716,6 +789,11 @@ public final class IrcLoginWindow {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private static String formatServices(String services) {
+        String value = blankFallback(services, "无");
+        return "<html><div style='text-align:center;'>激活的服务：" + escapeHtml(value).replace("\n", "<br>") + "</div></html>";
     }
 
     private static boolean validQq(String value) {
@@ -829,15 +907,17 @@ public final class IrcLoginWindow {
     private static final class SlidingTabPanel extends AntiAliasPanel {
         private static final int TAB_W = 76;
         private static final int TAB_H = 30;
+        private final int tabCount;
         private float indicatorX = 0f;
         private float targetX = 0f;
         private Timer timer;
 
-        private SlidingTabPanel() {
+        private SlidingTabPanel(int tabCount) {
             super(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            this.tabCount = Math.max(1, tabCount);
             setOpaque(false);
-            setPreferredSize(new Dimension(TAB_W * 2, TAB_H));
-            setMinimumSize(new Dimension(TAB_W * 2, TAB_H));
+            setPreferredSize(new Dimension(TAB_W * this.tabCount, TAB_H));
+            setMinimumSize(new Dimension(TAB_W * this.tabCount, TAB_H));
         }
 
         private void addTab(JButton button) {
@@ -873,11 +953,11 @@ public final class IrcLoginWindow {
             }
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setColor(new Color(238, 241, 246));
-            g.fillRoundRect(0, 0, TAB_W * 2, TAB_H, 10, 10);
+            g.fillRoundRect(0, 0, TAB_W * tabCount, TAB_H, 10, 10);
             g.setColor(new Color(55, 120, 220));
             g.fillRoundRect(Math.round(indicatorX), 0, TAB_W, TAB_H, 10, 10);
             g.setColor(new Color(205, 210, 220));
-            g.drawRoundRect(0, 0, TAB_W * 2 - 1, TAB_H - 1, 10, 10);
+            g.drawRoundRect(0, 0, TAB_W * tabCount - 1, TAB_H - 1, 10, 10);
         }
     }
 
@@ -969,14 +1049,27 @@ public final class IrcLoginWindow {
             Class<?> userManager = Class.forName("com.pvp_utils.client.irc.user.IrcUserManager");
             Object currentUser = userManager.getMethod("currentUser").invoke(null);
             if (currentUser == null) {
-                return new UserSummary("", "", "");
+                return new UserSummary("", "", "", "无");
             }
             String username = stringMethod(currentUser, "username");
             String role = stringMethod(currentUser, "role");
             String title = stringMethod(currentUser, "title");
-            return new UserSummary(username, role, title);
+            String services = stringMethod(currentUser, "activatedServicesSummary");
+            return new UserSummary(username, role, title, services);
         } catch (ReflectiveOperationException ignored) {
-            return new UserSummary("", "", "");
+            return new UserSummary("", "", "", "无");
+        }
+    }
+
+    private static String redeemKey(String username, String key) {
+        try {
+            Class<?> clientClass = Class.forName("com.pvp_utils.client.irc.network.PVPUtilsIrcClient");
+            Object instance = clientClass.getMethod("getInstance").invoke(null);
+            Method method = clientClass.getMethod("redeemKeyBlocking", String.class, String.class, long.class);
+            Object result = method.invoke(instance, username, key, ACTIVATE_TIMEOUT_MS);
+            return result == null ? "Activation request failed." : result.toString();
+        } catch (ReflectiveOperationException e) {
+            return IrcBridge.MISSING_CORE_MESSAGE;
         }
     }
 
@@ -1017,5 +1110,5 @@ public final class IrcLoginWindow {
         DISCONNECTED
     }
 
-    private record UserSummary(String username, String role, String title) {}
+    private record UserSummary(String username, String role, String title, String services) {}
 }

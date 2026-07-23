@@ -745,6 +745,15 @@ public class NewSettingsScreen extends SkiaScreen {
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
         if (closing) return false;
         int button = event.button();
+        if (ModuleKeybindManager.captureMouseButton(button)) {
+            draggingInContent = false;
+            draggingScrollbar = false;
+            invalidateScrollLayout();
+            return true;
+        }
+        if (button > GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return true;
+        }
 
         float visualScale = getVisualScale(this.width, this.height);
         float mx = toLayoutX(event.x(), this.width, visualScale);
@@ -811,7 +820,7 @@ public class NewSettingsScreen extends SkiaScreen {
         resetConfirm = false;
 
         if (mx >= contentX && mx <= contentX + contentW && my >= contentY && my <= contentY + contentH) {
-            if (hasScrollbar(page, contentH) && isInScrollbar(mx, my, contentX, contentY, contentW, contentH)) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && hasScrollbar(page, contentH) && isInScrollbar(mx, my, contentX, contentY, contentW, contentH)) {
                 draggingScrollbar = true;
                 float thumbTop = scrollbarThumbTop(page, contentY, contentH);
                 float thumbH = scrollbarThumbH(page, contentH);
@@ -823,7 +832,7 @@ public class NewSettingsScreen extends SkiaScreen {
             }
             float moduleStartY = contentY + 54f;
             boolean hit = page.onClick(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
-            if (hit) {
+            if (hit && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 draggingInContent = true;
                 invalidateScrollLayout();
             }

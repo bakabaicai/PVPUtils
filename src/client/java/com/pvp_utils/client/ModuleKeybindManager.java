@@ -66,6 +66,11 @@ public final class ModuleKeybindManager {
         return true;
     }
 
+    public static boolean captureMouseButton(int button) {
+        if (!isCapturing() || button < GLFW.GLFW_MOUSE_BUTTON_1) return false;
+        return captureKey(MOUSE_KEY_OFFSET - button);
+    }
+
     public static boolean clearBinding(String id) {
         if (id == null || id.isBlank()) return false;
         boolean removed = KEYBINDS.remove(id) != null;
@@ -99,7 +104,12 @@ public final class ModuleKeybindManager {
     public static String keyName(String id) {
         Integer key = KEYBINDS.get(id);
         if (key == null) return "";
-        if (key <= MOUSE_KEY_OFFSET) return "Mouse " + (MOUSE_KEY_OFFSET - key + 1);
+        if (key <= MOUSE_KEY_OFFSET) {
+            int button = MOUSE_KEY_OFFSET - key;
+            if (button == GLFW.GLFW_MOUSE_BUTTON_4) return "Mouse Back";
+            if (button == GLFW.GLFW_MOUSE_BUTTON_5) return "Mouse Forward";
+            return "Mouse " + (button + 1);
+        }
         return InputConstants.getKey(new KeyEvent(key, 0, 0)).getDisplayName().getString();
     }
 

@@ -49,6 +49,7 @@ public final class IrcCommand implements DotCommand {
             case "mute" -> executeModeratorCommand("MUTE", subArgs, true);
             case "unmute" -> executeModeratorCommand("UNMUTE", subArgs, false);
             case "unban" -> executeModeratorCommand("UNBAN", subArgs, false);
+            case "cape", "skin" -> executeCosmeticCommand(subCommand, subArgs);
             default -> ChatUtils.warning(Config.isChinese
                     ? "用法：.irc chat <文本>"
                     : "Usage: .irc chat <text>");
@@ -69,10 +70,33 @@ public final class IrcCommand implements DotCommand {
     }
 
     private static List<String> visibleSubCommands() {
-        if (!canModerate()) {
-            return SUB_COMMANDS;
+        java.util.stream.Stream<String> commands = SUB_COMMANDS.stream();
+        if (IrcBridge.hasPrivilege("cape")) {
+            commands = java.util.stream.Stream.concat(commands, java.util.stream.Stream.of("cape"));
         }
-        return java.util.stream.Stream.concat(SUB_COMMANDS.stream(), MODERATOR_SUB_COMMANDS.stream()).toList();
+        if (IrcBridge.hasPrivilege("skin")) {
+            commands = java.util.stream.Stream.concat(commands, java.util.stream.Stream.of("skin"));
+        }
+        if (canModerate()) {
+            commands = java.util.stream.Stream.concat(commands, MODERATOR_SUB_COMMANDS.stream());
+        }
+        return commands.toList();
+    }
+
+    private static void executeCosmeticCommand(String kind, String path) {
+        if (!IrcBridge.hasPrivilege(kind)) {
+            ChatUtils.error(Config.isChinese
+                    ? "当前账户没有对应的材质特权。"
+                    : "Your account does not have the required cosmetic privilege.");
+            return;
+        }
+        if (path == null || path.isBlank()) {
+            ChatUtils.error(Config.isChinese
+                    ? "用法：.irc " + kind + " <PNG文件完整路径>"
+                    : "Usage: .irc " + kind + " <full PNG path>");
+            return;
+        }
+        IrcBridge.uploadCosmetic(kind, path);
     }
 
     private static void executeModeratorCommand(String commandType, String args, boolean requiresDuration) {

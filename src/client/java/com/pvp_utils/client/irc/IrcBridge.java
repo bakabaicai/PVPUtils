@@ -3,6 +3,7 @@ package com.pvp_utils.client.irc;
 import com.pvp_utils.client.util.ChatUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.PlayerSkin;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
@@ -13,6 +14,8 @@ public final class IrcBridge {
     private static final String CLIENT_CLASS = "com.pvp_utils.client.irc.network.PVPUtilsIrcClient";
     private static final String CHAT_SERVICE_CLASS = "com.pvp_utils.client.irc.chat.IrcChatService";
     private static final String TAB_LIST_SERVICE_CLASS = "com.pvp_utils.client.irc.tablist.IrcTabListService";
+    private static final String USER_MANAGER_CLASS = "com.pvp_utils.client.irc.user.IrcUserManager";
+    private static final String COSMETIC_SERVICE_CLASS = "com.pvp_utils.client.irc.cosmetic.IrcCosmeticService";
 
     private IrcBridge() {
     }
@@ -108,6 +111,46 @@ public final class IrcBridge {
         }
         Object decorated = invokeStatic(tabListService, "decorateName", new Class<?>[]{Component.class, UUID.class}, original, minecraftUuid);
         return decorated instanceof Component component ? component : original;
+    }
+
+    public static boolean hasPrivilege(String privilege) {
+        Class<?> userManager = findClass(USER_MANAGER_CLASS);
+        if (userManager == null) {
+            return false;
+        }
+        Object currentUser = invokeStatic(userManager, "currentUser", new Class<?>[0]);
+        if (currentUser == null) {
+            return false;
+        }
+        Object result = invoke(currentUser, "hasPrivilege", new Class<?>[]{String.class}, privilege);
+        return Boolean.TRUE.equals(result);
+    }
+
+    public static void uploadCosmetic(String kind, String fullPath) {
+        Class<?> service = findClass(COSMETIC_SERVICE_CLASS);
+        if (service == null) {
+            missingCore();
+            return;
+        }
+        invokeStatic(service, "upload", new Class<?>[]{String.class, String.class}, kind, fullPath);
+    }
+
+    public static PlayerSkin overrideSkin(PlayerSkin original, UUID minecraftUuid) {
+        Class<?> service = findClass(COSMETIC_SERVICE_CLASS);
+        if (service == null || original == null || minecraftUuid == null) {
+            return original;
+        }
+        Object result = invokeStatic(service, "overrideSkin", new Class<?>[]{PlayerSkin.class, UUID.class}, original, minecraftUuid);
+        return result instanceof PlayerSkin skin ? skin : original;
+    }
+
+    public static boolean hasLoadedCosmetic(UUID minecraftUuid, String kind) {
+        Class<?> service = findClass(COSMETIC_SERVICE_CLASS);
+        if (service == null || minecraftUuid == null) {
+            return false;
+        }
+        Object result = invokeStatic(service, "hasLoadedCosmetic", new Class<?>[]{UUID.class, String.class}, minecraftUuid, kind);
+        return Boolean.TRUE.equals(result);
     }
 
     public static void missingCore() {
