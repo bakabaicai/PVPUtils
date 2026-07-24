@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.client.ServerTranslationContents;
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
 import com.pvp_utils.client.modules.impl.Render.ArmorTransparency.ArmorTransparencyManager;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
@@ -11,12 +12,14 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -101,6 +104,14 @@ public class ClientPacketListenerMixin {
                     TargetHudRenderer.getInstance().onHit(livingTarget);
                 });
             }
+        }
+    }
+
+    @Inject(method = "handleOpenSignEditor", at = @At("HEAD"))
+    private void pvp_utils$trackSignTranslations(ClientboundOpenSignEditorPacket packet, CallbackInfo ci) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.level != null && client.level.getBlockEntity(packet.getPos()) instanceof SignBlockEntity sign) {
+            ServerTranslationContents.trackSignText(packet.getPos(), packet.isFrontText(), sign.getText(packet.isFrontText()));
         }
     }
 
