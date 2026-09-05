@@ -1,8 +1,6 @@
 package com.pvp_utils.client.gui.clickgui.theme;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.gui.clickgui.theme.vape.VapeTheme;
-
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,16 +9,13 @@ import java.util.Optional;
 
 public final class ClickGuiThemeManager {
     private static final Map<String, ClickGuiTheme> THEMES = new LinkedHashMap<>();
-    private static final ClickGuiTheme FALLBACK = new DefaultClickGuiTheme();
+    private static final ClickGuiTheme FALLBACK = new WhiteTheme();
     private static ClickGuiTheme currentTheme;
 
     static {
         register(FALLBACK);
         register(new DarkTheme());
         register(new GrayTheme());
-        register(new WhiteTheme());
-        register(new LightBlueTheme());
-        register(new VapeTheme());
         currentTheme = FALLBACK;
     }
 
@@ -61,6 +56,8 @@ public final class ClickGuiThemeManager {
         String id = Config.clickGuiTheme;
         if (id == null || id.isBlank() || !select(id)) {
             currentTheme = FALLBACK;
+            Config.clickGuiTheme = FALLBACK.id();
+            Config.save();
         }
     }
 

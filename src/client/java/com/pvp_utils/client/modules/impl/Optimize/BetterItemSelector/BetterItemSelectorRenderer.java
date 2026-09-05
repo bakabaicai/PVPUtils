@@ -38,10 +38,10 @@ public final class BetterItemSelectorRenderer {
         Canvas canvas = begin(client);
         if (canvas == null) return;
         try {
-            backgroundPaint.setColor(0x66000000);
+            backgroundPaint.setColor(0x4D000000);
             canvas.drawRRect(RRect.makeXYWH(x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS), backgroundPaint);
             boolean lightTheme = Config.hudTheme == Config.HudTheme.LIGHT;
-            slotPaint.setColor(lightTheme ? 0x1A253045 : 0x332F3745);
+            slotPaint.setColor(lightTheme ? 0x14253045 : 0x262F3745);
             for (int slot = 0; slot < 9; slot++) {
                 canvas.drawRRect(RRect.makeXYWH(x + 2.0f + slot * SLOT_SIZE, y + 2.0f, 18.0f, 18.0f, 4.5f), slotPaint);
             }

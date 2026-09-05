@@ -221,6 +221,7 @@ public class ResetManager {
         Config.hotbarRollover = 0;
         Config.hudTheme = Config.HudTheme.LIGHT;
         Config.skiaBlurStrength = 1.0f;
+        Config.clickGuiPanelBlur = false;
         Config.clickGuiScale = 1;
         Config.clickGuiScrollSpeed = 1.0f;
         Config.mainUIBackgroundMode = Config.MainUIBackgroundMode.GLSL;

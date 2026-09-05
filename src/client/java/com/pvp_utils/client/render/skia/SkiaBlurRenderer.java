@@ -98,15 +98,16 @@ public final class SkiaBlurRenderer {
         ensureNativeLoaded();
 
         float scale = (float) client.getWindow().getGuiScale();
-        float blurSigma = blurSigma(strength);
+        boolean blurEnabled = strength > 0.001f;
+        float blurSigma = blurEnabled ? blurSigma(strength) : 0f;
         Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
         if (capture.image == null) return false;
 
-        ensureFilters(blurSigma);
+        if (blurEnabled) ensureFilters(blurSigma);
         canvas.save();
         try {
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, radius), true);
-            blurPaint.setImageFilter(encodeFilter);
+            blurPaint.setImageFilter(blurEnabled ? encodeFilter : null);
             canvas.drawImageRect(capture.image,
                     Rect.makeXYWH(0f, 0f, capture.width, capture.height),
                     Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH),
@@ -131,14 +132,15 @@ public final class SkiaBlurRenderer {
                                   List<Region> regions, float x, float y, float width, float height, int tintColor, float strength) {
         ensureNativeLoaded();
         float scale = (float) client.getWindow().getGuiScale();
-        float blurSigma = blurSigma(strength);
+        boolean blurEnabled = strength > 0.001f;
+        float blurSigma = blurEnabled ? blurSigma(strength) : 0f;
         Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
         if (capture.image == null) return false;
 
-        ensureFilters(blurSigma);
+        if (blurEnabled) ensureFilters(blurSigma);
         canvas.save();
         try {
-            blurPaint.setImageFilter(encodeFilter);
+            blurPaint.setImageFilter(blurEnabled ? encodeFilter : null);
             frostPaint.setColor(0x10000000);
             tintPaint.setColor(tintColor);
             Rect source = Rect.makeXYWH(0f, 0f, capture.width, capture.height);
@@ -367,7 +369,7 @@ public final class SkiaBlurRenderer {
 
     private float blurSigma(float strength) {
         float clamped = Math.max(0f, Math.min(2f, strength));
-        return Math.max(0.1f, 3f + clamped * 9f);
+        return clamped * 10.5f;
     }
 
     private void ensureNativeLoaded() {

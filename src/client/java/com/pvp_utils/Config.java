@@ -93,7 +93,8 @@ public class Config {
     public static float itemPhysicsRotationSpeed = 1.0f;
     public static HudTheme hudTheme = HudTheme.LIGHT;
     public static float skiaBlurStrength = 1.0f;
-    public static String clickGuiTheme = "default";
+    public static boolean clickGuiPanelBlur = false;
+    public static String clickGuiTheme = "white";
     public static int clickGuiScale = 1;
     public static float clickGuiScrollSpeed = 1.0f;
     public static boolean timeChange = false;

@@ -33,7 +33,7 @@ public class SettingButton extends SettingWidget {
         pressT += (0f - pressT) * 0.18f;
         int accent = ClickGuiThemeColors.current().accent;
         int bgColor = lerpColor(accent, 0x000000, pressT * 0.18f);
-        bgPaint.setColor(withAlpha(bgColor, alpha));
+        bgPaint.setColor(withAlpha(bgColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 8f), bgPaint);
         String text = label.get();
         if (!text.equals(cachedText)) {

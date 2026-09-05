@@ -30,7 +30,7 @@ public class SettingLink extends SettingWidget {
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-        bgPaint.setColor(withAlpha(tc.buttonBackground, alpha));
+        bgPaint.setColor(withAlpha(tc.buttonBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
         String text = label.get() + " \u203A";
         if (!text.equals(cachedText)) {

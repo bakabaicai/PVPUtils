@@ -1,5 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.theme;
 
+import com.pvp_utils.Config;
+
 /**
  * 颜色派生层：将 {@link ClickGuiThemePalette} 的 9 个核心色映射到 GUI 全部具体色槽。
  * 次要颜色（指示条、悬停、滚动条、搜索框、危险按钮等）根据主题明暗自动派生，
@@ -95,7 +97,7 @@ public final class ClickGuiThemeColors {
      */
     public static ClickGuiThemeColors of(ClickGuiTheme theme) {
         if (theme == null) {
-            theme = new DefaultClickGuiTheme();
+            theme = new WhiteTheme();
         }
         ClickGuiThemePalette p = theme.palette();
         boolean dark = luminance(p.primaryText()) > luminance(p.windowBackground());
@@ -114,8 +116,8 @@ public final class ClickGuiThemeColors {
         int subModuleText = mix(primaryText, dark ? window : 0x000000, dark ? 0.40f : 0.35f);
 
         // 指示/悬停：accent 极淡地叠加在窗口底色上
-        int indicator = mix(window, accent, dark ? 0.22f : 0.14f);
-        int hoverBackground = mix(window, accent, dark ? 0.12f : 0.06f);
+        int indicator = mix(window, accent, dark ? 0.22f : 0.20f);
+        int hoverBackground = mix(window, accent, dark ? 0.12f : 0.15f);
 
         // 按钮：取模块底色附近
         int buttonBackground = mix(rgb(p.moduleBackground()), dark ? window : 0x000000, dark ? 0.20f : 0.06f);
@@ -152,6 +154,11 @@ public final class ClickGuiThemeColors {
     /** 取当前已选主题的颜色。 */
     public static ClickGuiThemeColors current() {
         return of(ClickGuiThemeManager.current());
+    }
+
+    /** Lets blurred game content remain visible through ClickGUI background surfaces. */
+    public static float panelBackgroundAlpha(float alpha) {
+        return Config.clickGuiPanelBlur ? alpha * 0.46f : alpha;
     }
 
     // —— 颜色数学工具 ——

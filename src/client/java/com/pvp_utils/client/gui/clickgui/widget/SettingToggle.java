@@ -46,7 +46,7 @@ public class SettingToggle extends SettingWidget {
 
         int trackColor = lerpColor(ClickGuiThemeColors.current().scrollbarTrack, ClickGuiThemeColors.current().accent, colorT);
 
-        trackPaint.setColor(withAlpha(trackColor, alpha));
+        trackPaint.setColor(withAlpha(trackColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         thumbPaint.setColor(withAlpha(0xFFFFFF, alpha));
         canvas.drawRRect(RRect.makeXYWH(x, y, 44f, 24f, 12f), trackPaint);
         canvas.drawRRect(RRect.makeXYWH(thumbX, y + 2f, 20f, 20f, 10f), thumbPaint);

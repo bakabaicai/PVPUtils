@@ -38,7 +38,7 @@ public class SettingCycle extends SettingWidget {
             cachedTextWidth = FontRenderer.measureTextWidth(cachedLabel, 12f);
         }
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-        bgPaint.setColor(withAlpha(tc.buttonBackground, alpha));
+        bgPaint.setColor(withAlpha(tc.buttonBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
         FontRenderer.drawText(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y + 16f, 12f, withAlpha(tc.subModuleText, alpha));
     }

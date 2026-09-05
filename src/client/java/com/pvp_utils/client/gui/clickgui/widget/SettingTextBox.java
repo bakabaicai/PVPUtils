@@ -48,7 +48,7 @@ public class SettingTextBox extends SettingWidget {
 
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         int background = lerpColor(tc.searchBackground, tc.searchFocusedBackground, focusAlpha);
-        bgPaint.setColor(withAlpha(background, alpha));
+        bgPaint.setColor(withAlpha(background, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 7f), bgPaint);
 
         String text = getDisplayText();

@@ -8,6 +8,7 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingCycle;
 import com.pvp_utils.client.gui.clickgui.widget.SettingLink;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
+import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
@@ -27,6 +28,9 @@ public class ThemePage extends BasePage {
                         new SettingCycle(List.of(UiText.t("深色", "Dark"), UiText.t("浅色", "Light")),
                                 () -> Config.hudTheme == Config.HudTheme.DARK ? 0 : 1,
                                 i -> { Config.hudTheme = i == 1 ? Config.HudTheme.LIGHT : Config.HudTheme.DARK; Config.save(); }))
+                .addSub(UiText.t("面板模糊", "Panel Blur"), UiText.t("模糊 ClickGUI 面板后的游戏画面", "Blur the game behind the ClickGUI panel"),
+                        new SettingToggle(() -> Config.clickGuiPanelBlur,
+                                v -> { Config.clickGuiPanelBlur = v; Config.save(); }))
                 .addSub(UiText.t("模糊强度", "Blur Strength"), UiText.t("调整所有 HUD 背景的高斯模糊半径", "Adjust the Gaussian blur radius for all HUD backgrounds"),
                         new SettingSlider(0.0, 200.0, "%.0f%%", () -> (double) Config.skiaBlurStrength * 100.0,
                                 v -> { Config.skiaBlurStrength = v.floatValue() / 100.0f; Config.save(); })));

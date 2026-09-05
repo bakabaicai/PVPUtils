@@ -264,7 +264,7 @@ public class SettingModule {
 
     private void drawStaticContent(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom, float progress) {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-        modulePaint.setColor(withAlpha(tc.module, alpha));
+        modulePaint.setColor(withAlpha(tc.module, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, contentW, MODULE_H - 8f, 10f), modulePaint);
         FontRenderer.drawText(canvas, title, x + PAD_X, y + 22f, 13f, withAlpha(tc.primaryText, alpha));
         FontRenderer.drawText(canvas, subtitle, x + PAD_X, y + 38f, 10f, withAlpha(tc.secondaryText, alpha));
@@ -275,7 +275,7 @@ public class SettingModule {
                 float subBottom = sy + SUB_H - 6f;
                 if (subBottom > viewportTop && sy < viewportBottom) {
                     float subAlpha = alpha * progress;
-                    subPaint.setColor(withAlpha(tc.subModule, subAlpha));
+                    subPaint.setColor(withAlpha(tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(subAlpha)));
                     canvas.drawRRect(RRect.makeXYWH(x + 8f, sy, contentW - 8f, SUB_H - 6f, 8f), subPaint);
                     if (sub.subtitle == null || sub.subtitle.isEmpty()) {
                         FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + (SUB_H - 6f) / 2f + 4.5f, 12f, withAlpha(tc.subModuleText, subAlpha));
@@ -296,7 +296,7 @@ public class SettingModule {
                         if (!child.isVisible()) continue;
                         float childBottom = sy + SUB_H - 6f;
                         if (childBottom > viewportTop && sy < viewportBottom) {
-                            subPaint.setColor(withAlpha(tc.subModule, subAlpha));
+                            subPaint.setColor(withAlpha(tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(subAlpha)));
                             canvas.drawRRect(RRect.makeXYWH(x + 16f, sy, contentW - 16f, SUB_H - 6f, 8f), subPaint);
                             if (child.subtitle == null || child.subtitle.isEmpty()) {
                                 FontRenderer.drawText(canvas, child.title, x + PAD_X + 16f, sy + (SUB_H - 6f) / 2f + 4.5f, 12f, withAlpha(tc.subModuleText, subAlpha));
