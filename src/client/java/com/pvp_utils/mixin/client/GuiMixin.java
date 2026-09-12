@@ -12,6 +12,9 @@ import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.FallDamagePredictor;
 import com.pvp_utils.client.modules.impl.Render.DiggingStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
+import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
@@ -83,7 +86,6 @@ public class GuiMixin {
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
         ItemUseStatusRenderer.getInstance().render(guiGraphics);
-        DynamicIslandRenderer.getInstance().render(guiGraphics);
         DamageNumberRenderer.getInstance().render(guiGraphics);
         FallDamagePredictor.getInstance().render(guiGraphics);
         DiggingStatusRenderer.getInstance().render(guiGraphics);
@@ -92,6 +94,9 @@ public class GuiMixin {
         ArmorHudRenderer.getInstance().render(guiGraphics);
         PotionStatusRenderer.getInstance().render(guiGraphics);
         BetterScoreboardRenderer.getInstance().render(guiGraphics);
+        PingHudRenderer.getInstance().render(guiGraphics);
+        TpsHudRenderer.getInstance().render(guiGraphics);
+        ClockHudRenderer.getInstance().render(guiGraphics);
         HudEditOverlay.getInstance().render(guiGraphics, canvas);
 
         if (canvas != null) {

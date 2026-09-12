@@ -73,6 +73,13 @@ public class SettingModule {
         return this;
     }
 
+    public SettingModule addSubChildWhen(BooleanSupplier visibleSupplier, String title, String subtitle, SettingWidget widget) {
+        if (!subEntries.isEmpty()) {
+            subEntries.getLast().children.add(new SubEntry(title, subtitle, widget, visibleSupplier, false));
+        }
+        return this;
+    }
+
     public SettingModule visibleWhen(BooleanSupplier supplier) {
         visibleSupplier = supplier;
         return this;

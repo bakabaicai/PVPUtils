@@ -16,6 +16,7 @@ public class SettingSlider extends SettingWidget {
     private final Consumer<Double> setter;
     private final double min, max;
     private final String format;
+    private Supplier<Boolean> enabledSupplier = () -> true;
     private boolean dragging = false;
     private double cachedValue = Double.NaN;
     private String cachedText = "";
@@ -32,6 +33,16 @@ public class SettingSlider extends SettingWidget {
         this.setter = setter;
     }
 
+    public SettingSlider setEnabledSupplier(Supplier<Boolean> enabledSupplier) {
+        this.enabledSupplier = enabledSupplier == null ? () -> true : enabledSupplier;
+        return this;
+    }
+
+    private boolean isEnabled() {
+        Boolean enabled = enabledSupplier.get();
+        return enabled == null || enabled;
+    }
+
     private static final float LABEL_W = 36f;
     private static final float TRACK_W = 120f;
 
@@ -41,6 +52,7 @@ public class SettingSlider extends SettingWidget {
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
+        float enabledAlpha = isEnabled() ? alpha : alpha * 0.4f;
         double value = getter.get();
         if (Double.compare(value, cachedValue) != 0) {
             cachedValue = value;
@@ -49,24 +61,24 @@ public class SettingSlider extends SettingWidget {
         }
         String val = cachedText;
         float lw = cachedTextWidth;
-        FontRenderer.drawText(canvas, val, x + LABEL_W - lw, y + 14f, 11f, withAlpha(tc.mutedText, alpha));
+        FontRenderer.drawText(canvas, val, x + LABEL_W - lw, y + 14f, 11f, withAlpha(tc.mutedText, enabledAlpha));
 
         float tx = x + LABEL_W + 8f;
         float t = (float)((value - min) / (max - min));
         float trackY = y + 9f;
         float thumbX = tx + t * TRACK_W;
 
-        trackPaint.setColor(withAlpha(tc.scrollbarTrack, alpha));
+        trackPaint.setColor(withAlpha(tc.scrollbarTrack, enabledAlpha));
         canvas.drawRRect(RRect.makeXYWH(tx, trackY, TRACK_W, 4f, 2f), trackPaint);
-        fillPaint.setColor(withAlpha(tc.accent, alpha));
+        fillPaint.setColor(withAlpha(tc.accent, enabledAlpha));
         canvas.drawRRect(RRect.makeXYWH(tx, trackY, t * TRACK_W, 4f, 2f), fillPaint);
-        thumbPaint.setColor(withAlpha(0xFFFFFF, alpha));
+        thumbPaint.setColor(withAlpha(0xFFFFFF, enabledAlpha));
         canvas.drawRRect(RRect.makeXYWH(thumbX - 8f, y + 2f, 16f, 16f, 8f), thumbPaint);
     }
 
     @Override
     public boolean onClick(float mx, float my, float x, float y, int button) {
-        if (button != 0) return false;
+        if (button != 0 || !isEnabled()) return false;
         dragging = true;
         applyMouse(mx, x);
         return true;
@@ -74,7 +86,7 @@ public class SettingSlider extends SettingWidget {
 
     @Override
     public boolean onDrag(float mx, float my, float x, float y) {
-        if (!dragging) return false;
+        if (!dragging || !isEnabled()) return false;
         applyMouse(mx, x);
         return true;
     }

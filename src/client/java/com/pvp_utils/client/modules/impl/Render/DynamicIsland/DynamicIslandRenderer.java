@@ -1,14 +1,17 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlDevice;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
+import com.pvp_utils.client.NeteaseMusic.Song;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
@@ -18,17 +21,11 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.scores.PlayerTeam;
-import org.lwjgl.system.MemoryUtil;
 
-import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -37,8 +34,6 @@ import java.util.Map;
 
 public class DynamicIslandRenderer {
     private static final DynamicIslandRenderer INSTANCE = new DynamicIslandRenderer();
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "dynamic_island_text");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private static final float HEIGHT = 30f;
     private static final float MIN_WIDTH = 250f;
     private static final float MAX_WIDTH_MARGIN = 24f;
@@ -82,18 +77,19 @@ public class DynamicIslandRenderer {
     private static final float SIZE_EASE_SPEED = 13.5f;
     private static final float TAB_FADE_EASE_SPEED = 9.0f;
     private static final long TAB_REQUEST_TTL_MS = 120L;
+    private static final long LYRICS_EXPAND_DURATION_MS = 700L;
+    private static final float LYRICS_STAGGER_RATIO = 0.45f;
 
-    private Surface surface;
-    private DynamicTexture texture;
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private boolean nativeLoaded = false;
-    private int textureW = -1;
-    private int textureH = -1;
-    private String lastContentKey = "";
-    private float lastWidth = -1f;
-    private float lastScale = -1f;
     private float animatedWidth = -1f;
     private float animatedHeight = -1f;
     private float tabContentFade = 0f;
+    private float lyricsFade = 0f;
+    private boolean lastLyricsOpen = false;
+    private String lastLyricsText = "";
+    private long lyricsExpandStartTime = 0L;
+    private long lastLyricsDurationMs = 3000L;
     private long lastAnimationTime = 0L;
     private long lastTabRequestTime = 0L;
 
@@ -127,15 +123,15 @@ public class DynamicIslandRenderer {
         lastTabRequestTime = System.currentTimeMillis();
     }
 
-    public void render(GuiGraphics graphics) {
+    public void renderFrameEnd() {
         if (!Config.dynamicIsland) {
-            destroyTexture(Minecraft.getInstance());
             resetAnimation();
             return;
         }
 
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.getWindow() == null) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.getWindow() == null) {
+            resetAnimation();
             return;
         }
         if (client.screen instanceof AbstractContainerScreen<?>) {
@@ -157,21 +153,31 @@ public class DynamicIslandRenderer {
         boolean alertOpen = !tabOpen && !notificationOpen && alertSnapshot.visible();
         boolean itemUseOpen = !tabOpen && !notificationOpen && !alertOpen && itemUseSnapshot.visible();
         boolean blockOpen = !tabOpen && !notificationOpen && !alertOpen && !itemUseOpen && blockSnapshot.visible();
-        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : notificationOpen ? measureNotificationLayout(client, notificationCard) : alertOpen ? measureAlertLayout(client, alertSnapshot) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : measureLayout(client, content);
+        DynamicIslandLyrics.LyricsCard lyricsCard = Config.dynamicIslandLyrics && !tabOpen && !notificationOpen && !alertOpen
+                ? DynamicIslandLyrics.snapshot()
+                : DynamicIslandLyrics.HIDDEN;
+        boolean lyricsOpen = !blockOpen && lyricsCard.visible();
+        lyricsFade += ((lyricsOpen ? 1f : 0f) - lyricsFade) * 0.15f;
+        if (lyricsFade < 0.001f) lyricsFade = 0f;
+        if (lyricsOpen && !lyricsCard.text().isEmpty()) {
+            if (!lyricsCard.text().equals(lastLyricsText) || !lastLyricsOpen) {
+                lyricsExpandStartTime = System.currentTimeMillis();
+                lastLyricsDurationMs = lyricsCard.durationMs();
+            }
+            lastLyricsText = lyricsCard.text();
+        } else if (lyricsOpen) {
+            lastLyricsText = "";
+        }
+        lastLyricsOpen = lyricsOpen;
+        boolean lyricsShowing = lyricsFade > 0.01f && !lastLyricsText.isEmpty();
+        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : notificationOpen ? measureNotificationLayout(client, notificationCard) : alertOpen ? measureAlertLayout(client, alertSnapshot) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : lyricsShowing ? measureLyricsLayout(client, lastLyricsText) : measureLayout(client, content);
         IslandLayout layout = updateAnimatedLayout(targetLayout);
         float islandScale = getScale();
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
-        SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
-        renderTextTexture(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen);
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y);
-        graphics.pose().scale(islandScale, islandScale);
-        graphics.pose().translate(-x, -y);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f,
-                Math.round(layout.width), Math.round(layout.height), textureW, textureH, textureW, textureH);
-        graphics.pose().popMatrix();
+        boolean blurred = SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
+        renderContentDirect(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen, x, y, islandScale, blurred);
     }
 
     private boolean isTabOpen() {
@@ -282,6 +288,35 @@ public class DynamicIslandRenderer {
         return new IslandLayout(width, ALERT_HEIGHT, 14f, false);
     }
 
+    private IslandLayout measureLyricsLayout(Minecraft client, String text) {
+        Song song = MusicPlaybackService.INSTANCE.currentSong();
+        if (song == null) return new IslandLayout(BLOCK_MIN_WIDTH, BLOCK_HEIGHT, 14f, false);
+
+        float textStartX = BLOCK_ICON_X;
+        float lyricsW = (text != null && !text.isEmpty()) ? measureBlockText(text, 13f) : 0f;
+        float songInfoW = 0f;
+        String songName = song.name();
+        String artist = song.displayArtist();
+        String combined = "";
+        if (songName != null && !songName.isBlank()) {
+            combined = songName;
+        }
+        if (artist != null && !artist.isBlank()) {
+            combined = combined.isEmpty() ? artist : combined + " - " + artist;
+        }
+        if (!combined.isEmpty()) {
+            songInfoW = measureBlockText(combined, 10f);
+        }
+        float contentW = textStartX + Math.max(lyricsW, songInfoW) + BLOCK_RIGHT_PADDING;
+        float maxW = client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f;
+        float width = clamp(contentW, 100f, maxW);
+
+        boolean hasSongInfo = (songName != null && !songName.isBlank()) || (artist != null && !artist.isBlank());
+        float height = hasSongInfo ? 50f : 36f;
+        float maxH = Math.max(HEIGHT, client.getWindow().getGuiScaledHeight() - TOP * 2f);
+        return new IslandLayout(width, clamp(height, 50f, maxH), 14f, false);
+    }
+
     private IslandLayout measureTabLayout(Minecraft client, List<PlayerInfo> players) {
         int count = Math.max(1, players.size());
         int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
@@ -307,50 +342,101 @@ public class DynamicIslandRenderer {
         return FontRenderer.measureTextWidth(text, size);
     }
 
-    private void renderTextTexture(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, LowHealthHandler.Snapshot alertSnapshot, DynamicIslandNotificationCard notificationCard, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen, boolean alertOpen, boolean notificationOpen) {
+    private void renderContentDirect(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, LowHealthHandler.Snapshot alertSnapshot, DynamicIslandNotificationCard notificationCard, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen, boolean alertOpen, boolean notificationOpen, float x, float y, float islandScale, boolean blurred) {
         ensureNativeLoaded();
-        float scale = Math.max(1f, (float) client.getWindow().getGuiScale());
-        int targetW = Math.max(1, Math.round(layout.width * scale));
-        int targetH = Math.max(1, Math.round(layout.height * scale));
-        String key = Config.hudTheme.name() + "|" + content.key() + "|" + tabKey(tabPlayers, tabOpen) + "|" + blockKey(blockSnapshot, blockOpen) + "|" + itemUseKey(itemUseSnapshot, itemUseOpen) + "|" + alertKey(alertSnapshot, alertOpen) + "|" + notificationKey(notificationCard, notificationOpen) + "|" + Math.round(layout.width) + "x" + Math.round(layout.height) + "|" + Math.round(tabContentFade * 255f);
-        if (texture != null && targetW == textureW && targetH == textureH && key.equals(lastContentKey) && scale == lastScale) {
+        int framebufferId = mainFramebufferId(client);
+        if (framebufferId == 0) {
             return;
         }
+        Canvas canvas = glBackend.begin(framebufferId);
+        if (canvas == null) {
+            return;
+        }
+        try {
+            canvas.save();
+            canvas.translate(x, y);
+            canvas.scale(islandScale, islandScale);
+            if (!blurred) {
+                Paint fallback = new Paint().setAntiAlias(true);
+                fallback.setColor(Config.hudTheme == Config.HudTheme.LIGHT ? 0xE0F2F4F8 : 0xE0101420);
+                canvas.drawRRect(RRect.makeXYWH(0f, 0f, layout.width, layout.height, layout.radius), fallback);
+            }
+            if (tabOpen || tabContentFade > 0f) {
+                drawTabContent(canvas, tabPlayers, layout, tabContentFade);
+            } else if (notificationOpen) {
+                drawNotificationContent(canvas, notificationCard, layout);
+            } else if (alertOpen) {
+                drawAlertContent(canvas, alertSnapshot, layout);
+            } else if (itemUseOpen) {
+                drawItemUseContent(canvas, itemUseSnapshot, layout);
+            } else if (blockOpen) {
+                drawBlockCountContent(canvas, blockSnapshot, layout);
+            } else if (lyricsFade > 0.01f && !lastLyricsText.isEmpty()) {
+                drawLyricsContent(canvas, lastLyricsText, layout, lyricsFade, lastLyricsDurationMs);
+            } else {
+                drawCenteredContent(canvas, content, layout);
+            }
+            canvas.restore();
+        } finally {
+            glBackend.end();
+        }
+    }
 
-        if (surface == null || texture == null || targetW != textureW || targetH != textureH) {
-            destroyTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            texture = new DynamicTexture("pvp_utils:dynamic_island_text", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, texture);
-            textureW = targetW;
-            textureH = targetH;
+    private void drawLyricsContent(Canvas canvas, String text, IslandLayout layout, float fade, long durationMs) {
+        int alpha = Math.round(clamp(fade, 0f, 1f) * 255f);
+
+        Song song = MusicPlaybackService.INSTANCE.currentSong();
+        if (song == null) return;
+
+        float centerX = layout.width * 0.5f;
+
+        float infoY = 18f;
+        String songName = song.name();
+        String artist = song.displayArtist();
+        String combined = "";
+        if (songName != null && !songName.isBlank()) {
+            combined = songName;
+        }
+        if (artist != null && !artist.isBlank()) {
+            combined = combined.isEmpty() ? artist : combined + " - " + artist;
+        }
+        if (!combined.isEmpty()) {
+            float infoW = FontRenderer.measureTextWidth(combined, 10f);
+            FontRenderer.drawText(canvas, combined, centerX - infoW * 0.5f, infoY, 10f, withAlpha(0xFFA0A4B0, alpha));
+            infoY += 14f;
         }
 
-        Canvas canvas = surface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(scale, scale);
-        if (tabOpen || tabContentFade > 0f) {
-            drawTabContent(canvas, tabPlayers, layout, tabContentFade);
-        } else if (notificationOpen) {
-            drawNotificationContent(canvas, notificationCard, layout);
-        } else if (alertOpen) {
-            drawAlertContent(canvas, alertSnapshot, layout);
-        } else if (itemUseOpen) {
-            drawItemUseContent(canvas, itemUseSnapshot, layout);
-        } else if (blockOpen) {
-            drawBlockCountContent(canvas, blockSnapshot, layout);
-        } else {
-            drawCenteredContent(canvas, content, layout);
-        }
-        canvas.restore();
+        if (text == null || text.isEmpty()) return;
 
-        uploadSurface(surface, texture, targetW, targetH);
-        lastContentKey = key;
-        lastWidth = layout.width;
-        lastScale = scale;
+        float textSize = 13f;
+        float textY = infoY + 4f;
+
+        int charCount = text.length();
+        float totalTextW = FontRenderer.measureTextWidth(text, textSize);
+        float textCenterX = centerX;
+
+        long now = System.currentTimeMillis();
+        float expandElapsed = now - lyricsExpandStartTime;
+        float expandDuration = Math.max(300f, (float) durationMs);
+        float expandProgress = clamp(expandElapsed / expandDuration, 0f, 1f);
+        expandProgress = easeOutCubic(expandProgress);
+
+        float staggerWindow = Math.max(1f, charCount * LYRICS_STAGGER_RATIO);
+
+        float cursorX = centerX - totalTextW * 0.5f;
+        for (int i = 0; i < charCount; i++) {
+            String ch = text.substring(i, i + 1);
+            float charW = FontRenderer.measureTextWidth(ch, textSize);
+
+            float charProgress = clamp((expandProgress * (charCount + staggerWindow) - i) / staggerWindow, 0f, 1f);
+            charProgress = easeOutCubic(charProgress);
+
+            float finalX = cursorX;
+            float drawX = textCenterX + (finalX - textCenterX) * charProgress;
+            int charAlpha = Math.round(charProgress * alpha);
+            FontRenderer.drawText(canvas, ch, drawX, textY, textSize, withAlpha(0xFFF2F4F8, charAlpha));
+            cursorX += charW;
+        }
     }
 
     private String tabKey(List<PlayerInfo> players, boolean tabOpen) {
@@ -896,41 +982,22 @@ public class DynamicIslandRenderer {
         nativeLoaded = true;
     }
 
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) return;
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
+                && RenderSystem.getDevice() instanceof GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-    }
-
-    private void destroyTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (texture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            texture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        lastContentKey = "";
-        lastWidth = -1f;
-        lastScale = -1f;
+        return 0;
     }
 
     private void resetAnimation() {
         animatedWidth = -1f;
         animatedHeight = -1f;
         tabContentFade = 0f;
+        lyricsFade = 0f;
+        lastLyricsOpen = false;
+        lastLyricsText = "";
+        lyricsExpandStartTime = 0L;
         lastAnimationTime = 0L;
         lastTabRequestTime = 0L;
     }

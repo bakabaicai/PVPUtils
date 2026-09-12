@@ -14,9 +14,14 @@ import static org.lwjgl.opengl.GL11.GL_CULL_FACE;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
 import static org.lwjgl.opengl.GL11.GL_SCISSOR_TEST;
 import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
+import static org.lwjgl.opengl.GL11.GL_BLEND;
+import static org.lwjgl.opengl.GL11.GL_ONE;
+import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
+import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glColorMask;
 import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glDepthMask;
 import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL30.GL_MAJOR_VERSION;
@@ -59,6 +64,8 @@ public final class SkiaGlBackend {
             glDisable(GL_STENCIL_TEST);
             glDepthMask(false);
             glColorMask(true, true, true, true);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             glViewport(0, 0, targetW, targetH);
             glClearColor(0f, 0f, 0f, 0f);
 

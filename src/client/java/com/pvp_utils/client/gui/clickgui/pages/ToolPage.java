@@ -29,7 +29,11 @@ public class ToolPage extends BasePage {
                                 v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
 
         SettingModule autoLogin = new SettingModule(UiText.t("自动登录", "Auto Login"), UiText.t("进入已配置的服务器时自动执行登录命令，用 .autologin <密码> 为当前服务器配置", "Automatically send the login command on configured servers; use .autologin <password> to configure the current server"),
-                new SettingToggle(() -> Config.serverAutoLogin, v -> { Config.serverAutoLogin = v; Config.save(); }));
+                new SettingToggle(() -> Config.serverAutoLogin, v -> { Config.serverAutoLogin = v; Config.save(); }))
+                .addSub(UiText.t("触发方式", "Trigger Mode"), UiText.t("进服延迟：进入服务器后定时发送；检测提示：服务器提示登录时才发送", "Join delay: send after joining; Chat detection: send when the server asks for login"),
+                        new SettingCycle(List.of(UiText.t("进服延迟", "Join Delay"), UiText.t("检测提示", "Chat Detection")),
+                                () -> Config.serverAutoLoginMode,
+                                i -> { Config.serverAutoLoginMode = Math.max(0, Math.min(1, i)); Config.save(); }));
         for (Map.Entry<String, ServerAutoLoginManager.Rule> entry : ServerAutoLoginManager.rules().entrySet()) {
             if (!entry.getValue().enabled) {
                 continue;
@@ -40,9 +44,10 @@ public class ToolPage extends BasePage {
                     new SettingPasswordBox(
                             () -> ServerAutoLoginManager.hasPassword(address) ? "********" : "",
                             v -> ServerAutoLoginManager.setPassword(address, v), 64));
-            autoLogin.addSubChild(UiText.t("登录延迟", "Login Delay"), UiText.t("进入服务器后等待多久发送登录命令(0-30秒)", "How long to wait after joining before sending the login command (0-30s)"),
+            autoLogin.addSubChild(UiText.t("登录延迟", "Login Delay"), UiText.t("进入服务器后等待多久发送登录命令(0-30秒)，检测提示模式下不可用", "How long to wait after joining before sending the login command (0-30s); unavailable in chat detection mode"),
                     new SettingSlider(0.0, 30.0, "%.0fs", () -> (double) ServerAutoLoginManager.delayOf(address),
-                            v -> ServerAutoLoginManager.setDelay(address, v.intValue())));
+                            v -> ServerAutoLoginManager.setDelay(address, v.intValue()))
+                            .setEnabledSupplier(() -> Config.serverAutoLoginMode == 0));
             autoLogin.addSubChild(UiText.t("移除此服务器", "Remove Server"), "",
                     new SettingButton(UiText.t("移除", "Remove"), () -> {
                         if (!ServerAutoLoginManager.removeRule(address)) {

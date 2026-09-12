@@ -35,6 +35,7 @@ public class Config {
     public static boolean autoScreenshot = false;
     public static boolean autoGG = false;
     public static boolean serverAutoLogin = false;
+    public static int serverAutoLoginMode = 0;
     public static String serverAutoLoginRules = "";
     public static boolean foodInfo = false;
     public static boolean hitMarker = false;
@@ -56,6 +57,7 @@ public class Config {
     public static boolean betterPingDisplay = false;
     public static boolean lyricsDisplay = false;
     public static boolean musicInfoHud = false;
+    public static boolean musicInfoHudCoverRounded = true;
     public static boolean fallDamagePredict = false;
     public static boolean fireballLandingPredict = false;
     public static boolean projectileTrajectoryPredict = false;
@@ -79,6 +81,7 @@ public class Config {
     public static boolean blockCountDisplay = false;
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
+    public static boolean dynamicIslandLyrics = false;
     public static boolean dynamicIslandBlockCount = false;
     public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
     public static boolean dynamicIslandBlockCountAltIcon = false;
@@ -194,6 +197,24 @@ public class Config {
     public static float keystrokesX = -170f;
     public static float keystrokesY = 70f;
     public static float keystrokesScale = 1.0f;
+    public static boolean pingHud = false;
+    public static HudStyle pingHudStyle = HudStyle.LITE;
+    public static float pingHudX = 130f;
+    public static float pingHudY = 40f;
+    public static float pingHudScale = 1.0f;
+    public static boolean tpsHud = false;
+    public static HudStyle tpsHudStyle = HudStyle.LITE;
+    public static float tpsHudX = 130f;
+    public static float tpsHudY = 68f;
+    public static float tpsHudScale = 1.0f;
+    public static boolean clockHud = false;
+    public static HudStyle clockHudStyle = HudStyle.LITE;
+    public static float clockHudX = 130f;
+    public static float clockHudY = 140f;
+    public static float clockHudScale = 1.0f;
+    public static boolean pingHudBackground = true;
+    public static boolean tpsHudBackground = true;
+    public static boolean clockHudBackground = true;
     public static boolean nameTag = false;
     public static float nameTagScale = 1.0f;
     public static boolean nameTagDynamicScale = false;
@@ -317,6 +338,7 @@ public class Config {
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, NEW }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
+    public enum HudStyle { LITE, NEW, BLUR }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
 
@@ -727,7 +749,7 @@ public class Config {
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
             new ModuleRule("AutoGG", "autoGG", "autoGG"),
-            new ModuleRule("ServerAutoLogin", "serverAutoLogin", "serverAutoLogin", "serverAutoLoginRules"),
+            new ModuleRule("ServerAutoLogin", "serverAutoLogin", "serverAutoLogin", "serverAutoLoginRules", "serverAutoLoginMode"),
             new ModuleRule("FoodInfo", "foodInfo", "foodInfo"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),
             new ModuleRule("DamageNumbers", "damageNumbers", "damageNumbers"),
@@ -745,7 +767,7 @@ public class Config {
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),
             new ModuleRule("BetterPingDisplay", "betterPingDisplay", "betterPingDisplay"),
             new ModuleRule("LyricsDisplay", "lyricsDisplay", "lyricsDisplay"),
-            new ModuleRule("MusicInfoHUD", "musicInfoHud", "musicInfoHud"),
+            new ModuleRule("MusicInfoHUD", "musicInfoHud", "musicInfoHud", "musicInfoHudCoverRounded"),
             new ModuleRule("DynamicIsland", "dynamicIsland", "dynamicIsland"),
             new ModuleRule("Arraylist", "arraylist", "arraylist"),
             new ModuleRule("ItemUseStatus", "itemUseStatus", "itemUseStatus"),
@@ -790,6 +812,9 @@ public class Config {
     private static final HudComponent[] HUD_COMPONENTS = new HudComponent[] {
             new HudComponent("TargetHUD", "targetHud", "targetHudX", "targetHudY", "targetHudZ", "targetHudScale"),
             new HudComponent("Keystrokes", "keystrokes", "keystrokesX", "keystrokesY", "keystrokesScale"),
+            new HudComponent("PingHUD", "pingHud", "pingHudStyle", "pingHudBackground", "pingHudX", "pingHudY", "pingHudScale"),
+            new HudComponent("TpsHUD", "tpsHud", "tpsHudStyle", "tpsHudBackground", "tpsHudX", "tpsHudY", "tpsHudScale"),
+            new HudComponent("ClockHUD", "clockHud", "clockHudStyle", "clockHudBackground", "clockHudX", "clockHudY", "clockHudScale"),
             new HudComponent("BlockCountDisplay", "blockCountDisplay", "blockCountDisplayX", "blockCountDisplayY", "blockCountDisplayScale"),
             new HudComponent("ArmorHUD", "armorHud", "armorHudX", "armorHudY", "armorHudScale"),
             new HudComponent("ItemUseStatus", "itemUseStatus", "itemUseStatusX", "itemUseStatusY", "itemUseStatusScale"),

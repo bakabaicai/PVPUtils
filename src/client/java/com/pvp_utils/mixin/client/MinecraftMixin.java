@@ -6,9 +6,14 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
+import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
+import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
+import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
@@ -177,6 +182,11 @@ public class MinecraftMixin {
     private void pvp_utils$renderClickGuiFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
+        DynamicIslandRenderer.getInstance().renderFrameEnd();
+        PingHudRenderer.getInstance().renderFrameEnd();
+        TpsHudRenderer.getInstance().renderFrameEnd();
+        ClockHudRenderer.getInstance().renderFrameEnd();
+        MusicInfoHudRenderer.getInstance().renderFrameEnd();
         Minecraft client = (Minecraft) (Object) this;
         if (client.screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();

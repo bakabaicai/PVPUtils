@@ -65,6 +65,7 @@ public class AutoLoginServersScreen extends Screen {
                 this.minecraft.setScreen(new AutoLoginServersScreen(lastScreen));
             }).bounds(listX + listWidth - 80, y, 80, 20).build());
 
+            boolean delayEnabled = Config.serverAutoLoginMode == 0;
             EditBox box = new EditBox(this.font, listX, y + 24, listWidth - 130, 20, Component.literal("Password"));
             box.setMaxLength(64);
             box.setHint(Component.literal(Config.isChinese ? "未设置密码，点击输入" : "No password, click to type"));
@@ -81,11 +82,13 @@ public class AutoLoginServersScreen extends Screen {
             this.addRenderableWidget(box);
             passwordRows.add(row);
 
-            this.addRenderableWidget(Button.builder(delayLabel(delay), button -> {
+            Button delayButton = Button.builder(delayLabel(delay), button -> {
                 int next = nextDelay(ServerAutoLoginManager.delayOf(address));
                 ServerAutoLoginManager.setDelay(address, next);
                 button.setMessage(delayLabel(next));
-            }).bounds(listX + listWidth - 120, y + 24, 120, 20).build());
+            }).bounds(listX + listWidth - 120, y + 24, 120, 20).build();
+            delayButton.active = delayEnabled;
+            this.addRenderableWidget(delayButton);
 
             y += ROW_HEIGHT;
             rows++;

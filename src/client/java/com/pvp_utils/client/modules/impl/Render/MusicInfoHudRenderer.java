@@ -1,42 +1,29 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
+import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
+import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.PixelGeometry;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
-import io.github.humbleui.skija.SurfaceProps;
+import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
+import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
-import org.lwjgl.system.MemoryUtil;
 
-import java.nio.ByteBuffer;
+import java.util.List;
 
 public class MusicInfoHudRenderer {
     private static final MusicInfoHudRenderer INSTANCE = new MusicInfoHudRenderer();
-    private static final Identifier BASE_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "music_info_hud_base");
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "music_info_hud_overlay");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private static final float LITE_W = 190f;
     private static final float LITE_H = 58f;
     private static final float CARD_W = 216f;
@@ -46,27 +33,14 @@ public class MusicInfoHudRenderer {
     private static final int NEW_COVER_SIZE = 48;
     private static final int ACCENT = 0xFFE5484D;
 
+    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint coverBackPaint = new Paint().setAntiAlias(true);
+    private final Paint coverImagePaint = new Paint().setAntiAlias(true);
     private final Paint trackPaint = new Paint().setAntiAlias(true);
     private final Paint fillPaint = new Paint().setAntiAlias(true);
-
-    private Surface baseSurface;
-    private Surface overlaySurface;
-    private DynamicTexture baseTexture;
-    private DynamicTexture overlayTexture;
     private boolean nativeLoaded;
-    private int baseTextureW = -1;
-    private int baseTextureH = -1;
-    private int overlayTextureW = -1;
-    private int overlayTextureH = -1;
-    private float textureScale = -1f;
-    private String lastBaseKey = "";
-    private String lastOverlayKey = "";
-    private Config.HudTheme lastBaseTheme = null;
-    private Config.HudTheme lastOverlayTheme = null;
-    private boolean lastBaseBlurMode;
-    private boolean lastOverlayBlurMode;
+    private boolean pendingFrame;
 
     public static MusicInfoHudRenderer getInstance() {
         return INSTANCE;
@@ -74,29 +48,125 @@ public class MusicInfoHudRenderer {
 
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
-        boolean editActive = HudEditOverlay.getInstance().isActive();
-        if (!Config.musicInfoHud || editActive) {
+        if (!Config.musicInfoHud) {
             return;
         }
         if (client.player == null || client.options.hideGui) {
             return;
         }
-        if (client.screen != null && !(client.screen instanceof ChatScreen)) {
+        if (client.screen != null && !(client.screen instanceof ChatScreen) && !HudEditOverlay.getInstance().isActive()) {
             return;
         }
 
         MusicPlaybackService player = MusicPlaybackService.INSTANCE;
         Song song = player.currentSong();
         if (song == null) {
-            destroyTextures(client);
             return;
         }
 
         if (Config.musicInfoHudMode == Config.MusicInfoHudMode.NEW || Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR) {
-            renderCard(graphics, client, player, song, Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR);
+            pendingFrame = true;
         } else {
-            destroyTextures(client);
+            pendingFrame = false;
             renderLite(graphics, client, player, song);
+        }
+    }
+
+    public void renderFrameEnd() {
+        if (!Config.musicInfoHud || Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE) {
+            pendingFrame = false;
+            return;
+        }
+        Minecraft client = Minecraft.getInstance();
+        if (!pendingFrame || client.player == null || client.options.hideGui) {
+            return;
+        }
+        if (client.screen != null && !(client.screen instanceof ChatScreen) && !HudEditOverlay.getInstance().isActive()) {
+            return;
+        }
+        pendingFrame = false;
+
+        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
+        Song song = player.currentSong();
+        if (song == null) {
+            return;
+        }
+        renderCardFrameEnd(client, player, song, Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR);
+    }
+
+    private void renderCardFrameEnd(Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
+        ensureNativeLoaded();
+        int framebufferId = mainFramebufferId(client);
+        if (framebufferId == 0) {
+            return;
+        }
+        int screenW = client.getWindow().getGuiScaledWidth();
+        int screenH = client.getWindow().getGuiScaledHeight();
+        float userScale = getScale();
+        float x = getRenderX(screenW);
+        float y = getRenderY(screenH);
+        float scaledW = CARD_W * userScale;
+        float scaledH = CARD_H * userScale;
+
+        boolean blurred = false;
+        if (blurMode) {
+            blurred = SkiaBlurRenderer.getInstance().render(client, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        }
+
+        Canvas canvas = glBackend.begin(framebufferId);
+        if (canvas == null) {
+            return;
+        }
+        try {
+            canvas.save();
+            canvas.translate(x, y);
+            canvas.scale(userScale, userScale);
+
+            if (!blurMode) {
+                bgPaint.setColor(cardColor());
+                canvas.drawRRect(RRect.makeXYWH(0f, 0f, CARD_W, CARD_H, RADIUS), bgPaint);
+            }
+            coverBackPaint.setColor(coverBackplateColor(blurMode));
+            canvas.drawRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), coverBackPaint);
+
+            Image cover = NeteaseMusicCovers.skiaImage(song.image());
+            if (cover != null) {
+                canvas.save();
+                if (Config.musicInfoHudCoverRounded) {
+                    canvas.clipRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), true);
+                } else {
+                    canvas.clipRect(io.github.humbleui.types.Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE));
+                }
+                canvas.drawImageRect(cover,
+                        Rect.makeXYWH(0f, 0f, cover.getWidth(), cover.getHeight()),
+                        Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE),
+                        SamplingMode.LINEAR, coverImagePaint, true);
+                canvas.restore();
+            } else {
+                FontRenderer.drawText(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, 10f + NEW_COVER_SIZE / 2f + 4f, 12f, 0x66FFFFFF);
+            }
+
+            FontRenderer.drawText(canvas, trimSkia(song.name(), 128f, 13f), 70f, 24f, 13f, primaryTextColor(blurMode));
+            FontRenderer.drawText(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, 40f, 11f, mutedTextColor(blurMode));
+
+            long total = Math.max(0L, player.totalDurationMs());
+            long position = Math.max(0L, Math.min(player.positionMs(), Math.max(total, 0L)));
+            float progress = total <= 0L ? 0f : Mth.clamp(position / (float) total, 0f, 1f);
+            float barX = 70f;
+            float barY = 51f;
+            float barW = 112f;
+            float barH = 5f;
+            trackPaint.setColor(trackColor(blurMode));
+            canvas.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), trackPaint);
+            fillPaint.setColor(ACCENT);
+            canvas.drawRRect(RRect.makeXYWH(barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f), fillPaint);
+            FontRenderer.drawText(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, 64f, 9f, mutedTextColor(blurMode));
+            String mode = player.playbackMode().label();
+            FontRenderer.drawText(canvas, mode, CARD_W - 14f - FontRenderer.measureTextWidth(mode, 9f), 64f, 9f, mutedTextColor(blurMode));
+
+            canvas.restore();
+        } finally {
+            glBackend.end();
         }
     }
 
@@ -128,127 +198,11 @@ public class MusicInfoHudRenderer {
         drawVanillaProgress(graphics, client, player, 56, 39, 122, muted);
     }
 
-    private void renderCard(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
-        float userScale = getScale();
-        float x = getRenderX(screenW);
-        float y = getRenderY(screenH);
-        float scaledW = CARD_W * userScale;
-        float scaledH = CARD_H * userScale;
-
-        renderBaseTexture(client, song, blurMode);
-        renderOverlayTexture(client, player, blurMode);
-        if (blurMode) {
-            SkiaBlurRenderer.getInstance().render(client, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
-        }
-
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y);
-        graphics.pose().scale(userScale, userScale);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, BASE_TEXTURE_ID, 0, 0, 0f, 0f, Math.round(CARD_W), Math.round(CARD_H),
-                baseTextureW, baseTextureH, baseTextureW, baseTextureH);
-        drawCover(graphics, song, 10, 10, NEW_COVER_SIZE);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, 0, 0, 0f, 0f, Math.round(CARD_W), Math.round(CARD_H),
-                overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
-        graphics.pose().popMatrix();
-    }
-
-    private void renderBaseTexture(Minecraft client, Song song, boolean blurMode) {
-        ensureNativeLoaded();
-        float targetScale = targetScale(client);
-        int targetW = Math.max(1, Math.round(CARD_W * targetScale));
-        int targetH = Math.max(1, Math.round(CARD_H * targetScale));
-        String key = trimSkia(song.name(), 128f, 13f) + "|" + trimSkia(song.displayArtist(), 128f, 11f);
-        if (baseTexture != null && baseTextureW == targetW && baseTextureH == targetH && key.equals(lastBaseKey)
-                && lastBaseTheme == Config.hudTheme && lastBaseBlurMode == blurMode) {
-            return;
-        }
-        if (baseSurface == null || baseTexture == null || baseTextureW != targetW || baseTextureH != targetH) {
-            destroyBaseTexture(client);
-            baseSurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            baseTexture = new DynamicTexture("pvp_utils:music_info_hud_base", targetW, targetH, false);
-            client.getTextureManager().register(BASE_TEXTURE_ID, baseTexture);
-            baseTextureW = targetW;
-            baseTextureH = targetH;
-            textureScale = targetScale;
-        }
-
-        Canvas canvas = baseSurface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(textureScale, textureScale);
-        if (!blurMode) {
-            bgPaint.setColor(cardColor());
-            canvas.drawRRect(RRect.makeXYWH(0f, 0f, CARD_W, CARD_H, RADIUS), bgPaint);
-        }
-        coverBackPaint.setColor(coverBackplateColor(blurMode));
-        canvas.drawRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), coverBackPaint);
-        FontRenderer.drawText(canvas, trimSkia(song.name(), 128f, 13f), 70f, 24f, 13f, primaryTextColor(blurMode));
-        FontRenderer.drawText(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, 40f, 11f, mutedTextColor(blurMode));
-        canvas.restore();
-        uploadSurface(baseSurface, baseTexture, baseTextureW, baseTextureH);
-
-        lastBaseKey = key;
-        lastBaseTheme = Config.hudTheme;
-        lastBaseBlurMode = blurMode;
-    }
-
-    private void renderOverlayTexture(Minecraft client, MusicPlaybackService player, boolean blurMode) {
-        ensureNativeLoaded();
-        float targetScale = targetScale(client);
-        int targetW = Math.max(1, Math.round(CARD_W * targetScale));
-        int targetH = Math.max(1, Math.round(CARD_H * targetScale));
-        long total = Math.max(0L, player.totalDurationMs());
-        long position = Math.max(0L, Math.min(player.positionMs(), Math.max(total, 0L)));
-        float progress = total <= 0L ? 0f : Mth.clamp(position / (float) total, 0f, 1f);
-        String time = MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total);
-        String mode = player.playbackMode().label();
-        String key = Math.round(progress * 120f) + "|" + time + "|" + mode;
-        if (overlayTexture != null && overlayTextureW == targetW && overlayTextureH == targetH && key.equals(lastOverlayKey)
-                && lastOverlayTheme == Config.hudTheme && lastOverlayBlurMode == blurMode) {
-            return;
-        }
-        if (overlaySurface == null || overlayTexture == null || overlayTextureW != targetW || overlayTextureH != targetH) {
-            destroyOverlayTexture(client);
-            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            overlayTexture = new DynamicTexture("pvp_utils:music_info_hud_overlay", targetW, targetH, false);
-            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
-            overlayTextureW = targetW;
-            overlayTextureH = targetH;
-        }
-
-        Canvas canvas = overlaySurface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(targetScale, targetScale);
-        float barX = 70f;
-        float barY = 51f;
-        float barW = 112f;
-        float barH = 5f;
-        trackPaint.setColor(trackColor(blurMode));
-        canvas.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), trackPaint);
-        fillPaint.setColor(ACCENT);
-        canvas.drawRRect(RRect.makeXYWH(barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f), fillPaint);
-        FontRenderer.drawText(canvas, time, 70f, 64f, 9f, mutedTextColor(blurMode));
-        FontRenderer.drawText(canvas, mode, CARD_W - 14f - FontRenderer.measureTextWidth(mode, 9f), 64f, 9f, mutedTextColor(blurMode));
-        canvas.restore();
-        uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
-
-        lastOverlayKey = key;
-        lastOverlayTheme = Config.hudTheme;
-        lastOverlayBlurMode = blurMode;
-    }
-
     private void drawCover(GuiGraphics graphics, Song song, int x, int y, int size) {
         graphics.fill(x, y, x + size, y + size, 0xFF273244);
-        Identifier texture = NeteaseMusicCovers.texture(song.image());
+        net.minecraft.resources.Identifier texture = NeteaseMusicCovers.texture(song.image());
         if (texture != null) {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, size, size,
+            graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, size, size,
                     NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE,
                     NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE);
             return;
@@ -305,67 +259,18 @@ public class MusicInfoHudRenderer {
         return Math.max(0.5f, Config.musicInfoHudScale);
     }
 
-    private float targetScale(Minecraft client) {
-        return Math.max(1f, (float) client.getWindow().getGuiScale() * getScale());
-    }
-
     private void ensureNativeLoaded() {
         if (nativeLoaded) return;
-        Library.load();
+        io.github.humbleui.skija.impl.Library.load();
         nativeLoaded = true;
     }
 
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) return;
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
+    private int mainFramebufferId(Minecraft client) {
+        if (client.getMainRenderTarget().getColorTexture() instanceof com.mojang.blaze3d.opengl.GlTexture texture
+                && com.mojang.blaze3d.systems.RenderSystem.getDevice() instanceof com.mojang.blaze3d.opengl.GlDevice device) {
+            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-    }
-
-    private void destroyBaseTexture(Minecraft client) {
-        if (baseSurface != null) {
-            baseSurface.close();
-            baseSurface = null;
-        }
-        if (baseTexture != null) {
-            client.getTextureManager().release(BASE_TEXTURE_ID);
-            baseTexture = null;
-        }
-        baseTextureW = -1;
-        baseTextureH = -1;
-        textureScale = -1f;
-        lastBaseKey = "";
-        lastBaseTheme = null;
-        lastBaseBlurMode = false;
-    }
-
-    private void destroyOverlayTexture(Minecraft client) {
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        lastOverlayKey = "";
-        lastOverlayTheme = null;
-        lastOverlayBlurMode = false;
-    }
-
-    private void destroyTextures(Minecraft client) {
-        destroyBaseTexture(client);
-        destroyOverlayTexture(client);
+        return 0;
     }
 
     private int cardColor() {

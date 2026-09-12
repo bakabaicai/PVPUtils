@@ -18,16 +18,42 @@ import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ServerData;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class ServerAutoLoginManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final long PROMPT_RETRY_COOLDOWN_MS = 10000L;
+    private static final long MANUAL_LOGIN_SUPPRESS_MS = 30000L;
     private static boolean wasInGame = false;
     private static String lastLoggedInAddress = "";
     private static String pendingAddress = "";
     private static int ticksRemaining = -1;
+    private static long lastPromptLoginMs;
+    private static long lastManualLoginMs;
+    private static boolean autoSending;
 
     private ServerAutoLoginManager() {
+    }
+
+    public static void noteOutgoingCommand(String command) {
+        if (autoSending || command == null) {
+            return;
+        }
+        String lower = command.toLowerCase(Locale.ROOT);
+        if (lower.equals("login") || lower.startsWith("login ") || lower.equals("l") || lower.startsWith("l ")) {
+            lastManualLoginMs = System.currentTimeMillis();
+        }
+    }
+
+    private static void sendLoginCommand(Minecraft client, String password) {
+        autoSending = true;
+        try {
+            client.player.connection.sendCommand("login " + password);
+        } finally {
+            autoSending = false;
+        }
+        ChatUtils.send(Config.isChinese ? "已自动执行服务器登录。" : "Server login command sent automatically.");
     }
 
     public static void tick(Minecraft client) {
@@ -36,7 +62,7 @@ public final class ServerAutoLoginManager {
         if (inGame && !wasInGame) {
             boolean newConnection = !address.equals(lastLoggedInAddress);
             lastLoggedInAddress = address;
-            Rule rule = newConnection && Config.serverAutoLogin ? ruleFor(address) : null;
+            Rule rule = newConnection && Config.serverAutoLogin && Config.serverAutoLoginMode == 0 ? ruleFor(address) : null;
             if (rule != null && rule.enabled && !rule.password.isBlank()) {
                 pendingAddress = address;
                 ticksRemaining = Math.max(0, rule.delay) * 20;
@@ -75,8 +101,39 @@ public final class ServerAutoLoginManager {
         if (password.isBlank()) {
             return;
         }
-        client.player.connection.sendCommand("login " + password);
-        ChatUtils.send(Config.isChinese ? "已自动执行服务器登录。" : "Server login command sent automatically.");
+        sendLoginCommand(client, password);
+    }
+
+    public static void onSystemChatMessage(String text) {
+        if (text == null || !text.contains("/login")) {
+            return;
+        }
+        if (Config.serverAutoLoginMode != 1 || !Config.serverAutoLogin) {
+            return;
+        }
+        Minecraft client = Minecraft.getInstance();
+        String address = currentAddress(client);
+        if (address == null || client.player == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastPromptLoginMs < PROMPT_RETRY_COOLDOWN_MS) {
+            return;
+        }
+        if (now - lastManualLoginMs < MANUAL_LOGIN_SUPPRESS_MS) {
+            return;
+        }
+        Rule rule = ruleFor(address);
+        if (rule == null || !rule.enabled || rule.password.isBlank()) {
+            return;
+        }
+        String password = PasswordCipher.decrypt(rule.password);
+        if (password.isBlank()) {
+            return;
+        }
+        lastPromptLoginMs = now;
+        sendLoginCommand(client, password);
+        ChatUtils.send(Config.isChinese ? "检测到登录提示，已自动执行服务器登录。" : "Login prompt detected; login command sent automatically.");
     }
 
     public static String currentAddress(Minecraft client) {

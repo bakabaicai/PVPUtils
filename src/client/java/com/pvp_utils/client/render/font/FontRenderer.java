@@ -96,6 +96,14 @@ public class FontRenderer {
         return getLineHeight(size, DEFAULT);
     }
 
+    public static float getAscent(float size) {
+        return getAscent(size, DEFAULT);
+    }
+
+    public static float getAscent(float size, String fontName) {
+        return -makeFont(fontName, size).getMetrics().getAscent();
+    }
+
     public static float getLineHeight(float size, String fontName) {
         FontMetrics m = makeFont(fontName, size).getMetrics();
         return -m.getAscent() + m.getDescent();

@@ -88,6 +88,7 @@ final class WebGUIModules {
                             check("dynamicIslandBlockCount", "Block Count Display", "方块数量显示"),
                             check("dynamicIslandBlockCountAltIcon", "???", "???", "dynamicIslandBlockCount"),
                             check("dynamicIslandItemUseStatus", "Item Use Status", "物品使用状态"),
+                            check("dynamicIslandLyrics", "Lyrics Display", "歌词显示"),
                             check("dynamicIslandLowHealthWarning", "Low Health Warning", "低血量提示")),
                     module("Item Physics", "物品物理掉落", "Make dropped items fall in a more physical way.", "让掉落物以更加物理的方式掉落", "itemPhysics",
                             slider("itemPhysicsRotationSpeed", "Rotation Speed", "旋转速度", 0, 3, 0.1)),
@@ -382,6 +383,7 @@ final class WebGUIModules {
             case "dynamicIslandBlockCount" -> Config.setDynamicIslandBlockCount(value);
             case "blockCountDisplay" -> Config.setBlockCountDisplay(value);
             case "dynamicIslandItemUseStatus" -> Config.setDynamicIslandItemUseStatus(value);
+            case "dynamicIslandLyrics" -> Config.dynamicIslandLyrics = value;
             case "itemUseStatus" -> Config.setItemUseStatus(value);
             case "motionCamera" -> Config.setMotionCamera(value);
             case "itemPhysics" -> {

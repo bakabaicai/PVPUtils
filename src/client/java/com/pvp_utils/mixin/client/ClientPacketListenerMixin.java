@@ -2,9 +2,11 @@ package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
+import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
 import com.pvp_utils.client.modules.impl.Render.ArmorTransparency.ArmorTransparencyManager;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.TargetHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -12,6 +14,7 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
@@ -30,9 +33,20 @@ import java.util.List;
 public class ClientPacketListenerMixin {
     @Inject(method = "sendCommand", at = @At("HEAD"), cancellable = true)
     private void pvp_utils$interceptClientSlashCommands(String command, CallbackInfo ci) {
+        ServerAutoLoginManager.noteOutgoingCommand(command);
         if (CommandManager.tryExecuteSlash(command)) {
             ci.cancel();
         }
+    }
+
+    @Inject(method = "handleSystemChat", at = @At("HEAD"))
+    private void pvp_utils$detectLoginPrompt(ClientboundSystemChatPacket packet, CallbackInfo ci) {
+        ServerAutoLoginManager.onSystemChatMessage(packet.content().getString());
+    }
+
+    @Inject(method = "handleSetTime", at = @At("HEAD"))
+    private void pvp_utils$sampleServerTps(ClientboundSetTimePacket packet, CallbackInfo ci) {
+        TpsHudRenderer.getInstance().onTimePacket(packet.gameTime());
     }
 
     @Inject(method = "handleSetTime", at = @At("HEAD"), cancellable = true)

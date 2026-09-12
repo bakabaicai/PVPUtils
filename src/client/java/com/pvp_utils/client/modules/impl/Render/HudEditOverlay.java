@@ -3,6 +3,9 @@ package com.pvp_utils.client.modules.impl.Render;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
+import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
@@ -22,7 +25,7 @@ import java.util.function.BooleanSupplier;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -195,6 +198,9 @@ public class HudEditOverlay {
         addItem(items, DragTarget.DYNAMIC_ISLAND, "Dynamic Island", Config.dynamicIsland, getDynamicIslandRect(guiW, guiH), this::moveDynamicIsland, delta -> setScale(v -> Config.dynamicIslandScale = v, Config.dynamicIslandScale, delta));
         addItem(items, DragTarget.ARRAYLIST, "Arraylist", Config.arraylist, getArraylistRect(guiW, guiH), this::moveArraylist, delta -> setScale(v -> Config.arraylistScale = v, Config.arraylistScale, delta));
         addItem(items, DragTarget.KEYSTROKES, "Keystrokes", Config.keystrokes, getKeystrokesRect(guiW, guiH), this::moveKeystrokes, delta -> setScale(v -> Config.keystrokesScale = v, Config.keystrokesScale, delta));
+        addItem(items, DragTarget.PING_HUD, "Ping HUD", Config.pingHud, getRendererRect(PingHudRenderer.getInstance(), guiW, guiH), this::movePingHud, delta -> setScale(v -> Config.pingHudScale = v, Config.pingHudScale, delta));
+        addItem(items, DragTarget.TPS_HUD, "TPS HUD", Config.tpsHud, getRendererRect(TpsHudRenderer.getInstance(), guiW, guiH), this::moveTpsHud, delta -> setScale(v -> Config.tpsHudScale = v, Config.tpsHudScale, delta));
+        addItem(items, DragTarget.CLOCK_HUD, "Clock", Config.clockHud, getRendererRect(ClockHudRenderer.getInstance(), guiW, guiH), this::moveClockHud, delta -> setScale(v -> Config.clockHudScale = v, Config.clockHudScale, delta));
         addItem(items, DragTarget.TARGET_HUD, "Target HUD", Config.targetHud, getTargetHudRect(guiW, guiH), this::moveTargetHud, delta -> setScale(v -> Config.targetHudScale = v, Config.targetHudScale, delta));
         return items;
     }
@@ -277,6 +283,27 @@ public class HudEditOverlay {
     private void moveKeystrokes(RectState rect, int guiW, int guiH) {
         Config.keystrokesX = rect.x - guiW * 0.5f;
         Config.keystrokesY = rect.y - guiH * 0.5f;
+    }
+
+    private void movePingHud(RectState rect, int guiW, int guiH) {
+        moveTextHud(PingHudRenderer.getInstance(), rect, guiW, guiH);
+    }
+
+    private void moveTpsHud(RectState rect, int guiW, int guiH) {
+        moveTextHud(TpsHudRenderer.getInstance(), rect, guiW, guiH);
+    }
+
+    private void moveClockHud(RectState rect, int guiW, int guiH) {
+        moveTextHud(ClockHudRenderer.getInstance(), rect, guiW, guiH);
+    }
+
+    private void moveTextHud(SkiaTextHudRenderer renderer, RectState rect, int guiW, int guiH) {
+        renderer.setConfigX(rect.x - guiW * 0.5f);
+        renderer.setConfigY(rect.y - guiH * 0.5f);
+    }
+
+    private RectState getRendererRect(SkiaTextHudRenderer renderer, int guiW, int guiH) {
+        return clampRect(renderer.getRenderX(guiW), renderer.getRenderY(guiH), renderer.getEditWidth(), renderer.getEditHeight(), guiW, guiH);
     }
 
     private void moveBlockCount(RectState rect, int guiW, int guiH) {

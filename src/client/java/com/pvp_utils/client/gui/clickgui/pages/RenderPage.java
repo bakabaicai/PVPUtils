@@ -157,7 +157,9 @@ public class RenderPage extends BasePage {
                 new SettingToggle(() -> Config.lyricsDisplay, v -> { Config.lyricsDisplay = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("音乐信息显示", "Music Info HUD"), UiText.t("显示当前播放的网易云音乐信息", "Show current Netease Music playback information"),
-                new SettingToggle(() -> Config.musicInfoHud, v -> { Config.musicInfoHud = v; Config.save(); })));
+                new SettingToggle(() -> Config.musicInfoHud, v -> { Config.musicInfoHud = v; Config.save(); }))
+                .addSub(UiText.t("封面圆角", "Rounded Cover"), UiText.t("封面使用圆角裁切（仅全新/模糊样式生效）", "Round the cover corners (New/Blur styles only)"),
+                        new SettingToggle(() -> Config.musicInfoHudCoverRounded, v -> { Config.musicInfoHudCoverRounded = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
                 new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); })));
@@ -203,6 +205,11 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("物品使用状态", "Item Use Status"), "",
                         new SettingToggle(() -> Config.dynamicIslandItemUseStatus, v -> {
                             Config.setDynamicIslandItemUseStatus(v);
+                            Config.save();
+                        }))
+                .addSub(UiText.t("歌词显示", "Lyrics Display"), "",
+                        new SettingToggle(() -> Config.dynamicIslandLyrics, v -> {
+                            Config.dynamicIslandLyrics = v;
                             Config.save();
                         }))
                 .addSub(UiText.t("低血量提示", "Low Health Warning"), "",
@@ -344,6 +351,33 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
                 new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("Ping 显示", "Ping HUD"), UiText.t("显示当前与服务器的延迟", "Show your current latency to the server"),
+                new SettingToggle(() -> Config.pingHud, v -> { Config.pingHud = v; Config.save(); }))
+                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
+                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
+                                () -> Config.pingHudStyle.ordinal(),
+                                i -> { Config.pingHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
+                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                        new SettingToggle(() -> Config.pingHudBackground, v -> { Config.pingHudBackground = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("TPS 显示", "TPS HUD"), UiText.t("估算当前服务器的 TPS", "Estimate the server's current TPS"),
+                new SettingToggle(() -> Config.tpsHud, v -> { Config.tpsHud = v; Config.save(); }))
+                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
+                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
+                                () -> Config.tpsHudStyle.ordinal(),
+                                i -> { Config.tpsHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
+                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                        new SettingToggle(() -> Config.tpsHudBackground, v -> { Config.tpsHudBackground = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("现实时钟", "Clock"), UiText.t("显示现实世界的时间", "Show real-world time"),
+                new SettingToggle(() -> Config.clockHud, v -> { Config.clockHud = v; Config.save(); }))
+                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
+                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
+                                () -> Config.clockHudStyle.ordinal(),
+                                i -> { Config.clockHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
+                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                        new SettingToggle(() -> Config.clockHudBackground, v -> { Config.clockHudBackground = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("名称标签", "Name Tags"), UiText.t("调整原版实体名称标签显示效果", "Adjust vanilla entity name tag rendering"),
                 new SettingToggle(() -> Config.nameTag, v -> { Config.nameTag = v; Config.save(); }))

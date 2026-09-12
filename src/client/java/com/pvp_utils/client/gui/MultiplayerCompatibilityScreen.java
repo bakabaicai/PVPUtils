@@ -46,9 +46,15 @@ public class MultiplayerCompatibilityScreen extends Screen {
             button.setMessage(autoLoginLabel());
         }).bounds(buttonX, this.height / 2 + 60, buttonWidth, 20).build());
 
+        this.addRenderableWidget(Button.builder(triggerModeLabel(), button -> {
+            Config.serverAutoLoginMode = Config.serverAutoLoginMode == 0 ? 1 : 0;
+            Config.save();
+            button.setMessage(triggerModeLabel());
+        }).bounds(buttonX, this.height / 2 + 84, buttonWidth, 20).build());
+
         this.addRenderableWidget(Button.builder(serversLabel(), button ->
                 this.minecraft.setScreen(new AutoLoginServersScreen(this)))
-                .bounds(buttonX, this.height / 2 + 84, buttonWidth, 20).build());
+                .bounds(buttonX, this.height / 2 + 108, buttonWidth, 20).build());
 
         this.addRenderableWidget(Button.builder(Component.literal(Config.isChinese ? "完成" : "Done"), button -> this.onClose())
                 .bounds(centerX - 100, this.height - 28, 200, 20).build());
@@ -102,6 +108,13 @@ public class MultiplayerCompatibilityScreen extends Screen {
 
     private static Component autoLoginLabel() {
         return toggleLabel(Config.isChinese ? "自动登录" : "Auto Login", Config.serverAutoLogin);
+    }
+
+    private static Component triggerModeLabel() {
+        String mode = Config.serverAutoLoginMode == 1
+                ? (Config.isChinese ? "检测提示" : "Chat Detection")
+                : (Config.isChinese ? "进服延迟" : "Join Delay");
+        return Component.literal((Config.isChinese ? "触发方式" : "Trigger Mode") + ": " + mode);
     }
 
     private static Component serversLabel() {
