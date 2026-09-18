@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "pvp-utils",
+  "version": "${version}",
+  "name": "PVPUtils",
+  "description": "A mod that brings many practical small features to high-version Minecraft PVP.",
+  "authors": [
+    "Nachoneko_miao",
+    "yajiyi114514"
+  ],
+  "contact": {
+    "homepage": "https://space.bilibili.com/3546915648047958",
+    "sources": "https://github.com/bakabaicai/PVPUtils"
+  },
+  "license": "LicenseRef-PVPUtils-NC",
+  "icon": "assets/pvp-utils/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.pvp_utils.PVPUtils"
+    ],
+    "client": [
+      "com.pvp_utils.PVPUtilsClient"
+    ]
+  },
+  "mixins": [
+    "pvp-utils.mixins.json",
+    {
+      "config": "pvp-utils.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "accessWidener": "pvp-utils.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "1.21.11",
+    "java": ">=21"
+  },
+  "suggests": {
+    "fabric-api": "*"
+  }
+}

@@ -1,0 +1,8 @@
+accessWidener v2 named
+
+accessible class net/minecraft/client/renderer/ShaderManager$CompilationCache
+mutable field net/minecraft/client/Minecraft user Lnet/minecraft/client/User;
+mutable field net/minecraft/client/Minecraft profileFuture Ljava/util/concurrent/CompletableFuture;
+mutable field net/minecraft/client/Minecraft userApiService Lcom/mojang/authlib/minecraft/UserApiService;
+mutable field net/minecraft/client/Minecraft userPropertiesFuture Ljava/util/concurrent/CompletableFuture;
+mutable field net/minecraft/client/Minecraft profileKeyPairManager Lnet/minecraft/client/multiplayer/ProfileKeyPairManager;

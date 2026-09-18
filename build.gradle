@@ -1,0 +1,144 @@
+plugins {
+    id 'fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+def readVersionNumber = { String name ->
+    def file = file("src/client/java/com/pvp_utils/client/Version.java")
+    def matcher = (file.text =~ /public\s+static\s+final\s+int\s+${name}\s*=\s*(\d+)\s*;/)
+    if (!matcher.find()) {
+        throw new GradleException("Missing Version.${name}")
+    }
+    matcher.group(1).toInteger()
+}
+
+def readVersionString = { String name ->
+    def file = file("src/client/java/com/pvp_utils/client/Version.java")
+    def matcher = (file.text =~ /public\s+static\s+final\s+String\s+${name}\s*=\s*"([^"]+)"\s*;/)
+    if (!matcher.find()) {
+        throw new GradleException("Missing Version.${name}")
+    }
+    matcher.group(1)
+}
+
+def versionName = readVersionString("NAME")
+def versionBase = readVersionString("VERSION")
+def versionType = readVersionNumber("TYPE")
+def versionRevision = readVersionNumber("REVISION")
+def revisionSuffix = versionRevision > 0 ? ".${versionRevision}" : ""
+def versionSuffix = switch (versionType) {
+    case 0 -> ""
+    case 1 -> "-alpha${revisionSuffix}"
+    case 2 -> "-beta${revisionSuffix}"
+    default -> throw new GradleException("Invalid Version.TYPE: ${versionType}")
+}
+def pvpUtilsVersion = "${versionBase}${versionSuffix}"
+
+version = pvpUtilsVersion
+group = project.maven_group
+
+base {
+    archivesName = "${versionName}-v${pvpUtilsVersion}"
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spongepowered.org/repository/maven-public/' }
+    maven { url = "https://maven.terraformersmc.com/releases/" }
+    maven { url = "https://jitpack.io" }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/pvp-utils.accesswidener")
+
+    mods {
+        "PVPUtils" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+    mixin {
+        defaultRefmapName = "${project.archives_base_name}.refmap.json"
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    include "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    implementation "io.github.llamalad7:mixinextras-fabric:0.4.1"
+    annotationProcessor "io.github.llamalad7:mixinextras-common:0.4.1"
+
+    implementation "io.github.humbleui:types:0.2.0"
+    include "io.github.humbleui:types:0.2.0"
+
+    implementation "io.github.humbleui:skija-shared:0.143.16"
+    include "io.github.humbleui:skija-shared:0.143.16"
+
+    implementation "io.github.humbleui:skija-windows-x64:0.143.16"
+    include "io.github.humbleui:skija-windows-x64:0.143.16"
+    implementation include("net.java.dev.jna:jna:5.14.0")
+
+    implementation "com.github.oshi:oshi-core:6.6.5"
+    include "com.github.oshi:oshi-core:6.6.5"
+
+    implementation "org.jcodec:jcodec:0.2.5"
+    include "org.jcodec:jcodec:0.2.5"
+    implementation "org.jcodec:jcodec-javase:0.2.5"
+    include "org.jcodec:jcodec-javase:0.2.5"
+
+    implementation "com.github.goxr3plus:java-stream-player:10.0.2"
+    include "com.github.goxr3plus:java-stream-player:10.0.2"
+    implementation "com.googlecode.soundlibs:mp3spi:1.9.5.4"
+    include "com.googlecode.soundlibs:mp3spi:1.9.5.4"
+    implementation "com.googlecode.soundlibs:jlayer:1.0.1.4"
+    include "com.googlecode.soundlibs:jlayer:1.0.1.4"
+    implementation "com.googlecode.soundlibs:tritonus-all:0.3.7.2"
+    include "com.googlecode.soundlibs:tritonus-all:0.3.7.2"
+    implementation "com.googlecode.soundlibs:jorbis:0.0.17-2"
+    include "com.googlecode.soundlibs:jorbis:0.0.17-2"
+    implementation "org.jflac:jflac-codec:1.5.2"
+    include "org.jflac:jflac-codec:1.5.2"
+    implementation "com.github.trilarion:vorbis-support:1.1.0"
+    include "com.github.trilarion:vorbis-support:1.1.0"
+    implementation "com.github.goxr3plus:jaudiotagger:2.2.7"
+    include "com.github.goxr3plus:jaudiotagger:2.2.7"
+    implementation "commons-io:commons-io:2.20.0"
+    include "commons-io:commons-io:2.20.0"
+
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": inputs.properties.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+java {
+    withSourcesJar()
+
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    archiveVersion.set("")
+}

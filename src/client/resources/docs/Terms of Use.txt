@@ -1,0 +1,23 @@
+﻿免责协议
+
+本模组（PVPUtils）为开源客户端辅助模组，仅供玩家自行选择使用。模组本身不修改服务端数据，不提供作弊功能，不绕过任何服务器反作弊系统。
+
+使用本模组前，请您务必仔细阅读并确认以下条款：
+1. 本模组分为完整模式与受限模式两种运行状态。受限模式下，钓鱼竿辅助、快捷存入、目标 HUD 等争议功能将被隐藏，以降低在部分服务器中被认定为违规的风险。完整模式下所有功能均可使用，但相应风险由用户自行承担。
+2. 您有责任在使用本模组前，主动了解并确认所游玩服务器的具体规则，并根据服务器规则自行选择切换至受限模式或完整模式。此责任完全在于您个人。
+3. 若您因使用本模组（无论处于完整模式或受限模式）而被服务器封禁、踢出、清榜或受到其他任何形式的处罚，模组作者、维护者及本交流群均不承担任何责任，一切后果由您自行承担。
+4. 您下载、安装或使用本模组，即视为您已完整阅读并同意本免责协议的全部内容。
+
+如不同意上述条款，请立即停止使用并删除本模组。
+
+Disclaimer
+
+PVPUtils is an open-source client-side utility mod. It does not modify server data, provide cheating functions, or bypass any server anti-cheat systems.
+
+Before using this mod, please carefully read and agree to the following terms:
+1. This mod has two modes: Full Mode and Restricted Mode. In Restricted Mode, controversial features such as fishing rod assist, quick deposit, and target HUD will be hidden to reduce the risk of being flagged as violations on some servers. Full Mode enables all features, and the associated risks are solely borne by the user.
+2. You are responsible for checking the rules of the server you play on before using this mod, and for switching between Restricted Mode and Full Mode accordingly. This responsibility lies entirely with you.
+3. If you are banned, kicked, blacklisted, or subject to any other penalties due to using this mod (in either mode), the mod author, maintainers, and this community group assume no liability. All consequences are solely borne by you.
+4. By downloading, installing, or using this mod, you acknowledge that you have fully read and agreed to all terms of this disclaimer.
+
+If you do not agree to these terms, please stop using this mod immediately and delete it.

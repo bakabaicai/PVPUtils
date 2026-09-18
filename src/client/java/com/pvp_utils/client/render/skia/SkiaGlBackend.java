@@ -1,0 +1,203 @@
+package com.pvp_utils.client.render.skia;
+
+import io.github.humbleui.skija.BackendRenderTarget;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.ColorSpace;
+import io.github.humbleui.skija.ColorType;
+import io.github.humbleui.skija.DirectContext;
+import io.github.humbleui.skija.FramebufferFormat;
+import io.github.humbleui.skija.Surface;
+import io.github.humbleui.skija.SurfaceOrigin;
+import net.minecraft.client.Minecraft;
+
+import static org.lwjgl.opengl.GL11.GL_CULL_FACE;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11.GL_SCISSOR_TEST;
+import static org.lwjgl.opengl.GL11.GL_STENCIL_TEST;
+import static org.lwjgl.opengl.GL11.GL_BLEND;
+import static org.lwjgl.opengl.GL11.GL_ONE;
+import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
+import static org.lwjgl.opengl.GL11.glBlendFunc;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glColorMask;
+import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glDepthMask;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL30.GL_MAJOR_VERSION;
+import static org.lwjgl.opengl.GL30.GL_MINOR_VERSION;
+import static org.lwjgl.opengl.GL30.glGetIntegerv;
+
+public final class SkiaGlBackend {
+    private DirectContext context;
+    private BackendRenderTarget renderTarget;
+    private Surface surface;
+    private Canvas canvas;
+    private SkiaGlState state;
+    private int width = -1;
+    private int height = -1;
+    private int framebufferId = -1;
+    private boolean drawing = false;
+
+    public Canvas begin() {
+        return begin(0);
+    }
+
+    public Canvas begin(int targetFramebufferId) {
+        if (drawing) return canvas;
+        var window = Minecraft.getInstance().getWindow();
+        int targetW = Math.max(1, window.getWidth());
+        int targetH = Math.max(1, window.getHeight());
+        ensureState();
+        state.push();
+        try {
+            ensureSurface(targetW, targetH, targetFramebufferId);
+            if (surface == null || canvas == null) {
+                state.pop();
+                return null;
+            }
+
+            context.resetGLAll();
+            glDisable(GL_CULL_FACE);
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_SCISSOR_TEST);
+            glDisable(GL_STENCIL_TEST);
+            glDepthMask(false);
+            glColorMask(true, true, true, true);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            glViewport(0, 0, targetW, targetH);
+            glClearColor(0f, 0f, 0f, 0f);
+
+            canvas.restoreToCount(1);
+            canvas.resetMatrix();
+            canvas.save();
+            canvas.scale((float) window.getGuiScale(), (float) window.getGuiScale());
+            drawing = true;
+            return canvas;
+        } catch (RuntimeException e) {
+            state.pop();
+            throw e;
+        }
+    }
+
+    public void end() {
+        if (!drawing || surface == null) return;
+        try {
+            canvas.restore();
+            context.flushAndSubmit(surface);
+        } finally {
+            drawing = false;
+            state.pop();
+        }
+    }
+
+    public boolean isDrawing() {
+        return drawing;
+    }
+
+    public boolean hasSurface() {
+        return surface != null;
+    }
+
+    public DirectContext getContext() {
+        return context;
+    }
+
+    public void resetCanvasState() {
+        drawing = false;
+        if (canvas != null) {
+            canvas.restoreToCount(1);
+            canvas.resetMatrix();
+        }
+    }
+
+    public void runWithSavedState(Runnable action) {
+        ensureState();
+        state.push();
+        try {
+            action.run();
+        } finally {
+            state.pop();
+        }
+    }
+
+    public void destroy() {
+        if (drawing) {
+            end();
+        }
+        SkiaGlState savedState = state;
+        if (savedState != null) {
+            savedState.push();
+        }
+        try {
+            resetCanvasState();
+            if (surface != null) {
+                surface.close();
+                surface = null;
+            }
+            if (renderTarget != null) {
+                renderTarget.close();
+                renderTarget = null;
+            }
+            if (context != null) {
+                context.close();
+                context = null;
+            }
+            canvas = null;
+            width = -1;
+            height = -1;
+            framebufferId = -1;
+        } finally {
+            if (savedState != null) {
+                savedState.pop();
+            }
+            state = null;
+        }
+    }
+
+    private void ensureSurface(int targetW, int targetH, int targetFramebufferId) {
+        ensureContext();
+        if (surface != null && targetW == width && targetH == height && targetFramebufferId == framebufferId) return;
+
+        if (surface != null) {
+            surface.close();
+            surface = null;
+        }
+        if (renderTarget != null) {
+            renderTarget.close();
+            renderTarget = null;
+        }
+
+        renderTarget = BackendRenderTarget.makeGL(targetW, targetH, 0, 8, targetFramebufferId, FramebufferFormat.GR_GL_RGBA8);
+        surface = Surface.wrapBackendRenderTarget(
+                context,
+                renderTarget,
+                SurfaceOrigin.BOTTOM_LEFT,
+                ColorType.RGBA_8888,
+                ColorSpace.getSRGB()
+        );
+        canvas = surface.getCanvas();
+        width = targetW;
+        height = targetH;
+        framebufferId = targetFramebufferId;
+    }
+
+    private void ensureContext() {
+        if (context != null) return;
+        context = DirectContext.makeGL();
+    }
+
+    private void ensureState() {
+        if (state != null) return;
+        state = new SkiaGlState(readGlVersion());
+    }
+
+    private static int readGlVersion() {
+        int[] major = new int[1];
+        int[] minor = new int[1];
+        glGetIntegerv(GL_MAJOR_VERSION, major);
+        glGetIntegerv(GL_MINOR_VERSION, minor);
+        return major[0] * 100 + minor[0] * 10;
+    }
+}

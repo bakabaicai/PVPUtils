@@ -1,0 +1,142 @@
+PVPUtils Source-Available Non-Commercial License
+Version 1.0
+
+Copyright (c) Nachoneko_miao and PVPUtils contributors
+
+Original Author:
+Nachoneko_miao
+
+Original Project:
+PVPUtils
+
+Original Repository:
+https://github.com/bakabaicai/PVPUtils
+
+1. Definitions
+
+"Project" means PVPUtils, including its source code, assets, documents, build scripts, configuration files, and related files.
+
+"Original Author" means Nachoneko_miao.
+
+"Contributors" means individuals or entities who have contributed code, assets, documentation, ideas, fixes, or other copyrightable material to PVPUtils and whose contributions have been accepted into the Project.
+
+"Copyright Holders" means the Original Author and the Contributors, each holding rights in their respective contributions.
+
+"Derivative Work" means any project, mod, client, fork, modified version, copied code, port, rewrite based on this Project, or any work that includes substantial parts of this Project.
+
+"Commercial Use" means any use intended for commercial advantage or monetary compensation, including but not limited to selling the software, paid downloads, paid modpacks, paid clients, advertisements, sponsorship income, subscription access, paid server/client bundles, or using the Project to promote paid services.
+
+2. Ownership
+
+The Original Author retains copyright and ownership of the original Project.
+
+Each Contributor retains copyright in their own contribution, unless they have explicitly transferred those rights in writing.
+
+By submitting a contribution to the Project, each Contributor grants the Original Author and the Project a perpetual, worldwide, non-exclusive, royalty-free license to use, modify, distribute, sublicense under this license, and maintain that contribution as part of PVPUtils.
+
+Contributors do not grant permission for their contributions to be used outside the terms of this license.
+
+3. Contributor Protection
+
+Contributors are not responsible for how the Project or any Derivative Work is used, modified, distributed, or combined with other software.
+
+No Contributor provides any warranty, support obligation, maintenance obligation, or guarantee of compatibility.
+
+No Contributor shall be liable for crashes, data loss, account bans, server punishments, security issues, legal disputes, lost profits, or any other damages arising from the use, modification, or distribution of the Project or any Derivative Work.
+
+Attribution to the Project must not imply that any Contributor endorses, approves, maintains, or is responsible for any Derivative Work unless that Contributor has explicitly agreed in writing.
+
+4. Permissions
+
+You may:
+
+1. View, study, and learn from the source code.
+2. Use the Project for personal, non-commercial purposes.
+3. Modify the Project for personal, non-commercial purposes.
+4. Distribute modified or unmodified copies of the Project only under the conditions of this license.
+5. Use parts of the Project in your own project only if your project fully complies with this license.
+
+5. Non-Commercial Restriction
+
+Commercial Use is not permitted.
+
+You may not sell, rent, sublicense, monetize, include in paid products, include in paid modpacks, use for advertisement revenue, or otherwise commercially exploit the Project or any Derivative Work.
+
+6. Source Code Requirement
+
+Any Derivative Work that is distributed publicly or privately must provide complete corresponding source code.
+
+The source code must be reasonably accessible to recipients of the Derivative Work.
+
+You may not distribute a closed-source Derivative Work based on this Project.
+
+7. License Inheritance
+
+Any Derivative Work must be licensed under this same license or a license with equivalent or stricter non-commercial, source-available, attribution, and disclosure requirements.
+
+You may not relicense this Project or any Derivative Work under a more permissive license.
+
+8. Attribution Requirement
+
+Any use, modification, distribution, or Derivative Work must clearly credit:
+
+1. PVPUtils
+2. Original Author: Nachoneko_miao
+3. PVPUtils contributors
+4. Original repository: https://github.com/bakabaicai/PVPUtils
+
+Attribution must be placed in a visible location, such as the README, project description, mod page, about page, credits page, or documentation.
+
+Example attribution:
+
+This project uses code from PVPUtils by Nachoneko_miao and PVPUtils contributors.
+Original project: https://github.com/bakabaicai/PVPUtils
+
+9. Modification Disclosure
+
+If you modify this Project or use code from it in another project, you must clearly document what was used and what was changed.
+
+The disclosure must include:
+
+1. Which files, modules, systems, or features were copied, modified, ported, referenced, or derived from PVPUtils.
+2. What major changes were made.
+3. Where in your project the PVPUtils-derived code is located.
+4. The date, commit, release, or version of PVPUtils used as the source, if known.
+
+This information must be placed in a visible file such as README, NOTICE, CREDITS, or a dedicated attribution document.
+
+10. Preservation of Notices
+
+You must not remove, hide, or misrepresent copyright notices, license notices, author names, contributor notices, or attribution notices from the Project.
+
+If you distribute a Derivative Work, you must include a copy of this license.
+
+11. No Misrepresentation
+
+You may not claim that you are the original author of PVPUtils or any PVPUtils-derived code.
+
+You may not imply that your project is officially endorsed, approved, maintained, or supported by the Original Author or Contributors unless you have explicit written permission.
+
+12. Third-Party Components
+
+This license applies only to the parts of the Project owned by the PVPUtils Copyright Holders.
+
+Third-party code, libraries, shaders, assets, dependencies, or referenced projects included in or used by PVPUtils remain under their own licenses.
+
+You are responsible for complying with all applicable third-party licenses.
+
+13. Termination
+
+If you violate this license, your permission to use, modify, or distribute the Project is automatically terminated.
+
+To restore permission, you must stop the violation, remove or correct the infringing distribution, and obtain explicit written permission from the Original Author if required.
+
+14. Disclaimer
+
+The Project is provided "as is", without warranty of any kind.
+
+The Original Author and Contributors are not responsible for crashes, data loss, account bans, server punishments, compatibility issues, security issues, legal disputes, lost profits, or any other damages caused by using, modifying, distributing, or relying on the Project or any Derivative Work.
+
+15. Additional Permission
+
+Any exception to this license requires explicit written permission from the Original Author.
