@@ -28,7 +28,7 @@ public class ToolPage extends BasePage {
                         new SettingSlider(0, 100, "%.0f", () -> (double) Config.autoGGDelayTicks,
                                 v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
 
-        SettingModule autoLogin = new SettingModule(UiText.t("自动登录", "Auto Login"), UiText.t("进入已配置的服务器时自动执行登录命令，用 .autologin <密码> 为当前服务器配置", "Automatically send the login command on configured servers; use .autologin <password> to configure the current server"),
+        SettingModule autoLogin = new SettingModule(UiText.t("自动登录", "Auto Login"), UiText.t("进入已配置的服务器时自动执行登录命令", "Automatically send the login command on configured servers."),
                 new SettingToggle(() -> Config.serverAutoLogin, v -> { Config.serverAutoLogin = v; Config.save(); }))
                 .addSub(UiText.t("触发方式", "Trigger Mode"), UiText.t("进服延迟：进入服务器后定时发送；检测提示：服务器提示登录时才发送", "Join delay: send after joining; Chat detection: send when the server asks for login"),
                         new SettingCycle(List.of(UiText.t("进服延迟", "Join Delay"), UiText.t("检测提示", "Chat Detection")),
@@ -69,7 +69,7 @@ public class ToolPage extends BasePage {
         modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
                 new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器，默认按键右Ctrl，可以在此处修改按键绑定。", "Open the Netease Music player. The default key is Right Ctrl and can be changed here."),
+        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器，可以在此处修改按键绑定。", "Open the NetEase Cloud Player, and you can change the key bindings here."),
                 new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open))
                 .keybindAction(ModuleKeybindManager.ACTION_OPEN_MUSIC));
 
