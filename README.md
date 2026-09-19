@@ -1,5 +1,7 @@
 # PVPUtils
 
+> 本仓库基于 [bakabaicai/PVPUtils](https://github.com/bakabaicai/PVPUtils) 修改
+
 <p>
   <a href="./README.zh-CN.md"><strong>简体中文</strong></a>
 </p>

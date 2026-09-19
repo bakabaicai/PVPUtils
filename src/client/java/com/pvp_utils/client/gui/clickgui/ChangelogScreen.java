@@ -8,6 +8,7 @@ public class ChangelogScreen extends Screen {
     private static final String[] LINES = {
             "v1.8-beta.12",
             "新增: PVPUtils 玩家频道聊天 (需服务端安装 PVPUtilsServer)",
+            "修复: 掉落物雷达支持拖动移位",
             "v1.8-beta.11",
             "修复: 击杀闪电改为目标死亡时触发",
             "新增: 离线皮肤修复",

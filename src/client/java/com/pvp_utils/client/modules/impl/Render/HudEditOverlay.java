@@ -25,7 +25,7 @@ import java.util.function.BooleanSupplier;
 
 public class HudEditOverlay {
 
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD, DROPPED_ITEM_RADAR }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -201,6 +201,7 @@ public class HudEditOverlay {
         addItem(items, DragTarget.PING_HUD, "Ping HUD", Config.pingHud, getRendererRect(PingHudRenderer.getInstance(), guiW, guiH), this::movePingHud, delta -> setScale(v -> Config.pingHudScale = v, Config.pingHudScale, delta));
         addItem(items, DragTarget.TPS_HUD, "TPS HUD", Config.tpsHud, getRendererRect(TpsHudRenderer.getInstance(), guiW, guiH), this::moveTpsHud, delta -> setScale(v -> Config.tpsHudScale = v, Config.tpsHudScale, delta));
         addItem(items, DragTarget.CLOCK_HUD, "Clock", Config.clockHud, getRendererRect(ClockHudRenderer.getInstance(), guiW, guiH), this::moveClockHud, delta -> setScale(v -> Config.clockHudScale = v, Config.clockHudScale, delta));
+        addItem(items, DragTarget.DROPPED_ITEM_RADAR, "Dropped Item Radar", Config.droppedItemRadar, getRendererRect(DroppedItemRadarRenderer.getInstance(), guiW, guiH), this::moveDroppedItemRadar, delta -> setScale(v -> Config.droppedItemRadarScale = v, Config.droppedItemRadarScale, delta));
         addItem(items, DragTarget.TARGET_HUD, "Target HUD", Config.targetHud, getTargetHudRect(guiW, guiH), this::moveTargetHud, delta -> setScale(v -> Config.targetHudScale = v, Config.targetHudScale, delta));
         return items;
     }
@@ -295,6 +296,10 @@ public class HudEditOverlay {
 
     private void moveClockHud(RectState rect, int guiW, int guiH) {
         moveTextHud(ClockHudRenderer.getInstance(), rect, guiW, guiH);
+    }
+
+    private void moveDroppedItemRadar(RectState rect, int guiW, int guiH) {
+        moveTextHud(DroppedItemRadarRenderer.getInstance(), rect, guiW, guiH);
     }
 
     private void moveTextHud(SkiaTextHudRenderer renderer, RectState rect, int guiW, int guiH) {

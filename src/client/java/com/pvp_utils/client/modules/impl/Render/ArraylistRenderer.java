@@ -150,7 +150,8 @@ public class ArraylistRenderer {
         float scale = getScale();
         float contentH = Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) * scale;
         float outset = borderOutset() * scale;
-        return clamp(getDefaultY() + Config.arraylistY, outset, Math.max(outset, screenH - contentH - outset));
+        float maxY = Math.max(outset, screenH - 20f);
+        return clamp(getDefaultY() + Config.arraylistY, outset - 50f, maxY);
     }
 
     private List<String> activeNames() {
