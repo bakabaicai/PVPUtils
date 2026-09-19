@@ -175,6 +175,15 @@ public class NeteaseMusicScreen extends SkiaScreen {
         }
     }
 
+    public void filesDragged(java.util.List<java.nio.file.Path> paths, double mouseX, double mouseY) {
+        for (java.nio.file.Path path : paths) {
+            String name = path.getFileName().toString().toLowerCase();
+            if (name.endsWith(".mp3") || name.endsWith(".ogg") || name.endsWith(".wav")) {
+                NeteaseMusicLocalService.playLocalFile(path.toFile());
+            }
+        }
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         pendingMouseX = mouseX;

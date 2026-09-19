@@ -55,6 +55,22 @@ public final class NeteaseMusicLocalService {
         return isWindows() || FabricLoader.getInstance().isModLoaded(PLATFORM_FIX_MOD_ID);
     }
 
+    public static void playLocalFile(java.io.File file) {
+        new Thread(() -> {
+            try {
+                String name = file.getName();
+                if (name.toLowerCase().endsWith(".wav")) {
+                    javax.sound.sampled.AudioInputStream audioIn = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
+                    javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
+                    clip.open(audioIn);
+                    clip.start();
+                }
+            } catch (Exception e) {
+                com.pvp_utils.PVPUtils.LOGGER.error("播放本地文件失败", e);
+            }
+        }, "PVPUtils-LocalMusic").start();
+    }
+
     public static void start() {
         synchronized (LOCK) {
             if (!isWindows()) {
