@@ -272,6 +272,8 @@ public class ToolPage extends BasePage {
                                 v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); }))
                  .visibleWhen(() -> Config.fullMode));
 
+        modules.add(new SettingModule(UiText.t("战斗日志", "Combat Log"), UiText.t("显示最近30秒的伤害事件", "Show recent damage events in the last 30 seconds"),
+                new SettingToggle(() -> Config.combatLog, v -> { Config.combatLog = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("工具设置", "Tool Settings"); }

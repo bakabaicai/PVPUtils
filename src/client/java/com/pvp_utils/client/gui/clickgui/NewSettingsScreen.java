@@ -1118,6 +1118,13 @@ public class NewSettingsScreen extends SkiaScreen {
         float[] l = layout(layoutWidth(), layoutHeight());
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
+        float navX = l[0], navY = l[1], navW = l[2], navH = l[3];
+        if (layoutMx >= navX && layoutMx <= navX + navW && layoutMy >= navY && layoutMy <= navY + navH) {
+            targetScrollOffset = Math.max(0f, Math.min(cachedScrollMax, targetScrollOffset + (float)(-vScroll * 16f * Math.max(0.2f, Config.clickGuiScrollSpeed))));
+            invalidateScrollLayout();
+            return true;
+        }
+
         if (layoutMx >= contentX && layoutMx <= contentX + contentW && layoutMy >= contentY && layoutMy <= contentY + contentH) {
             BasePage page = activePage();
             updateScrollCache(page, contentH);

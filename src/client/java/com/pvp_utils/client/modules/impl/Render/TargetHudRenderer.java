@@ -284,6 +284,13 @@ public class TargetHudRenderer {
 
         graphics.renderOutline(x, y, HUD_WIDTH, HUD_HEIGHT, whiteWithAlpha);
 
+        if (Config.enemyArmorDurability && target != null && target instanceof net.minecraft.world.entity.player.Player) {
+            net.minecraft.world.entity.player.Player p = (net.minecraft.world.entity.player.Player) target;
+            int armor = p.getArmorValue();
+            String armorText = "Armor: " + armor;
+            graphics.drawString(client.font, armorText, x + HUD_WIDTH + 5, y, whiteWithAlpha, true);
+        }
+
         int avatarX = x + BORDER + PADDING;
         int avatarY = y + (HUD_HEIGHT - AVATAR_SIZE) / 2;
         int avatarX2 = avatarX + AVATAR_SIZE;

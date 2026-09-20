@@ -305,6 +305,11 @@ public class Config {
     public static float arraylistGradientSpeed = 1.0f;
     public static boolean arraylistBorder = false;
     public static float arraylistBorderWidth = 1.0f;
+    public static boolean enemyArmorDurability = false;
+    public static boolean combatLog = false;
+    public static int combatLogMaxSeconds = 30;
+    public static boolean teammateHealthBar = false;
+    public static boolean sodiumCompatCheck = true;
     public static float customBlockOutlineWidth = 1.0f;
     public static float customBlockOutlineAnimationSpeed = 8.0f;
     public static float customBlockOutlineMoveSpeed = 12.0f;

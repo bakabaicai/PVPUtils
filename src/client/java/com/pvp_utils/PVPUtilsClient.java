@@ -38,6 +38,10 @@ public class PVPUtilsClient implements ClientModInitializer {
         Config.load();
         ClickGuiThemeManager.applyConfig();
         AntiCheat.verifyEnvironment();
+        if (Config.sodiumCompatCheck && net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium")) {
+            String ver = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("sodium").get().getMetadata().getVersion().getFriendlyString();
+            PVPUtils.LOGGER.info("Sodium detected: " + ver + ", compatibility OK");
+        }
         ChannelChatManager.init();
         VictorySound.init();
         MainUIBackgrounds.init();
@@ -46,6 +50,11 @@ public class PVPUtilsClient implements ClientModInitializer {
         ModuleKeybindManager.initialize();
         MainUIScreenManager.init();
         CommandManager.register();
+
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((graphics, delta) -> {
+            com.pvp_utils.client.modules.impl.Render.CombatLogRenderer.getInstance().render(graphics);
+            com.pvp_utils.client.modules.impl.Render.TeammateHealthBarRenderer.getInstance().render(graphics);
+        });
         Update.startAutoCheck();
         NeteaseMusicLocalService.start();
         Runtime.getRuntime().addShutdownHook(new Thread(NeteaseMusicLocalService::stop, "PVPUtils-NeteaseMusic-Shutdown"));
