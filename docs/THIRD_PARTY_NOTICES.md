@@ -1,7 +1,7 @@
 # Third-Party Notices
 
 **Last updated:** 2026-09-24  
-**Aligned with:** `build.gradle` dependency set as of this date (includes `top.fpsmaster:music-api:0.1.1` / Cadence).
+**Aligned with:** `build.gradle` dependency set as of this date (includes `top.fpsmaster:music-api:0.1.2` / Cadence).
 
 The PVPUtils Source-Available Non-Commercial License applies only to code, assets, and materials owned by Nachoneko_miao and PVPUtils contributors. Third-party components remain under their own licenses. This file is the project notice index; full license texts that are required to accompany distributions live under [`LICENSES/`](./LICENSES/).
 
@@ -33,9 +33,9 @@ Permission notices for MIT components are the standard text in [`LICENSES/MIT.tx
 | Field | Value |
 |---|---|
 | SPDX | `MIT` |
-| Coordinate | `top.fpsmaster:music-api:0.1.1` |
+| Coordinate | `top.fpsmaster:music-api:0.1.2` |
 | Bundled | Yes — jar-in-jar (`include` in `build.gradle`) |
-| Source | https://github.com/FPSMasterTeam/Cadence |
+| Source | https://github.com/FPSMasterTeam/Cadence (built from https://github.com/ThinkReally114/Cadence) |
 | License text | [`LICENSES/MIT.txt`](./LICENSES/MIT.txt) |
 | NOTICE file | None in artifact |
 | Modified by PVPUtils | No (binary/composite-build dependency) |
@@ -115,6 +115,20 @@ Full license text: [`LICENSES/Apache-2.0.txt`](./LICENSES/Apache-2.0.txt) (also:
 | Modified by PVPUtils | No |
 | Copyright | Google Inc. and Gson contributors |
 | Role | JSON parsing (also used by Cadence) |
+
+#### Kotlin stdlib (`org.jetbrains.kotlin:kotlin-stdlib`)
+
+| Field | Value |
+|---|---|
+| SPDX | `Apache-2.0` |
+| Coordinate | `org.jetbrains.kotlin:kotlin-stdlib:2.4.0` |
+| Bundled | Yes — jar-in-jar |
+| Source | https://github.com/JetBrains/kotlin |
+| License text | [`LICENSES/Apache-2.0.txt`](./LICENSES/Apache-2.0.txt) |
+| NOTICE file | None observed in packaged jar |
+| Modified by PVPUtils | No |
+| Copyright | Copyright © 2000-2026 JetBrains s.r.o. and Kotlin Programming Language contributors |
+| Role | Runtime for Cadence (`top.fpsmaster:music-api`, Kotlin sources) |
 
 #### JNA (`net.java.dev.jna:jna`)
 
@@ -288,7 +302,8 @@ Generated from `./gradlew dependencies --configuration clientRuntimeClasspath` /
 
 | Coordinate | SPDX | Path |
 |---|---|---|
-| `top.fpsmaster:music-api:0.1.1` → `:Cadence` | MIT | direct |
+| `top.fpsmaster:music-api:0.1.2` → `:Cadence` | MIT | direct |
+| `org.jetbrains.kotlin:kotlin-stdlib:2.4.0` | Apache-2.0 | direct (runtime for Cadence) |
 | `com.google.code.gson:gson` (declared 2.11.0, may resolve newer) | Apache-2.0 | direct + Cadence |
 | `io.nayuki:qrcodegen:1.8.0` | MIT | direct |
 | `io.github.humbleui:types:0.2.0` | Apache-2.0 | direct |
@@ -308,7 +323,7 @@ Generated from `./gradlew dependencies --configuration clientRuntimeClasspath` /
 | `com.github.goxr3plus:jaudiotagger:2.2.7` | LGPL-2.1-or-later | direct + transitive |
 | `commons-io:commons-io:2.20.0` | Apache-2.0 | direct + transitive |
 
-Transitive notes observed on the runtime classpath but **not** separately `include`d by PVPUtils `build.gradle` (may still be present on the **game/loader** classpath, not nested by this mod’s `include` list): `kotlin-stdlib` (Apache-2.0, via Cadence), `org.jetbrains:annotations`, `error_prone_annotations`, `slf4j-api`, `junit` (test scope of jlayer — not an `include`), ASM / Mixin / Minecraft / Fabric / Netty / Log4j / Guava / etc. (loader or Minecraft environment — see §5).
+Transitive notes observed on the runtime classpath but **not** separately `include`d by PVPUtils `build.gradle` (may still be present on the **game/loader** classpath, not nested by this mod’s `include` list): `org.jetbrains:annotations`, `error_prone_annotations`, `slf4j-api`, `junit` (test scope of jlayer — not an `include`), ASM / Mixin / Minecraft / Fabric / Netty / Log4j / Guava / etc. (loader or Minecraft environment — see §5).
 
 ### Not jar-in-jar by PVPUtils
 
@@ -397,6 +412,7 @@ Removing or hiding third-party attribution is not permitted. For LGPL/GPL compon
 | MixinExtras | MIT | No | `LICENSES/MIT.txt` + © line §1.1 | — |
 | Skija / types | Apache-2.0 | Yes | `LICENSES/Apache-2.0.txt` | — |
 | Gson | Apache-2.0 | Yes | `LICENSES/Apache-2.0.txt` | — |
+| Kotlin stdlib | Apache-2.0 | Yes | `LICENSES/Apache-2.0.txt` | — |
 | JNA | Apache-2.0 OR LGPL-2.1+ | Yes | both under `LICENSES/` | — |
 | Commons IO | Apache-2.0 | Yes | `LICENSES/Apache-2.0.txt` | `LICENSES/commons-io-NOTICE.txt` |
 | JCodec | BSD-2-Clause | Yes | `LICENSES/BSD-2-Clause-JCodec.txt` | — |
