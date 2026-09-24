@@ -71,6 +71,15 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
+    implementation "top.fpsmaster:music-api:0.1.1"
+    include "top.fpsmaster:music-api:0.1.1"
+
+    implementation "com.google.code.gson:gson:2.11.0"
+    include "com.google.code.gson:gson:2.11.0"
+
+    implementation "io.nayuki:qrcodegen:1.8.0"
+    include "io.nayuki:qrcodegen:1.8.0"
+
     implementation "io.github.llamalad7:mixinextras-fabric:0.4.1"
     annotationProcessor "io.github.llamalad7:mixinextras-common:0.4.1"
 

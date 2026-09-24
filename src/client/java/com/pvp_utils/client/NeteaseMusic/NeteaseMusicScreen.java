@@ -93,21 +93,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private boolean nowPlayingBackHovered;
     private PlayerButton pressedPlayerButton = PlayerButton.NONE;
     private SliderTarget draggingSliderTarget = SliderTarget.NONE;
-    private LoginMode loginMode = LoginMode.QR;
     private Focus focus = Focus.NONE;
     private Focus draggingTextSelection = Focus.NONE;
     private String query = "";
     private String playlistSearchQuery = "";
-    private String phone = "";
-    private String password = "";
     private int queryCursor;
     private int querySelection = -1;
     private int playlistSearchCursor;
     private int playlistSearchSelection = -1;
-    private int phoneCursor;
-    private int phoneSelection = -1;
-    private int passwordCursor;
-    private int passwordSelection = -1;
     private String statusText = "Waiting for login";
     private int firstSongIndex;
     private int firstPlaylistIndex;
@@ -138,8 +131,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private int playlistSearchInputY;
     private int playlistSearchInputW;
     private int playlistSearchInputH;
-    private int phoneInputX;
-    private int passwordInputX;
     private int lastGridSliderX;
     private int lastGridSliderY;
     private int lastGridSliderH;
@@ -154,6 +145,9 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private boolean pendingFrame;
     private int pendingMouseX;
     private int pendingMouseY;
+    private int lastLayoutMouseX;
+    private int lastLayoutMouseY;
+    private boolean userDetailOpen;
 
     public NeteaseMusicScreen(Screen parent) {
         super(Component.literal("Netease Music"), parent);
@@ -212,6 +206,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
         activeUiOffsetY = uiOffsetY;
         int layoutMouseX = Math.round(toLayoutX(mouseX, uiScale, uiOffsetX));
         int layoutMouseY = Math.round(toLayoutY(mouseY, uiScale, uiOffsetY));
+        lastLayoutMouseX = layoutMouseX;
+        lastLayoutMouseY = layoutMouseY;
         updateScrollAnimation();
         ContentTransition transition = contentTransition();
         Canvas canvas = glBackend.begin(mainFramebufferId());
@@ -241,6 +237,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
             renderPlayerSkia(canvas, layoutMouseX, layoutMouseY, alpha);
             renderPlayerSkiaText(canvas, alpha);
             renderSidebarSkiaText(canvas, alpha, mouseSafeViewMode());
+            renderUserDetailSkia(canvas, layoutMouseX, layoutMouseY, alpha);
             renderPoweredBy(canvas, alpha);
             renderCloseButtonSkia(canvas, layoutMouseX, layoutMouseY, alpha);
             if (nowPlayingOpen || nowPlayingClosing) {
@@ -517,31 +514,21 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private void renderLoginGateSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
         fill(canvas, 0, 0, width, height, withAlpha(0x000000, Math.round(alpha * 0.62F)));
         int w = 320;
-        int h = loginMode == LoginMode.QR ? 210 : 190;
+        int h = 210;
         int x = (width - w) / 2;
         int y = (height - h) / 2;
         rounded(canvas, x - 8, y - 8, w + 16, h + 16, 12f, withAlpha(0x000000, Math.round(alpha * 0.35F)));
         rounded(canvas, x, y, w, h, 10f, withAlpha(0x14181F, alpha));
         fill(canvas, x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
         drawSkiaCentered(canvas, "Netease Music Login", x + w / 2f, y + 28f, 14f, withAlpha(0xFFFFFF, alpha));
-        if (loginMode == LoginMode.PASSWORD) drawSkiaCentered(canvas, trim(statusText, 42), x + w / 2f, y + 45f, 11f, withAlpha(loading ? 0xE6C45B : 0xB8C0D4, alpha));
-        drawButtonSkia(canvas, x + 62, y + 52, 88, 22, mouseX, mouseY, "QR", alpha);
-        drawButtonSkia(canvas, x + 170, y + 52, 88, 22, mouseX, mouseY, "Password", alpha);
-        if (loginMode == LoginMode.QR) {
-            int qrX = x + 42;
-            int qrY = y + 88;
-            rounded(canvas, qrX, qrY, 96, 96, 4f, withAlpha(0xFFFFFF, alpha));
-            if (qrLogin != null && !qrLogin.qrImage().isBlank()) renderCoverSkia(canvas, qrLogin.qrImage(), qrX + 4, qrY + 4, 88, alpha, 0f);
-            else drawSkiaCentered(canvas, "QR", qrX + 48f, qrY + 54f, 14f, withAlpha(0x111111, alpha));
-            FontRenderer.drawText(canvas, Config.isChinese ? "\u4f7f\u7528\u7f51\u6613\u4e91\u97f3\u4e50\u626b\u7801" : "Scan with Netease app", qrX + 116f, qrY + 24f, 12f, withAlpha(0xFFFFFF, alpha));
-            drawButtonSkia(canvas, qrX + 116, qrY + 42, 110, 24, mouseX, mouseY, qrButtonText(), alpha);
-        } else {
-            phoneInputX = x + 38;
-            passwordInputX = x + 38;
-            drawInputSkia(canvas, phoneInputX, y + 86, w - 76, 22, mouseX, mouseY, phone, Config.isChinese ? "\u624b\u673a\u53f7" : "Phone", Focus.PHONE, alpha);
-            drawInputSkia(canvas, passwordInputX, y + 116, w - 76, 22, mouseX, mouseY, "*".repeat(password.length()), Config.isChinese ? "\u5bc6\u7801" : "Password", Focus.PASSWORD, alpha);
-            drawButtonSkia(canvas, x + 106, y + 150, 108, 24, mouseX, mouseY, loading ? "..." : "Login", alpha);
-        }
+        int qrX = x + 42;
+        int qrY = y + 52;
+        rounded(canvas, qrX, qrY, 96, 96, 4f, withAlpha(0xFFFFFF, alpha));
+        if (qrLogin != null && !qrLogin.qrImage().isBlank()) renderCoverSkia(canvas, qrLogin.qrImage(), qrX + 4, qrY + 4, 88, alpha, 0f);
+        else drawSkiaCentered(canvas, "QR", qrX + 48f, qrY + 54f, 14f, withAlpha(0x111111, alpha));
+        FontRenderer.drawText(canvas, Config.isChinese ? "\u4f7f\u7528\u7f51\u6613\u4e91\u97f3\u4e50\u626b\u7801" : "Scan with Netease app", qrX + 116f, qrY + 24f, 12f, withAlpha(0xFFFFFF, alpha));
+        drawButtonSkia(canvas, qrX + 116, qrY + 42, 110, 24, mouseX, mouseY, qrButtonText(), alpha);
+        drawSkiaCentered(canvas, trim(statusText, 48), x + w / 2f, y + h - 18f, 11f, withAlpha(loading ? 0xE6C45B : 0x8F98AA, alpha));
     }
 
     private void renderGridSliderSkia(Canvas canvas, int x, int y, int h, int columns, int visibleCards, int mouseX, int mouseY, int alpha) {
@@ -723,7 +710,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
         }
 
         NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
-        String name = session == null ? Minecraft.getInstance().getUser().getName() : session.nickname();
+        String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
         int avatarY = height - PLAYER_HEIGHT - 34;
         graphics.fill(0, height - PLAYER_HEIGHT - 50, SIDEBAR_WIDTH, height - PLAYER_HEIGHT, withAlpha(0x0D1412, Math.round(alpha * 0.55F)));
         if (session != null && !session.avatarUrl().isBlank()) {
@@ -1146,6 +1133,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
         if (MusicPlaybackService.INSTANCE.currentSong() == null) {
             return;
         }
+        userDetailOpen = false;
         nowPlayingOpen = true;
         nowPlayingClosing = false;
         nowPlayingTransitionStartedAt = System.currentTimeMillis();
@@ -1200,28 +1188,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private void renderLoginGate(GuiGraphics graphics, int mouseX, int mouseY, int alpha) {
         graphics.fill(0, 0, width, height, withAlpha(0x000000, Math.round(alpha * 0.62F)));
         int w = 320;
-        int h = loginMode == LoginMode.QR ? 210 : 190;
+        int h = 210;
         int x = (width - w) / 2;
         int y = (height - h) / 2;
         graphics.fill(x - 8, y - 8, x + w + 8, y + h + 8, withAlpha(0x000000, Math.round(alpha * 0.35F)));
         graphics.fill(x, y, x + w, y + h, withAlpha(0x14181F, alpha));
         graphics.fill(x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
         graphics.drawCenteredString(font, "Netease Music Login", x + w / 2, y + 14, withAlpha(0xFFFFFF, alpha));
-        if (loginMode == LoginMode.PASSWORD) {
-            graphics.drawCenteredString(font, trim(statusText, 42), x + w / 2, y + 32, withAlpha(loading ? 0xE6C45B : 0xB8C0D4, alpha));
-        }
-        drawButton(graphics, x + 62, y + 52, 88, 22, mouseX, mouseY, "QR", alpha);
-        drawButton(graphics, x + 170, y + 52, 88, 22, mouseX, mouseY, "Password", alpha);
-
-        if (loginMode == LoginMode.QR) {
-            renderQrLogin(graphics, x, y, w, mouseX, mouseY, alpha);
-        } else {
-            phoneInputX = x + 38;
-            passwordInputX = x + 38;
-            drawInput(graphics, phoneInputX, y + 86, w - 76, 22, mouseX, mouseY, phone, Config.isChinese ? "手机号" : "Phone", Focus.PHONE, alpha);
-            drawInput(graphics, passwordInputX, y + 116, w - 76, 22, mouseX, mouseY, "*".repeat(password.length()), Config.isChinese ? "密码" : "Password", Focus.PASSWORD, alpha);
-            drawButton(graphics, x + 106, y + 150, 108, 24, mouseX, mouseY, loading ? "..." : "Login", alpha);
-        }
+        renderQrLogin(graphics, x, y + 38, w, mouseX, mouseY, alpha);
     }
 
     private void renderQrLogin(GuiGraphics graphics, int x, int y, int w, int mouseX, int mouseY, int alpha) {
@@ -1449,8 +1423,100 @@ public class NeteaseMusicScreen extends SkiaScreen {
             }
         }
         NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
-        String name = session == null ? Minecraft.getInstance().getUser().getName() : session.nickname();
+        String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
         FontRenderer.drawText(canvas, trimToWidth(name, 112f), 40f, height - PLAYER_HEIGHT - 20f, 12f, withAlpha(0xFFFFFF, alpha));
+        boolean avatarHovered = hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, lastLayoutMouseX, lastLayoutMouseY);
+        if (avatarHovered || userDetailOpen) {
+            rounded(canvas, 8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, 8f, withAlpha(0xFFFFFF, Math.round(alpha * (userDetailOpen ? 0.10F : 0.06F))));
+        }
+    }
+
+    private int userDetailPopupX() {
+        return 8;
+    }
+
+    private int userDetailPopupY() {
+        return height - PLAYER_HEIGHT - 50 - 146 - 8;
+    }
+
+    private static final int USER_DETAIL_POPUP_W = 210;
+    private static final int USER_DETAIL_POPUP_H = 146;
+
+    private void renderUserDetailSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
+        if (!userDetailOpen || !NeteaseMusicApi.isLoggedIn()) return;
+        if (nowPlayingOpen || nowPlayingClosing) return;
+        NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
+        int x = userDetailPopupX();
+        int y = userDetailPopupY();
+        int w = USER_DETAIL_POPUP_W;
+        int h = USER_DETAIL_POPUP_H;
+        rounded(canvas, x - 4, y - 4, w + 8, h + 8, 14f, withAlpha(0x000000, Math.round(alpha * 0.40F)));
+        rounded(canvas, x, y, w, h, 10f, withAlpha(0x14181F, alpha));
+        fill(canvas, x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
+        float avatarSize = 44f;
+        float avatarX = x + 14;
+        float avatarY = y + 16;
+        if (session != null && !session.avatarUrl().isBlank()) {
+            renderCoverSkia(canvas, session.avatarUrl(), avatarX, avatarY, avatarSize, alpha, avatarSize / 2f);
+        } else {
+            rounded(canvas, avatarX, avatarY, avatarSize, avatarSize, avatarSize / 2f, withAlpha(0xDDEBFF, alpha));
+        }
+        String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
+        FontRenderer.drawText(canvas, trimToWidth(name, 130f), x + 68, y + 32, 14f, withAlpha(0xFFFFFF, alpha));
+        String subtitle = session == null ? "" : "UID " + session.uid();
+        if (!subtitle.isEmpty()) {
+            FontRenderer.drawText(canvas, subtitle, x + 68, y + 52, 11f, withAlpha(0x8F98AA, alpha));
+        }
+        FontRenderer.drawText(canvas, Config.isChinese ? "网易云音乐账号" : "Netease Music Account", x + 14, y + 78, 11f, withAlpha(0x7C8088, alpha));
+        int btnX = x + 14;
+        int btnY = y + h - 44;
+        int btnW = w - 28;
+        int btnH = 28;
+        drawRedButtonSkia(canvas, btnX, btnY, btnW, btnH, mouseX, mouseY, alpha);
+        drawSkiaCentered(canvas, Config.isChinese ? "退出登录" : "Log out", btnX + btnW * 0.5f, btnY + btnH * 0.65f, 12f, withAlpha(0xFFFFFF, alpha));
+    }
+
+    private boolean handleUserDetailClick(double mouseX, double mouseY) {
+        if (!userDetailOpen) return false;
+        int x = userDetailPopupX();
+        int y = userDetailPopupY();
+        int w = USER_DETAIL_POPUP_W;
+        int h = USER_DETAIL_POPUP_H;
+        int btnX = x + 14;
+        int btnY = y + h - 44;
+        int btnW = w - 28;
+        int btnH = 28;
+        if (hit(btnX, btnY, btnW, btnH, mouseX, mouseY)) {
+            performLogout();
+            return true;
+        }
+        if (!hit(x, y, w, h, mouseX, mouseY)) {
+            userDetailOpen = false;
+            return true;
+        }
+        return true;
+    }
+
+    private void performLogout() {
+        userDetailOpen = false;
+        NeteaseMusicApi.logout();
+        playlists.clear();
+        recommendedPlaylists.clear();
+        songs.clear();
+        fullPlaylistSongs.clear();
+        selectedPlaylistIndex = -1;
+        currentPlaylist = null;
+        viewMode = ViewMode.HOME;
+        firstPlaylistIndex = 0;
+        visualFirstPlaylistIndex = 0.0F;
+        firstSongIndex = 0;
+        visualFirstSongIndex = 0.0F;
+        statusText = Config.isChinese ? "已退出登录" : "Logged out";
+        cancelQrLogin();
+        qrLogin = null;
+        qrPolling = false;
+        startQrLogin();
+        requestRedraw();
     }
 
     private void renderCurrentSkiaText(Canvas canvas, int alpha) {
@@ -1820,6 +1886,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
             return true;
         }
 
+        if (userDetailOpen) {
+            return handleUserDetailClick(mouseX, mouseY);
+        }
+
         if (MusicPlaybackService.INSTANCE.currentSong() != null
                 && hit(SIDEBAR_WIDTH + 44, height - PLAYER_HEIGHT + 14, 48, 48, mouseX, mouseY)) {
             openNowPlaying();
@@ -1828,6 +1898,12 @@ public class NeteaseMusicScreen extends SkiaScreen {
 
         if (hit(12, 14, SIDEBAR_WIDTH - 24, 22, mouseX, mouseY)) {
             focusAt(Focus.SEARCH, 12, mouseX);
+            return true;
+        }
+        if (hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, mouseX, mouseY)) {
+            userDetailOpen = true;
+            focus = Focus.NONE;
+            requestRedraw();
             return true;
         }
         if (viewMode == ViewMode.PLAYLIST && hit(playlistSearchInputX, playlistSearchInputY, playlistSearchInputW, playlistSearchInputH, mouseX, mouseY)) {
@@ -1956,42 +2032,13 @@ public class NeteaseMusicScreen extends SkiaScreen {
 
     private boolean handleLoginClick(double mouseX, double mouseY) {
         int w = 320;
-        int h = loginMode == LoginMode.QR ? 210 : 190;
+        int h = 210;
         int x = (width - w) / 2;
         int y = (height - h) / 2;
-        if (hit(x + 62, y + 52, 88, 22, mouseX, mouseY)) {
-            loginMode = LoginMode.QR;
-            focus = Focus.NONE;
-            if (qrLogin == null && !qrPolling) {
-                startQrLogin();
-            }
-            return true;
-        }
-        if (hit(x + 170, y + 52, 88, 22, mouseX, mouseY)) {
-            loginMode = LoginMode.PASSWORD;
-            cancelQrLogin();
-            focus = Focus.PHONE;
-            return true;
-        }
-        if (loginMode == LoginMode.QR) {
-            int qrX = x + 42;
-            int qrY = y + 88;
-            if (hit(qrX + 116, qrY + 42, 110, 24, mouseX, mouseY)) {
-                startQrLogin();
-                return true;
-            }
-            return true;
-        }
-        if (hit(phoneInputX, y + 86, w - 76, 22, mouseX, mouseY)) {
-            focusAt(Focus.PHONE, phoneInputX, mouseX);
-            return true;
-        }
-        if (hit(passwordInputX, y + 116, w - 76, 22, mouseX, mouseY)) {
-            focusAt(Focus.PASSWORD, passwordInputX, mouseX);
-            return true;
-        }
-        if (hit(x + 106, y + 150, 108, 24, mouseX, mouseY)) {
-            login();
+        int qrX = x + 42;
+        int qrY = y + 52;
+        if (hit(qrX + 116, qrY + 42, 110, 24, mouseX, mouseY)) {
+            startQrLogin();
             return true;
         }
         focus = Focus.NONE;
@@ -2101,6 +2148,11 @@ public class NeteaseMusicScreen extends SkiaScreen {
     public boolean keyPressed(KeyEvent event) {
         if (focus == Focus.NONE) {
             if (event.key() == GLFW_KEY_ESCAPE) {
+                if (userDetailOpen) {
+                    userDetailOpen = false;
+                    requestRedraw();
+                    return true;
+                }
                 if (nowPlayingOpen && !nowPlayingClosing) {
                     closeNowPlaying();
                     return true;
@@ -2146,8 +2198,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
                     runSearchOrRefresh();
                 } else if (focus == Focus.PLAYLIST_SEARCH) {
                     focus = Focus.NONE;
-                } else if (focus == Focus.PASSWORD) {
-                    login();
                 }
                 return true;
             }
@@ -2373,31 +2423,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         }));
     }
 
-    private void login() {
-        if (loading) return;
-        loading = true;
-        statusText = "Logging in...";
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.loginCellphone(phone, password);
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((session, throwable) -> Minecraft.getInstance().execute(() -> {
-            loading = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
-                return;
-            }
-            password = "";
-            focus = Focus.NONE;
-            cancelQrLogin();
-            statusText = "Logged in: " + session.nickname();
-            loadRecommendedPlaylists();
-            loadUserPlaylists();
-        }));
-    }
-
     private void startQrLogin() {
         if (loading || qrPolling || NeteaseMusicApi.isLoggedIn()) return;
         int serial = ++qrSerial;
@@ -2411,7 +2436,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 throw new RuntimeException(exception);
             }
         }, IO).whenComplete((login, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != qrSerial || loginMode != LoginMode.QR) return;
+            if (serial != qrSerial) return;
             if (throwable != null) {
                 qrPolling = false;
                 statusText = cleanMessage(throwable);
@@ -2426,10 +2451,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private void pollQrLogin(int serial, String key) {
         CompletableFuture.supplyAsync(() -> {
             try {
-                while (serial == qrSerial && loginMode == LoginMode.QR && !NeteaseMusicApi.isLoggedIn()) {
+                while (serial == qrSerial && !NeteaseMusicApi.isLoggedIn()) {
                     NeteaseMusicApi.QrLoginStatus status = NeteaseMusicApi.checkQrLogin(key);
                     Minecraft.getInstance().execute(() -> {
-                        if (serial == qrSerial && loginMode == LoginMode.QR) {
+                        if (serial == qrSerial) {
                             statusText = qrStatusText(status.code(), status.message());
                         }
                     });
@@ -2446,7 +2471,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 throw new RuntimeException(exception);
             }
         }, IO).whenComplete((session, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != qrSerial || loginMode != LoginMode.QR) return;
+            if (serial != qrSerial) return;
             qrPolling = false;
             if (throwable != null) {
                 statusText = cleanMessage(throwable);
@@ -2877,8 +2902,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         return switch (field) {
             case SEARCH -> query;
             case PLAYLIST_SEARCH -> playlistSearchQuery;
-            case PHONE -> phone;
-            case PASSWORD -> password;
             case NONE -> "";
         };
     }
@@ -2890,8 +2913,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 playlistSearchQuery = value;
                 applyPlaylistFilter();
             }
-            case PHONE -> phone = value;
-            case PASSWORD -> password = value;
             case NONE -> {
             }
         }
@@ -2901,8 +2922,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         return switch (field) {
             case SEARCH -> queryCursor;
             case PLAYLIST_SEARCH -> playlistSearchCursor;
-            case PHONE -> phoneCursor;
-            case PASSWORD -> passwordCursor;
             case NONE -> 0;
         };
     }
@@ -2912,8 +2931,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         switch (field) {
             case SEARCH -> queryCursor = cursor;
             case PLAYLIST_SEARCH -> playlistSearchCursor = cursor;
-            case PHONE -> phoneCursor = cursor;
-            case PASSWORD -> passwordCursor = cursor;
             case NONE -> {
             }
         }
@@ -2923,8 +2940,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         return switch (field) {
             case SEARCH -> querySelection;
             case PLAYLIST_SEARCH -> playlistSearchSelection;
-            case PHONE -> phoneSelection;
-            case PASSWORD -> passwordSelection;
             case NONE -> -1;
         };
     }
@@ -2934,8 +2949,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         switch (field) {
             case SEARCH -> querySelection = anchor;
             case PLAYLIST_SEARCH -> playlistSearchSelection = anchor;
-            case PHONE -> phoneSelection = anchor;
-            case PASSWORD -> passwordSelection = anchor;
             case NONE -> {
             }
         }
@@ -2952,15 +2965,12 @@ public class NeteaseMusicScreen extends SkiaScreen {
         return switch (field) {
             case SEARCH -> 12;
             case PLAYLIST_SEARCH -> playlistSearchInputX;
-            case PHONE -> phoneInputX;
-            case PASSWORD -> passwordInputX;
             case NONE -> 0;
         };
     }
 
     private int cursorFromMouse(Focus field, int inputX, double mouseX) {
         String value = text(field);
-        String display = field == Focus.PASSWORD ? "*".repeat(value.length()) : value;
         int relativeX = (int) Math.round(mouseX - inputX - 8);
         if (relativeX <= 0 || value.isEmpty()) {
             return 0;
@@ -2968,8 +2978,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int index = 0;
         while (index < value.length()) {
             int next = value.offsetByCodePoints(index, 1);
-            int currentWidth = font.width(display.substring(0, Math.min(index, display.length())));
-            int nextWidth = font.width(display.substring(0, Math.min(next, display.length())));
+            int currentWidth = font.width(value.substring(0, Math.min(index, value.length())));
+            int nextWidth = font.width(value.substring(0, Math.min(next, value.length())));
             if (relativeX < (currentWidth + nextWidth) / 2) {
                 return index;
             }
@@ -3182,14 +3192,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private enum Focus {
         NONE,
         SEARCH,
-        PLAYLIST_SEARCH,
-        PHONE,
-        PASSWORD
-    }
-
-    private enum LoginMode {
-        PASSWORD,
-        QR
+        PLAYLIST_SEARCH
     }
 
     private enum ViewMode {

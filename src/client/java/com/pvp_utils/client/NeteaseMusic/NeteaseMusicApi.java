@@ -1,23 +1,29 @@
 package com.pvp_utils.client.NeteaseMusic;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
+import top.fpsmaster.music.AudioQuality;
+import top.fpsmaster.music.Lyric;
+import top.fpsmaster.music.MusicService;
+import top.fpsmaster.music.MusicSource;
+import top.fpsmaster.music.PlaylistBrief;
+import top.fpsmaster.music.QrCode;
+import top.fpsmaster.music.QrLoginState;
+import top.fpsmaster.music.SongUrl;
+import top.fpsmaster.music.Track;
+import top.fpsmaster.music.UserProfile;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class NeteaseMusicApi {
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
@@ -25,146 +31,148 @@ public final class NeteaseMusicApi {
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
-    private NeteaseMusicApi() {
-    }
+    private static final MusicService musicService = new MusicService();
+    private static volatile LoginSession loginSession;
+    private static volatile boolean profileRefreshInFlight;
+    private static volatile long profileRefreshLastAttempt;
 
-    public static List<Song> getTopNewSongs() throws IOException, InterruptedException {
-        JsonObject root = getJsonObject("/top/song?type=0");
-        List<Song> result = new ArrayList<>();
-        JsonArray data = array(root, "data");
-        for (int i = 0; i < Math.min(30, data.size()); i++) {
-            JsonObject song = object(data.get(i));
-            JsonObject album = object(song.get("album"));
-            result.add(new Song(
-                    appendImageSize(string(album, "picUrl")),
-                    string(song, "name"),
-                    firstArtist(array(song, "artists")),
-                    number(song, "id"),
-                    number(song, "duration")
-            ));
-        }
-        return result;
+    private NeteaseMusicApi() {
     }
 
     public static List<Song> search(String query) throws IOException, InterruptedException {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        JsonObject root = getJsonObject("/cloudsearch?keywords=" + encode(query));
-        JsonArray songs = array(object(root.get("result")), "songs");
-        List<Song> result = new ArrayList<>();
-        for (JsonElement element : songs) {
-            JsonObject song = object(element);
-            JsonObject album = object(song.get("al"));
-            result.add(new Song(
-                    appendImageSize(string(album, "picUrl")),
-                    string(song, "name"),
-                    firstArtist(array(song, "ar")),
-                    number(song, "id"),
-                    number(song, "dt")
-            ));
+        try {
+            List<Track> tracks = musicService.getNetease().search(query, 30, 0);
+            List<Song> result = new ArrayList<>();
+            for (Track track : tracks) {
+                result.add(trackToSong(track));
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IOException("Search failed", e);
         }
-        return result;
     }
 
     public static List<Playlist> getRecommendedPlaylists() throws IOException, InterruptedException {
-        JsonObject root = getJsonObject(withSession("/personalized?limit=36"));
-        List<Playlist> result = new ArrayList<>();
-        JsonArray playlists = array(root, "result");
-        for (JsonElement element : playlists) {
-            JsonObject playlist = object(element);
-            result.add(new Playlist(
-                    number(playlist, "id"),
-                    string(playlist, "name"),
-                    appendImageSize(string(playlist, "picUrl")),
-                    number(playlist, "playCount"),
-                    (int) number(playlist, "trackCount"),
-                    string(playlist, "copywriter")
-            ));
+        try {
+            if (isLoggedIn()) {
+                List<PlaylistBrief> playlists = musicService.getNetease().getRecommendPlaylists();
+                List<Playlist> result = new ArrayList<>();
+                for (PlaylistBrief p : playlists) {
+                    String coverUrl = p.getCoverUrl() != null ? p.getCoverUrl() : "";
+                    if (!coverUrl.isBlank() && !coverUrl.contains("param=")) {
+                        coverUrl = coverUrl + (coverUrl.contains("?") ? "&" : "?") + "param=512y512";
+                    }
+                    result.add(new Playlist(Long.parseLong(p.getId()), p.getName(), coverUrl, p.getPlayCount(), p.getTrackCount(), p.getCreator()));
+                }
+                return result;
+            }
+            return new ArrayList<>();
+        } catch (Exception e) {
+            throw new IOException("Failed to get recommended playlists", e);
         }
-        return result;
     }
 
     public static SongFile getSongFile(long id) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject(withSession("/song/url/v1?id=" + id + "&level=exhigh"));
-        JsonArray data = array(root, "data");
-        if (data.isEmpty()) {
-            return new SongFile("", 0L);
+        try {
+            Track track = trackFromId(id);
+            SongUrl songUrl = musicService.getSongUrl(track, AudioQuality.HIGH);
+            if (!songUrl.getAvailable()) {
+                return new SongFile("", 0L);
+            }
+            return new SongFile(songUrl.getUrl(), songUrl.getSizeBytes());
+        } catch (Exception e) {
+            throw new IOException("Failed to get song file", e);
         }
-        JsonObject file = object(data.get(0));
-        return new SongFile(string(file, "url"), number(file, "size"));
     }
 
     public static List<LyricLine> getLyric(long id) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject("/lyric?id=" + id);
-        return LyricLineProcessor.parse(
-                string(object(root.get("lrc")), "lyric"),
-                string(object(root.get("tlyric")), "lyric")
-        );
+        try {
+            Track track = trackFromId(id);
+            Lyric lyric = musicService.getLyric(track);
+            List<LyricLine> result = new ArrayList<>();
+            for (top.fpsmaster.music.LyricLine line : lyric.getLines()) {
+                String text = line.getText() != null ? line.getText() : "";
+                String trans = line.getTranslation() != null ? line.getTranslation() : "";
+                if (isInstrumentalPlaceholder(text)) {
+                    continue;
+                }
+                result.add(new LyricLine(text, trans, line.getStartMs()));
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IOException("Failed to get lyric", e);
+        }
     }
 
     public static QrLogin createQrLogin() throws IOException, InterruptedException {
-        JsonObject keyRoot = getJsonObject("/login/qr/key?timestamp=" + System.currentTimeMillis());
-        String key = string(object(keyRoot.get("data")), "unikey");
-        if (key.isBlank()) {
-            throw new IOException("Failed to create QR key");
+        try {
+            QrCode qr = musicService.getNetease().createQrCode();
+            String qrUrl = qr.getQrContent();
+            if (qrUrl == null || qrUrl.isBlank()) {
+                throw new IOException("QR content is empty");
+            }
+            String qrImage = generateQrDataUrl(qrUrl);
+            return new QrLogin(qr.getKey(), qrUrl, qrImage);
+        } catch (Exception e) {
+            throw new IOException("Failed to create QR login", e);
         }
-        JsonObject qrRoot = getJsonObject("/login/qr/create?key=" + encode(key)
-                + "&qrimg=true&timestamp=" + System.currentTimeMillis());
-        JsonObject data = object(qrRoot.get("data"));
-        String qrImage = string(data, "qrimg");
-        String qrUrl = string(data, "qrurl");
-        if (qrImage.isBlank() && qrUrl.isBlank()) {
-            throw new IOException("Failed to create QR code");
+    }
+
+    private static String generateQrDataUrl(String content) throws Exception {
+        io.nayuki.qrcodegen.QrCode qr = io.nayuki.qrcodegen.QrCode.encodeText(content, io.nayuki.qrcodegen.QrCode.Ecc.MEDIUM);
+        int scale = 8;
+        int size = qr.size * scale;
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        g.setColor(java.awt.Color.WHITE);
+        g.fillRect(0, 0, size, size);
+        g.setColor(java.awt.Color.BLACK);
+        for (int y = 0; y < qr.size; y++) {
+            for (int x = 0; x < qr.size; x++) {
+                if (qr.getModule(x, y)) {
+                    g.fillRect(x * scale, y * scale, scale, scale);
+                }
+            }
         }
-        return new QrLogin(key, qrUrl, qrImage);
+        g.dispose();
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "PNG", baos);
+        return "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(baos.toByteArray());
     }
 
     public static QrLoginStatus checkQrLogin(String key) throws IOException, InterruptedException {
         if (key == null || key.isBlank()) {
             throw new IOException("QR key is empty");
         }
-        JsonObject root = getJsonObject("/login/qr/check?key=" + encode(key)
-                + "&timestamp=" + System.currentTimeMillis());
-        int code = (int) number(root, "code");
-        String message = errorMessage(root, switch (code) {
-            case 800 -> "QR code expired";
-            case 801 -> "Waiting for scan";
-            case 802 -> "Waiting for confirmation";
-            case 803 -> "QR login confirmed";
-            default -> "QR login failed: " + code;
-        });
-        if (code != 803) {
-            return new QrLoginStatus(code, message, null);
+        try {
+            QrCode qr = new QrCode(key, "https://music.163.com/login?codekey=" + key);
+            QrLoginState state = musicService.getNetease().checkQrCode(qr);
+            return switch (state) {
+                case CONFIRMED -> {
+                    String cookie = musicService.getNetease().getCookie();
+                    LoginSession session = refreshSessionFromCookie(cookie);
+                    if (session == null) {
+                        session = new LoginSession(0, "", "", cookie);
+                    }
+                    loginSession = session;
+                    saveSession(session);
+                    yield new QrLoginStatus(803, "QR login confirmed", session);
+                }
+                case SCANNED -> new QrLoginStatus(802, "Waiting for confirmation", null);
+                case WAITING -> new QrLoginStatus(801, "Waiting for scan", null);
+                case EXPIRED -> new QrLoginStatus(800, "QR code expired", null);
+                default -> new QrLoginStatus(-1, "QR login failed", null);
+            };
+        } catch (Exception e) {
+            throw new IOException("Failed to check QR login", e);
         }
-        String cookie = string(root, "cookie");
-        if (cookie.isBlank()) {
-            throw new IOException("QR login did not return cookie");
-        }
-        LoginSession session = loadSessionFromCookie(cookie);
-        loginSession = session;
-        saveSession(session);
-        return new QrLoginStatus(code, message, session);
     }
 
     public static LoginSession loginCellphone(String phone, String password) throws IOException, InterruptedException {
-        if (phone == null || phone.isBlank()) {
-            throw new IOException("Phone number is empty");
-        }
-        if (password == null || password.isBlank()) {
-            throw new IOException("Password is empty");
-        }
-        JsonObject root = getJsonObject("/login/cellphone?phone=" + encode(phone.trim())
-                + "&password=" + encode(password)
-                + "&timestamp=" + System.currentTimeMillis());
-        JsonObject profile = object(root.get("profile"));
-        LoginSession session = refreshSessionProfile(new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), string(root, "cookie")));
-        if (session.uid() <= 0L || session.cookie().isBlank()) {
-            throw new IOException("Netease login failed");
-        }
-        loginSession = session;
-        saveSession(session);
-        return session;
+        throw new IOException("Cellphone login is not supported. Please use QR code login.");
     }
 
     public static List<Playlist> getUserPlaylists() throws IOException, InterruptedException {
@@ -172,23 +180,20 @@ public final class NeteaseMusicApi {
         if (session == null) {
             return List.of();
         }
-        JsonObject root = getJsonObject("/user/playlist?uid=" + session.uid()
-                + "&limit=100&cookie=" + encode(session.cookie())
-                + "&timestamp=" + System.currentTimeMillis());
-        List<Playlist> result = new ArrayList<>();
-        JsonArray playlists = array(root, "playlist");
-        for (JsonElement element : playlists) {
-            JsonObject playlist = object(element);
-            result.add(new Playlist(
-                    number(playlist, "id"),
-                    string(playlist, "name"),
-                    appendImageSize(string(playlist, "coverImgUrl")),
-                    number(playlist, "playCount"),
-                    (int) number(playlist, "trackCount"),
-                    string(object(playlist.get("creator")), "nickname")
-            ));
+        try {
+            List<PlaylistBrief> playlists = musicService.getNetease().getUserPlaylists(session.uid(), 100, 0);
+            List<Playlist> result = new ArrayList<>();
+            for (PlaylistBrief p : playlists) {
+                String coverUrl = p.getCoverUrl() != null ? p.getCoverUrl() : "";
+                if (!coverUrl.isBlank() && !coverUrl.contains("param=")) {
+                    coverUrl = coverUrl + (coverUrl.contains("?") ? "&" : "?") + "param=512y512";
+                }
+                result.add(new Playlist(Long.parseLong(p.getId()), p.getName(), coverUrl, p.getPlayCount(), p.getTrackCount(), p.getCreator()));
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IOException("Failed to get user playlists", e);
         }
-        return result;
     }
 
     public static List<Song> getPlaylistDetail(long id) throws IOException, InterruptedException {
@@ -196,17 +201,17 @@ public final class NeteaseMusicApi {
     }
 
     public static List<Song> getPlaylistDetail(long id, int limit, int offset) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject(withSession("/playlist/track/all?id=" + id
-                + "&limit=" + Math.max(1, limit)
-                + "&offset=" + Math.max(0, offset)));
-        List<Song> result = new ArrayList<>();
-        JsonArray songs = array(root, "songs");
-        for (JsonElement element : songs) {
-            JsonObject song = object(element);
-            JsonObject album = object(song.get("al"));
-            result.add(new Song(appendImageSize(string(album, "picUrl")), string(song, "name"), firstArtist(array(song, "ar")), number(song, "id"), number(song, "dt")));
+        try {
+            List<Track> tracks = musicService.getNetease().getPlaylistTracks(String.valueOf(id), Math.max(1, limit));
+            List<Song> result = new ArrayList<>();
+            int end = Math.min(offset + limit, tracks.size());
+            for (int i = offset; i < end; i++) {
+                result.add(trackToSong(tracks.get(i)));
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IOException("Failed to get playlist detail", e);
         }
-        return result;
     }
 
     public static boolean isLoggedIn() {
@@ -222,13 +227,17 @@ public final class NeteaseMusicApi {
             return false;
         }
         try {
-            JsonElement element = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
-            JsonObject object = object(element);
-            LoginSession session = new LoginSession(number(object, "uid"), string(object, "nickname"), appendImageSize(string(object, "avatarUrl")), string(object, "cookie"));
-            if (session.uid() <= 0L || session.cookie().isBlank()) {
+            com.google.gson.JsonElement element = com.google.gson.JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
+            com.google.gson.JsonObject object = element.getAsJsonObject();
+            String cookie = getString(object, "cookie");
+            if (cookie.isBlank()) {
                 return false;
             }
-            session = refreshSessionProfile(session);
+            musicService.getNetease().setCookie(cookie);
+            LoginSession session = refreshSessionFromCookie(cookie);
+            if (session == null) {
+                return false;
+            }
             loginSession = session;
             saveSession(session);
             return true;
@@ -247,6 +256,7 @@ public final class NeteaseMusicApi {
 
     public static void logout() {
         loginSession = null;
+        musicService.getNetease().clearLogin();
         try {
             Files.deleteIfExists(sessionPath());
         } catch (IOException ignored) {
@@ -267,69 +277,43 @@ public final class NeteaseMusicApi {
         return response.body();
     }
 
-    private static JsonObject getJsonObject(String path) throws IOException, InterruptedException {
-        if (!NeteaseMusicLocalService.isServiceAvailable()) {
-            throw new IOException("Local Netease service is unavailable");
-        }
-        HttpRequest request = HttpRequest.newBuilder(URI.create(NeteaseMusicLocalService.baseUrl() + path))
-                .timeout(Duration.ofSeconds(15))
-                .GET()
-                .header("Accept", "application/json")
-                .header("User-Agent", "PVPUtils/1.0")
-                .build();
-        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("HTTP " + response.statusCode());
-        }
-        JsonElement element = JsonParser.parseString(response.body());
-        if (!element.isJsonObject()) {
-            throw new IOException("Expected JSON object");
-        }
-        return element.getAsJsonObject();
-    }
-
-    private static LoginSession loadSessionFromCookie(String cookie) throws IOException, InterruptedException {
-        JsonObject root = getJsonObject("/user/account?cookie=" + encode(cookie)
-                + "&timestamp=" + System.currentTimeMillis());
-        JsonObject profile = object(root.get("profile"));
-        LoginSession session = refreshSessionProfile(new LoginSession(number(profile, "userId"), string(profile, "nickname"), appendImageSize(string(profile, "avatarUrl")), cookie));
-        if (session.uid() <= 0L || session.cookie().isBlank()) {
-            throw new IOException("Netease account response did not include a usable session");
-        }
-        return session;
-    }
-
-    private static LoginSession refreshSessionProfile(LoginSession session) {
-        if (session == null || session.uid() <= 0L || session.cookie().isBlank()) {
-            return session;
-        }
+    private static LoginSession refreshSessionFromCookie(String cookie) {
         try {
-            JsonObject root = getJsonObject("/user/detail?uid=" + session.uid()
-                    + "&cookie=" + encode(session.cookie())
-                    + "&timestamp=" + System.currentTimeMillis());
-            JsonObject profile = object(root.get("profile"));
-            String nickname = string(profile, "nickname");
-            String avatarUrl = appendImageSize(string(profile, "avatarUrl"));
-            return new LoginSession(
-                    session.uid(),
-                    nickname.isBlank() ? session.nickname() : nickname,
-                    avatarUrl.isBlank() ? session.avatarUrl() : avatarUrl,
-                    session.cookie()
-            );
-        } catch (Exception ignored) {
-            return session;
+            musicService.getNetease().setCookie(cookie);
+            Long uid = musicService.getNetease().getLoginUid();
+            if (uid == null || uid <= 0) {
+                return null;
+            }
+            String nickname = "";
+            String avatarUrl = "";
+            try {
+                UserProfile profile = musicService.getNetease().getUserProfile(uid);
+                if (profile != null) {
+                    nickname = profile.getNickname() != null ? profile.getNickname() : "";
+                    avatarUrl = profile.getAvatarUrl() != null ? profile.getAvatarUrl() : "";
+                }
+            } catch (Exception ignored) {
+            }
+            if (!avatarUrl.isBlank() && !avatarUrl.contains("param=")) {
+                avatarUrl = avatarUrl + (avatarUrl.contains("?") ? "&" : "?") + "param=512y512";
+            }
+            return new LoginSession(uid, nickname, avatarUrl, cookie);
+        } catch (Exception e) {
+            return null;
         }
     }
 
     private static void requestSessionProfileRefresh(LoginSession session) {
-        if (profileRefreshInFlight) {
+        long now = System.currentTimeMillis();
+        if (profileRefreshInFlight || (now - profileRefreshLastAttempt) < 5000) {
             return;
         }
         profileRefreshInFlight = true;
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
+        profileRefreshLastAttempt = now;
+        CompletableFuture.runAsync(() -> {
             try {
-                LoginSession refreshed = refreshSessionProfile(session);
-                if (refreshed != null && refreshed.uid() > 0L && !refreshed.cookie().isBlank()) {
+                LoginSession refreshed = refreshSessionFromCookie(session.cookie());
+                if (refreshed != null && refreshed.uid() > 0 && !refreshed.cookie().isBlank()) {
                     loginSession = refreshed;
                     saveSession(refreshed);
                 }
@@ -345,7 +329,7 @@ public final class NeteaseMusicApi {
         }
         try {
             Files.createDirectories(sessionPath().getParent());
-            JsonObject object = new JsonObject();
+            com.google.gson.JsonObject object = new com.google.gson.JsonObject();
             object.addProperty("uid", session.uid());
             object.addProperty("nickname", session.nickname());
             object.addProperty("avatarUrl", session.avatarUrl());
@@ -359,66 +343,27 @@ public final class NeteaseMusicApi {
         return FabricLoader.getInstance().getGameDir().resolve("PVPUtils").resolve("netease-session.json");
     }
 
-    private static String errorMessage(JsonObject root, String fallback) {
-        String message = string(root, "message");
-        if (message.isBlank()) {
-            message = string(root, "msg");
-        }
-        return message.isBlank() ? fallback : message;
+    private static Track trackFromId(long id) {
+        return new Track(MusicSource.NETEASE, String.valueOf(id), null, "", "", "", 0, null, false);
     }
 
-    private static volatile LoginSession loginSession;
-    private static volatile boolean profileRefreshInFlight;
-
-    private static String withSession(String path) {
-        LoginSession session = loginSession;
-        if (session == null || session.cookie().isBlank()) {
-            return path;
-        }
-        return path + (path.contains("?") ? "&" : "?")
-                + "cookie=" + encode(session.cookie())
-                + "&timestamp=" + System.currentTimeMillis();
+    private static Song trackToSong(Track track) {
+        return new Song(
+                track.getCoverUrl() != null ? track.getCoverUrl() : "",
+                track.getName(),
+                track.getArtists(),
+                Long.parseLong(track.getId()),
+                track.getDurationMs()
+        );
     }
 
-    public record LoginSession(long uid, String nickname, String avatarUrl, String cookie) {
+    private static boolean isInstrumentalPlaceholder(String text) {
+        if (text == null) return true;
+        String t = text.strip();
+        return t.isEmpty() || t.equals("纯音乐，请欣赏") || t.equals("纯音乐，请欣赏。") || t.equals("Instrumental") || t.equals("No lyrics");
     }
 
-    public record QrLogin(String key, String qrUrl, String qrImage) {
-    }
-
-    public record QrLoginStatus(int code, String message, LoginSession session) {
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private static String firstArtist(JsonArray artists) {
-        if (artists.isEmpty()) {
-            return "";
-        }
-        return string(object(artists.get(0)), "name");
-    }
-
-    private static String appendImageSize(String url) {
-        if (url == null || url.isBlank() || url.contains("param=")) {
-            return url == null ? "" : url;
-        }
-        return url + (url.contains("?") ? "&" : "?") + "param=512y512";
-    }
-
-    private static JsonArray array(JsonObject object, String name) {
-        if (object == null || !object.has(name) || !object.get(name).isJsonArray()) {
-            return new JsonArray();
-        }
-        return object.getAsJsonArray(name);
-    }
-
-    private static JsonObject object(JsonElement element) {
-        return element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
-    }
-
-    private static String string(JsonObject object, String name) {
+    private static String getString(com.google.gson.JsonObject object, String name) {
         if (object == null || !object.has(name) || object.get(name).isJsonNull()) {
             return "";
         }
@@ -429,14 +374,25 @@ public final class NeteaseMusicApi {
         }
     }
 
-    private static long number(JsonObject object, String name) {
-        if (object == null || !object.has(name) || object.get(name).isJsonNull()) {
-            return 0L;
+    public record LoginSession(long uid, String nickname, String avatarUrl, String cookie) {
+    }
+
+    public record QrLogin(String key, String qrUrl, String qrImage) {
+        public String data() {
+            return qrUrl;
         }
+    }
+
+    public record QrLoginStatus(int code, String message, LoginSession session) {
+    }
+
+    public static io.github.humbleui.skija.Image qrImage(String dataUrl) {
+        if (dataUrl == null || dataUrl.isBlank()) return null;
         try {
-            return object.get(name).getAsLong();
-        } catch (RuntimeException ignored) {
-            return 0L;
+            byte[] bytes = getBytes(dataUrl);
+            return io.github.humbleui.skija.Image.makeFromEncoded(bytes);
+        } catch (Exception e) {
+            return null;
         }
     }
 }
