@@ -12,13 +12,15 @@ public final class TermsManager {
     private static final String TERMS_TEXT = """
             使用须知
 
-            本模组内置了部分争议性功能，虽然他们都只是为了辅助PVP而生，并非作弊功能，并且也对其进行了平衡性调整，但是部分服务器仍有可能将部分功能视为违规功能并处以封禁处理，所以您随时可以选择完整版或者受限版本（后续可以在“其他”分页内重新调整，若选择完整版，则您视为同意此协议）
+            本模组内置了部分争议性功能，虽然他们只是为了辅助PVP而生，并非作弊功能，并且也对其进行了平衡性调整，但是部分服务器仍有可能将部分功能视为违规功能并处以封禁处理，所以当前版本仅提供受限模式，争议功能已隐藏。
+            音乐平台免责声明：本 Mod 只调用各音乐平台客户端可见的公开接口，不破解、不绕过付费内容，也不提供任何音频文件；所有音频由各平台 CDN 直发。使用者需遵守各平台服务条款与所在地版权法规。本 Mod 与各音乐平台无隶属或合作关系，所有平台名称与商标归各自权利人所有。
 
             Terms of Use
 
             This mod includes some controversial features. They are meant to assist PvP rather than function as cheats, and they have been balanced as much as possible. However, some servers may still treat certain features as violations and punish players.
 
-            You can choose the full or restricted version at any time in Misc Settings. Choosing the full version means you agree to this notice.
+            This version of PVPUtils runs in Restricted Mode only: controversial features are hidden.
+            Music Platform Disclaimer: This mod only calls the public APIs visible to each music platform's client. It does not crack or bypass paid content, and provides no audio files; all audio is delivered directly by each platform's CDN. Users must comply with each platform's terms of service and local copyright laws. This mod has no affiliation with any music platform; all platform names and trademarks belong to their respective rights holders.
             """;
 
     private TermsManager() {}

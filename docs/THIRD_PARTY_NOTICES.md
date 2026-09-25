@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-**Last updated:** 2026-09-24  
-**Aligned with:** `build.gradle` dependency set as of this date (includes `top.fpsmaster:music-api:0.1.2` / Cadence).
+**Last updated:** 2026-09-25  
+**Aligned with:** `build.gradle` dependency set as of this date (includes `top.fpsmaster:music-api:0.1.2` / Cadence, which is locally modified — see §1.1).
 
 The PVPUtils Source-Available Non-Commercial License applies only to code, assets, and materials owned by Nachoneko_miao and PVPUtils contributors. Third-party components remain under their own licenses. This file is the project notice index; full license texts that are required to accompany distributions live under [`LICENSES/`](./LICENSES/).
 
@@ -38,9 +38,18 @@ Permission notices for MIT components are the standard text in [`LICENSES/MIT.tx
 | Source | https://github.com/FPSMasterTeam/Cadence (built from https://github.com/ThinkReally114/Cadence) |
 | License text | [`LICENSES/MIT.txt`](./LICENSES/MIT.txt) |
 | NOTICE file | None in artifact |
-| Modified by PVPUtils | No (binary/composite-build dependency) |
-| Copyright | Copyright (c) 2026 FPSMaster Team |
+| Modified by PVPUtils | **Yes** — locally modified source build via composite build; see **Modifications made by PVPUtils** below |
+| Copyright | Copyright (c) 2026 FPSMaster Team (retained; MIT text unchanged) |
 | Role | Netease Cloud Music (and QQ Music capability) data client: search, stream URL, lyrics, playlists, recommendations, QR login, credential store. Replaces the previously bundled Node.js NeteaseCloudMusicApi runtime. |
+
+**Modifications made by PVPUtils (MIT permits modification; copyright and license text retained):**
+
+- Local commit `b4a3613` — `feat: 用户资料与推荐歌单 API，版本 0.1.2` (ThinkReally114, 2026-09-25), applied on top of upstream `FPSMasterTeam/Cadence`.
+- Added user profile and daily-recommendation playlist APIs: `src/main/kotlin/top/fpsmaster/music/MusicModels.kt` (+7) and `NeteaseMusicApi.kt` (+35).
+- Version bump `0.1.1` → `0.1.2` in `build.gradle.kts`, which is the coordinate PVPUtils declares (`top.fpsmaster:music-api:0.1.2`).
+- Built from the sibling checkout `../Cadence` through `settings.gradle` `includeBuild` (composite build) and jar-in-jar `include`, **not** from the upstream release artifact.
+- Modified tree: https://github.com/ThinkReally114/Cadence (`main`); the change is **not yet merged** into upstream https://github.com/FPSMasterTeam/Cadence.
+- No copyright or license headers were removed; [`LICENSES/MIT.txt`](./LICENSES/MIT.txt) applies to the modified library unchanged.
 
 #### QRCodeGen (`io.nayuki:qrcodegen`)
 
@@ -302,7 +311,7 @@ Generated from `./gradlew dependencies --configuration clientRuntimeClasspath` /
 
 | Coordinate | SPDX | Path |
 |---|---|---|
-| `top.fpsmaster:music-api:0.1.2` → `:Cadence` | MIT | direct |
+| `top.fpsmaster:music-api:0.1.2` → `:Cadence` (locally modified, see §1.1) | MIT | direct |
 | `org.jetbrains.kotlin:kotlin-stdlib:2.4.0` | Apache-2.0 | direct (runtime for Cadence) |
 | `com.google.code.gson:gson` (declared 2.11.0, may resolve newer) | Apache-2.0 | direct + Cadence |
 | `io.nayuki:qrcodegen:1.8.0` | MIT | direct |
@@ -406,7 +415,7 @@ Removing or hiding third-party attribution is not permitted. For LGPL/GPL compon
 
 | Component | SPDX | Bundled (jij) | License full text | NOTICE |
 |---|---|---|---|---|
-| Cadence `music-api` | MIT | Yes | `LICENSES/MIT.txt` + © line §1.1 | — |
+| Cadence `music-api` (locally modified — see §1.1) | MIT | Yes | `LICENSES/MIT.txt` + © line §1.1 | — |
 | qrcodegen | MIT | Yes | `LICENSES/MIT.txt` + © line §1.1 | — |
 | oshi-core | MIT | Yes | `LICENSES/MIT.txt` + © line §1.1 | — |
 | MixinExtras | MIT | No | `LICENSES/MIT.txt` + © line §1.1 | — |
