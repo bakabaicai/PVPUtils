@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
 import com.pvp_utils.client.util.ChatUtils;
 import com.pvp_utils.client.util.PasswordCipher;
@@ -149,6 +150,7 @@ public final class ServerAutoLoginManager {
 
     private static boolean backAtMenu(Screen screen) {
         return screen instanceof TitleScreen
+                || screen instanceof PVPUtilsMainUI
                 || screen instanceof JoinMultiplayerScreen
                 || screen instanceof PVPUtilsMultiplayerScreen
                 || screen instanceof DisconnectedScreen

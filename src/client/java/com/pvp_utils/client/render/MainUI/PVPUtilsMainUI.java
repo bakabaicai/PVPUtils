@@ -136,6 +136,12 @@ public class PVPUtilsMainUI extends Screen {
         return new PVPUtilsMainUI(null, false, false, shaderPath, true);
     }
 
+    static PVPUtilsMainUI openingMultiplayer() {
+        PVPUtilsMainUI mainUI = new PVPUtilsMainUI(null, false, false);
+        mainUI.openMultiplayerPage = true;
+        return mainUI;
+    }
+
     @Override
     protected void init() {
         if (shader != null) shader.close();
@@ -173,6 +179,10 @@ public class PVPUtilsMainUI extends Screen {
             if (this.minecraft != null) this.minecraft.stop();
         }));
         updateButtonPositions();
+        if (openMultiplayerPage) {
+            openMultiplayerPage = false;
+            openEmbeddedMultiplayer();
+        }
     }
 
     @Override
@@ -847,6 +857,7 @@ public class PVPUtilsMainUI extends Screen {
 
     private boolean singleplayerTransitioning;
     private boolean openingMultiplayer;
+    private boolean openMultiplayerPage;
     private boolean openingAltManager;
     private boolean openingViaFabricPlus;
     private boolean returningMultiplayer;
@@ -925,13 +936,19 @@ public class PVPUtilsMainUI extends Screen {
                 embeddedAltManager = new AltManagerScreen(this, path, this::beginEmbeddedReturn);
                 embeddedAltManager.initEmbedded(this.minecraft, this.width, this.height);
             } else if (openingMultiplayer) {
-                embeddedMultiplayer = new PVPUtilsMultiplayerScreen(this, path, this::beginEmbeddedReturn);
-                embeddedMultiplayer.initEmbedded(this.minecraft, this.width, this.height);
+                openEmbeddedMultiplayer();
             } else {
                 embeddedSingleplayer = new PVPUtilsSingleplayerScreen(this, path, this::beginEmbeddedReturn);
                 embeddedSingleplayer.initEmbedded(this.minecraft, this.width, this.height);
             }
         }
+    }
+
+    private void openEmbeddedMultiplayer() {
+        if (embeddedMultiplayer != null || this.minecraft == null) return;
+        String path = shader == null ? null : shader.fragmentPath();
+        embeddedMultiplayer = new PVPUtilsMultiplayerScreen(this, path, this::beginEmbeddedReturn);
+        embeddedMultiplayer.initEmbedded(this.minecraft, this.width, this.height);
     }
 
     @Override
