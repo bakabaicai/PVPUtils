@@ -1,11 +1,14 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.client.ReconnectionHelper;
 import com.pvp_utils.client.modules.impl.Tool.ServerConnectionOverlay;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,6 +23,11 @@ public abstract class ConnectScreenMixin extends Screen {
 
     protected ConnectScreenMixin(Component title) {
         super(title);
+    }
+
+    @Inject(method = "startConnecting", at = @At("HEAD"))
+    private static void pvp_utils$recordConnectionAttempt(Screen screen, net.minecraft.client.Minecraft client, ServerAddress address, ServerData serverData, boolean quickPlay, net.minecraft.client.multiplayer.TransferState transferState, CallbackInfo ci) {
+        ReconnectionHelper.recordConnection(address, serverData);
     }
 
     @Inject(method = "init", at = @At("TAIL"))
