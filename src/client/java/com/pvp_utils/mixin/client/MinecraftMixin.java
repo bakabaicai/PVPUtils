@@ -14,6 +14,7 @@ import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
@@ -187,6 +188,7 @@ public class MinecraftMixin {
         TpsHudRenderer.getInstance().renderFrameEnd();
         ClockHudRenderer.getInstance().renderFrameEnd();
         MusicInfoHudRenderer.getInstance().renderFrameEnd();
+        LiquidGlassRenderer.getInstance().tick();
         Minecraft client = (Minecraft) (Object) this;
         if (client.screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();

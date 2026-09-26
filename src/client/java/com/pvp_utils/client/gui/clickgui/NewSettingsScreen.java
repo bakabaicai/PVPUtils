@@ -1,7 +1,6 @@
 package com.pvp_utils.client.gui.clickgui;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiTheme;
@@ -30,25 +29,10 @@ import net.minecraft.network.chat.Component;
 import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.lwjgl.opengl.GL11.GL_BACK;
-import static org.lwjgl.opengl.GL11.GL_RGBA;
-import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
-import static org.lwjgl.opengl.GL11.glGetInteger;
-import static org.lwjgl.opengl.GL11.glReadBuffer;
-import static org.lwjgl.opengl.GL11.glReadPixels;
-import static org.lwjgl.opengl.GL30.GL_COLOR_ATTACHMENT0;
-import static org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_COMPLETE;
-import static org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER;
-import static org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER_BINDING;
-import static org.lwjgl.opengl.GL30.glBindFramebuffer;
-import static org.lwjgl.opengl.GL30.glCheckFramebufferStatus;
 
 public class NewSettingsScreen extends SkiaScreen {
 
@@ -129,14 +113,6 @@ public class NewSettingsScreen extends SkiaScreen {
     private int pendingMouseX = 0;
     private int pendingMouseY = 0;
     private float pendingDelta = 0f;
-    private final ByteBuffer diagnosticPixel = BufferUtils.createByteBuffer(4);
-    private int diagnosticFrame = 0;
-    private int diagnosticSampleFrame = -1;
-    private int diagnosticSampleX = 0;
-    private int diagnosticSampleY = 0;
-    private int diagnosticMainColor = 0;
-    private int diagnosticMainStatus = 0;
-    private int diagnosticReadStatus = 0;
 
     // 主题预览模式：右侧内容区显示全部主题缩略图（左侧功能栏保持不变）
     private boolean themePreviewMode = false;
@@ -246,10 +222,6 @@ public class NewSettingsScreen extends SkiaScreen {
             glBackend.end();
             pendingFrame = false;
         }
-        diagnosticFrame++;
-        if (diagnosticFrame <= 5 || diagnosticFrame % 120 == 0) {
-            captureMainFramebuffer(framebufferId);
-        }
     }
 
     private void renderPanelBlur() {
@@ -262,54 +234,6 @@ public class NewSettingsScreen extends SkiaScreen {
         float panelY = this.height * 0.5f + (l[1] - layoutHeight * 0.5f) * visualScale;
         SkiaBlurRenderer.getInstance().render(minecraft, panelX, panelY, l[2] * visualScale, l[3] * visualScale,
                 16f * visualScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
-    }
-
-    public void tracePresentedFramebuffer() {
-        if (diagnosticSampleFrame != diagnosticFrame) return;
-        int presentedColor = readFramebufferColor(0, diagnosticSampleX, diagnosticSampleY);
-        int presentedStatus = diagnosticReadStatus;
-        PVPUtils.LOGGER.info(
-                "[ClickGUI GPU] frame={} pixel={},{} main={} presented={} mainStatus={} presentedStatus={} complete={}",
-                diagnosticFrame,
-                diagnosticSampleX,
-                diagnosticSampleY,
-                String.format("%08X", diagnosticMainColor),
-                String.format("%08X", presentedColor),
-                Integer.toHexString(diagnosticMainStatus),
-                Integer.toHexString(presentedStatus),
-                diagnosticMainStatus == GL_FRAMEBUFFER_COMPLETE && presentedStatus == GL_FRAMEBUFFER_COMPLETE
-        );
-        diagnosticSampleFrame = -1;
-    }
-
-    private void captureMainFramebuffer(int framebufferId) {
-        var window = minecraft.getWindow();
-        int layoutWidth = layoutWidth();
-        int layoutHeight = layoutHeight();
-        float[] l = layout(layoutWidth, layoutHeight);
-        float visualScale = getVisualScale(width, height);
-        float guiX = width * 0.5f + (l[0] + l[4] + 12f - layoutWidth * 0.5f) * visualScale;
-        float guiY = height * 0.5f + (l[1] + 12f - layoutHeight * 0.5f) * visualScale;
-        diagnosticSampleX = Math.max(0, Math.min(window.getWidth() - 1, Math.round(guiX * (float) window.getGuiScale())));
-        diagnosticSampleY = Math.max(0, Math.min(window.getHeight() - 1, window.getHeight() - 1 - Math.round(guiY * (float) window.getGuiScale())));
-        diagnosticMainColor = readFramebufferColor(framebufferId, diagnosticSampleX, diagnosticSampleY);
-        diagnosticMainStatus = diagnosticReadStatus;
-        diagnosticSampleFrame = diagnosticFrame;
-    }
-
-    private int readFramebufferColor(int framebufferId, int x, int y) {
-        int previousFramebuffer = glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferId);
-        glReadBuffer(framebufferId == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0);
-        diagnosticReadStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-        diagnosticPixel.clear();
-        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, diagnosticPixel);
-        int color = (diagnosticPixel.get(0) & 0xFF) << 24
-                | (diagnosticPixel.get(1) & 0xFF) << 16
-                | (diagnosticPixel.get(2) & 0xFF) << 8
-                | diagnosticPixel.get(3) & 0xFF;
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, previousFramebuffer);
-        return color;
     }
 
     private float toLayoutX(double x, int width, float scale) {

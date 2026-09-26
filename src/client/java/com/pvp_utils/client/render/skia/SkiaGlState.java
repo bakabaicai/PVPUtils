@@ -61,6 +61,13 @@ final class SkiaGlState {
     private boolean lastEnablePrimitiveRestart;
     private boolean lastEnableFramebufferSrgb;
     private boolean lastDepthMask;
+    private final int[] lastStencilFunc = new int[2];
+    private final int[] lastStencilRef = new int[2];
+    private final int[] lastStencilValueMask = new int[2];
+    private final int[] lastStencilWriteMask = new int[2];
+    private final int[] lastStencilFail = new int[2];
+    private final int[] lastStencilPassDepthFail = new int[2];
+    private final int[] lastStencilPassDepthPass = new int[2];
 
     SkiaGlState(int glVersion) {
         this.glVersion = glVersion;
@@ -111,6 +118,16 @@ final class SkiaGlState {
         }
         lastEnableFramebufferSrgb = glIsEnabled(GL_FRAMEBUFFER_SRGB);
         lastDepthMask = glGetBoolean(GL_DEPTH_WRITEMASK);
+        for (int face = 0; face < 2; face++) {
+            boolean back = face == 1;
+            lastStencilFunc[face] = glGetInteger(back ? GL_STENCIL_BACK_FUNC : GL_STENCIL_FUNC);
+            lastStencilRef[face] = glGetInteger(back ? GL_STENCIL_BACK_REF : GL_STENCIL_REF);
+            lastStencilValueMask[face] = glGetInteger(back ? GL_STENCIL_BACK_VALUE_MASK : GL_STENCIL_VALUE_MASK);
+            lastStencilWriteMask[face] = glGetInteger(back ? GL_STENCIL_BACK_WRITEMASK : GL_STENCIL_WRITEMASK);
+            lastStencilFail[face] = glGetInteger(back ? GL_STENCIL_BACK_FAIL : GL_STENCIL_FAIL);
+            lastStencilPassDepthFail[face] = glGetInteger(back ? GL_STENCIL_BACK_PASS_DEPTH_FAIL : GL_STENCIL_PASS_DEPTH_FAIL);
+            lastStencilPassDepthPass[face] = glGetInteger(back ? GL_STENCIL_BACK_PASS_DEPTH_PASS : GL_STENCIL_PASS_DEPTH_PASS);
+        }
 
         glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, lastPixelUnpackBufferBinding);
         glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, lastPixelPackBufferBinding);
@@ -199,6 +216,12 @@ final class SkiaGlState {
             glPixelStorei(GL_UNPACK_SKIP_IMAGES, lastUnpackSkipImages[0]);
         }
         glDepthMask(lastDepthMask);
+        for (int face = 0; face < 2; face++) {
+            int glFace = face == 0 ? GL_FRONT : GL_BACK;
+            glStencilFuncSeparate(glFace, lastStencilFunc[face], lastStencilRef[face], lastStencilValueMask[face]);
+            glStencilMaskSeparate(glFace, lastStencilWriteMask[face]);
+            glStencilOpSeparate(glFace, lastStencilFail[face], lastStencilPassDepthFail[face], lastStencilPassDepthPass[face]);
+        }
         glActiveTexture(lastActiveTexture[0]);
     }
 

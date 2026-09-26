@@ -7,6 +7,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaScreen;
 import com.pvp_utils.client.util.RateCounter;
@@ -209,6 +210,10 @@ public class KeystrokesRenderer {
         ensureNativeLoaded();
         if (Config.keystrokesMode == Config.KeystrokesMode.BLUR) {
             renderBlurKeyBackgrounds(client, x, y, scale);
+        } else if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
+            if (!renderLiquidKeyBackgrounds(client, x, y, scale)) {
+                renderBlurKeyBackgrounds(client, x, y, scale);
+            }
         }
         Canvas canvas = glBackend.begin(mainFramebufferId(client));
         if (canvas == null) return;
@@ -267,6 +272,34 @@ public class KeystrokesRenderer {
     private SkiaBlurRenderer.Region blurRegion(int baseX, int baseY, float scale, float x, float y, float width, float height) {
         return new SkiaBlurRenderer.Region(baseX + x * scale, baseY + y * scale, width * scale, height * scale,
                 Math.min(7.0f, height * 0.32f) * scale);
+    }
+
+    private boolean renderLiquidKeyBackgrounds(Minecraft client, int x, int y, float scale) {
+        int mouseY = (KEY_SIZE + GAP) * 2;
+        int leftMouseW = (TOTAL_W - GAP) / 2;
+        int rightMouseW = TOTAL_W - GAP - leftMouseW;
+        int bottomY = (KEY_SIZE + GAP) * 3;
+
+        LiquidGlassRenderer glass = LiquidGlassRenderer.getInstance();
+        int tint = LiquidGlassRenderer.panelTint();
+        boolean highlight = Config.liquidGlassHighlight;
+        boolean ok = false;
+        ok |= drawLiquidKey(glass, client, x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE, tint, highlight);
+        ok |= drawLiquidKey(glass, client, x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, tint, highlight);
+        return ok;
+    }
+
+    private boolean drawLiquidKey(LiquidGlassRenderer glass, Minecraft client, int baseX, int baseY, float scale,
+                                  float x, float y, float width, float height, int tint, boolean highlight) {
+        float radius = Math.min(7f, height * 0.32f) * scale;
+        return glass.renderPanel(client, baseX + x * scale, baseY + y * scale, width * scale, height * scale,
+                radius, tint, true, highlight, 2.2f, 3);
     }
 
     private int mainFramebufferId(Minecraft client) {
@@ -343,7 +376,7 @@ public class KeystrokesRenderer {
             canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), glowPaint);
         }
 
-        bgPaint.setColor(Config.keystrokesMode == Config.KeystrokesMode.BLUR ? 0x00000000 : BG_COLOR);
+        bgPaint.setColor(Config.keystrokesMode == Config.KeystrokesMode.BLUR || Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS ? 0x00000000 : BG_COLOR);
         canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), bgPaint);
 
         if (press > 0.01f) {

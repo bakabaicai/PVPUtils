@@ -10,6 +10,7 @@ import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.*;
@@ -176,7 +177,14 @@ public class DynamicIslandRenderer {
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
 
-        boolean blurred = SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
+        boolean blurred;
+        if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
+            blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y,
+                    layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale,
+                    LiquidGlassRenderer.panelTint(), true, Config.liquidGlassHighlight, 0f, 1);
+        } else {
+            blurred = SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
+        }
         renderContentDirect(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen, x, y, islandScale, blurred);
     }
 

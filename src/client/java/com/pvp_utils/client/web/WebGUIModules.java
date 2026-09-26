@@ -224,7 +224,18 @@ final class WebGUIModules {
                     settingsModule("HUD Theme", "HUD 主题", "Control the shared HUD theme and blur style.", "控制 HUD 通用主题和模糊风格",
                             select("hudTheme", "Theme", "主题"),
                             slider("skiaBlurStrength", "Blur Strength", "模糊强度", 0, 5, 0.05),
-                            select("musicInfoHudMode", "Music Info HUD", "音乐信息显示")),
+                            select("dynamicIslandBackground", "Dynamic Island Background", "灵动岛背景"),
+                            select("musicInfoHudMode", "Music Info HUD", "音乐信息显示"),
+                            slider("liquidGlassBlur", "Liquid Blur Radius", "液态玻璃模糊", 0, 16, 0.1),
+                            slider("liquidGlassRefractionHeight", "Liquid Refraction Height", "液态玻璃折射高度", 0, 1, 0.01),
+                            slider("liquidGlassRefractionAmount", "Liquid Refraction Amount", "液态玻璃折射强度", 0, 2, 0.01),
+                            slider("liquidGlassIoR", "Liquid Refractive Index", "液态玻璃折射率", 1, 3, 0.01),
+                            slider("liquidGlassDepthEffect", "Liquid Depth Effect", "液态玻璃立体深度", 0, 1, 0.01),
+                            slider("liquidGlassDispersion", "Liquid Dispersion", "液态玻璃色散强度", 0, 4, 0.01),
+                            slider("liquidGlassRenderPrecision", "Liquid Render Precision", "液态玻璃渲染精度", 0.5, 2, 0.01),
+                            check("liquidGlassHighlight", "Liquid Highlight", "液态玻璃高光"),
+                            check("liquidGlassHighlightFollowView", "Liquid Highlight Follow View", "液态玻璃高光跟随视角"),
+                            check("liquidGlassShadow", "Liquid Shadow", "液态玻璃阴影")),
                     module("Victory Sound", "胜利音效", "Play a custom sound when you win.", "在你胜利时播放自定义音效", "victorySound")
             ))
     );

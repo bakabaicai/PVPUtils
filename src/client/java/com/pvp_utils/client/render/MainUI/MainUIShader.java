@@ -1,9 +1,8 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -13,12 +12,10 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import org.lwjgl.system.MemoryUtil;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -67,11 +64,9 @@ public final class MainUIShader {
     private int vao;
     private int vbo;
     private int fbo;
-    private int colorTexture;
     private int textureW = -1;
     private int textureH = -1;
     private DynamicTexture dynamicTexture;
-    private ByteBuffer readBuffer;
     private boolean failed;
     private boolean loggedLoaded;
     private int timeUniform = -1;
@@ -127,7 +122,7 @@ public final class MainUIShader {
 
         RenderSystem.assertOnRenderThread();
         ensureFramebuffer(fbW, fbH);
-        if (fbo == 0 || dynamicTexture == null || readBuffer == null) {
+        if (fbo == 0 || dynamicTexture == null) {
             fallback(graphics);
             return;
         }
@@ -156,9 +151,6 @@ public final class MainUIShader {
         setUniform2f("resolution", fbW, fbH);
         GL30.glBindVertexArray(vao);
         GL11.glDrawArrays(GL11.GL_TRIANGLE_STRIP, 0, 4);
-        readBuffer.clear();
-        GL11.glReadPixels(0, 0, fbW, fbH, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, readBuffer);
-        readBuffer.rewind();
 
         GL30.glBindVertexArray(previousVao);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, previousArrayBuffer);
@@ -169,10 +161,6 @@ public final class MainUIShader {
         if (cullEnabled) GL11.glEnable(GL11.GL_CULL_FACE); else GL11.glDisable(GL11.GL_CULL_FACE);
         if (blendEnabled) GL11.glEnable(GL11.GL_BLEND); else GL11.glDisable(GL11.GL_BLEND);
 
-        GpuTexture gpuTexture = dynamicTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, readBuffer, NativeImage.Format.RGBA, 0, 0, 0, 0, fbW, fbH);
-        GL11.glFlush();
         graphics.blit(textureId, 0, 0, guiW, guiH, 0f, 1f, 1f, 0f);
     }
 
@@ -245,27 +233,34 @@ public final class MainUIShader {
         textureW = width;
         textureH = height;
 
-        colorTexture = GL11.glGenTextures();
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTexture);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        dynamicTexture = new DynamicTexture("pvp_utils:mainui_shader", width, height, false);
+        client.getTextureManager().register(textureId, dynamicTexture);
+
+        int renderTarget = glTextureId(dynamicTexture);
+        if (renderTarget == 0) {
+            failed = true;
+            return;
+        }
 
         fbo = GL30.glGenFramebuffers();
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, colorTexture, 0);
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, renderTarget, 0);
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
             System.err.println("PVPUtils MainUI shader framebuffer incomplete: " + GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER));
             failed = true;
         }
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+    }
 
-        dynamicTexture = new DynamicTexture("pvp_utils:mainui_shader", width, height, false);
-        client.getTextureManager().register(textureId, dynamicTexture);
-        readBuffer = MemoryUtil.memAlloc(width * height * 4);
+    private static int glTextureId(DynamicTexture texture) {
+        if (texture == null) return 0;
+        try {
+            if (texture.getTexture() instanceof GlTexture glTexture) {
+                return glTexture.glId();
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0;
     }
 
     public void close() {
@@ -292,17 +287,9 @@ public final class MainUIShader {
             GL30.glDeleteFramebuffers(fbo);
             fbo = 0;
         }
-        if (colorTexture != 0) {
-            GL11.glDeleteTextures(colorTexture);
-            colorTexture = 0;
-        }
         if (dynamicTexture != null) {
             Minecraft.getInstance().getTextureManager().release(textureId);
             dynamicTexture = null;
-        }
-        if (readBuffer != null) {
-            MemoryUtil.memFree(readBuffer);
-            readBuffer = null;
         }
         textureW = -1;
         textureH = -1;

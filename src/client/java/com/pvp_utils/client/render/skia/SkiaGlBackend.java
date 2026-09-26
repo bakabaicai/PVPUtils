@@ -183,9 +183,10 @@ public final class SkiaGlBackend {
         framebufferId = targetFramebufferId;
     }
 
-    private void ensureContext() {
-        if (context != null) return;
+    public DirectContext ensureContext() {
+        if (context != null) return context;
         context = DirectContext.makeGL();
+        return context;
     }
 
     private void ensureState() {
