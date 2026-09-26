@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Collections;
 
-@Mixin(AbstractChanneledNetworkAddon.class)
+@Mixin(value = AbstractChanneledNetworkAddon.class, remap = false)
 public class ClientConfigurationMixin {
     @Inject(method = "sendInitialChannelRegistrationPacket", at = @At("HEAD"), cancellable = true)
     private void onSendInitialChannelRegistrationPacket(CallbackInfo ci) {

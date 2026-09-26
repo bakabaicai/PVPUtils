@@ -20,7 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PlayerTabOverlay.class)
 public class PlayerTabOverlayMixin {
-    @ModifyConstant(method = "render", constant = @Constant(intValue = 13))
+    // expect/require=0：与 pvp-essentials-refined 的 PlayerListHudMixin 改同一常量时自动让位（后者生效），不因冲突崩溃
+    @ModifyConstant(method = "render", constant = @Constant(intValue = 13), expect = 0, require = 0)
     private int pvp_utils$betterPingDisplaySlotWidth(int original) {
         return Config.betterPingDisplay ? original + BetterPingDisplayRenderer.EXTRA_SLOT_WIDTH : original;
     }

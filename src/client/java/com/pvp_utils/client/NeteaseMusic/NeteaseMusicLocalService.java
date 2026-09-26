@@ -58,8 +58,8 @@ public final class NeteaseMusicLocalService {
     public static void playLocalFile(java.io.File file) {
         new Thread(() -> {
             try {
-                String name = file.getName();
-                if (name.toLowerCase().endsWith(".wav")) {
+                String name = file.getName().toLowerCase();
+                if (name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".ogg")) {
                     javax.sound.sampled.AudioInputStream audioIn = javax.sound.sampled.AudioSystem.getAudioInputStream(file);
                     javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
                     clip.open(audioIn);

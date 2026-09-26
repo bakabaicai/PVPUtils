@@ -274,6 +274,15 @@ public class ToolPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("战斗日志", "Combat Log"), UiText.t("显示最近30秒的伤害事件", "Show recent damage events in the last 30 seconds"),
                 new SettingToggle(() -> Config.combatLog, v -> { Config.combatLog = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("FPS HUD", "FPS HUD"), UiText.t("显示当前帧率", "Show current FPS"),
+                new SettingToggle(() -> Config.fpsHud, v -> { Config.fpsHud = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("内存 HUD", "Memory HUD"), UiText.t("显示内存使用情况", "Show memory usage"),
+                new SettingToggle(() -> Config.memoryHud, v -> { Config.memoryHud = v; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("优化模组面板", "Optimization Mods"), UiText.t("检测优化模组安装状态", "Check optimization mod installation"),
+                new SettingToggle(() -> Config.optimizationModsPanel, v -> { Config.optimizationModsPanel = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("工具设置", "Tool Settings"); }

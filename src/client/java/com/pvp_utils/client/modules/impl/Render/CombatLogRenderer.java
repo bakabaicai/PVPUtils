@@ -21,12 +21,25 @@ public final class CombatLogRenderer {
     public void render(GuiGraphics graphics) {
         if (!Config.combatLog) return;
         Minecraft client = Minecraft.getInstance();
-        long now = System.currentTimeMillis();
+        if (entries.isEmpty()) return;
+
+        int x = 10;
         int y = 10;
-        entries.removeIf(e -> now - e.time > Config.combatLogMaxSeconds * 1000L);
+        int maxWidth = 0;
         for (LogEntry e : entries) {
-            graphics.drawString(client.font, e.text, 10, y, e.color, true);
-            y += 10;
+            int w = client.font.width(e.text);
+            if (w > maxWidth) maxWidth = w;
+        }
+        int boxW = maxWidth + 8;
+        int boxH = entries.size() * 10 + 6;
+
+        graphics.fill(x - 2, y - 2, x + boxW, y + boxH, 0x80000000);
+        graphics.drawString(client.font, "Combat Log", x, y - 10, 0xFFFFFF, true);
+
+        int ly = y;
+        for (LogEntry e : entries) {
+            graphics.drawString(client.font, e.text, x + 4, ly, e.color, true);
+            ly += 10;
         }
     }
 

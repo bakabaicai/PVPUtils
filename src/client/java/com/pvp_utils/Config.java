@@ -310,6 +310,11 @@ public class Config {
     public static int combatLogMaxSeconds = 30;
     public static boolean teammateHealthBar = false;
     public static boolean sodiumCompatCheck = true;
+    public static boolean fpsHud = false;
+    public static boolean memoryHud = false;
+    public static float fpsHudX = 5.0f;
+    public static float fpsHudY = 5.0f;
+    public static boolean optimizationModsPanel = false;
     public static float customBlockOutlineWidth = 1.0f;
     public static float customBlockOutlineAnimationSpeed = 8.0f;
     public static float customBlockOutlineMoveSpeed = 12.0f;

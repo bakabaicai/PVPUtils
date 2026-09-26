@@ -54,6 +54,8 @@ public class PVPUtilsClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register((graphics, delta) -> {
             com.pvp_utils.client.modules.impl.Render.CombatLogRenderer.getInstance().render(graphics);
             com.pvp_utils.client.modules.impl.Render.TeammateHealthBarRenderer.getInstance().render(graphics);
+            com.pvp_utils.client.modules.impl.Render.FpsHudRenderer.getInstance().render(graphics);
+            com.pvp_utils.client.modules.impl.Render.OptimizationModsPanel.getInstance().render(graphics);
         });
         Update.startAutoCheck();
         NeteaseMusicLocalService.start();
