@@ -33,6 +33,25 @@ public class MusicPage extends BasePage {
                         }))
                 .addSub(UiText.t("完整播放器", "Full Player"), UiText.t("打开完整音乐播放器界面", "Open the full music player interface"),
                         new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open)));
+
+        modules.add(new SettingModule(UiText.t("本地音乐库", "Local Music Library"),
+                UiText.t("把MP3放到PVPUtils/local-music/目录", "Put MP3 files in PVPUtils/local-music/ folder"),
+                new SettingButton(UiText.t("打开目录", "Open Folder"), () -> {
+                    try {
+                        java.awt.Desktop.getDesktop().open(com.pvp_utils.client.NeteaseMusic.LocalMusicLibrary.getLibraryDir().toFile());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                })));
+
+        modules.add(new SettingModule(UiText.t("本地音乐", "Local Music"),
+                UiText.t("从 PVPUtils/local-music 文件夹播放 MP3", "Play MP3 from PVPUtils/local-music folder"),
+                new SettingButton(UiText.t("刷新列表", "Refresh"), () -> {
+                    com.pvp_utils.client.NeteaseMusic.LocalMusicLibrary.refresh();
+                }))
+                .addSub(UiText.t("打开文件夹", "Open Folder"), "", new SettingButton(UiText.t("打开", "Open"), () -> {
+                    net.minecraft.util.Util.getPlatform().openUri(com.pvp_utils.client.NeteaseMusic.LocalMusicLibrary.getLibraryDir().toUri());
+                })));
     }
 
     @Override public String getTitle() { return UiText.t("音乐", "Music"); }

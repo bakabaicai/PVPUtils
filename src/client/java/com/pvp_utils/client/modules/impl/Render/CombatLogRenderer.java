@@ -30,15 +30,16 @@ public final class CombatLogRenderer {
             int w = client.font.width(e.text);
             if (w > maxWidth) maxWidth = w;
         }
-        int boxW = maxWidth + 8;
-        int boxH = entries.size() * 10 + 6;
+        int boxW = maxWidth + 12;
+        int boxH = entries.size() * 10 + 12;
 
-        graphics.fill(x - 2, y - 2, x + boxW, y + boxH, 0x80000000);
-        graphics.drawString(client.font, "Combat Log", x, y - 10, 0xFFFFFF, true);
+        graphics.fill(x, y, x + boxW, y + boxH, 0x90000000);
+        graphics.fill(x + 1, y + 1, x + boxW - 1, y + boxH - 1, 0x40FFFFFF);
+        graphics.drawString(client.font, "Combat Log", x + 6, y + 4, 0xFFFFFF, true);
 
-        int ly = y;
+        int ly = y + 14;
         for (LogEntry e : entries) {
-            graphics.drawString(client.font, e.text, x + 4, ly, e.color, true);
+            graphics.drawString(client.font, e.text, x + 6, ly, e.color, true);
             ly += 10;
         }
     }

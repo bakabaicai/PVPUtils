@@ -8,6 +8,7 @@ import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
