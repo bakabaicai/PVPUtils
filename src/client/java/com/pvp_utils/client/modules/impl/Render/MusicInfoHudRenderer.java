@@ -6,6 +6,7 @@ import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.Canvas;
@@ -64,7 +65,7 @@ public class MusicInfoHudRenderer {
             return;
         }
 
-        if (Config.musicInfoHudMode == Config.MusicInfoHudMode.NEW || Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR) {
+        if (Config.musicInfoHudMode != Config.MusicInfoHudMode.LITE) {
             pendingFrame = true;
         } else {
             pendingFrame = false;
@@ -91,10 +92,11 @@ public class MusicInfoHudRenderer {
         if (song == null) {
             return;
         }
-        renderCardFrameEnd(client, player, song, Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR);
+        boolean glassy = Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR || Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS;
+        renderCardFrameEnd(client, player, song, glassy, Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
     }
 
-    private void renderCardFrameEnd(Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
+    private void renderCardFrameEnd(Minecraft client, MusicPlaybackService player, Song song, boolean blurMode, boolean liquid) {
         ensureNativeLoaded();
         int framebufferId = mainFramebufferId(client);
         if (framebufferId == 0) {
@@ -109,7 +111,10 @@ public class MusicInfoHudRenderer {
         float scaledH = CARD_H * userScale;
 
         boolean blurred = false;
-        if (blurMode) {
+        if (liquid) {
+            blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
+                    LiquidGlassRenderer.panelTint(), true, Config.liquidGlassHighlight, 0f, 2);
+        } else if (blurMode) {
             blurred = SkiaBlurRenderer.getInstance().render(client, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
         }
 

@@ -172,6 +172,7 @@ public class MinecraftMixin {
         ClockHudRenderer.getInstance().renderFrameEnd();
         DroppedItemRadarRenderer.getInstance().renderFrameEnd();
         MusicInfoHudRenderer.getInstance().renderFrameEnd();
+        LiquidGlassRenderer.getInstance().tick();
         Minecraft client = (Minecraft) (Object) this;
         if (client.screen instanceof NewSettingsScreen settingsScreen) {
             settingsScreen.renderFrameEnd();

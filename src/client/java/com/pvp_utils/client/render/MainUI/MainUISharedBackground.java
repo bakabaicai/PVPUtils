@@ -12,7 +12,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryUtil;
 
 import javax.imageio.ImageIO;
@@ -127,7 +126,6 @@ public final class MainUISharedBackground {
             GpuTexture gpuTexture = backgroundTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
                     .writeToTexture(gpuTexture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-            GL11.glFlush();
             MemoryUtil.memFree(buffer);
             backgroundTextureW = width;
             backgroundTextureH = height;

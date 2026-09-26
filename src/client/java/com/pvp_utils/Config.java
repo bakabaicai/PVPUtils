@@ -82,6 +82,17 @@ public class Config {
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
     public static boolean dynamicIslandLyrics = false;
+    public static DynamicIslandBackground dynamicIslandBackground = DynamicIslandBackground.LIQUID_GLASS;
+    public static float liquidGlassBlur = 3f;
+    public static float liquidGlassRefractionHeight = 0.25f;
+    public static float liquidGlassRefractionAmount = 0.15f;
+    public static float liquidGlassIoR = 1.5f;
+    public static float liquidGlassDepthEffect = 0.3f;
+    public static float liquidGlassDispersion = 1.0f;
+    public static float liquidGlassRenderPrecision = 1.0f;
+    public static boolean liquidGlassHighlight = true;
+    public static boolean liquidGlassHighlightFollowView = true;
+    public static boolean liquidGlassShadow = true;
     public static boolean dynamicIslandBlockCount = false;
     public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
     public static boolean dynamicIslandBlockCountAltIcon = false;
@@ -357,11 +368,11 @@ public class Config {
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
     public enum TargetHudMode { LITE, NEW, BLUR }
     public enum BlockCountDisplayMode { NEW, BLUR }
-    public enum KeystrokesMode { LITE, NEW, BLUR }
+    public enum KeystrokesMode { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum ArmorHudMode { LITE, NEW }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
-    public enum MusicInfoHudMode { LITE, NEW, BLUR }
+    public enum MusicInfoHudMode { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
@@ -370,6 +381,7 @@ public class Config {
     public enum HudStyle { LITE, NEW, BLUR }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
+    public enum DynamicIslandBackground { BLUR, LIQUID_GLASS }
 
     public static void setMotionCamera(boolean value) {
         motionCamera = value;
@@ -834,6 +846,7 @@ public class Config {
             new ModuleRule("HUDTheme", "hud", "", "skiaBlurStrength"),
             new ModuleRule("ClickGuiScale", "clickGui", "", "clickGuiScale", "clickGuiScrollSpeed"),
             new ModuleRule("Notification", "notification", ""),
+            new ModuleRule("LiquidGlass", "liquidGlass", "", "liquidGlassBlur", "liquidGlassRefractionHeight", "liquidGlassRefractionAmount", "liquidGlassIoR", "liquidGlassDepthEffect", "liquidGlassDispersion", "liquidGlassRenderPrecision", "liquidGlassHighlight", "liquidGlassHighlightFollowView", "liquidGlassShadow"),
     };
 
     private record ModuleRule(String module, String prefix, String toggleField, String... extraFields) {}
