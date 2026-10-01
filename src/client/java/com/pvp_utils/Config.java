@@ -166,7 +166,9 @@ public class Config {
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
+    public static boolean betterScoreboardLiquidGlass = false;
     public static boolean betterItemSelector = false;
+    public static boolean betterItemSelectorLiquidGlass = false;
     public static boolean betterMouseLogic = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
@@ -337,7 +339,7 @@ public class Config {
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
-    public enum TargetHudMode { LITE, NEW, BLUR }
+    public enum TargetHudMode { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum BlockCountDisplayMode { NEW, BLUR }
     public enum KeystrokesMode { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum ArmorHudMode { LITE, NEW }
@@ -349,7 +351,7 @@ public class Config {
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, NEW }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
-    public enum HudStyle { LITE, NEW, BLUR }
+    public enum HudStyle { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
     public enum DynamicIslandBackground { BLUR, LIQUID_GLASS }

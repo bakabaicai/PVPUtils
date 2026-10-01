@@ -299,7 +299,7 @@ public class KeystrokesRenderer {
                                   float x, float y, float width, float height, int tint, boolean highlight) {
         float radius = Math.min(7f, height * 0.32f) * scale;
         return glass.renderPanel(client, baseX + x * scale, baseY + y * scale, width * scale, height * scale,
-                radius, tint, true, highlight, 2.2f, 3);
+                radius, tint, Config.liquidGlassShadow, highlight, 2.2f, 3);
     }
 
     private int mainFramebufferId(Minecraft client) {

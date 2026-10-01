@@ -14,16 +14,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ChatScreen.class)
 public class BetterChatScreenMixin {
     @Unique private final Minecraft client = Minecraft.getInstance();
+    @Unique private float pvp_utils$screenOffset;
 
     @Inject(method = "render", at = @At("HEAD"))
     private void pvp_utils$renderStart(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (!Config.betterChat || !Config.betterChatInputAnimation) return;
+        if (!Config.betterChat || !Config.betterChatInputAnimation) {
+            this.pvp_utils$screenOffset = 0f;
+            return;
+        }
         BetterChatState.getInstance().beginChatScreenIfNeeded(client);
-        context.pose().translate(0, BetterChatState.getInstance().calculateChatScreenOffsetY(client));
+        this.pvp_utils$screenOffset = BetterChatState.getInstance().calculateChatScreenOffsetY(client);
+        if (this.pvp_utils$screenOffset != 0f) {
+            context.pose().translate(0, this.pvp_utils$screenOffset);
+        }
     }
 
     @Inject(method = "render", at = @At("TAIL"))
     private void pvp_utils$renderEnd(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (this.pvp_utils$screenOffset != 0f) {
+            context.pose().translate(0, -this.pvp_utils$screenOffset);
+            this.pvp_utils$screenOffset = 0f;
+        }
         if (!Config.betterChat || !Config.betterChatInputAnimation) return;
         if (BetterChatState.getInstance().shouldCloseChatScreen() && client != null) {
             client.setScreen(null);

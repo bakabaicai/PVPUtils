@@ -68,9 +68,25 @@ public class ThemePage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("HUD 样式", "HUD Styles"), UiText.t("单独调整各个 HUD 组件的显示样式", "Adjust each HUD component display style separately"), null)
                 .addSub(UiText.t("目标 HUD", "Target HUD"), UiText.t("选择目标 HUD 样式", "Choose the Target HUD style"),
-                        new SettingCycle(List.of("New", "Blur", "Lite"),
-                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : Config.targetHudMode == Config.TargetHudMode.BLUR ? 1 : 2,
-                                i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : i == 1 ? Config.TargetHudMode.BLUR : Config.TargetHudMode.LITE; Config.save(); }))
+                        new SettingCycle(List.of("New", "Blur", "Liquid", "Lite"),
+                                () -> Config.targetHudMode == Config.TargetHudMode.NEW ? 0 : Config.targetHudMode == Config.TargetHudMode.BLUR ? 1 : Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS ? 2 : 3,
+                                 i -> { Config.targetHudMode = i == 0 ? Config.TargetHudMode.NEW : i == 1 ? Config.TargetHudMode.BLUR : i == 2 ? Config.TargetHudMode.LIQUID_GLASS : Config.TargetHudMode.LITE; Config.save(); }))
+                .addSub(UiText.t("Ping HUD", "Ping HUD"), UiText.t("选择 Ping HUD 样式", "Choose the Ping HUD style"),
+                        new SettingCycle(List.of("Lite", "New", "Blur", "Liquid"),
+                                () -> Config.pingHudStyle.ordinal(),
+                                i -> { Config.pingHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(3, i))]; Config.save(); }))
+                .addSub(UiText.t("TPS HUD", "TPS HUD"), UiText.t("选择 TPS HUD 样式", "Choose the TPS HUD style"),
+                        new SettingCycle(List.of("Lite", "New", "Blur", "Liquid"),
+                                () -> Config.tpsHudStyle.ordinal(),
+                                i -> { Config.tpsHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(3, i))]; Config.save(); }))
+                .addSub(UiText.t("时钟 HUD", "Clock HUD"), UiText.t("选择时钟 HUD 样式", "Choose the Clock HUD style"),
+                        new SettingCycle(List.of("Lite", "New", "Blur", "Liquid"),
+                                () -> Config.clockHudStyle.ordinal(),
+                                i -> { Config.clockHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(3, i))]; Config.save(); }))
+                .addSub(UiText.t("计分板液态玻璃", "Scoreboard Liquid Glass"), UiText.t("切换更好的计分板液态玻璃背景", "Toggle the Better Scoreboard liquid glass background"),
+                        new SettingToggle(() -> Config.betterScoreboardLiquidGlass, v -> { Config.betterScoreboardLiquidGlass = v; Config.save(); }))
+                .addSub(UiText.t("物品栏液态玻璃", "Item Selector Liquid Glass"), UiText.t("切换更好的物品栏液态玻璃背景", "Toggle the Better Item Selector liquid glass background"),
+                        new SettingToggle(() -> Config.betterItemSelectorLiquidGlass, v -> { Config.betterItemSelectorLiquidGlass = v; Config.save(); }))
                 .addSub(UiText.t("按键显示", "Keystrokes"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
                         new SettingCycle(List.of("New", "Blur", "Liquid", "Lite"),
                                 () -> switch (Config.keystrokesMode) {

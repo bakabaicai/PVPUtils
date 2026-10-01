@@ -353,28 +353,16 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("Ping 显示", "Ping HUD"), UiText.t("显示当前与服务器的延迟", "Show your current latency to the server"),
                 new SettingToggle(() -> Config.pingHud, v -> { Config.pingHud = v; Config.save(); }))
-                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
-                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
-                                () -> Config.pingHudStyle.ordinal(),
-                                i -> { Config.pingHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
                 .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
                         new SettingToggle(() -> Config.pingHudBackground, v -> { Config.pingHudBackground = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("TPS 显示", "TPS HUD"), UiText.t("估算当前服务器的 TPS", "Estimate the server's current TPS"),
                 new SettingToggle(() -> Config.tpsHud, v -> { Config.tpsHud = v; Config.save(); }))
-                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
-                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
-                                () -> Config.tpsHudStyle.ordinal(),
-                                i -> { Config.tpsHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
                 .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
                         new SettingToggle(() -> Config.tpsHudBackground, v -> { Config.tpsHudBackground = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("现实时钟", "Clock"), UiText.t("显示现实世界的时间", "Show real-world time"),
                 new SettingToggle(() -> Config.clockHud, v -> { Config.clockHud = v; Config.save(); }))
-                .addSub(UiText.t("样式", "Style"), UiText.t("切换 HUD 的渲染风格，可在 HUD 编辑器中调整位置", "Switch the HUD style; adjust position in the HUD editor"),
-                        new SettingCycle(List.of(UiText.t("轻量", "Lite"), UiText.t("全新", "New"), UiText.t("模糊", "Blur")),
-                                () -> Config.clockHudStyle.ordinal(),
-                                i -> { Config.clockHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(2, i))]; Config.save(); }))
                 .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
                         new SettingToggle(() -> Config.clockHudBackground, v -> { Config.clockHudBackground = v; Config.save(); })));
 

@@ -14,6 +14,7 @@ import net.minecraft.network.chat.MessageSignature;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -27,6 +28,7 @@ public abstract class BetterChatChatMixin {
     private static final int CHAT_HEAD_GAP = 2;
     private static final int CHAT_HEAD_SHIFT = CHAT_HEAD_SIZE + CHAT_HEAD_GAP;
     private static final AtomicBoolean REPLACING = new AtomicBoolean(false);
+    @Unique private int pvp_utils$chatOffset;
     @Shadow private int chatScrollbarPos;
     @Shadow @Final private List<GuiMessage.Line> trimmedMessages;
     @Shadow private int getLineHeight() { return 0; }
@@ -38,16 +40,19 @@ public abstract class BetterChatChatMixin {
 
     @Inject(method = "render", at = @At("HEAD"))
     private void pvp_utils$chatRenderStart(GuiGraphics context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
-        if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
-        int offset = BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
-        context.pose().translate(0, offset);
+        this.pvp_utils$chatOffset = (!Config.betterChat || !Config.betterChatMessageAnimation) ? 0
+                : BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
+        if (this.pvp_utils$chatOffset != 0) {
+            context.pose().translate(0, this.pvp_utils$chatOffset);
+        }
     }
 
     @Inject(method = "render", at = @At("TAIL"))
     private void pvp_utils$chatRenderEnd(GuiGraphics context, Font font, int currentTick, int mouseX, int mouseY, boolean focused, boolean open, CallbackInfo ci) {
-        if (!Config.betterChat || !Config.betterChatMessageAnimation) return;
-        int offset = BetterChatState.getInstance().calculateChatDisplacementY(this.getLineHeight(), this.chatScrollbarPos);
-        context.pose().translate(0, -offset);
+        if (this.pvp_utils$chatOffset != 0) {
+            context.pose().translate(0, -this.pvp_utils$chatOffset);
+            this.pvp_utils$chatOffset = 0;
+        }
     }
 
     @Inject(method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V", at = @At("HEAD"), cancellable = true)

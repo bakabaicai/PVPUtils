@@ -4,6 +4,7 @@ import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import io.github.humbleui.skija.Canvas;
@@ -19,6 +20,8 @@ public final class BetterItemSelectorRenderer {
     private static final float BAR_HEIGHT = 22.0f;
     private static final float BAR_RADIUS = 7.0f;
 
+    private static final LiquidGlassRenderer.SlotGrid SLOTS =
+            new LiquidGlassRenderer.SlotGrid(9, 2.0f, 2.0f, 20.0f, 18.0f, 4.5f);
     private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final Paint backgroundPaint = new Paint().setAntiAlias(true);
     private final Paint slotPaint = new Paint().setAntiAlias(true);
@@ -33,13 +36,20 @@ public final class BetterItemSelectorRenderer {
     }
 
     public void renderBackground(Minecraft client, float x, float y) {
-        SkiaBlurRenderer.getInstance().render(client, x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS,
-                Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        boolean glass = Config.betterItemSelectorLiquidGlass
+                && LiquidGlassRenderer.getInstance().renderPanel(client, x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS,
+                LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1, SLOTS);
+        if (!glass) {
+            SkiaBlurRenderer.getInstance().render(client, x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS,
+                    Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        }
         Canvas canvas = begin(client);
         if (canvas == null) return;
         try {
-            backgroundPaint.setColor(0x4D000000);
-            canvas.drawRRect(RRect.makeXYWH(x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS), backgroundPaint);
+            if (!glass) {
+                backgroundPaint.setColor(0x4D000000);
+                canvas.drawRRect(RRect.makeXYWH(x, y, 182.0f, BAR_HEIGHT, BAR_RADIUS), backgroundPaint);
+            }
             boolean lightTheme = Config.hudTheme == Config.HudTheme.LIGHT;
             slotPaint.setColor(lightTheme ? 0x14253045 : 0x262F3745);
             for (int slot = 0; slot < 9; slot++) {
@@ -49,6 +59,7 @@ public final class BetterItemSelectorRenderer {
             glBackend.end();
         }
     }
+
 
     public void renderSelector(Minecraft client, float x, float y, float slotOffset) {
         Canvas canvas = begin(client);

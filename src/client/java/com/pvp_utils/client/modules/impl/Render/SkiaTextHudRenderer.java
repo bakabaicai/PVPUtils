@@ -7,6 +7,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.render.font.FontRenderer;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.SkiaGlBackend;
 import io.github.humbleui.skija.Canvas;
@@ -30,9 +31,12 @@ public abstract class SkiaTextHudRenderer {
     private static final int LITE_OUTLINE_COLOR = 0x99FFFFFF;
     private static final int TEXT_COLOR = 0xFFF2F4F8;
 
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
+    private static final SkiaGlBackend GL_BACKEND = new SkiaGlBackend();
     private final Paint panelPaint = new Paint().setAntiAlias(true);
-    private boolean nativeLoaded = false;
+    private static boolean nativeLoaded = false;
+
+    private record Prepared(SkiaTextHudRenderer renderer, List<Line> lines, int width, int height,
+                            float scale, int x, int y, boolean blurred, boolean liquid) {}
 
     protected abstract boolean enabled();
 
@@ -102,30 +106,25 @@ public abstract class SkiaTextHudRenderer {
     }
 
     public void renderFrameEnd() {
-        if (!enabled() || style() == Config.HudStyle.LITE) {
-            return;
-        }
+        renderFrameEnd(this);
+    }
+
+    public static void renderFrameEnd(SkiaTextHudRenderer... renderers) {
         Minecraft client = Minecraft.getInstance();
-        if (!inGame(client) || (client.screen != null && !HudEditOverlay.getInstance().isActive())) {
-            return;
-        }
-        List<Line> lines = lines();
-        if (lines.isEmpty()) {
+        if (renderers.length == 0 || !inGame(client)
+                || (client.screen != null && !HudEditOverlay.getInstance().isActive())) {
             return;
         }
 
-        int width = skiaPanelWidth(lines);
-        int height = panelHeight(lines.size()) + extraHeight();
-        float scale = scale();
-        int x = renderX(client, width);
-        int y = renderY(client, height);
+        java.util.ArrayList<Prepared> prepared = new java.util.ArrayList<>(renderers.length);
+        for (SkiaTextHudRenderer renderer : renderers) {
+            Prepared item = renderer.prepare(client);
+            if (item != null) prepared.add(item);
+        }
+        if (prepared.isEmpty()) return;
 
-        boolean blurred = false;
-        if (backgroundEnabled() && style() == Config.HudStyle.BLUR) {
-            blurred = SkiaBlurRenderer.getInstance().renderRegions(client,
-                    List.of(new SkiaBlurRenderer.Region(x, y, width * scale, height * scale,
-                            Math.min(8f, height * 0.4f) * scale)),
-                    Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        for (int i = 0; i < prepared.size(); i++) {
+            prepared.set(i, renderBackground(client, prepared.get(i)));
         }
 
         ensureNativeLoaded();
@@ -133,32 +132,77 @@ public abstract class SkiaTextHudRenderer {
         if (framebufferId == 0) {
             return;
         }
-        Canvas canvas = glBackend.begin(framebufferId);
+        Canvas canvas = GL_BACKEND.begin(framebufferId);
         if (canvas == null) {
             return;
         }
         try {
-            canvas.save();
-            canvas.translate(x, y);
-            canvas.scale(scale, scale);
+            for (Prepared item : prepared) item.renderer().draw(canvas, item);
+        } finally {
+            GL_BACKEND.end();
+        }
+    }
 
-            if (backgroundEnabled()) {
+    private Prepared prepare(Minecraft client) {
+        if (!enabled() || style() == Config.HudStyle.LITE) return null;
+        List<Line> lines = lines();
+        if (lines.isEmpty()) return null;
+
+        int width = skiaPanelWidth(lines);
+        int height = panelHeight(lines.size()) + extraHeight();
+        float scale = scale();
+        int x = renderX(client, width);
+        int y = renderY(client, height);
+        return new Prepared(this, lines, width, height, scale, x, y, false, false);
+    }
+
+    private static Prepared renderBackground(Minecraft client, Prepared item) {
+        SkiaTextHudRenderer renderer = item.renderer();
+        if (!renderer.backgroundEnabled()) return item;
+        float radius = Math.min(8f, item.height() * 0.4f) * item.scale();
+        float w = item.width() * item.scale();
+        float h = item.height() * item.scale();
+        if (renderer.style() == Config.HudStyle.LIQUID_GLASS) {
+            return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
+                    item.x(), item.y(), false,
+                    LiquidGlassRenderer.getInstance().renderPanel(client, item.x(), item.y(), w, h, radius,
+                            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow,
+                            Config.liquidGlassHighlight, 0f, 1));
+        }
+        if (renderer.style() == Config.HudStyle.BLUR) {
+            return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
+                    item.x(), item.y(),
+                    SkiaBlurRenderer.getInstance().renderRegions(client,
+                            List.of(new SkiaBlurRenderer.Region(item.x(), item.y(), w, h, radius)),
+                            Config.skiaBlurTintColor(), Config.skiaBlurStrength),
+                    false);
+        }
+        return item;
+    }
+
+
+    private void draw(Canvas canvas, Prepared item) {
+        try {
+            canvas.save();
+            canvas.translate(item.x, item.y);
+            canvas.scale(item.scale, item.scale);
+
+            if (backgroundEnabled() && !item.liquid) {
                 ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-                panelPaint.setColor(style() == Config.HudStyle.BLUR && blurred
+                panelPaint.setColor(style() == Config.HudStyle.BLUR && item.blurred
                         ? 0x40101420
                         : tc.dark ? 0xB0101420 : 0xD0101420);
-                canvas.drawRRect(RRect.makeXYWH(0.5f, 0.5f, width - 1f, height - 1f, PANEL_RADIUS), panelPaint);
+                canvas.drawRRect(RRect.makeXYWH(0.5f, 0.5f, item.width - 1f, item.height - 1f, PANEL_RADIUS), panelPaint);
             }
 
             float textY = PADDING_Y + FontRenderer.getAscent(TEXT_SIZE);
-            for (Line line : lines) {
+            for (Line line : item.lines) {
                 FontRenderer.drawText(canvas, line.text(), PADDING_X, textY, TEXT_SIZE, line.color());
                 textY += LINE_HEIGHT;
             }
-            drawExtras(canvas, width, textY);
-            canvas.restore();
+            drawExtras(canvas, item.width, textY);
         } finally {
-            glBackend.end();
+            canvas.restore();
         }
     }
 
@@ -219,7 +263,7 @@ public abstract class SkiaTextHudRenderer {
         return Math.max(0.5f, configScale());
     }
 
-    private boolean inGame(Minecraft client) {
+    private static boolean inGame(Minecraft client) {
         if (client.player == null || client.level == null || client.options.hideGui) return false;
         if (HudEditOverlay.getInstance().isActive()) return true;
         return !(client.screen instanceof com.pvp_utils.client.gui.clickgui.NewSettingsScreen)
@@ -236,7 +280,7 @@ public abstract class SkiaTextHudRenderer {
         return clamp((int) (screenH * 0.5f + configY()), 0, Math.max(0, screenH - height));
     }
 
-    private int mainFramebufferId(Minecraft client) {
+    private static int mainFramebufferId(Minecraft client) {
         if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
                 && RenderSystem.getDevice() instanceof GlDevice device) {
             return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
@@ -244,7 +288,7 @@ public abstract class SkiaTextHudRenderer {
         return 0;
     }
 
-    private void ensureNativeLoaded() {
+    private static void ensureNativeLoaded() {
         if (nativeLoaded) return;
         Library.load();
         nativeLoaded = true;

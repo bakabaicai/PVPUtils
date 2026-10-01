@@ -19,6 +19,10 @@ public final class LiquidGlassRenderer {
     private final Paint tintPaint = new Paint().setAntiAlias(true);
 
     private float highlightAngle = (float) (Math.PI * 0.25);
+    private static final float BAR_HIGHLIGHT_STROKE = 1.5f;
+    private static final float SLOT_HIGHLIGHT_STROKE = 0.75f;
+    private static final float SLOT_HIGHLIGHT_ALPHA_SCALE = 0.3f;
+    private static final float SLOT_HIGHLIGHT_TAPER = 2.2f;
 
     private RuntimeEffect lensEffect;
     private RuntimeEffect highlightEffect;
@@ -74,6 +78,11 @@ public final class LiquidGlassRenderer {
         uniform float ior;
         uniform float depthEffect;
         uniform float chromaticAberration;
+        uniform float slotCount;
+        uniform float2 slotSize;
+        uniform float2 slotFirst;
+        uniform float slotPitch;
+        uniform float slotRadius;
 
         """ + ROUNDED_RECT_SDF + """
 
@@ -83,6 +92,31 @@ public final class LiquidGlassRenderer {
             float radius = radiusAt(coord + offset, cornerRadii);
 
             float sd = sdRoundedRect(centeredCoord, halfSize, radius);
+            float2 gradCenter = centeredCoord;
+            float2 gradHalf = halfSize;
+
+            if (slotCount > 0.5) {
+                float2 slotHalf = slotSize * 0.5;
+                float best = 1e9;
+                float2 bestLocal = float2(0.0);
+                for (int i = 0; i < 9; i++) {
+                    if (float(i) >= slotCount) break;
+                    float2 slotCenter = slotFirst + slotHalf + float2(float(i) * slotPitch, 0.0) - size * 0.5;
+                    float2 local = centeredCoord - slotCenter;
+                    float s = sdRoundedRect(local, slotHalf, slotRadius);
+                    if (s < best) {
+                        best = s;
+                        bestLocal = local;
+                    }
+                }
+                if (best < 0.0) {
+                    sd = best;
+                    gradCenter = bestLocal;
+                    gradHalf = slotHalf;
+                    radius = slotRadius;
+                }
+            }
+
             if (-sd >= refractionHeight) {
                 return content.eval(coord);
             }
@@ -94,8 +128,8 @@ public final class LiquidGlassRenderer {
             float thetaT = asin(clamp(sin(thetaI) / max(ior, 1.001), 0.0, 1.0));
             float edgeFactor = -tan(thetaT - thetaI);
             float d = edgeFactor * refractionAmount;
-            float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-            float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord));
+            float gradRadius = min(radius * 1.5, min(gradHalf.x, gradHalf.y));
+            float2 grad = normalize(gradSdRoundedRect(gradCenter, gradHalf, gradRadius) + depthEffect * normalize(gradCenter + float2(1e-5)));
 
             float2 refractedCoord = coord + d * grad;
             float dispersionIntensity = chromaticAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
@@ -159,7 +193,7 @@ public final class LiquidGlassRenderer {
                 float along = dot(centeredCoord, tangent) / max(halfSize.x, halfSize.y);
                 intensity *= exp(-pow(along * taper, 2.0));
             }
-            return half4(color * intensity);
+            return half4(color * intensity * 0.3);
         }
         """;
 
@@ -176,8 +210,16 @@ public final class LiquidGlassRenderer {
         }
     }
 
+    public record SlotGrid(int count, float x, float y, float pitch, float size, float radius) {}
+
     public boolean renderPanel(Minecraft client, float x, float y, float width, float height, float radius,
                                int tintColor, boolean shadow, boolean highlight, float highlightTaper, int slot) {
+        return renderPanel(client, x, y, width, height, radius, tintColor, shadow, highlight, highlightTaper, slot, null);
+    }
+
+    public boolean renderPanel(Minecraft client, float x, float y, float width, float height, float radius,
+                               int tintColor, boolean shadow, boolean highlight, float highlightTaper, int slot,
+                               SlotGrid grid) {
         if (width <= 0f || height <= 0f) return false;
         if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null) return false;
         int framebufferId = mainFramebufferId(client);
@@ -189,7 +231,7 @@ public final class LiquidGlassRenderer {
         try {
             DirectContext context = blur.context();
             if (!ensureRuntimeEffects()) return false;
-            drawGlass(canvas, context, client, slot, x, y, width, height, radius, tintColor, shadow, highlight, highlightTaper);
+            drawGlass(canvas, context, client, slot, x, y, width, height, radius, tintColor, shadow, highlight, highlightTaper, grid);
             return true;
         } finally {
             blur.endFrame();
@@ -198,14 +240,14 @@ public final class LiquidGlassRenderer {
 
     private void drawGlass(Canvas canvas, DirectContext context, Minecraft client, int slot,
                            float x, float y, float width, float height, float radius,
-                           int tintColor, boolean shadow, boolean highlight, float highlightTaper) {
+                           int tintColor, boolean shadow, boolean highlight, float highlightTaper, SlotGrid grid) {
         float blurSigma = Math.max(0.001f, Config.liquidGlassBlur * 10.5f / 2f);
         float padding = Math.max(18f, blurSigma * 2f);
 
         SkiaBlurRenderer.Capture capture = SkiaBlurRenderer.getInstance().capture(client, x, y, width, height, padding);
         if (capture.image == null) return;
 
-        Image glass = buildGlass(context, capture, slot, width, height, radius, blurSigma, padding);
+        Image glass = buildGlass(context, capture, slot, width, height, radius, blurSigma, padding, grid);
         if (glass == null) {
             capture.image.close();
             return;
@@ -233,7 +275,7 @@ public final class LiquidGlassRenderer {
             canvas.drawRRect(RRect.makeXYWH(0, 0, width, height, radius), tintPaint);
 
             if (highlight) {
-                renderHighlight(canvas, width, height, radius, highlightTaper);
+                renderHighlights(canvas, width, height, radius, highlightTaper, grid);
             }
         } finally {
             canvas.restore();
@@ -243,7 +285,7 @@ public final class LiquidGlassRenderer {
     }
 
     private Image buildGlass(DirectContext context, SkiaBlurRenderer.Capture capture, int slot,
-                             float width, float height, float radius, float blurSigma, float padding) {
+                             float width, float height, float radius, float blurSigma, float padding, SlotGrid grid) {
         float baseScale = capture.dstW > 0f ? capture.width / capture.dstW : 1f;
         float precision = renderPrecision();
         float scale = baseScale * precision;
@@ -275,6 +317,19 @@ public final class LiquidGlassRenderer {
         builder.setUniform("ior", ior);
         builder.setUniform("depthEffect", Math.max(0f, Config.liquidGlassDepthEffect));
         builder.setUniform("chromaticAberration", Math.max(0f, Config.liquidGlassDispersion));
+        if (grid == null) {
+            builder.setUniform("slotCount", 0f);
+            builder.setUniform("slotSize", 0f, 0f);
+            builder.setUniform("slotFirst", 0f, 0f);
+            builder.setUniform("slotPitch", 0f);
+            builder.setUniform("slotRadius", 0f);
+        } else {
+            builder.setUniform("slotCount", (float) grid.count());
+            builder.setUniform("slotSize", grid.size() * scale, grid.size() * scale);
+            builder.setUniform("slotFirst", grid.x() * scale, grid.y() * scale);
+            builder.setUniform("slotPitch", grid.pitch() * scale);
+            builder.setUniform("slotRadius", grid.radius() * scale);
+        }
         ImageFilter lensFilter = ImageFilter.makeRuntimeShader(builder, "content", encodeFilter);
 
         Canvas offCanvas = surface.getCanvas();
@@ -328,34 +383,66 @@ public final class LiquidGlassRenderer {
         return Math.max(0.5f, Math.min(2f, Config.liquidGlassRenderPrecision));
     }
 
-    private void renderHighlight(Canvas canvas, float width, float height, float radius, float taper) {
+    private void renderHighlights(Canvas canvas, float width, float height, float radius, float taper, SlotGrid grid) {
         if (highlightEffect == null) return;
 
-        float radiusPx = radius;
-        float angle = highlightAngle;
-        float highlightAlpha = Config.hudTheme == Config.HudTheme.LIGHT ? 0.55f : 0.7f;
+        float alpha = Config.hudTheme == Config.HudTheme.LIGHT ? 0.55f : 0.7f;
+        Shader barShader = makeHighlightShader(width, height, radius, taper, alpha);
+        try {
+            highlightPaint.setShader(barShader);
+            styleHighlightStroke(BAR_HIGHLIGHT_STROKE);
+            canvas.drawRRect(RRect.makeXYWH(0, 0, width, height, radius), highlightPaint);
+            if (grid != null) {
+                drawSlotHighlights(canvas, grid, alpha);
+            }
+        } finally {
+            resetHighlightPaint();
+            barShader.close();
+        }
+    }
+
+    private void drawSlotHighlights(Canvas canvas, SlotGrid grid, float alpha) {
+        float size = grid.size();
+        float r = grid.radius();
+        Shader slotShader = makeHighlightShader(size, size, r, SLOT_HIGHLIGHT_TAPER,
+                alpha * SLOT_HIGHLIGHT_ALPHA_SCALE);
+        try {
+            highlightPaint.setShader(slotShader);
+            styleHighlightStroke(SLOT_HIGHLIGHT_STROKE);
+            for (int i = 0; i < grid.count(); i++) {
+                canvas.save();
+                canvas.translate(grid.x() + i * grid.pitch(), grid.y());
+                canvas.drawRRect(RRect.makeXYWH(0, 0, size, size, r), highlightPaint);
+                canvas.restore();
+            }
+        } finally {
+            slotShader.close();
+        }
+    }
+
+    private Shader makeHighlightShader(float width, float height, float radius, float taper, float alpha) {
         RuntimeEffectBuilder builder = new RuntimeEffectBuilder(highlightEffect);
         builder.setUniform("size", width, height);
-        builder.setUniform("cornerRadii", radiusPx, radiusPx, radiusPx, radiusPx);
-        builder.setUniform("color", 1f, 1f, 1f, highlightAlpha);
-        builder.setUniform("angle", angle);
+        builder.setUniform("cornerRadii", radius, radius, radius, radius);
+        builder.setUniform("color", 1f, 1f, 1f, alpha);
+        builder.setUniform("angle", highlightAngle);
         builder.setUniform("falloff", 1.5f);
         builder.setUniform("taper", taper);
+        Shader shader = builder.makeShader();
+        builder.close();
+        return shader;
+    }
 
-        Shader highlightShader = builder.makeShader();
-        highlightPaint.setShader(highlightShader);
+    private void styleHighlightStroke(float strokeWidth) {
         highlightPaint.setMode(PaintMode.STROKE);
-        highlightPaint.setStrokeWidth(1.5f);
+        highlightPaint.setStrokeWidth(strokeWidth);
         highlightPaint.setBlendMode(BlendMode.PLUS);
+    }
 
-        canvas.drawRRect(RRect.makeXYWH(0, 0, width, height, radius), highlightPaint);
-
+    private void resetHighlightPaint() {
         highlightPaint.setShader(null);
         highlightPaint.setMode(PaintMode.FILL);
         highlightPaint.setBlendMode(BlendMode.SRC_OVER);
-
-        builder.close();
-        highlightShader.close();
     }
 
     private float updateHighlightAngle(Minecraft client) {

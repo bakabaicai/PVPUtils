@@ -8,6 +8,7 @@ import com.pvp_utils.client.gui.TargetScoreboardUtil;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.Rect;
@@ -59,6 +60,7 @@ public class TargetHudRenderer {
     private int lastTextureAbsorption = -1;
     private int lastTextureHealthTextAnim = -1;
     private int lastTextureDistTextAnim = -1;
+    private String lastTextureDistText = "";
     private Config.HudTheme lastTextureTheme = null;
     private Config.HudTheme lastOverlayTextureTheme = null;
     private boolean lastTextureBlurMode = false;
@@ -251,7 +253,7 @@ public class TargetHudRenderer {
 
         updateAttackDistance(client, now);
 
-        if (Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR) {
+        if (Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
             renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
             return;
         }
@@ -339,7 +341,7 @@ public class TargetHudRenderer {
         if (name.length() > 16) name = name.substring(0, 16) + "..";
         graphics.drawString(client.font, Component.literal(name), infoX, y + PADDING + 2, whiteWithAlpha, false);
 
-        if (Config.attackReachDisplay && lastAttackDistance >= 0f && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION) {
+        if (attackReachActive(now)) {
             long elapsed = now - lastAttackDistanceTime;
             float distAlpha = elapsed < 150f ? elapsed / 150f : (elapsed > ATTACK_DISTANCE_DISPLAY_DURATION - 400f ? (float)(ATTACK_DISTANCE_DISPLAY_DURATION - elapsed) / 400f : 1.0f);
             distAlpha = Math.max(0f, Math.min(1f, distAlpha));
@@ -423,11 +425,15 @@ public class TargetHudRenderer {
         float drawH = scaledH * drawScale;
         float drawRadius = 16f * hudScale * drawScale;
 
-        renderNewBaseTexture(client, name, blurMode);
-        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, blurMode);
+        boolean transparentMode = blurMode || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
+        renderNewBaseTexture(client, name, transparentMode);
+        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
         renderAvatarMaskTexture(client);
         if (blurMode) {
             SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        } else if (Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
+            LiquidGlassRenderer.getInstance().renderPanel(client, drawX, drawY, drawW, drawH, drawRadius,
+                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
         }
 
         graphics.pose().pushMatrix();
@@ -533,9 +539,18 @@ public class TargetHudRenderer {
         int healthKey = Math.round(healthRatio * 120f);
         int absorptionKey = Math.round(absorptionRatio * 80f);
         int healthTextAnimKey = getHealthTextAnimKey(now);
-        boolean showDist = Config.attackReachDisplay && lastAttackDistance >= 0f && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION;
+        boolean showDist = attackReachActive(now);
+        if (showDist) {
+            updateDistTextAnimation(lastAttackDistance, now);
+        } else {
+            currentDistText = "";
+            previousDistText = "";
+            distTextAnimStart = 0L;
+            distTextDirection = 0;
+            lastDistTextValue = -1f;
+        }
         int distAnimKey = showDist ? getDistTextAnimKey(now) : -1;
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode && distAnimKey == lastTextureDistTextAnim) return;
+        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode && distAnimKey == lastTextureDistTextAnim && currentDistText.equals(lastTextureDistText)) return;
 
         if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
             destroyOverlayTexture(client);
@@ -584,6 +599,7 @@ public class TargetHudRenderer {
         lastOverlayTextureTheme = Config.hudTheme;
         lastOverlayTextureBlurMode = blurMode;
         lastTextureDistTextAnim = distAnimKey;
+        lastTextureDistText = currentDistText;
     }
 
     private void updateHealthTextAnimation(float value, long now) {
@@ -737,6 +753,7 @@ public class TargetHudRenderer {
         lastTextureAbsorption = -1;
         lastTextureHealthTextAnim = -1;
         lastTextureDistTextAnim = -1;
+        lastTextureDistText = "";
     }
 
     private void updateHealthTransition(float currentHealth, long now) {
@@ -752,11 +769,13 @@ public class TargetHudRenderer {
         lastObservedHealth = currentHealth;
     }
 
+    private boolean attackReachActive(long now) {
+        return Config.attackReachDisplay && lastAttackDistance >= 0f
+                && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION;
+    }
+
     private void updateAttackDistance(Minecraft client, long now) {
-        if (!Config.attackReachDisplay || client.player == null || target == null || lastAttackDistanceTime <= 0L) {
-            return;
-        }
-        if (now - lastAttackDistanceTime >= ATTACK_DISTANCE_DISPLAY_DURATION) {
+        if (client.player == null || target == null || !attackReachActive(now)) {
             return;
         }
         Vec3 playerPos = client.player.position().add(0, client.player.getEyeHeight(), 0);

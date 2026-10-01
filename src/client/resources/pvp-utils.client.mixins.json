@@ -42,6 +42,7 @@
     "ChestRendererMixin",
     "KeyboardInputMixin",
     "MinecraftMixin",
+    "WindowMixin",
     "MinecraftAltAccessor",
     "GuiMixin",
     "PlayerTabOverlayMixin",

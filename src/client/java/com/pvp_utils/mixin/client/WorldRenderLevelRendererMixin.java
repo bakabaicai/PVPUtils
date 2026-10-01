@@ -5,7 +5,6 @@ import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.pvp_utils.client.modules.impl.Tool.FireballLandingPredictor;
 import com.pvp_utils.client.modules.impl.Tool.ProjectileTrajectoryPredictor;
 import com.pvp_utils.client.render.world.CustomBlockOutlineRenderer;
-import com.pvp_utils.client.render.world.CustomBlockOutlineRenderer;
 import com.pvp_utils.client.render.world.WorldRender;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
@@ -26,7 +25,6 @@ public class WorldRenderLevelRendererMixin {
         try (Gizmos.TemporaryCollection ignored = ((LevelRenderer) (Object) this).collectPerFrameGizmos()) {
             FireballLandingPredictor.render();
             ProjectileTrajectoryPredictor.render(deltaTracker.getGameTimeDeltaPartialTick(false));
-            CustomBlockOutlineRenderer.render();
             CustomBlockOutlineRenderer.render();
         }
     }

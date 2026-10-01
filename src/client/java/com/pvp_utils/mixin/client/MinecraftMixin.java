@@ -12,6 +12,7 @@ import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
@@ -184,9 +185,11 @@ public class MinecraftMixin {
         PotionStatusRenderer.getInstance().renderFrameEnd();
         KeystrokesRenderer.getInstance().renderFrameEnd();
         DynamicIslandRenderer.getInstance().renderFrameEnd();
-        PingHudRenderer.getInstance().renderFrameEnd();
-        TpsHudRenderer.getInstance().renderFrameEnd();
-        ClockHudRenderer.getInstance().renderFrameEnd();
+        SkiaTextHudRenderer.renderFrameEnd(
+                PingHudRenderer.getInstance(),
+                TpsHudRenderer.getInstance(),
+                ClockHudRenderer.getInstance()
+        );
         MusicInfoHudRenderer.getInstance().renderFrameEnd();
         LiquidGlassRenderer.getInstance().tick();
         Minecraft client = (Minecraft) (Object) this;

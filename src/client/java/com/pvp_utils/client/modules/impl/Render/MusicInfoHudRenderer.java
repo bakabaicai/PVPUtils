@@ -113,7 +113,7 @@ public class MusicInfoHudRenderer {
         boolean blurred = false;
         if (liquid) {
             blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
-                    LiquidGlassRenderer.panelTint(), true, Config.liquidGlassHighlight, 0f, 2);
+                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 2);
         } else if (blurMode) {
             blurred = SkiaBlurRenderer.getInstance().render(client, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
         }

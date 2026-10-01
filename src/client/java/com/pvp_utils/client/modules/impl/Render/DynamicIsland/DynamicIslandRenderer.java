@@ -181,7 +181,7 @@ public class DynamicIslandRenderer {
         if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
             blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y,
                     layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale,
-                    LiquidGlassRenderer.panelTint(), true, Config.liquidGlassHighlight, 0f, 1);
+                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
         } else {
             blurred = SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
         }

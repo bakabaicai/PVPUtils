@@ -12,15 +12,17 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class NeteaseMusicCovers {
     public static final int TEXTURE_SIZE = 256;
+    private static final int MAX_CACHED_COVERS = 200;
 
     private static final ExecutorService IO = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "PVPUtils-NeteaseCover");
@@ -28,7 +30,21 @@ public final class NeteaseMusicCovers {
         return thread;
     });
     private static final AtomicInteger IDS = new AtomicInteger();
-    private static final Map<String, CoverTexture> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, CoverTexture> CACHE = Collections.synchronizedMap(
+            new LinkedHashMap<String, CoverTexture>(32, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, CoverTexture> eldest) {
+                    if (size() <= MAX_CACHED_COVERS) {
+                        return false;
+                    }
+                    CoverTexture victim = eldest.getValue();
+                    if (victim.skiaImage == null && !victim.failed) {
+                        return false;
+                    }
+                    releaseCover(victim);
+                    return true;
+                }
+            });
 
     private NeteaseMusicCovers() {
     }
@@ -57,18 +73,32 @@ public final class NeteaseMusicCovers {
     }
 
     public static void clear() {
-        Minecraft client = Minecraft.getInstance();
-        for (CoverTexture cover : CACHE.values()) {
-            Identifier location = cover.location;
-            if (location != null && client.getTextureManager() != null) {
-                client.getTextureManager().release(location);
+        synchronized (CACHE) {
+            for (CoverTexture cover : CACHE.values()) {
+                releaseCover(cover);
             }
-            if (cover.skiaImage != null) {
-                cover.skiaImage.close();
-                cover.skiaImage = null;
-            }
+            CACHE.clear();
         }
-        CACHE.clear();
+    }
+
+    private static void releaseCover(CoverTexture cover) {
+        if (cover.skiaImage != null) {
+            try {
+                cover.skiaImage.close();
+            } catch (Exception ignored) {
+            }
+            cover.skiaImage = null;
+        }
+        if (cover.location != null) {
+            try {
+                Minecraft client = Minecraft.getInstance();
+                if (client.getTextureManager() != null) {
+                    client.getTextureManager().release(cover.location);
+                }
+            } catch (Exception ignored) {
+            }
+            cover.location = null;
+        }
     }
 
     private static CoverTexture request(String url) {
