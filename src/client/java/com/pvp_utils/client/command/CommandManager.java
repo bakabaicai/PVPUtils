@@ -7,6 +7,7 @@ import com.pvp_utils.client.command.impl.ClientCommandPrefixCommand;
 import com.pvp_utils.client.command.impl.ClientNameCommand;
 import com.pvp_utils.client.command.impl.DotCommand;
 import com.pvp_utils.client.command.impl.HelpCommand;
+import com.pvp_utils.client.command.impl.PluginCommand;
 import com.pvp_utils.client.command.impl.UpdateCommand;
 import com.pvp_utils.client.command.impl.VersionWarningCommand;
 import com.pvp_utils.client.util.ChatUtils;
@@ -19,6 +20,7 @@ import java.util.Locale;
 public final class CommandManager {
     private static final List<DotCommand> COMMANDS = List.of(
             new HelpCommand(),
+            new PluginCommand(),
             new ClientCommandPrefixCommand(),
             new UpdateCommand(),
             new VersionWarningCommand(),

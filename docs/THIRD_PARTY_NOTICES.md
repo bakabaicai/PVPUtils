@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-10-05
 **Aligned with:** `build.gradle` dependency set as of this date (includes `top.fpsmaster:music-api:0.1.2` / Cadence, which is locally modified — see §1.1).
 
 The PVPUtils Source-Available Non-Commercial License applies only to code, assets, and materials owned by Nachoneko_miao and PVPUtils contributors. Third-party components remain under their own licenses. This file is the project notice index; full license texts that are required to accompany distributions live under [`LICENSES/`](./LICENSES/).
@@ -15,6 +15,7 @@ The PVPUtils Source-Available Non-Commercial License applies only to code, asset
 | [`LICENSES/LGPL-3.0-or-later.txt`](./LICENSES/LGPL-3.0-or-later.txt) | **Full text** — GNU LGPLv3 + PVPUtils component appendix (incorporates GPLv3) |
 | [`LICENSES/BSD-2-Clause-JCodec.txt`](./LICENSES/BSD-2-Clause-JCodec.txt) | **Full text** — BSD-2-Clause (JCodec “FreeBSD License”) + component list |
 | [`SHADERS.md`](./SHADERS.md) | Per-shader license inventory |
+| [`LICENSES/MPL-2.0-Rhino.txt`](./LICENSES/MPL-2.0-Rhino.txt) | **Full text** — Mozilla Public License 2.0, retained from Rhino |
 
 All files under `LICENSES/` are UTF-8 (no BOM).
 
@@ -413,6 +414,15 @@ Removing or hiding third-party attribution is not permitted. For LGPL/GPL compon
 
 ## 9. Summary table (quick reference)
 
+### JS runtime addition
+
+Rhino `org.mozilla:rhino:1.8.1` is bundled as an unmodified jar-in-jar for the JS plugin runtime.
+Its upstream project is `https://github.com/mozilla/rhino`, release tag `Rhino1_8_1_Release`.
+The upstream Mozilla Public License 2.0 text is retained in
+[`LICENSES/MPL-2.0-Rhino.txt`](./LICENSES/MPL-2.0-Rhino.txt) and packaged at
+`META-INF/licenses/MPL-2.0-Rhino.txt` in the PVPUtils jar.
+No Rhino sources are modified by PVPUtils.
+
 | Component | SPDX | Bundled (jij) | License full text | NOTICE |
 |---|---|---|---|---|
 | Cadence `music-api` (locally modified — see §1.1) | MIT | Yes | `LICENSES/MIT.txt` + © line §1.1 | — |
@@ -433,3 +443,4 @@ Removing or hiding third-party attribution is not permitted. For LGPL/GPL compon
 | NoSneakAnim (adapted) | Apache-2.0 | No (source only) | `LICENSES/Apache-2.0.txt` | §1.2 attribution |
 | Shaders | mixed | resources | per file + `SHADERS.md` | `SHADERS.md` |
 | Fabric Loader / Fabric API | Apache-2.0 | **No** (user environment) | upstream | — |
+| Rhino 1.8.1 | MPL-2.0 | Yes | `LICENSES/MPL-2.0-Rhino.txt` | JS runtime addition above |
