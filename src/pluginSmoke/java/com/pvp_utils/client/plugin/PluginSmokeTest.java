@@ -139,17 +139,167 @@ public final class PluginSmokeTest {
                 + outside.getFileName() + "\"}");
         expectFailure(() -> PluginManifest.read(directory), "entry traversal");
         expectFailure(() -> storage.set("../bad", "\"" + "x".repeat(1048577) + "\""), "storage quota");
-        Path example = Path.of("examples", "plugins", "basic-hud");
-        PluginManifest sample = PluginManifest.read(example);
-        PluginRuntime sampleRuntime = new PluginRuntime(sample,
-                new PluginStorage(directory.resolve("example-data.json")), host);
-        sampleRuntime.start();
-        sampleRuntime.emit("join");
-        sampleRuntime.emit("tick");
-        sampleRuntime.render(800, 600);
-        sampleRuntime.close();
-        check(true, "repository example runs");
+        testPlayers(directory, storage);
+        testDocumentation(directory);
         System.out.println("Plugin smoke tests passed: " + checks);
+    }
+
+    private static void testDocumentation(Path directory) throws Exception {
+        for (String name : List.of("PLUGINS.md", "PLUGIN_TUTORIAL.md")) {
+            String document = Files.readString(Path.of("docs", name), StandardCharsets.UTF_8);
+            var scripts = java.util.regex.Pattern.compile("```js\\R(.*?)\\R```",
+                    java.util.regex.Pattern.DOTALL).matcher(document);
+            int index = 0;
+            List<String> sources = new ArrayList<>();
+            while (scripts.find()) {
+                String source = scripts.group(1);
+                sources.add(source);
+                TestHost host = new TestHost();
+                host.token = "documentation";
+                PluginRuntime sample = runtime(directory, source,
+                        new PluginStorage(directory.resolve(name + "-" + index++ + ".json")), host);
+                sample.start();
+                sample.emit("tick");
+                sample.render(800, 600);
+                sample.close();
+                check(true, "documentation script runs: " + name + " #" + index);
+            }
+            var json = java.util.regex.Pattern.compile("```json\\R(.*?)\\R```",
+                    java.util.regex.Pattern.DOTALL).matcher(document);
+            check(json.find(), "documentation manifest exists: " + name);
+            Files.writeString(directory.resolve("plugin.json"), json.group(1), StandardCharsets.UTF_8);
+            check(PluginManifest.read(directory).id().startsWith("my-"), "documentation manifest loads: " + name);
+            if (name.equals("PLUGIN_TUTORIAL.md")) {
+                TestHost host = new TestHost();
+                host.token = "tutorial";
+                PluginRuntime combined = runtime(directory, sources.get(1) + "\n" + sources.get(2),
+                        new PluginStorage(directory.resolve("combined-tutorial.json")), host);
+                combined.start();
+                PluginSetting trigger = combined.settings().stream()
+                        .filter(setting -> setting.name().equals("切换到第一个快捷栏")).findFirst().orElseThrow();
+                trigger.set(true);
+                combined.emit("tick");
+                combined.emit("tick");
+                check(host.operations.stream().filter(operation -> operation.equals("select")).count() == 1,
+                        "tutorial one-shot player action");
+                check(trigger.value().equals(false), "tutorial trigger resets");
+                combined.render(800, 600);
+                combined.close();
+            }
+        }
+    }
+
+    private static void testPlayers(Path directory, PluginStorage storage) throws Exception {
+        PluginPlayerSession session = new PluginPlayerSession();
+        Object player = new Object();
+        Object world = new Object();
+        Object menu = new Object();
+        check(session.playerToken() == null, "no player token outside world");
+        session.update(player, world, menu);
+        String token = session.playerToken();
+        String menuToken = session.menuToken();
+        session.update(player, world, menu);
+        check(session.validPlayer(token) && session.validMenu(menuToken), "stable session tokens");
+        session.update(player, world, new Object());
+        check(session.validPlayer(token) && !session.validMenu(menuToken), "old menu invalidated");
+        String switchedMenu = session.menuToken();
+        session.update(new Object(), world, menu);
+        check(!session.validPlayer(token) && !session.validMenu(switchedMenu), "respawn invalidates handles");
+        token = session.playerToken();
+        session.update(player, new Object(), menu);
+        check(!session.validPlayer(token), "world change invalidates player");
+        token = session.playerToken();
+        session.clear();
+        check(!session.validPlayer(token) && session.menuToken() == null, "close clears session");
+        session.update(player, world, menu);
+        check(!session.validPlayer(token), "old session never revived");
+        check(PluginPlayerArguments.integer(new Object[]{8.0}, 0, 0, 8) == 8, "hotbar upper bound");
+        expectFailure(() -> PluginPlayerArguments.integer(new Object[]{9}, 0, 0, 8), "invalid hotbar slot");
+        expectFailure(() -> PluginPlayerArguments.integer(new Object[]{0.5}, 0, 0, 8), "fractional slot");
+        expectFailure(() -> PluginPlayerArguments.number(new Object[]{Double.NaN}, 0, 10), "NaN velocity");
+        expectFailure(() -> PluginPlayerArguments.number(new Object[]{Double.POSITIVE_INFINITY}, 0, 10), "infinite velocity");
+        expectFailure(() -> PluginPlayerArguments.number(new Object[]{11}, 0, 10), "velocity range");
+        expectFailure(() -> PluginPlayerArguments.number(new Object[]{"1"}, 0, 10), "numeric string rejected");
+        expectFailure(() -> PluginPlayerArguments.number(new Object[0], 0, 10), "missing player argument");
+        expectFailure(() -> PluginPlayerArguments.validate("setRotation", new Object[]{90, 91}), "pitch range");
+        expectFailure(() -> PluginPlayerArguments.validate("setRotation", new Object[]{90}), "rotation argument count");
+        expectFailure(() -> PluginPlayerArguments.validate("setSprinting", new Object[]{1}), "sprinting boolean required");
+        expectFailure(() -> PluginPlayerArguments.validate("swing", new Object[]{"invalid"}), "invalid hand");
+        expectFailure(() -> PluginPlayerArguments.validate("click", new Object[]{"menu", 0, 0, "clone"}), "unsupported click type");
+        expectFailure(() -> PluginPlayerArguments.validate("click", new Object[]{"menu", 0, 9, "swap"}), "invalid swap button");
+        expectFailure(() -> PluginPlayerArguments.validate("click", new Object[]{"menu", -999, 0, "pickup"}), "outside click rejected");
+        PluginPlayerArguments.validate("click", new Object[]{"menu", 0, 8, "swap"});
+        PluginPlayerArguments.validate("swing", new Object[0]);
+        check(true, "valid click and default hand accepted");
+
+        TestHost host = new TestHost();
+        host.token = "first";
+        PluginRuntime live = runtime(directory, """
+                const player = pvputils.player.get();
+                if (!player || typeof player.getClass !== "undefined") throw Error("Invalid player facade");
+                const menu = player.inventory.getMenu();
+                if (player.snapshot().health !== 20) throw Error("Initial snapshot");
+                if (player.target().type !== "entity") throw Error("Target bridge");
+                if (player.inventory.getItems()[0].count !== 3) throw Error("Items bridge");
+                if (player.inventory.getSlot(0).id !== "minecraft:stone") throw Error("Slot bridge");
+                if (player.inventory.getSelectedSlot() !== 0) throw Error("Selected bridge");
+                player.setRotation(90, 30);
+                player.setVelocity(1, 0, 1);
+                player.setSprinting(true);
+                player.jump();
+                player.swing("off");
+                player.useItem("main");
+                player.stopUsingItem();
+                player.attackTarget();
+                player.interactTarget("off");
+                player.inventory.select(1);
+                if (!menu.click(0, 0, "pickup").ok) throw Error("Menu click bridge");
+                pvputils.events.on("tick", () => {
+                    const snapshot = player.snapshot();
+                    if (snapshot !== null && snapshot.health !== 10) throw Error("Snapshot is not live");
+                    pvputils.log(snapshot === null ? "stale" : "live");
+                    if (snapshot === null && player.jump().code !== "STALE_PLAYER") throw Error("Stale action");
+                });
+                """, storage, host);
+        live.start();
+        check(host.operations.containsAll(List.of("setRotation", "setVelocity", "setSprinting", "jump", "swing",
+                "useItem", "stopUsingItem", "attackTarget", "interactTarget", "select", "click")), "player actions forwarded");
+        check(host.clickedMenu.equals("menu-first"), "menu token is captured");
+        host.health = 10;
+        live.emit("tick");
+        check(host.messages.contains("live"), "player facade reads live values");
+        host.token = "second";
+        live.emit("tick");
+        check(host.messages.contains("stale"), "retained facade stays bound to original player");
+        live.close();
+        check(host.releases == 1, "player bridge released on unload");
+        host.token = null;
+        PluginRuntime absent = runtime(directory, """
+                if (pvputils.player.get() !== null) throw Error("Missing player must return null");
+                """, storage, host);
+        absent.start();
+        absent.close();
+        check(true, "player get is null outside world");
+        host.token = "third";
+        PluginRuntime renderAction = runtime(directory, """
+                pvputils.events.on("render", () => pvputils.player.get().jump());
+                """, storage, host);
+        renderAction.start();
+        int operations = host.operations.size();
+        expectFailure(() -> renderAction.render(800, 600), "render mutation denied");
+        check(host.operations.size() == operations, "render action never reaches game");
+        renderAction.close();
+        testFailure(directory, """
+                const player = pvputils.player.get();
+                for (let i = 0; i < 33; i++) player.jump();
+                """, "player action budget", storage, host);
+        PluginRuntime throwingUnload = runtime(directory, """
+                pvputils.events.on("unload", () => { throw Error("unload failure"); });
+                """, storage, host);
+        throwingUnload.start();
+        int releases = host.releases;
+        expectFailure(throwingUnload::close, "unload callback error");
+        check(host.releases == releases + 1, "unload error still releases player");
     }
 
     private static PluginRuntime runtime(Path directory, String source, PluginStorage storage, TestHost host) throws Exception {
@@ -192,6 +342,11 @@ public final class PluginSmokeTest {
     private static final class TestHost implements PluginRuntime.Host {
         private final List<String> messages = new ArrayList<>();
         private final List<String> draws = new ArrayList<>();
+        private final List<String> operations = new ArrayList<>();
+        private String token;
+        private int health = 20;
+        private int releases;
+        private String clickedMenu;
 
         @Override
         public void log(String message) {
@@ -206,6 +361,37 @@ public final class PluginSmokeTest {
         @Override
         public String playerSnapshot() {
             return "{\"health\":20,\"maxHealth\":20,\"name\":\"Test\"}";
+        }
+
+        @Override
+        public String playerToken() {
+            return token;
+        }
+
+        @Override
+        public String playerCall(String capturedToken, String operation, Object[] arguments) {
+            if (!capturedToken.equals(token)) {
+                return List.of("snapshot", "target", "getItems", "getSlot", "getSelectedSlot", "menuSnapshot")
+                        .contains(operation) ? "null" : "{\"ok\":false,\"code\":\"STALE_PLAYER\"}";
+            }
+            return switch (operation) {
+                case "snapshot" -> "{\"health\":" + health + ",\"yaw\":90,\"pitch\":30,\"inScreen\":false}";
+                case "target" -> "{\"type\":\"entity\",\"id\":1}";
+                case "getItems" -> "[{\"id\":\"minecraft:stone\",\"count\":3}]";
+                case "getSlot" -> "{\"id\":\"minecraft:stone\",\"count\":3}";
+                case "getSelectedSlot" -> "0";
+                case "menuSnapshot" -> "{\"token\":\"menu-" + token + "\",\"containerId\":0,\"slots\":[]}";
+                default -> {
+                    operations.add(operation);
+                    if (operation.equals("click")) clickedMenu = PluginRuntime.string(arguments, 0);
+                    yield "{\"ok\":true,\"code\":\"OK\"}";
+                }
+            };
+        }
+
+        @Override
+        public void releasePlayer() {
+            releases++;
         }
 
         @Override

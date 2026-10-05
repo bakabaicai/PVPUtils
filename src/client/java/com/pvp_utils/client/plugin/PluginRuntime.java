@@ -11,6 +11,7 @@ import org.mozilla.javascript.Undefined;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +23,14 @@ public final class PluginRuntime implements AutoCloseable {
         void log(String message);
         void notify(String message);
         String playerSnapshot();
+        default String playerToken() {
+            return null;
+        }
+        default String playerCall(String token, String operation, Object[] arguments) {
+            throw new IllegalStateException("Player bridge is not available");
+        }
+        default void releasePlayer() {
+        }
         void draw(String operation, Object[] arguments);
         double textWidth(Object[] arguments);
     }
@@ -40,6 +49,7 @@ public final class PluginRuntime implements AutoCloseable {
     private boolean rendering;
     private int drawCalls;
     private int messages;
+    private int playerActions;
     private Scriptable renderContext;
     private int renderWidth;
     private int renderHeight;
@@ -50,6 +60,18 @@ public final class PluginRuntime implements AutoCloseable {
         this.manifest = manifest;
         this.storage = storage;
         this.host = host;
+    }
+
+    public static void validateScript(PluginManifest manifest) throws Exception {
+        String source = Files.readString(manifest.entry(), StandardCharsets.UTF_8);
+        ContextFactory factory = new ContextFactory();
+        factory.call(cx -> {
+            cx.setLanguageVersion(Context.VERSION_ES6);
+            cx.setOptimizationLevel(-1);
+            cx.setClassShutter(name -> false);
+            cx.compileString(source, manifest.entry().getFileName().toString(), 1, null);
+            return null;
+        });
     }
 
     public void start() throws Exception {
@@ -94,6 +116,10 @@ public final class PluginRuntime implements AutoCloseable {
                 Scriptable player = object(cx);
                 property(api, "player", player);
                 function(player, "snapshot", (context, args) -> parse(context, host.playerSnapshot()));
+                function(player, "get", (context, args) -> {
+                    String token = host.playerToken();
+                    return token == null ? null : playerHandle(context, token);
+                });
                 Scriptable store = object(cx);
                 property(api, "storage", store);
                 function(store, "get", (context, args) -> {
@@ -212,6 +238,46 @@ public final class PluginRuntime implements AutoCloseable {
         return context;
     }
 
+    private Scriptable playerHandle(Context cx, String token) {
+        Scriptable player = object(cx);
+        for (String operation : List.of("snapshot", "target")) {
+            function(player, operation, (current, args) -> playerCall(current, token, operation, args, false));
+        }
+        for (String operation : List.of("setRotation", "setVelocity", "setSprinting", "jump",
+                "swing", "useItem", "stopUsingItem", "closeMenu", "attackTarget", "interactTarget")) {
+            function(player, operation, (current, args) -> playerCall(current, token, operation, args, true));
+        }
+        Scriptable inventory = object(cx);
+        property(player, "inventory", inventory);
+        for (String operation : List.of("getItems", "getSlot", "getSelectedSlot")) {
+            function(inventory, operation, (current, args) -> playerCall(current, token, operation, args, false));
+        }
+        function(inventory, "select", (current, args) -> playerCall(current, token, "select", args, true));
+        function(inventory, "getMenu", (current, args) -> {
+            Object data = playerCall(current, token, "menuSnapshot", new Object[0], false);
+            if (!(data instanceof Scriptable snapshot)) return null;
+            String menuToken = Context.toString(ScriptableObject.getProperty(snapshot, "token"));
+            Scriptable menu = object(current);
+            function(menu, "snapshot", (context, unused) ->
+                    playerCall(context, token, "menuSnapshot", new Object[]{menuToken}, false));
+            function(menu, "click", (context, values) -> {
+                if (values.length != 3) throw new IllegalArgumentException("click requires slot, button and type");
+                return playerCall(context, token, "click",
+                        new Object[]{menuToken, values[0], values[1], values[2]}, true);
+            });
+            return menu;
+        });
+        return player;
+    }
+
+    private Object playerCall(Context cx, String token, String operation, Object[] arguments, boolean action) {
+        if (action) {
+            if (rendering) throw new IllegalStateException("Player actions are not available during render");
+            if (++playerActions > 32) throw new ScriptLimitException();
+        }
+        return parse(cx, host.playerCall(token, operation, arguments));
+    }
+
     private void emit(Context cx, String event, Object[] arguments) {
         for (Function listener : List.copyOf(listeners.getOrDefault(event, List.of()))) {
             listener.call(cx, scope, scope, arguments);
@@ -256,6 +322,7 @@ public final class PluginRuntime implements AutoCloseable {
         if (closed) throw new IllegalStateException("Plugin is closed");
         if (Thread.currentThread() != owner) throw new IllegalStateException("Plugin called from another thread");
         messages = 0;
+        playerActions = 0;
         return factory.call(action);
     }
 
@@ -273,6 +340,7 @@ public final class PluginRuntime implements AutoCloseable {
             parseJson = null;
             stringifyJson = null;
             renderContext = null;
+            host.releasePlayer();
         }
     }
 

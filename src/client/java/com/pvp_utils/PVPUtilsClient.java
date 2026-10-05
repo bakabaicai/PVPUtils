@@ -49,6 +49,8 @@ public class PVPUtilsClient implements ClientModInitializer {
                     com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();
                 });
 
+        ClientTickEvents.START_CLIENT_TICK.register(client ->
+                com.pvp_utils.client.plugin.PluginManager.INSTANCE.prepareTick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             com.pvp_utils.client.plugin.PluginManager.INSTANCE.tick(client);
             AutoChestDepositManager.tick(client);

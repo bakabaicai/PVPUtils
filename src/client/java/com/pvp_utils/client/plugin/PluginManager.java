@@ -139,6 +139,33 @@ public final class PluginManager {
         revision++;
     }
 
+    public List<String> check() {
+        List<String> result = new ArrayList<>();
+        if (!PluginDirectory.ensureExists()) return List.of("插件目录创建失败");
+        try (var children = Files.list(PluginDirectory.path())) {
+            for (Path directory : children.filter(Files::isDirectory)
+                    .filter(path -> !path.getFileName().toString().startsWith(".")).sorted().limit(64).toList()) {
+                if (!Files.exists(directory.resolve("plugin.json"))) continue;
+                try {
+                    PluginManifest manifest = PluginManifest.read(directory);
+                    PluginRuntime.validateScript(manifest);
+                    result.add(manifest.id() + " OK");
+                } catch (Exception e) {
+                    result.add(directory.getFileName() + " ERROR: " + message(e));
+                }
+            }
+        } catch (Exception e) {
+            result.add("SCAN ERROR: " + message(e));
+        }
+        return List.copyOf(result);
+    }
+
+    public void prepareTick() {
+        for (Entry entry : plugins.values()) {
+            if (entry.host != null) entry.host.player.synchronize();
+        }
+    }
+
     public void tick(Minecraft client) {
         Object level = client.level;
         if (currentLevel != level) {
@@ -191,7 +218,8 @@ public final class PluginManager {
             Path file = data.resolve(entry.id + ".json");
             if (Files.isSymbolicLink(file)) throw new IOException("Plugin storage is a symbolic link");
             PluginStorage storage = new PluginStorage(file);
-            entry.runtime = new PluginRuntime(entry.manifest, storage, new GameHost(entry.id));
+            entry.host = new GameHost(entry.id);
+            entry.runtime = new PluginRuntime(entry.manifest, storage, entry.host);
             entry.runtime.start();
             entry.error = "";
             PVPUtils.LOGGER.info("Loaded JS plugin {} {}", entry.id, entry.manifest.version());
@@ -211,12 +239,15 @@ public final class PluginManager {
     private void disable(Entry entry) {
         PluginRuntime runtime = entry.runtime;
         entry.runtime = null;
-        if (runtime != null) {
-            try {
+        try {
+            if (runtime != null) {
                 runtime.close();
-            } catch (RuntimeException | PluginRuntime.ScriptLimitException e) {
-                PVPUtils.LOGGER.error("Failed to unload JS plugin {}", entry.id, e);
             }
+        } catch (RuntimeException | PluginRuntime.ScriptLimitException e) {
+            PVPUtils.LOGGER.error("Failed to unload JS plugin {}", entry.id, e);
+        } finally {
+            if (entry.host != null) entry.host.player.close();
+            entry.host = null;
         }
     }
 
@@ -249,6 +280,7 @@ public final class PluginManager {
         private String id;
         private PluginManifest manifest;
         private PluginRuntime runtime;
+        private GameHost host;
         private String error = "";
 
         private Entry(String id) {
@@ -258,6 +290,7 @@ public final class PluginManager {
 
     private final class GameHost implements PluginRuntime.Host {
         private final String id;
+        private final PluginPlayerBridge player = new PluginPlayerBridge();
 
         private GameHost(String id) {
             this.id = id;
@@ -275,16 +308,22 @@ public final class PluginManager {
 
         @Override
         public String playerSnapshot() {
-            Minecraft client = Minecraft.getInstance();
-            if (client.player == null || client.level == null) return "null";
-            JsonObject player = new JsonObject();
-            player.addProperty("name", client.player.getName().getString());
-            player.addProperty("health", client.player.getHealth());
-            player.addProperty("maxHealth", client.player.getMaxHealth());
-            player.addProperty("x", client.player.getX());
-            player.addProperty("y", client.player.getY());
-            player.addProperty("z", client.player.getZ());
-            return player.toString();
+            return player.snapshot();
+        }
+
+        @Override
+        public String playerToken() {
+            return player.token();
+        }
+
+        @Override
+        public String playerCall(String token, String operation, Object[] arguments) {
+            return player.call(token, operation, arguments);
+        }
+
+        @Override
+        public void releasePlayer() {
+            player.close();
         }
 
         @Override

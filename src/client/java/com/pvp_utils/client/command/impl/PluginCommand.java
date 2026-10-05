@@ -17,6 +17,14 @@ public final class PluginCommand implements DotCommand {
         String[] words = args.strip().split("\\s+", 2);
         PluginManager manager = PluginManager.INSTANCE;
         switch (words[0]) {
+            case "check" -> {
+                List<String> results = manager.check();
+                if (results.isEmpty()) {
+                    ChatUtils.send("No plugins found");
+                } else {
+                    results.forEach(ChatUtils::send);
+                }
+            }
             case "refresh" -> {
                 manager.refresh();
                 ChatUtils.send("Plugins: " + manager.plugins().size());
@@ -35,7 +43,7 @@ public final class PluginCommand implements DotCommand {
                     ChatUtils.send(plugin.id() + " " + plugin.version() + " "
                             + (plugin.enabled() ? "ON" : "OFF") + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
                 }
-                ChatUtils.send(".plugins <refresh|folder|enable|disable|reload>");
+                ChatUtils.send(".plugins <check|refresh|folder|enable|disable|reload>");
             }
         }
     }
@@ -45,7 +53,7 @@ public final class PluginCommand implements DotCommand {
         String[] words = args.split("\\s+", 2);
         if (words.length == 2) return PluginManager.INSTANCE.plugins().stream().map(PluginManager.PluginInfo::id)
                 .filter(id -> id.startsWith(words[1])).toList();
-        return List.of("refresh", "folder", "enable", "disable", "reload").stream()
+        return List.of("check", "refresh", "folder", "enable", "disable", "reload").stream()
                 .filter(value -> value.startsWith(args)).toList();
     }
 }
