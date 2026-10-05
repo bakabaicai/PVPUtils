@@ -65,6 +65,8 @@ loom {
 }
 
 dependencies {
+    implementation "org.mozilla:rhino:1.8.1"
+    include "org.mozilla:rhino:1.8.1"
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
 
@@ -125,6 +127,29 @@ dependencies {
 
 }
 
+sourceSets {
+    pluginSmoke {
+        java.srcDir "src/pluginSmoke/java"
+        compileClasspath += sourceSets.client.output
+        runtimeClasspath += sourceSets.client.output
+    }
+}
+
+configurations {
+    pluginSmokeImplementation.extendsFrom implementation
+    pluginSmokeRuntimeOnly.extendsFrom runtimeOnly
+}
+
+tasks.register("pluginSmokeTest", JavaExec) {
+    dependsOn pluginSmokeClasses, compileClientJava
+    classpath = sourceSets.pluginSmoke.runtimeClasspath
+    mainClass = "com.pvp_utils.client.plugin.PluginSmokeTest"
+}
+
+tasks.named("check").configure {
+    dependsOn "pluginSmokeTest"
+}
+
 processResources {
     inputs.property "version", project.version
 
@@ -159,6 +184,9 @@ java {
 }
 
 jar {
+    from("docs/LICENSES/MPL-2.0-Rhino.txt") {
+        into "META-INF/licenses"
+    }
     from("LICENSE") {
         rename { "${it}_${project.archives_base_name}" }
     }

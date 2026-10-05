@@ -51,6 +51,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private boolean searchFocused = false;
     private String searchText = "";
     private BasePage searchResultsPage;
+    private int pluginRevision = -1;
 
     private final float[] tabHoverAlpha = new float[TAB_KEYS_ZH.length];
     private float closeHoverAlpha = 0f;
@@ -389,6 +390,12 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         int layoutWidth = layoutWidth();
         int layoutHeight = layoutHeight();
         float[] l = layout(layoutWidth, layoutHeight);
+        int currentPluginRevision = com.pvp_utils.client.plugin.PluginManager.INSTANCE.revision();
+        if (pluginRevision != currentPluginRevision) {
+            pluginRevision = currentPluginRevision;
+            if (!searchText.isBlank()) applySearch();
+            invalidateScrollLayout();
+        }
         BasePage currentPage = activePage();
         updateScrollCache(currentPage, l[17]);
         targetScrollOffset = Math.min(targetScrollOffset, cachedScrollMax);

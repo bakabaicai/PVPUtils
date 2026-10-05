@@ -28,6 +28,8 @@ public final class SkijaFrameRenderer {
                 TpsHudRenderer.getInstance(),
                 ClockHudRenderer.getInstance()));
                 SkijaRenderer.draw(MusicInfoHudRenderer.getInstance()::renderSkija);
+                SkijaRenderer.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
+                        hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
                 LiquidGlassRenderer.getInstance().tick();
             }
             if (client.screen instanceof SkijaScreen screen) SkijaRenderer.draw(screen::renderSkija);

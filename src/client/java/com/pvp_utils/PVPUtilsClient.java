@@ -32,6 +32,7 @@ public class PVPUtilsClient implements ClientModInitializer {
     public void onInitializeClient() {
         Config.load();
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
+        com.pvp_utils.client.plugin.PluginManager.INSTANCE.initialize();
         ClickGuiThemeManager.applyConfig();
         AntiCheat.verifyEnvironment();
         VictorySound.init();
@@ -43,9 +44,13 @@ public class PVPUtilsClient implements ClientModInitializer {
         CommandManager.register();
         Update.startAutoCheck();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
-                client -> com.pvp_utils.client.render.skia.SkijaFrameRenderer.close());
+                client -> {
+                    com.pvp_utils.client.plugin.PluginManager.INSTANCE.close();
+                    com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();
+                });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            com.pvp_utils.client.plugin.PluginManager.INSTANCE.tick(client);
             AutoChestDepositManager.tick(client);
             AutoGGManager.tick(client);
             ServerAutoLoginManager.tick(client);

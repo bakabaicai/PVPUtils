@@ -26,6 +26,7 @@ public final class HelpCommand implements DotCommand {
         send(prefix + "clientname <名称>", "修改客户端显示名称", "Change the client display name");
         send(prefix + "clientcommand <符号>", "修改客户端指令前缀符号", "Change the client command prefix");
         send(prefix + "update", "检查客户端更新", "Check for client updates");
+        send(prefix + "plugins <refresh|folder|enable|disable|reload>", "管理 JS 插件", "Manage JS plugins");
     }
 
     private static void send(String usage, String descriptionZh, String descriptionEn) {
