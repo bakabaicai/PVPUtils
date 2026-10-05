@@ -1,17 +1,18 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SettingSlider extends SettingWidget {
-
     private final Supplier<Double> getter;
     private final Consumer<Double> setter;
     private final double min, max;
@@ -57,11 +58,11 @@ public class SettingSlider extends SettingWidget {
         if (Double.compare(value, cachedValue) != 0) {
             cachedValue = value;
             cachedText = String.format(format, value);
-            cachedTextWidth = FontRenderer.measureTextWidth(cachedText, 11f);
+            cachedTextWidth = SkijaUi.textWidth(cachedText, 11f);
         }
         String val = cachedText;
         float lw = cachedTextWidth;
-        FontRenderer.drawText(canvas, val, x + LABEL_W - lw, y + 14f, 11f, withAlpha(tc.mutedText, enabledAlpha));
+        SkijaUi.text(canvas, val, x + LABEL_W - lw, (y + 14f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(tc.mutedText, enabledAlpha), 11f);
 
         float tx = x + LABEL_W + 8f;
         float t = (float)((value - min) / (max - min));

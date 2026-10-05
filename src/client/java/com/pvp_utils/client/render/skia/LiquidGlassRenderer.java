@@ -223,9 +223,9 @@ public final class LiquidGlassRenderer {
         if (width <= 0f || height <= 0f) return false;
         if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null) return false;
         int framebufferId = mainFramebufferId(client);
-        if (framebufferId == 0) return false;
+        if (framebufferId == 0 && !SkijaRenderer.isDrawing()) return false;
 
-        SkiaBlurRenderer blur = SkiaBlurRenderer.getInstance();
+        GlassCaptureRenderer blur = GlassCaptureRenderer.getInstance();
         Canvas canvas = blur.beginFrame(framebufferId);
         if (canvas == null) return false;
         try {
@@ -244,7 +244,7 @@ public final class LiquidGlassRenderer {
         float blurSigma = Math.max(0.001f, Config.liquidGlassBlur * 10.5f / 2f);
         float padding = Math.max(18f, blurSigma * 2f);
 
-        SkiaBlurRenderer.Capture capture = SkiaBlurRenderer.getInstance().capture(client, x, y, width, height, padding);
+        GlassCaptureRenderer.Capture capture = GlassCaptureRenderer.getInstance().capture(client, x, y, width, height, padding);
         if (capture.image == null) return;
 
         Image glass = buildGlass(context, capture, slot, width, height, radius, blurSigma, padding, grid);
@@ -284,7 +284,7 @@ public final class LiquidGlassRenderer {
         }
     }
 
-    private Image buildGlass(DirectContext context, SkiaBlurRenderer.Capture capture, int slot,
+    private Image buildGlass(DirectContext context, GlassCaptureRenderer.Capture capture, int slot,
                              float width, float height, float radius, float blurSigma, float padding, SlotGrid grid) {
         float baseScale = capture.dstW > 0f ? capture.width / capture.dstW : 1f;
         float precision = renderPrecision();
@@ -515,7 +515,7 @@ public final class LiquidGlassRenderer {
                 && RenderSystem.getDevice() instanceof GlDevice device) {
             return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
         }
-        return SkiaBlurRenderer.currentDrawFramebufferId();
+        return GlassCaptureRenderer.currentDrawFramebufferId();
     }
 
     public void destroy() {

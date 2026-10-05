@@ -89,11 +89,11 @@ dependencies {
     implementation "io.github.humbleui:types:0.2.0"
     include "io.github.humbleui:types:0.2.0"
 
-    implementation "io.github.humbleui:skija-shared:0.143.16"
-    include "io.github.humbleui:skija-shared:0.143.16"
+    implementation "io.github.humbleui:skija-shared:0.143.17"
+    include "io.github.humbleui:skija-shared:0.143.17"
 
-    implementation "io.github.humbleui:skija-windows-x64:0.143.16"
-    include "io.github.humbleui:skija-windows-x64:0.143.16"
+    implementation "io.github.humbleui:skija-windows-x64:0.143.17"
+    include "io.github.humbleui:skija-windows-x64:0.143.17"
     implementation include("net.java.dev.jna:jna:5.14.0")
 
     implementation "com.github.oshi:oshi-core:6.6.5"
@@ -135,6 +135,20 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 21
+}
+
+tasks.named("runClient").configure {
+    useArgFile.set(true)
+    doFirst {
+        jvmArguments.finalizeValue()
+        def argumentsFile = file(argFilePath.get())
+        def nativeEncoding = System.getProperty("native.encoding", "UTF-8")
+        def contents = argumentsFile.getText("UTF-8")
+        if (!java.nio.charset.Charset.forName(nativeEncoding).newEncoder().canEncode(contents)) {
+            throw new GradleException("runClient classpath contains characters outside JVM launcher encoding ${nativeEncoding}")
+        }
+        argumentsFile.setText(contents, nativeEncoding)
+    }
 }
 
 java {

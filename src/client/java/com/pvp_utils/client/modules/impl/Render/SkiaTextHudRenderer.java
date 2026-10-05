@@ -1,19 +1,16 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -31,12 +28,10 @@ public abstract class SkiaTextHudRenderer {
     private static final int LITE_OUTLINE_COLOR = 0x99FFFFFF;
     private static final int TEXT_COLOR = 0xFFF2F4F8;
 
-    private static final SkiaGlBackend GL_BACKEND = new SkiaGlBackend();
     private final Paint panelPaint = new Paint().setAntiAlias(true);
-    private static boolean nativeLoaded = false;
 
     private record Prepared(SkiaTextHudRenderer renderer, List<Line> lines, int width, int height,
-                            float scale, int x, int y, boolean blurred, boolean liquid) {}
+    float scale, int x, int y, boolean blurred, boolean liquid) {}
 
     protected abstract boolean enabled();
 
@@ -105,14 +100,14 @@ public abstract class SkiaTextHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    public void renderFrameEnd() {
-        renderFrameEnd(this);
+    public void renderSkija(Canvas canvas) {
+        renderSkija(canvas, this);
     }
 
-    public static void renderFrameEnd(SkiaTextHudRenderer... renderers) {
+    public static void renderSkija(Canvas canvas, SkiaTextHudRenderer... renderers) {
         Minecraft client = Minecraft.getInstance();
         if (renderers.length == 0 || !inGame(client)
-                || (client.screen != null && !HudEditOverlay.getInstance().isActive())) {
+        || (client.screen != null && !HudEditOverlay.getInstance().isActive())) {
             return;
         }
 
@@ -124,23 +119,10 @@ public abstract class SkiaTextHudRenderer {
         if (prepared.isEmpty()) return;
 
         for (int i = 0; i < prepared.size(); i++) {
-            prepared.set(i, renderBackground(client, prepared.get(i)));
+            prepared.set(i, renderBackground(canvas, client, prepared.get(i)));
         }
 
-        ensureNativeLoaded();
-        int framebufferId = mainFramebufferId(client);
-        if (framebufferId == 0) {
-            return;
-        }
-        Canvas canvas = GL_BACKEND.begin(framebufferId);
-        if (canvas == null) {
-            return;
-        }
-        try {
-            for (Prepared item : prepared) item.renderer().draw(canvas, item);
-        } finally {
-            GL_BACKEND.end();
-        }
+        for (Prepared item : prepared) item.renderer().draw(canvas, item);
     }
 
     private Prepared prepare(Minecraft client) {
@@ -156,7 +138,7 @@ public abstract class SkiaTextHudRenderer {
         return new Prepared(this, lines, width, height, scale, x, y, false, false);
     }
 
-    private static Prepared renderBackground(Minecraft client, Prepared item) {
+    private static Prepared renderBackground(Canvas canvas, Minecraft client, Prepared item) {
         SkiaTextHudRenderer renderer = item.renderer();
         if (!renderer.backgroundEnabled()) return item;
         float radius = Math.min(8f, item.height() * 0.4f) * item.scale();
@@ -164,22 +146,21 @@ public abstract class SkiaTextHudRenderer {
         float h = item.height() * item.scale();
         if (renderer.style() == Config.HudStyle.LIQUID_GLASS) {
             return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
-                    item.x(), item.y(), false,
-                    LiquidGlassRenderer.getInstance().renderPanel(client, item.x(), item.y(), w, h, radius,
-                            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow,
-                            Config.liquidGlassHighlight, 0f, 1));
+            item.x(), item.y(), false,
+            LiquidGlassRenderer.getInstance().renderPanel(client, item.x(), item.y(), w, h, radius,
+            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow,
+            Config.liquidGlassHighlight, 0f, 1));
         }
         if (renderer.style() == Config.HudStyle.BLUR) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(item.x(), item.y(), w, h, radius), item.x(), item.y(), w, h, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius, Config.skiaBlurTintColor());
             return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
-                    item.x(), item.y(),
-                    SkiaBlurRenderer.getInstance().renderRegions(client,
-                            List.of(new SkiaBlurRenderer.Region(item.x(), item.y(), w, h, radius)),
-                            Config.skiaBlurTintColor(), Config.skiaBlurStrength),
-                    false);
+            item.x(), item.y(),
+            true,
+            false);
         }
         return item;
     }
-
 
     private void draw(Canvas canvas, Prepared item) {
         try {
@@ -190,14 +171,14 @@ public abstract class SkiaTextHudRenderer {
             if (backgroundEnabled() && !item.liquid) {
                 ClickGuiThemeColors tc = ClickGuiThemeColors.current();
                 panelPaint.setColor(style() == Config.HudStyle.BLUR && item.blurred
-                        ? 0x40101420
-                        : tc.dark ? 0xB0101420 : 0xD0101420);
+                ? 0x40101420
+                : tc.dark ? 0xB0101420 : 0xD0101420);
                 canvas.drawRRect(RRect.makeXYWH(0.5f, 0.5f, item.width - 1f, item.height - 1f, PANEL_RADIUS), panelPaint);
             }
 
-            float textY = PADDING_Y + FontRenderer.getAscent(TEXT_SIZE);
+            float textY = PADDING_Y + (-SkijaUi.textMetrics(TEXT_SIZE).getAscent());
             for (Line line : item.lines) {
-                FontRenderer.drawText(canvas, line.text(), PADDING_X, textY, TEXT_SIZE, line.color());
+                SkijaUi.text(canvas, line.text(), PADDING_X, (textY) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), line.color(), TEXT_SIZE);
                 textY += LINE_HEIGHT;
             }
             drawExtras(canvas, item.width, textY);
@@ -209,8 +190,8 @@ public abstract class SkiaTextHudRenderer {
     public float getEditWidth() {
         List<Line> lines = lines();
         float width = style() == Config.HudStyle.LITE
-                ? liteWidth(Minecraft.getInstance(), lines)
-                : skiaWidth(lines);
+        ? liteWidth(Minecraft.getInstance(), lines)
+        : skiaWidth(lines);
         return width * scale();
     }
 
@@ -221,8 +202,8 @@ public abstract class SkiaTextHudRenderer {
     public int getRenderX(int screenW) {
         List<Line> lines = lines();
         float width = style() == Config.HudStyle.LITE
-                ? liteWidth(Minecraft.getInstance(), lines)
-                : skiaWidth(lines);
+        ? liteWidth(Minecraft.getInstance(), lines)
+        : skiaWidth(lines);
         return clamp((int) (screenW * 0.5f + configX()), 0, Math.max(0, screenW - Math.round(width * scale())));
     }
 
@@ -250,7 +231,7 @@ public abstract class SkiaTextHudRenderer {
     private float skiaWidth(List<Line> lines) {
         float max = 0f;
         for (Line line : lines) {
-            max = Math.max(max, FontRenderer.measureTextWidth(line.text(), TEXT_SIZE));
+            max = Math.max(max, SkijaUi.textWidth(line.text(), TEXT_SIZE));
         }
         return max;
     }
@@ -267,7 +248,7 @@ public abstract class SkiaTextHudRenderer {
         if (client.player == null || client.level == null || client.options.hideGui) return false;
         if (HudEditOverlay.getInstance().isActive()) return true;
         return !(client.screen instanceof com.pvp_utils.client.gui.clickgui.NewSettingsScreen)
-                && !(client.screen instanceof NeteaseMusicScreen);
+        && !(client.screen instanceof NeteaseMusicScreen);
     }
 
     private int renderX(Minecraft client, int width) {
@@ -278,20 +259,6 @@ public abstract class SkiaTextHudRenderer {
     private int renderY(Minecraft client, int height) {
         int screenH = client.getWindow().getGuiScaledHeight();
         return clamp((int) (screenH * 0.5f + configY()), 0, Math.max(0, screenH - height));
-    }
-
-    private static int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
-    }
-
-    private static void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
     }
 
     private static int clamp(int value, int min, int max) {

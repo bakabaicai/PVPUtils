@@ -1,18 +1,16 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.gui.MultiplayerCompatibilityScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
@@ -39,11 +37,10 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class PVPUtilsMultiplayerScreen extends Screen {
+public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private final Screen parent;
     private final String shaderPath;
     private final Runnable embeddedBack;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<ServerData> servers = new ArrayList<>();
     private final List<Float> hover = new ArrayList<>();
     private final Map<Integer, Image> serverIcons = new HashMap<>();
@@ -123,16 +120,16 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             pingExecutor.execute(() -> {
                 try {
                     pinger.pingServer(
-                            server,
-                            () -> minecraft.execute(() -> {
-                                if (serverList != null) serverList.save();
-                            }),
-                            () -> minecraft.execute(() -> server.setState(
-                                    server.protocol == SharedConstants.getCurrentVersion().protocolVersion()
-                                            ? ServerData.State.SUCCESSFUL
-                                            : ServerData.State.INCOMPATIBLE
-                            )),
-                            EventLoopGroupHolder.remote(minecraft.options.useNativeTransport())
+                    server,
+                    () -> minecraft.execute(() -> {
+                        if (serverList != null) serverList.save();
+                    }),
+                    () -> minecraft.execute(() -> server.setState(
+                    server.protocol == SharedConstants.getCurrentVersion().protocolVersion()
+                    ? ServerData.State.SUCCESSFUL
+                    : ServerData.State.INCOMPATIBLE
+                    )),
+                    EventLoopGroupHolder.remote(minecraft.options.useNativeTransport())
                     );
                 } catch (UnknownHostException exception) {
                     minecraft.execute(() -> server.setState(ServerData.State.UNREACHABLE));
@@ -179,13 +176,12 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
     }
 
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
-        Canvas canvas = glBackend.begin(mainFramebufferId());
-        if (canvas == null) return;
         try {
             float layoutScale = layoutScale();
             float x = cardX();
@@ -193,21 +189,14 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             float w = cardW();
             float h = cardH();
             if (!closingToMain) {
-                SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), minecraft, mainFramebufferId(),
-                        MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()),
-                        MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()),
-                        MainUiScale.pageScreenSize(w, layoutScale),
-                        MainUiScale.pageScreenSize(h, layoutScale),
-                        MainUiScale.pageScreenSize(20f, layoutScale),
-                        0x12000000,
-                        0.95f);
+                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale)), MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
+                SkijaUi.rounded(canvas, MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale), 0x12000000);;
             }
             canvas.save();
             MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
             draw(canvas);
             canvas.restore();
         } finally {
-            glBackend.end();
             pendingFrame = false;
         }
     }
@@ -230,7 +219,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         }
         String title = "Multiplayer";
         int alpha = Math.round(255f * contentAlpha);
-        FontRenderer.drawText(canvas, title, layoutWidth() * .5f - FontRenderer.measureTextWidth(title, 30f) * .5f, 50f, 30f, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, title, layoutWidth() * .5f - SkijaUi.textWidth(title, 30f) * .5f, (50f) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 40f, alpha);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
@@ -245,7 +234,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
         if (servers.isEmpty()) {
-            FontRenderer.drawText(canvas, "No servers", x + w * .5f - 42f, y + h * .5f, 14f, (Math.round(alpha * .8f) << 24) | 0xFFFFFF);
+            SkijaUi.text(canvas, "No servers", x + w * .5f - 42f, (y + h * .5f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), (Math.round(alpha * .8f) << 24) | 0xFFFFFF, 14f);
         } else {
             float itemY = y - scroll;
             for (int i = 0; i < servers.size(); i++) {
@@ -278,25 +267,23 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                 canvas.save();
                 canvas.clipRRect(RRect.makeXYWH(x + 10f, y + 10f, 44f, 44f, 10f), true);
                 canvas.drawImageRect(icon, Rect.makeXYWH(0f, 0f, icon.getWidth(), icon.getHeight()),
-                        Rect.makeXYWH(x + 10f, y + 10f, 44f, 44f), SamplingMode.LINEAR, imagePaint, true);
+                Rect.makeXYWH(x + 10f, y + 10f, 44f, 44f), SamplingMode.LINEAR, imagePaint, true);
                 canvas.restore();
             }
         } else {
-            FontRenderer.drawText(canvas, "\uE88A", x + 26f, y + 39f, 25f, (Math.round(alpha * .86f) << 24) | 0xFFFFFF, FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, "\uE88A", x + 26f, (y + 39f) + SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, 25f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
         float rightX = x + w - 12f;
         String pingText = pingText(server);
         String playersText = playersText(server);
-        float reserved = Math.max(FontRenderer.measureTextWidth(pingText, 11f), FontRenderer.measureTextWidth(playersText, 11f)) + 18f;
+        float reserved = Math.max(SkijaUi.textWidth(pingText, 11f), SkijaUi.textWidth(playersText, 11f)) + 18f;
         float textWidth = Math.max(40f, w - 66f - reserved - 12f);
         String serverName = fitText(server.name, 15f, textWidth);
         String serverAddress = fitText(server.ip, 11f, textWidth);
-        FontRenderer.drawText(canvas, serverName, x + 66f, y + 26f, 15f, (alpha << 24) | 0xFFFFFF);
-        FontRenderer.drawText(canvas, serverAddress, x + 66f, y + 46f, 11f, (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
-        FontRenderer.drawText(canvas, pingText, rightX - FontRenderer.measureTextWidth(pingText, 11f), y + 26f, 11f,
-                (Math.round(alpha * .92f) << 24) | pingColor(server));
-        FontRenderer.drawText(canvas, playersText, rightX - FontRenderer.measureTextWidth(playersText, 11f), y + 46f, 11f,
-                (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, serverName, x + 66f, (y + 26f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
+        SkijaUi.text(canvas, serverAddress, x + 66f, (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
+        SkijaUi.text(canvas, pingText, rightX - SkijaUi.textWidth(pingText, 11f), (y + 26f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .92f) << 24) | pingColor(server), 11f);
+        SkijaUi.text(canvas, playersText, rightX - SkijaUi.textWidth(playersText, 11f), (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, int alpha) {
@@ -308,7 +295,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
             bg.setColor((Math.round(alpha * (.20f + .12f * p)) << 24) | color);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
         }
-        FontRenderer.drawText(canvas, label, x + (w - FontRenderer.measureTextWidth(label, 13f)) * .5f, y + 21f, 13f, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, label, x + (w - SkijaUi.textWidth(label, 13f)) * .5f, (y + 21f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), (alpha << 24) | 0xFFFFFF, 13f);
     }
 
     @Override
@@ -425,7 +412,6 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
                 pingExecutor.shutdownNow();
                 pingExecutor = null;
             }
-            glBackend.destroy();
         }
         super.removed();
     }
@@ -538,19 +524,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
 
     private String fitText(String text, float size, float maxWidth) {
         String value = text == null ? "" : text;
-        if (FontRenderer.measureTextWidth(value, size) <= maxWidth) return value;
-        while (value.length() > 1 && FontRenderer.measureTextWidth(value + "...", size) > maxWidth) {
+        if (SkijaUi.textWidth(value, size) <= maxWidth) return value;
+        while (value.length() > 1 && SkijaUi.textWidth(value + "...", size) > maxWidth) {
             value = value.substring(0, value.length() - 1);
         }
         return value + "...";
-    }
-
-    private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
     }
 
     private float cardW() {
@@ -580,10 +558,10 @@ public final class PVPUtilsMultiplayerScreen extends Screen {
     private float layoutScale() {
         float x = cardX();
         return MainUiScale.pageScale(
-                x,
-                20f,
-                x + cardW(),
-                cardY() + cardH() + 44f
+        x,
+        20f,
+        x + cardW(),
+        cardY() + cardH() + 44f
         );
     }
 

@@ -1,19 +1,16 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.render.skia.SkijaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -49,8 +46,7 @@ public class KeystrokesRenderer {
     private final Paint glowPaint = new Paint().setAntiAlias(true);
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint ripplePaint = new Paint().setAntiAlias(true);
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
-    private boolean nativeLoaded = false;
+
     private long lastFrameMs = 0L;
     private boolean pendingFrame = false;
     private int pendingX = 0;
@@ -58,14 +54,14 @@ public class KeystrokesRenderer {
     private float pendingScale = 1f;
     private int pendingLeftCps = 0;
     private int pendingRightCps = 0;
-    private final float keyLabelW = FontRenderer.measureTextWidth("W", 11f);
-    private final float aLabelW = FontRenderer.measureTextWidth("A", 11f);
-    private final float sLabelW = FontRenderer.measureTextWidth("S", 11f);
-    private final float dLabelW = FontRenderer.measureTextWidth("D", 11f);
-    private final float spaceLabelW = FontRenderer.measureTextWidth("SPACE", 11f);
-    private final float shiftLabelW = FontRenderer.measureTextWidth("SHIFT", 11f);
-    private final float lmbLabelW = FontRenderer.measureTextWidth("LMB", 8.5f);
-    private final float rmbLabelW = FontRenderer.measureTextWidth("RMB", 8.5f);
+    private final float keyLabelW = SkijaUi.textWidth("W", 11f);
+    private final float aLabelW = SkijaUi.textWidth("A", 11f);
+    private final float sLabelW = SkijaUi.textWidth("S", 11f);
+    private final float dLabelW = SkijaUi.textWidth("D", 11f);
+    private final float spaceLabelW = SkijaUi.textWidth("SPACE", 11f);
+    private final float shiftLabelW = SkijaUi.textWidth("SHIFT", 11f);
+    private final float lmbLabelW = SkijaUi.textWidth("LMB", 8.5f);
+    private final float rmbLabelW = SkijaUi.textWidth("RMB", 8.5f);
 
     public static KeystrokesRenderer getInstance() {
         return INSTANCE;
@@ -75,7 +71,7 @@ public class KeystrokesRenderer {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) return;
+        if (client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -105,10 +101,6 @@ public class KeystrokesRenderer {
         renderNew(client, x, y, scale, leftCps, rightCps, leftDown, rightDown);
     }
 
-    public boolean needsCanvas() {
-        return false;
-    }
-
     private void renderLite(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
@@ -134,7 +126,6 @@ public class KeystrokesRenderer {
     }
 
     private void renderNew(Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown) {
-
         long now = System.currentTimeMillis();
         float dt = lastFrameMs == 0L ? 0.016f : Math.min((now - lastFrameMs) / 1000f, 0.05f);
         lastFrameMs = now;
@@ -163,10 +154,10 @@ public class KeystrokesRenderer {
         pendingRightCps = rightCps;
     }
 
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -207,17 +198,14 @@ public class KeystrokesRenderer {
     }
 
     private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
-        ensureNativeLoaded();
-        if (Config.keystrokesMode == Config.KeystrokesMode.BLUR) {
-            renderBlurKeyBackgrounds(client, x, y, scale);
-        } else if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
-            if (!renderLiquidKeyBackgrounds(client, x, y, scale)) {
-                renderBlurKeyBackgrounds(client, x, y, scale);
+        SkijaRenderer.draw(canvas -> {
+            if (Config.keystrokesMode == Config.KeystrokesMode.BLUR) {
+                renderBlurKeyBackgrounds(canvas, x, y, scale);
+            } else if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
+                if (!renderLiquidKeyBackgrounds(client, x, y, scale)) {
+                    renderBlurKeyBackgrounds(canvas, x, y, scale);
+                }
             }
-        }
-        Canvas canvas = glBackend.begin(mainFramebufferId(client));
-        if (canvas == null) return;
-        try {
             canvas.save();
             canvas.translate(x, y);
             canvas.scale(scale, scale);
@@ -245,33 +233,34 @@ public class KeystrokesRenderer {
             drawKeyLabel(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
             drawKeyLabel(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
             canvas.restore();
-        } finally {
-            glBackend.end();
-        }
+        });
     }
 
-    private void renderBlurKeyBackgrounds(Minecraft client, int x, int y, float scale) {
+    private void renderBlurKeyBackgrounds(Canvas canvas, int x, int y, float scale) {
         int mouseY = (KEY_SIZE + GAP) * 2;
         int leftMouseW = (TOTAL_W - GAP) / 2;
         int rightMouseW = TOTAL_W - GAP - leftMouseW;
         int bottomY = (KEY_SIZE + GAP) * 3;
 
-        List<SkiaBlurRenderer.Region> regions = List.of(
-                blurRegion(x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE),
-                blurRegion(x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-                blurRegion(x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-                blurRegion(x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-                blurRegion(x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE),
-                blurRegion(x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE),
-                blurRegion(x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE),
-                blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE)
+        List<RRect> regions = List.of(
+        blurRegion(x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE),
+        blurRegion(x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+        blurRegion(x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+        blurRegion(x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+        blurRegion(x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE),
+        blurRegion(x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE),
+        blurRegion(x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE),
+        blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE)
         );
-        SkiaBlurRenderer.getInstance().renderRegions(client, regions, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        for (RRect region : regions) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, region, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+            SkijaUi.rounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), Math.min(7.0f, KEY_SIZE * 0.32f) * scale, Config.skiaBlurTintColor());
+        }
     }
 
-    private SkiaBlurRenderer.Region blurRegion(int baseX, int baseY, float scale, float x, float y, float width, float height) {
-        return new SkiaBlurRenderer.Region(baseX + x * scale, baseY + y * scale, width * scale, height * scale,
-                Math.min(7.0f, height * 0.32f) * scale);
+    private RRect blurRegion(int baseX, int baseY, float scale, float x, float y, float width, float height) {
+        return RRect.makeXYWH(baseX + x * scale, baseY + y * scale, width * scale, height * scale,
+        Math.min(7.0f, height * 0.32f) * scale);
     }
 
     private boolean renderLiquidKeyBackgrounds(Minecraft client, int x, int y, float scale) {
@@ -296,18 +285,10 @@ public class KeystrokesRenderer {
     }
 
     private boolean drawLiquidKey(LiquidGlassRenderer glass, Minecraft client, int baseX, int baseY, float scale,
-                                  float x, float y, float width, float height, int tint, boolean highlight) {
+    float x, float y, float width, float height, int tint, boolean highlight) {
         float radius = Math.min(7f, height * 0.32f) * scale;
         return glass.renderPanel(client, baseX + x * scale, baseY + y * scale, width * scale, height * scale,
-                radius, tint, Config.liquidGlassShadow, highlight, 2.2f, 3);
-    }
-
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+        radius, tint, Config.liquidGlassShadow, highlight, 2.2f, 3);
     }
 
     private void drawFallback(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
@@ -383,17 +364,16 @@ public class KeystrokesRenderer {
             ripplePaint.setColor(withAlpha(BG_ACTIVE_COLOR, 0.92f * easeOutCubic(press)));
             canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), ripplePaint);
         }
-
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float height, float size, int color) {
-        drawCenteredText(canvas, text, FontRenderer.measureTextWidth(text, size), x, y, width, height, size, color);
+        drawCenteredText(canvas, text, SkijaUi.textWidth(text, size), x, y, width, height, size, color);
     }
 
     private void drawCenteredText(Canvas canvas, String text, float textW, float x, float y, float width, float height, float size, int color) {
         float textX = x + (width - textW) * 0.5f;
-        float textY = y + (height + FontRenderer.getLineHeight(size)) * 0.5f - 2.2f;
-        FontRenderer.drawText(canvas, text, textX, textY, size, color);
+        float textY = y + (height + (SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent())) * 0.5f - 2.2f;
+        SkijaUi.text(canvas, text, textX, (textY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
     }
 
     public int getScaledWidth() {
@@ -459,14 +439,7 @@ public class KeystrokesRenderer {
         return 1f - t * t * t;
     }
 
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
     private void destroyTexture(Minecraft client) {
-        glBackend.destroy();
         clearPendingFrame();
     }
 
@@ -491,6 +464,5 @@ public class KeystrokesRenderer {
             pulse = Math.max(0f, pulse - dt * 3.8f);
             wasActive = active;
         }
-
     }
 }

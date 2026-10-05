@@ -1,40 +1,24 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.pvp_utils.Config;
-import com.pvp_utils.client.render.font.FontRenderer;
-import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
-import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.PixelGeometry;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
-import io.github.humbleui.skija.SurfaceProps;
-import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.Config;
+import io.github.humbleui.skija.Paint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.KineticWeapon;
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.ByteBuffer;
 
 public final class ItemUseStatusRenderer {
     private static final ItemUseStatusRenderer INSTANCE = new ItemUseStatusRenderer();
@@ -50,8 +34,6 @@ public final class ItemUseStatusRenderer {
     private static final float NEW_BAR_Y = 10f;
     private static final float NEW_BAR_W = 132f;
     private static final float NEW_BAR_H = 7f;
-    private static final Identifier NEW_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "item_use_status_new");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
     private static final int VANILLA_CROSSBOW_CHARGE_TICKS = 25;
     private static final int VANILLA_SPEAR_DAMAGE_USE_TICKS = 10;
 
@@ -65,14 +47,7 @@ public final class ItemUseStatusRenderer {
     private float animatedProgress;
     private String lastItemName = "Item";
     private long lastFrameTime;
-    private Surface newSurface;
-    private DynamicTexture newTexture;
-    private int newTextureW = -1;
-    private int newTextureH = -1;
-    private int lastNewProgressKey = -1;
-    private int lastNewAlphaKey = -1;
-    private Config.HudTheme lastNewTheme = null;
-    private boolean nativeLoaded;
+
     private final Paint newTrackPaint = new Paint();
     private final Paint newFillPaint = new Paint();
 
@@ -268,15 +243,15 @@ public final class ItemUseStatusRenderer {
 
     private boolean shouldDisplay(ItemStack stack) {
         return stack.get(DataComponents.FOOD) != null
-                || stack.get(DataComponents.CONSUMABLE) != null
-                || stack.is(Items.BOW)
-                || stack.is(Items.CROSSBOW)
-                || stack.is(Items.TRIDENT)
-                || stack.is(ItemTags.SPEARS)
-                || stack.is(Items.POTION)
-                || stack.is(Items.SPLASH_POTION)
-                || stack.is(Items.LINGERING_POTION)
-                || stack.is(Items.BRUSH);
+        || stack.get(DataComponents.CONSUMABLE) != null
+        || stack.is(Items.BOW)
+        || stack.is(Items.CROSSBOW)
+        || stack.is(Items.TRIDENT)
+        || stack.is(ItemTags.SPEARS)
+        || stack.is(Items.POTION)
+        || stack.is(Items.SPLASH_POTION)
+        || stack.is(Items.LINGERING_POTION)
+        || stack.is(Items.BRUSH);
     }
 
     private int getDisplayDuration(ItemStack stack, LocalPlayer player) {
@@ -390,31 +365,12 @@ public final class ItemUseStatusRenderer {
     }
 
     private void renderNew(GuiGraphics graphics, Minecraft client, float progress, float alpha) {
-        ensureNativeLoaded();
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale());
-        int targetW = Math.max(1, Math.round(NEW_W * targetScale));
-        int targetH = Math.max(1, Math.round(NEW_H * targetScale));
-        int progressKey = Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 220f);
-        int alphaKey = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 80f);
-
-        if (newTexture == null || newSurface == null || newTextureW != targetW || newTextureH != targetH) {
-            destroyNewTexture(client);
-            newSurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            newTexture = new DynamicTexture("pvp_utils:item_use_status_new", targetW, targetH, false);
-            client.getTextureManager().register(NEW_TEXTURE_ID, newTexture);
-            newTextureW = targetW;
-            newTextureH = targetH;
-            lastNewProgressKey = -1;
-        }
-
-        if (progressKey != lastNewProgressKey || alphaKey != lastNewAlphaKey || lastNewTheme != Config.hudTheme) {
-            Canvas c = newSurface.getCanvas();
-            c.restoreToCount(1);
-            c.resetMatrix();
-            c.clear(0x00000000);
-            c.save();
-            c.scale(targetScale, targetScale);
-
+        float scale = getScale();
+        float x = getRenderX(client.getWindow().getGuiScaledWidth());
+        float y = getRenderY(client.getWindow().getGuiScaledHeight());
+        SkijaRenderer.draw(c -> {
+            c.translate(x, y);
+            c.scale(scale, scale);
             int alphaInt = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 255f);
             newTrackPaint.setColor((Math.round(alphaInt * 0.22f) << 24) | (Config.hudTheme == Config.HudTheme.LIGHT ? 0x111827 : 0xFFFFFF));
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, NEW_BAR_W, NEW_BAR_H, NEW_BAR_H * 0.5f), newTrackPaint);
@@ -424,26 +380,8 @@ public final class ItemUseStatusRenderer {
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, fillW, NEW_BAR_H, NEW_BAR_H * 0.5f), newFillPaint);
 
             int textColor = (alphaInt << 24) | 0xFFFFFF;
-            FontRenderer.drawText(c, Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 100.0f) + "%", 146f, 17f, 10f, textColor);
-            c.restore();
-
-            uploadSurface(newSurface, newTexture, newTextureW, newTextureH);
-            lastNewProgressKey = progressKey;
-            lastNewAlphaKey = alphaKey;
-            lastNewTheme = Config.hudTheme;
-        }
-
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
-        float scale = getScale();
-        int x = Math.round(getRenderX(screenW));
-        int y = Math.round(getRenderY(screenH));
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y);
-        graphics.pose().scale(scale, scale);
-        graphics.pose().translate(-x, -y);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, NEW_TEXTURE_ID, x, y, 0f, 0f, NEW_W, NEW_H, newTextureW, newTextureH, newTextureW, newTextureH);
-        graphics.pose().popMatrix();
+            SkijaUi.text(c, Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 100.0f) + "%", 146f, (17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), textColor, 10f);
+        });
     }
 
     private void updateAnimatedProgress(long now) {
@@ -461,45 +399,6 @@ public final class ItemUseStatusRenderer {
     private float easeOutCubic(float value) {
         float t = 1.0f - Mth.clamp(value, 0.0f, 1.0f);
         return 1.0f - t * t * t;
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) {
-                return;
-            }
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyNewTexture(Minecraft client) {
-        if (newSurface != null) {
-            newSurface.close();
-            newSurface = null;
-        }
-        if (newTexture != null) {
-            client.getTextureManager().release(NEW_TEXTURE_ID);
-            newTexture = null;
-        }
-        newTextureW = -1;
-        newTextureH = -1;
-        lastNewProgressKey = -1;
-        lastNewAlphaKey = -1;
-        lastNewTheme = null;
     }
 
     private int progressColor(float progress, int alpha) {

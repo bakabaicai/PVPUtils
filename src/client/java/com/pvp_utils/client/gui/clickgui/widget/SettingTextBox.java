@@ -1,12 +1,14 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.CharacterEvent;
@@ -57,8 +59,8 @@ public class SettingTextBox extends SettingWidget {
         String display = empty ? UiText.t("点击输入", "Click to type") : text;
         float textX = x + 9f;
         float textW = getWidth() - 18f;
-        float realTextW = FontRenderer.measureTextWidth(text, 10f);
-        float cursorTextW = FontRenderer.measureTextWidth(text.substring(0, cursor), 10f);
+        float realTextW = SkijaUi.textWidth(text, 10f);
+        float cursorTextW = SkijaUi.textWidth(text.substring(0, cursor), 10f);
         float targetOffset = active ? Math.max(0f, cursorTextW - textW + 3f) : 0f;
         textOffset += (targetOffset - textOffset) * 0.22f;
 
@@ -68,14 +70,13 @@ public class SettingTextBox extends SettingWidget {
             int selectionStart = selectionStart();
             int selectionEnd = selectionEnd();
             if (selectionStart != selectionEnd) {
-                float selectionX = textX + FontRenderer.measureTextWidth(text.substring(0, selectionStart), 10f) - textOffset;
-                float selectionW = FontRenderer.measureTextWidth(text.substring(selectionStart, selectionEnd), 10f);
+                float selectionX = textX + SkijaUi.textWidth(text.substring(0, selectionStart), 10f) - textOffset;
+                float selectionW = SkijaUi.textWidth(text.substring(selectionStart, selectionEnd), 10f);
                 selectionPaint.setColor(withAlpha(tc.accent, alpha * 0.72f));
                 canvas.drawRect(Rect.makeXYWH(selectionX, y + 4f, selectionW, 16f), selectionPaint);
             }
         }
-        FontRenderer.drawText(canvas, display, textX - (empty ? 0f : textOffset), y + 15.5f, 10f,
-                withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha));
+        SkijaUi.text(canvas, display, textX - (empty ? 0f : textOffset), (y + 15.5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
         if (active) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(cursorTime * 6f));
             float cursorX = textX + Math.min(textW - 1f, Math.max(0f, cursorTextW - textOffset));
@@ -306,8 +307,8 @@ public class SettingTextBox extends SettingWidget {
         int index = 0;
         while (index < value.length()) {
             int next = value.offsetByCodePoints(index, 1);
-            float currentWidth = FontRenderer.measureTextWidth(value.substring(0, index), 10f);
-            float nextWidth = FontRenderer.measureTextWidth(value.substring(0, next), 10f);
+            float currentWidth = SkijaUi.textWidth(value.substring(0, index), 10f);
+            float nextWidth = SkijaUi.textWidth(value.substring(0, next), 10f);
             if (relativeX < (currentWidth + nextWidth) * 0.5f) return index;
             index = next;
         }

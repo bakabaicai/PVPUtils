@@ -1,10 +1,12 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 
 import java.util.function.Supplier;
 
@@ -35,9 +37,9 @@ public class SettingLink extends SettingWidget {
         String text = label.get() + " \u203A";
         if (!text.equals(cachedText)) {
             cachedText = text;
-            cachedTextWidth = FontRenderer.measureTextWidth(text, 12f);
+            cachedTextWidth = SkijaUi.textWidth(text, 12f);
         }
-        FontRenderer.drawText(canvas, text, x + (getWidth() - cachedTextWidth) / 2f, y + 16f, 12f, withAlpha(tc.subModuleText, alpha));
+        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) / 2f, (y + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, alpha), 12f);
     }
 
     @Override

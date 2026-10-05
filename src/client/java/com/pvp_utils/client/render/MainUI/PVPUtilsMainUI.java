@@ -1,20 +1,18 @@
 package com.pvp_utils.client.render.MainUI;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.alt.AltManagerScreen;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import com.pvp_utils.client.Version;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.*;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
@@ -25,7 +23,6 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
-import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -44,8 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Environment(EnvType.CLIENT)
-public class PVPUtilsMainUI extends Screen {
-    private static final Identifier TEXT_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_text");
+public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long HINT_DURATION_MS = 5000L;
     private static final long HINT_FADE_IN_MS = 400L;
     private static final long HINT_FADE_OUT_MS = 800L;
@@ -61,7 +57,6 @@ public class PVPUtilsMainUI extends Screen {
     private static final Identifier BACKGROUND_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_custom_background");
 
     private MainUIShader shader;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final boolean showEntryHint;
     private final String fixedShaderPath;
     private final boolean entryFade;
@@ -69,19 +64,9 @@ public class PVPUtilsMainUI extends Screen {
     private boolean returnTransition;
     private final List<MenuButton> buttons = new ArrayList<>();
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
-    private Surface textSurface;
-    private DynamicTexture textTexture;
     private DynamicTexture backgroundTexture;
     private MainUIVideoBackground videoBackground;
-    private int textX;
-    private int textY;
-    private int textW;
-    private int textH;
-    private int textPixelW = -1;
-    private int textPixelH = -1;
-    private int textGuiW = -1;
-    private int textGuiH = -1;
-    private boolean nativeLoaded;
+
     private int pressedIndex = -1;
     private boolean titlePressed;
     private long hintStartMs;
@@ -151,7 +136,7 @@ public class PVPUtilsMainUI extends Screen {
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         entryFadeStartMs = entryFade ? System.currentTimeMillis() : 0L;
         returnTransitionStartMs = returnTransition ? animationNowNanos() : 0L;
-        invalidateTextTexture();
+
         refreshThemeFromBackground();
         buttons.clear();
         buttons.add(new MenuButton("Single player", "\uE7FD", this::startSingleplayerTransition));
@@ -199,8 +184,8 @@ public class PVPUtilsMainUI extends Screen {
         if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         float layoutScale = mainLayoutScale();
         updateSettingsPanel(
-                MainUiScale.topRightX(mouseX, this.width, this.height, layoutScale),
-                MainUiScale.topRightY(mouseY, this.width, this.height, layoutScale)
+        MainUiScale.topRightX(mouseX, this.width, this.height, layoutScale),
+        MainUiScale.topRightY(mouseY, this.width, this.height, layoutScale)
         );
         if (returnTransition && returnTransitionProgress() >= 1f) {
             returnTransition = false;
@@ -260,7 +245,6 @@ public class PVPUtilsMainUI extends Screen {
             if (event.button() == 0) {
                 settingsOpen = true;
                 playClickSound();
-                invalidateTextTexture();
             }
             return true;
         }
@@ -270,7 +254,7 @@ public class PVPUtilsMainUI extends Screen {
                 Config.save();
                 refreshThemeFromBackground();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isInsideBackgroundModeBuiltin(settingsMouseX, settingsMouseY)) {
@@ -278,7 +262,7 @@ public class PVPUtilsMainUI extends Screen {
                 Config.save();
                 lightSettingsTheme = true;
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isGlslBackground() && isInsideGlslModeRandom(settingsMouseX, settingsMouseY)) {
@@ -286,7 +270,7 @@ public class PVPUtilsMainUI extends Screen {
                 Config.save();
                 refreshShader();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isGlslBackground() && isInsideGlslModeFixed(settingsMouseX, settingsMouseY)) {
@@ -295,13 +279,13 @@ public class PVPUtilsMainUI extends Screen {
                 Config.save();
                 reloadConfiguredShader();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isGlslBackground() && Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED && isInsideGlslShaderSelect(settingsMouseX, settingsMouseY)) {
                 cycleGlslShader();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isInsideBackgroundModeVideo(settingsMouseX, settingsMouseY)) {
@@ -309,32 +293,32 @@ public class PVPUtilsMainUI extends Screen {
                 ensureSelectedVideo();
                 Config.save();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if ((isImageBackground() || isVideoBackground()) && isInsideOpenBackgroundFolder(settingsMouseX, settingsMouseY)) {
                 MainUIBackgrounds.openFolder();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isImageBackground() && isInsideBackgroundImageSelect(settingsMouseX, settingsMouseY)) {
                 cycleBackgroundImage();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isVideoBackground() && isInsideBackgroundVideoSelect(settingsMouseX, settingsMouseY)) {
                 cycleBackgroundVideo();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
             if (isImageBackground() && isInsideMouseEffectToggle(settingsMouseX, settingsMouseY)) {
                 Config.mainUIMouseEffect = !Config.mainUIMouseEffect;
                 Config.save();
                 playClickSound();
-                invalidateTextTexture();
+
                 return true;
             }
         }
@@ -397,29 +381,27 @@ public class PVPUtilsMainUI extends Screen {
             buttons.get(i).setBounds(startX, startY + i * (buttonH + gap), buttonW, buttonH);
         }
         float titleSize = titleSize();
-        float titleW = FontRenderer.measureTextWidth("PVPUtils", titleSize);
-        float titleH = FontRenderer.getLineHeight(titleSize);
+        float titleW = SkijaUi.textWidth("PVPUtils", titleSize);
+        float titleH = (SkijaUi.textMetrics(titleSize).getDescent() - SkijaUi.textMetrics(titleSize).getAscent());
         float titleX = (this.width - titleW) * 0.5f;
         float titleY = compactCardY() - titleH - 32f * scale;
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
-        updateTextRegion();
-        invalidateTextTexture();
     }
 
     private float animatedMenuCardWidth() {
         if (!singleplayerTransitioning && !returnTransition) return compactCardWidth();
         float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
-                : easeOutCubic(singleplayerTransitionProgress());
+        : easeOutCubic(singleplayerTransitionProgress());
         float targetW = openingViaFabricPlus
-                ? Math.max(620f, Math.min(900f, this.width * 0.84f))
-                : Math.max(320f, Math.min(500f, this.width * 0.52f));
+        ? Math.max(620f, Math.min(900f, this.width * 0.84f))
+        : Math.max(320f, Math.min(500f, this.width * 0.52f));
         return compactCardWidth() + (targetW - compactCardWidth()) * progress;
     }
 
     private float animatedMenuCardY() {
         if (!singleplayerTransitioning && !returnTransition) return compactCardY();
         float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
-                : easeOutCubic(singleplayerTransitionProgress());
+        : easeOutCubic(singleplayerTransitionProgress());
         return compactCardY() + (76f - compactCardY()) * progress;
     }
 
@@ -459,28 +441,22 @@ public class PVPUtilsMainUI extends Screen {
         return Math.max(0.35f, MAIN_LAYOUT_BASE_SCALE * MAIN_LAYOUT_BASE_GUI_SCALE / guiScale * fit);
     }
 
-    private void renderText(GuiGraphics graphics, float alpha) {
-        ensureTextTexture();
-        if (textTexture == null) return;
-        int color = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f) << 24 | 0xFFFFFF;
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXT_TEXTURE_ID, textX, textY, 0f, 0f, textW, textH, textPixelW, textPixelH, textPixelW, textPixelH, color);
-    }
-
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (embeddedSingleplayer != null) {
-            embeddedSingleplayer.renderFrameEnd();
+            embeddedSingleplayer.renderSkija(canvas);
             return;
         }
         if (embeddedMultiplayer != null) {
-            embeddedMultiplayer.renderFrameEnd();
+            embeddedMultiplayer.renderSkija(canvas);
             return;
         }
         if (embeddedAltManager != null) {
-            embeddedAltManager.renderFrameEnd();
+            embeddedAltManager.renderSkija(canvas);
             return;
         }
         if (embeddedViaFabricPlus != null) {
-            embeddedViaFabricPlus.renderFrameEnd();
+            embeddedViaFabricPlus.renderSkija(canvas);
             return;
         }
         if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
@@ -492,9 +468,7 @@ public class PVPUtilsMainUI extends Screen {
     }
 
     private void renderGpuUi(float alpha) {
-        Canvas c = glBackend.begin(mainFramebufferId());
-        if (c == null) return;
-        try {
+        SkijaRenderer.draw(c -> {
             if (pendingGpuAlpha > 0.001f && !singleplayerTransitioning && !returnTransition) {
                 renderMainCardBlur(c);
             }
@@ -514,7 +488,7 @@ public class PVPUtilsMainUI extends Screen {
                 titleMove = easeOutCubic(singleT) * 34f;
             }
             int titleAlpha = Math.round(255f * Math.max(0f, Math.min(1f, alpha * titleFade)));
-            FontRenderer.drawText(c, "PVPUtils", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f + titleMove, titleSize(), (titleAlpha << 24) | 0xFFFFFF);
+            SkijaUi.text(c, "PVPUtils", titleHitBox.x, (titleHitBox.y + titleHitBox.h * 0.82f + titleMove) + SkijaUi.textMetrics(titleSize()).getAscent(), SkijaUi.textMetrics(titleSize()).getDescent() - SkijaUi.textMetrics(titleSize()).getAscent(), (titleAlpha << 24) | 0xFFFFFF, titleSize());
             if (controlsFade > 0.08f) {
                 c.save();
                 MainUiScale.applyTopRight(c, this.width, this.height, mainLayoutScale());
@@ -533,48 +507,26 @@ public class PVPUtilsMainUI extends Screen {
                 renderVersionText(c);
                 c.restore();
             }
-        } finally {
-            glBackend.end();
-        }
+        });
     }
 
     private void renderMainCardBlur(Canvas canvas) {
         float progress = returnTransition ? returnTransitionProgress() : singleplayerTransitionProgress();
         TransitionCard target = transitionTarget();
         float t = returnTransition
-                ? 1f - easeOutCubic(progress)
-                : easeOutCubic(progress);
+        ? 1f - easeOutCubic(progress)
+        : easeOutCubic(progress);
         float cardW = compactCardWidth() + (target.width - compactCardWidth()) * t;
         float cardH = compactCardHeight() + (target.height - compactCardHeight()) * t;
         float cardY = compactCardY() + (target.y - compactCardY()) * t;
         float angle = (returnTransition || singleplayerTransitioning)
-                ? easeInOutCubic(progress) * (float) Math.PI
-                : 0f;
+        ? easeInOutCubic(progress) * (float) Math.PI
+        : 0f;
         float visibleW = cardW * Math.max(0.065f, Math.abs((float) Math.cos(angle)));
         float x = (this.width - visibleW) * 0.5f;
         float strength = Math.max(0.65f, Math.min(1.25f, 0.65f + Math.max(visibleW, cardH) / 520f * 0.25f));
-        SkiaBlurRenderer.getInstance().render(
-                canvas,
-                glBackend.getContext(),
-                Minecraft.getInstance(),
-                mainFramebufferId(),
-                x,
-                cardY,
-                visibleW,
-                cardH,
-                18f * mainLayoutScale(),
-                0x12000000,
-                strength
-        );
-    }
-
-    private int mainFramebufferId() {
-        Minecraft client = Minecraft.getInstance();
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, cardY, visibleW, cardH, 18f * mainLayoutScale()), x, cardY, visibleW, cardH, Math.max(0f, Math.min(2f, strength)) * 10.5f);
+        SkijaUi.rounded(canvas, x, cardY, visibleW, cardH, 18f * mainLayoutScale(), 0x12000000);;
     }
 
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -645,8 +597,8 @@ public class PVPUtilsMainUI extends Screen {
         graphics.fill(0, 0, this.width, this.height, 0xFF05070A);
         String title = Config.isChinese ? "视频背景不可用" : "Video background unavailable";
         String reason = videoBackground == null || videoBackground.getLastError().isBlank()
-                ? (Config.isChinese ? "视频文件无法解码" : "Video file could not be decoded")
-                : videoBackground.getLastError();
+        ? (Config.isChinese ? "视频文件无法解码" : "Video file could not be decoded")
+        : videoBackground.getLastError();
         int titleW = this.minecraft.font.width(title);
         int reasonW = this.minecraft.font.width(reason);
         int cx = this.width / 2;
@@ -701,7 +653,7 @@ public class PVPUtilsMainUI extends Screen {
             client.getTextureManager().register(BACKGROUND_TEXTURE_ID, backgroundTexture);
             GpuTexture gpuTexture = backgroundTexture.getTexture();
             RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
+            .writeToTexture(gpuTexture, buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
             MemoryUtil.memFree(buffer);
             backgroundTextureW = width;
             backgroundTextureH = height;
@@ -730,8 +682,8 @@ public class PVPUtilsMainUI extends Screen {
         if (a <= 0) return;
 
         String text = Config.isChinese
-                ? "点击 PVPUtils 标题返回原版主界面 · 右键随机切换背景"
-                : "Click the PVPUtils title for the vanilla menu · Right-click to change the background";
+        ? "点击 PVPUtils 标题返回原版主界面 · 右键随机切换背景"
+        : "Click the PVPUtils title for the vanilla menu · Right-click to change the background";
         int textW = this.font.width(text);
         int x = (this.width - textW) / 2;
         int y = Math.max(12, Math.round(titleHitBox.y - 24f));
@@ -757,54 +709,6 @@ public class PVPUtilsMainUI extends Screen {
             return 1f;
         }
         return easeOutCubic(elapsed / (float) ENTRY_FADE_IN_MS);
-    }
-
-    private void ensureTextTexture() {
-        Minecraft client = Minecraft.getInstance();
-        float scale = (float) client.getWindow().getGuiScale();
-        int targetW = Math.max(1, (int) Math.ceil(textW * scale));
-        int targetH = Math.max(1, (int) Math.ceil(textH * scale));
-        if (textTexture != null && textPixelW == targetW && textPixelH == targetH && textGuiW == this.width && textGuiH == this.height) return;
-
-        ensureNativeLoaded();
-        destroyTextTexture();
-        SurfaceProps props = new SurfaceProps(false, PixelGeometry.RGB_H);
-        textSurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, props);
-        textTexture = new DynamicTexture("pvp_utils:mainui_text", targetW, targetH, false);
-        client.getTextureManager().register(TEXT_TEXTURE_ID, textTexture);
-        textPixelW = targetW;
-        textPixelH = targetH;
-        textGuiW = this.width;
-        textGuiH = this.height;
-
-        Canvas c = textSurface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(scale, scale);
-        c.translate(-textX, -textY);
-        renderCompactMenuCard(c, 1f);
-        FontRenderer.drawText(c, "PVPUtils", titleHitBox.x, titleHitBox.y + titleHitBox.h * 0.82f, titleSize(), 0xFFFFFFFF);
-        renderSettingsPlaceholder(c);
-        renderSettingsPanel(c);
-        for (MenuButton button : buttons) {
-            button.renderText(c, 1f);
-        }
-        renderVersionText(c);
-        c.restore();
-
-        Pixmap pixmap = new Pixmap();
-        if (!textSurface.peekPixels(pixmap)) {
-            pixmap.close();
-            return;
-        }
-        long addr = pixmap.getAddr();
-        int byteSize = textPixelH * pixmap.getRowBytes();
-        GpuTexture gpuTexture = textTexture.getTexture();
-        RenderSystem.getDevice().createCommandEncoder()
-                .writeToTexture(gpuTexture, MemoryUtil.memByteBuffer(addr, byteSize), NativeImage.Format.RGBA, 0, 0, 0, 0, textPixelW, textPixelH);
-        pixmap.close();
     }
 
     @Override
@@ -841,10 +745,10 @@ public class PVPUtilsMainUI extends Screen {
             shader.close();
             shader = null;
         }
-        destroyTextTexture();
+
         destroyBackgroundTexture();
         closeVideoBackground();
-        glBackend.destroy();
+
         lastWindowPixelW = -1;
         lastWindowPixelH = -1;
     }
@@ -1032,13 +936,13 @@ public class PVPUtilsMainUI extends Screen {
     private float singleplayerTransitionProgress() {
         if (!singleplayerTransitioning || singleplayerTransitionStartMs <= 0L) return 0f;
         return Math.max(0f, Math.min(1f,
-                (animationNowNanos() - singleplayerTransitionStartMs) / (SINGLEPLAYER_TRANSITION_MS * 1_000_000f)));
+        (animationNowNanos() - singleplayerTransitionStartMs) / (SINGLEPLAYER_TRANSITION_MS * 1_000_000f)));
     }
 
     private float returnTransitionProgress() {
         if (!returnTransition || returnTransitionStartMs <= 0L) return 0f;
         return Math.max(0f, Math.min(1f,
-                (animationNowNanos() - returnTransitionStartMs) / (RETURN_TRANSITION_MS * 1_000_000f)));
+        (animationNowNanos() - returnTransitionStartMs) / (RETURN_TRANSITION_MS * 1_000_000f)));
     }
 
     private long animationNowNanos() {
@@ -1178,59 +1082,6 @@ public class PVPUtilsMainUI extends Screen {
         }
     }
 
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private void invalidateTextTexture() {
-        textGuiW = -1;
-        textGuiH = -1;
-    }
-
-    private void updateTextRegion() {
-        float cardX = (this.width - compactCardWidth()) * 0.5f;
-        float cardY = compactCardY();
-        float minX = Math.min(titleHitBox.x, cardX);
-        float minY = Math.min(titleHitBox.y, cardY);
-        float maxX = titleHitBox.x + titleHitBox.w;
-        float maxY = titleHitBox.y + titleHitBox.h;
-        maxX = Math.max(maxX, cardX + compactCardWidth());
-        maxY = Math.max(maxY, cardY + compactCardHeight());
-        float settingsX = getSettingsX();
-        float settingsY = getSettingsY();
-        float panelW = getSettingsPanelWidth();
-        float panelH = getSettingsPanelMaxHeight();
-        minX = Math.min(minX, settingsX);
-        minY = Math.min(minY, settingsY);
-        maxX = Math.max(maxX, settingsX + SETTINGS_SIZE);
-        maxY = Math.max(maxY, settingsY + SETTINGS_SIZE);
-        minX = Math.min(minX, settingsX + SETTINGS_SIZE - panelW);
-        maxX = Math.max(maxX, settingsX + SETTINGS_SIZE);
-        maxY = Math.max(maxY, settingsY + SETTINGS_SIZE + panelH);
-        for (MenuButton button : buttons) {
-            minX = Math.min(minX, button.x - 4f);
-            minY = Math.min(minY, button.y);
-            maxX = Math.max(maxX, button.x + button.w + 4f);
-            maxY = Math.max(maxY, button.y + button.h + 10f);
-        }
-        String version = Version.displayName();
-        if (Version.DEBUG) {
-            minY = Math.min(minY, this.height - 12f - 11f - 10f);
-            maxX = Math.max(maxX, 12f + FontRenderer.measureTextWidth("DEBUG", 11f));
-        }
-        minX = Math.min(minX, 12f);
-        maxX = Math.max(maxX, 12f + FontRenderer.measureTextWidth(version, 11f));
-        maxY = Math.max(maxY, this.height - 12f + FontRenderer.getLineHeight(11f));
-        textX = Math.max(0, (int) Math.floor(minX - 6f));
-        textY = Math.max(0, (int) Math.floor(minY - 6f));
-        int right = Math.min(this.width, (int) Math.ceil(maxX + 6f));
-        int bottom = Math.min(this.height, (int) Math.ceil(maxY + 6f));
-        textW = Math.max(1, right - textX);
-        textH = Math.max(1, bottom - textY);
-    }
-
     private float getSettingsX() {
         return this.width - SETTINGS_MARGIN - SETTINGS_SIZE;
     }
@@ -1257,9 +1108,9 @@ public class PVPUtilsMainUI extends Screen {
         }
         String icon = "\uE8B8";
         float size = 22f;
-        float iconW = FontRenderer.measureTextWidth(icon, size, FontRenderer.MATERIAL_SYMBOLS);
-        float iconH = FontRenderer.getLineHeight(size, FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, icon, x + (SETTINGS_SIZE - iconW) * 0.5f, y + (SETTINGS_SIZE + iconH) * 0.5f - 2f, size, iconColor, FontRenderer.MATERIAL_SYMBOLS);
+        float iconW = SkijaUi.iconWidth(icon, size, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float iconH = (SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent());
+        SkijaUi.icon(canvas, icon, x + (SETTINGS_SIZE - iconW) * 0.5f, (y + (SETTINGS_SIZE + iconH) * 0.5f - 2f) + SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), iconColor, size, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     }
 
     private void renderSettingsPanel(Canvas canvas) {
@@ -1285,43 +1136,43 @@ public class PVPUtilsMainUI extends Screen {
         int secondary = (Math.round(textAlpha * 0.72f) << 24) | (lightTheme ? 0x444444 : 0xFFFFFF);
         float contentX = x + 22f;
         float contentY = y + 34f;
-        FontRenderer.drawText(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, contentY, 18f, primary);
+        SkijaUi.text(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, (contentY) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), primary, 18f);
 
         float rowY = y + 72f;
-        FontRenderer.drawText(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, rowY, 12f, secondary);
+        SkijaUi.text(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, (rowY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
         renderChoice(canvas, contentX, rowY + 18f, 82f, Config.isChinese ? "\u5185\u7f6eGLSL" : "GLSL", isGlslBackground(), textAlpha);
         renderChoice(canvas, contentX + 92f, rowY + 18f, 92f, Config.isChinese ? "\u56fe\u7247" : "Image", isImageBackground(), textAlpha);
         renderChoice(canvas, contentX + 194f, rowY + 18f, 76f, Config.isChinese ? "\u89c6\u9891" : "Video", isVideoBackground(), textAlpha);
 
         if (isImageBackground() || isVideoBackground()) {
             float folderY = y + 148f;
-            FontRenderer.drawText(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, folderY, 12f, secondary);
+            SkijaUi.text(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, (folderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
             renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
         }
 
         if (isImageBackground()) {
             float imageY = y + 184f;
-            FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, imageY, 12f, secondary);
+            SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, (imageY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
             renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
 
             float effectY = y + 220f;
-            FontRenderer.drawText(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, effectY, 12f, secondary);
+            SkijaUi.text(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, (effectY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
             renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
         } else if (isVideoBackground()) {
             float videoY = y + 184f;
-            FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, videoY, 12f, secondary);
+            SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, (videoY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
             String label = Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank()
-                    ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
-                    : Config.mainUIVideoBackground;
+            ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
+            : Config.mainUIVideoBackground;
             renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
         } else {
             float glslY = y + 148f;
-            FontRenderer.drawText(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, glslY, 12f, secondary);
+            SkijaUi.text(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, (glslY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
             renderChoice(canvas, contentX + 112f, glslY - 16f, 72f, Config.isChinese ? "\u968f\u673a" : "Random", Config.mainUIGlslMode == Config.MainUIGlslMode.RANDOM, textAlpha);
             renderChoice(canvas, contentX + 194f, glslY - 16f, 76f, Config.isChinese ? "\u56fa\u5b9a" : "Fixed", Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED, textAlpha);
             if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
                 float shaderY = y + 184f;
-                FontRenderer.drawText(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, shaderY, 12f, secondary);
+                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, (shaderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
                 renderButton(canvas, contentX + 112f, shaderY - 16f, 158f, MainUIShader.normalizeShader(Config.mainUIGlslShader), textAlpha);
             }
         }
@@ -1331,8 +1182,8 @@ public class PVPUtilsMainUI extends Screen {
         float versionX = 12f;
         float versionY = this.height - 12f;
         if (Version.DEBUG) {
-            float debugY = versionY - FontRenderer.getLineHeight(11f) - 4f;
-            FontRenderer.drawText(canvas, "DEBUG", versionX, debugY, 11f, 0xFFFFD34D);
+            float debugY = versionY - (SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent()) - 4f;
+            SkijaUi.text(canvas, "DEBUG", versionX, (debugY) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xFFFFD34D, 11f);
         }
         drawVersionText(canvas, versionX, versionY, 11f, 0xE6FFFFFF);
     }
@@ -1340,8 +1191,8 @@ public class PVPUtilsMainUI extends Screen {
     private void renderCompactMenuCard(Canvas canvas, float alpha) {
         int a = Math.round(255f * Math.max(0f, Math.min(1f, alpha)));
         float t = returnTransition
-                ? 1f - easeOutCubic(returnTransitionProgress())
-                : easeOutCubic(singleplayerTransitionProgress());
+        ? 1f - easeOutCubic(returnTransitionProgress())
+        : easeOutCubic(singleplayerTransitionProgress());
         float baseW = compactCardWidth();
         float baseH = compactCardHeight();
         TransitionCard target = transitionTarget();
@@ -1350,11 +1201,11 @@ public class PVPUtilsMainUI extends Screen {
         float cardCx = this.width * 0.5f;
         float cardY = compactCardY() + (target.y - compactCardY()) * t;
         float transitionProgress = returnTransition
-                ? returnTransitionProgress()
-                : singleplayerTransitionProgress();
+        ? returnTransitionProgress()
+        : singleplayerTransitionProgress();
         float angle = returnTransition
-                ? easeInOutCubic(transitionProgress) * (float) Math.PI
-                : singleplayerTransitioning ? easeInOutCubic(transitionProgress) * (float) Math.PI : 0f;
+        ? easeInOutCubic(transitionProgress) * (float) Math.PI
+        : singleplayerTransitioning ? easeInOutCubic(transitionProgress) * (float) Math.PI : 0f;
         try (Paint bg = new Paint(); Paint stroke = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor((Math.round(a * (0x32 / 255f)) << 24) | 0x101010);
@@ -1370,9 +1221,9 @@ public class PVPUtilsMainUI extends Screen {
     private TransitionCard transitionTarget() {
         if (openingViaFabricPlus) {
             return new TransitionCard(
-                    Math.max(620f, Math.min(900f, this.width * 0.84f)),
-                    Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f)),
-                    76f
+            Math.max(620f, Math.min(900f, this.width * 0.84f)),
+            Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f)),
+            76f
             );
         }
         boolean multiplayer = openingMultiplayer || (returnTransition && returningMultiplayer);
@@ -1381,30 +1232,30 @@ public class PVPUtilsMainUI extends Screen {
         int layoutHeight = fixedPage ? MainUiScale.pageHeight() : this.height;
         float rawWidth = Math.max(320f, Math.min(500f, layoutWidth * 0.52f));
         float rawHeight = multiplayer
-                ? Math.max(280f, Math.min(layoutHeight - 150f, layoutHeight * 0.70f))
-                : Math.max(260f, Math.min(layoutHeight - 154f, layoutHeight * 0.72f));
+        ? Math.max(280f, Math.min(layoutHeight - 150f, layoutHeight * 0.70f))
+        : Math.max(260f, Math.min(layoutHeight - 154f, layoutHeight * 0.72f));
         float rawY = multiplayer ? 72f : 76f;
         if (fixedPage) {
             float rawX = (layoutWidth - rawWidth) * 0.5f;
             float minY = multiplayer ? 20f : 18f;
             float maxY = rawY + rawHeight + (multiplayer ? 44f : 76f);
             float scale = MainUiScale.pageScale(
-                    rawX,
-                    minY,
-                    rawX + rawWidth,
-                    maxY
+            rawX,
+            minY,
+            rawX + rawWidth,
+            maxY
             );
             float centerY = (minY + maxY) * 0.5f;
             return new TransitionCard(
-                    rawWidth * scale,
-                    rawHeight * scale,
-                    this.height * 0.5f + (rawY - centerY) * scale
+            rawWidth * scale,
+            rawHeight * scale,
+            this.height * 0.5f + (rawY - centerY) * scale
             );
         }
         return new TransitionCard(
-                rawWidth,
-                rawHeight,
-                rawY
+        rawWidth,
+        rawHeight,
+        rawY
         );
     }
 
@@ -1431,14 +1282,14 @@ public class PVPUtilsMainUI extends Screen {
         String version = Version.displayName();
         String type = Version.typeName();
         if (type.isEmpty()) {
-            FontRenderer.drawText(canvas, version, x, y, size, baseColor);
+            SkijaUi.text(canvas, version, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
             return;
         }
 
         String marker = "-" + type;
         int typeStart = version.indexOf(marker);
         if (typeStart < 0) {
-            FontRenderer.drawText(canvas, version, x, y, size, baseColor);
+            SkijaUi.text(canvas, version, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
             return;
         }
 
@@ -1448,10 +1299,10 @@ public class PVPUtilsMainUI extends Screen {
         String typed = version.substring(typeStart, typeEnd);
         String after = version.substring(typeEnd);
         int typeColor = Version.TYPE == 1 ? 0xFFFF4444 : 0xFFFFD34D;
-        FontRenderer.drawText(canvas, before, x, y, size, baseColor);
-        float tx = x + FontRenderer.measureTextWidth(before, size);
-        FontRenderer.drawText(canvas, typed, tx, y, size, typeColor);
-        FontRenderer.drawText(canvas, after, tx + FontRenderer.measureTextWidth(typed, size), y, size, baseColor);
+        SkijaUi.text(canvas, before, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
+        float tx = x + SkijaUi.textWidth(before, size);
+        SkijaUi.text(canvas, typed, tx, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), typeColor, size);
+        SkijaUi.text(canvas, after, tx + SkijaUi.textWidth(typed, size), (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
     }
 
     private void renderChoice(Canvas canvas, float x, float y, float w, String text, boolean selected, int alpha) {
@@ -1462,8 +1313,8 @@ public class PVPUtilsMainUI extends Screen {
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
         }
         int color = (alpha << 24) | (selected ? 0xFFD176 : (lightTheme ? 0x111111 : 0xFFFFFF));
-        float tw = FontRenderer.measureTextWidth(text, 11f);
-        FontRenderer.drawText(canvas, text, x + (w - tw) * 0.5f, y + 18f, 11f, color);
+        float tw = SkijaUi.textWidth(text, 11f);
+        SkijaUi.text(canvas, text, x + (w - tw) * 0.5f, (y + 18f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), color, 11f);
     }
 
     private void renderButton(Canvas canvas, float x, float y, float w, String text, int alpha) {
@@ -1474,19 +1325,19 @@ public class PVPUtilsMainUI extends Screen {
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
         }
         String label = text == null ? "" : text;
-        if (FontRenderer.measureTextWidth(label, 11f) > w - 16f) {
-            while (label.length() > 1 && FontRenderer.measureTextWidth(label + "...", 11f) > w - 16f) {
+        if (SkijaUi.textWidth(label, 11f) > w - 16f) {
+            while (label.length() > 1 && SkijaUi.textWidth(label + "...", 11f) > w - 16f) {
                 label = label.substring(0, label.length() - 1);
             }
             label += "...";
         }
-        float tw = FontRenderer.measureTextWidth(label, 11f);
-        FontRenderer.drawText(canvas, label, x + (w - tw) * 0.5f, y + 18f, 11f, (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+        float tw = SkijaUi.textWidth(label, 11f);
+        SkijaUi.text(canvas, label, x + (w - tw) * 0.5f, (y + 18f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 11f);
     }
 
     private void renderToggle(Canvas canvas, float x, float y, String text, boolean selected, int alpha) {
         boolean lightTheme = isLightTheme();
-        FontRenderer.drawText(canvas, text, x, y + 18f, 12f, (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF));
+        SkijaUi.text(canvas, text, x, (y + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 12f);
         float tx = x + 218f;
         try (Paint track = new Paint()) {
             track.setAntiAlias(true);
@@ -1521,7 +1372,6 @@ public class PVPUtilsMainUI extends Screen {
         if (Math.abs(settingsPanelProgress - target) < 0.002f) settingsPanelProgress = target;
         if (Math.abs(settingsHoverProgress - hoverTarget) < 0.002f) settingsHoverProgress = hoverTarget;
         if (oldHover != settingsHover || Math.abs(oldProgress - settingsPanelProgress) > 0.0005f || Math.abs(oldHoverProgress - settingsHoverProgress) > 0.0005f) {
-            invalidateTextTexture();
         }
     }
 
@@ -1642,25 +1492,12 @@ public class PVPUtilsMainUI extends Screen {
     private float easeInOutCubic(float value) {
         float t = Math.max(0f, Math.min(1f, value));
         return t < 0.5f
-                ? 4f * t * t * t
-                : cubicInverted(2f - 2f * t);
+        ? 4f * t * t * t
+        : cubicInverted(2f - 2f * t);
     }
 
     private float cubicInverted(float value) {
         return 1f - value * value * value * 0.5f;
-    }
-
-    private void destroyTextTexture() {
-        if (textSurface != null) {
-            textSurface.close();
-            textSurface = null;
-        }
-        if (textTexture != null) {
-            Minecraft.getInstance().getTextureManager().release(TEXT_TEXTURE_ID);
-            textTexture = null;
-        }
-        textPixelW = -1;
-        textPixelH = -1;
     }
 
     private void destroyBackgroundTexture() {
@@ -1712,7 +1549,6 @@ public class PVPUtilsMainUI extends Screen {
             hover += ((contains(mouseX, mouseY) ? 1f : 0f) - hover) * 0.18f;
             if (pressed) hover = Math.min(1f, hover + 0.08f);
             if (Math.abs(oldHover - hover) > 0.002f) {
-                invalidateTextTexture();
             }
         }
 
@@ -1736,9 +1572,9 @@ public class PVPUtilsMainUI extends Screen {
             int color = withAlpha(0xFFFFFFFF, drawAlpha);
             float iconX = drawX + 22f * uiScale;
             float centerY = drawY + drawH * 0.5f;
-            float iconH = FontRenderer.getLineHeight(iconSize, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, icon, iconX, centerY + iconH * 0.35f, iconSize, color, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, text, drawX + 54f * uiScale + t * 3f * uiScale, centerY + FontRenderer.getLineHeight(textSize) * 0.36f, textSize, color);
+            float iconH = (SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent());
+            SkijaUi.icon(canvas, icon, iconX, (centerY + iconH * 0.35f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), color, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.text(canvas, text, drawX + 54f * uiScale + t * 3f * uiScale, (centerY + (SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent()) * 0.36f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), color, textSize);
         }
     }
 
@@ -1759,9 +1595,9 @@ public class PVPUtilsMainUI extends Screen {
         int gt = (to >> 8) & 255;
         int bt = to & 255;
         return ((int) (ar + (at - ar) * t) << 24)
-                | ((int) (rr + (rt - rr) * t) << 16)
-                | ((int) (gr + (gt - gr) * t) << 8)
-                | (int) (br + (bt - br) * t);
+        | ((int) (rr + (rt - rr) * t) << 16)
+        | ((int) (gr + (gt - gr) * t) << 8)
+        | (int) (br + (bt - br) * t);
     }
 
     private static int lerpRgb(int from, int to, float t) {

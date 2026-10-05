@@ -1,12 +1,14 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -253,28 +255,28 @@ public class SettingModule {
         String id = keybindId();
         if (!isKeybindable() || id.isBlank()) return KEYBIND_BASE_W;
         if (ModuleKeybindManager.isCapturing(id)) {
-            return Math.max(110f, FontRenderer.measureTextWidth(UiText.t("按下任意键...", "Press any key..."), 9f) + 20f);
+            return Math.max(110f, SkijaUi.textWidth(UiText.t("按下任意键...", "Press any key..."), 9f) + 20f);
         }
         String keyName = ModuleKeybindManager.keyName(id);
-        return keyName.isBlank() ? KEYBIND_BASE_W : Math.max(KEYBIND_BASE_W, FontRenderer.measureTextWidth(keyName, 9f) + 12f);
+        return keyName.isBlank() ? KEYBIND_BASE_W : Math.max(KEYBIND_BASE_W, SkijaUi.textWidth(keyName, 9f) + 12f);
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float size, float alpha) {
-        float textW = FontRenderer.measureTextWidth(text, size);
-        FontRenderer.drawText(canvas, text, x + (width - textW) / 2f, y + KEYBIND_H / 2f + 3.5f, size, withAlpha(0xFFFFFF, alpha));
+        float textW = SkijaUi.textWidth(text, size);
+        SkijaUi.text(canvas, text, x + (width - textW) / 2f, (y + KEYBIND_H / 2f + 3.5f) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(0xFFFFFF, alpha), size);
     }
 
     private void drawCenteredIcon(Canvas canvas, String icon, float x, float y, float width, float alpha) {
-        float iconW = FontRenderer.measureTextWidth(icon, 12f, FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, icon, x + (width - iconW) / 2f, y + KEYBIND_H / 2f + 6.2f, 12f, withAlpha(0xFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        float iconW = SkijaUi.iconWidth(icon, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, x + (width - iconW) / 2f, (y + KEYBIND_H / 2f + 6.2f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xFFFFFF, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     }
 
     private void drawStaticContent(Canvas canvas, float x, float y, float contentW, float alpha, float viewportTop, float viewportBottom, float progress) {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         modulePaint.setColor(withAlpha(tc.module, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, contentW, MODULE_H - 8f, 10f), modulePaint);
-        FontRenderer.drawText(canvas, title, x + PAD_X, y + 22f, 13f, withAlpha(tc.primaryText, alpha));
-        FontRenderer.drawText(canvas, subtitle, x + PAD_X, y + 38f, 10f, withAlpha(tc.secondaryText, alpha));
+        SkijaUi.text(canvas, title, x + PAD_X, (y + 22f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(tc.primaryText, alpha), 13f);
+        SkijaUi.text(canvas, subtitle, x + PAD_X, (y + 38f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
         if (progress > 0.01f) {
             float sy = y + MODULE_H;
             for (SubEntry sub : subEntries) {
@@ -285,15 +287,15 @@ public class SettingModule {
                     subPaint.setColor(withAlpha(tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(subAlpha)));
                     canvas.drawRRect(RRect.makeXYWH(x + 8f, sy, contentW - 8f, SUB_H - 6f, 8f), subPaint);
                     if (sub.subtitle == null || sub.subtitle.isEmpty()) {
-                        FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + (SUB_H - 6f) / 2f + 4.5f, 12f, withAlpha(tc.subModuleText, subAlpha));
+                        SkijaUi.text(canvas, sub.title, x + PAD_X + 8f, (sy + (SUB_H - 6f) / 2f + 4.5f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, subAlpha), 12f);
                     } else {
-                        FontRenderer.drawText(canvas, sub.title, x + PAD_X + 8f, sy + 16f, 12f, withAlpha(tc.subModuleText, subAlpha));
-                        FontRenderer.drawText(canvas, sub.subtitle, x + PAD_X + 8f, sy + 30f, 10f, withAlpha(tc.secondaryText, subAlpha));
+                        SkijaUi.text(canvas, sub.title, x + PAD_X + 8f, (sy + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, subAlpha), 12f);
+                        SkijaUi.text(canvas, sub.subtitle, x + PAD_X + 8f, (sy + 30f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, subAlpha), 10f);
                     }
                     if (sub.group && sub.hasVisibleChildren()) {
                         String arrow = sub.childProgress > 0.5f ? ARROW_EXPANDED : ARROW_COLLAPSED;
-                        float aw = FontRenderer.measureTextWidth(arrow, 12f, FontRenderer.MATERIAL_SYMBOLS);
-                        FontRenderer.drawText(canvas, arrow, x + contentW - 13f - aw, sy + (SUB_H - 6f) / 2f + 5.5f, 12f, withAlpha(tc.mutedText, subAlpha), FontRenderer.MATERIAL_SYMBOLS);
+                        float aw = SkijaUi.iconWidth(arrow, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+                        SkijaUi.icon(canvas, arrow, x + contentW - 13f - aw, (sy + (SUB_H - 6f) / 2f + 5.5f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.mutedText, subAlpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
                     }
                 }
                 sy += SUB_H;
@@ -306,10 +308,10 @@ public class SettingModule {
                             subPaint.setColor(withAlpha(tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(subAlpha)));
                             canvas.drawRRect(RRect.makeXYWH(x + 16f, sy, contentW - 16f, SUB_H - 6f, 8f), subPaint);
                             if (child.subtitle == null || child.subtitle.isEmpty()) {
-                                FontRenderer.drawText(canvas, child.title, x + PAD_X + 16f, sy + (SUB_H - 6f) / 2f + 4.5f, 12f, withAlpha(tc.subModuleText, subAlpha));
+                                SkijaUi.text(canvas, child.title, x + PAD_X + 16f, (sy + (SUB_H - 6f) / 2f + 4.5f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, subAlpha), 12f);
                             } else {
-                                FontRenderer.drawText(canvas, child.title, x + PAD_X + 16f, sy + 16f, 12f, withAlpha(tc.subModuleText, subAlpha));
-                                FontRenderer.drawText(canvas, child.subtitle, x + PAD_X + 16f, sy + 30f, 10f, withAlpha(tc.secondaryText, subAlpha));
+                                SkijaUi.text(canvas, child.title, x + PAD_X + 16f, (sy + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, subAlpha), 12f);
+                                SkijaUi.text(canvas, child.subtitle, x + PAD_X + 16f, (sy + 30f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, subAlpha), 10f);
                             }
                         }
                         sy += SUB_H;
@@ -319,8 +321,8 @@ public class SettingModule {
         }
         if (hasVisibleSubEntries()) {
             String arrow = progress > 0.5f ? ARROW_EXPANDED : ARROW_COLLAPSED;
-            float aw = FontRenderer.measureTextWidth(arrow, 12f, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, arrow, x + contentW - 5f - aw, y + (MODULE_H - 8f) / 2f + 5.5f, 12f, withAlpha(tc.mutedText, alpha), FontRenderer.MATERIAL_SYMBOLS);
+            float aw = SkijaUi.iconWidth(arrow, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, arrow, x + contentW - 5f - aw, (y + (MODULE_H - 8f) / 2f + 5.5f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.mutedText, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
     }
 

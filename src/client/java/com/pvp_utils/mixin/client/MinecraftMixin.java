@@ -6,23 +6,6 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
-import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
-import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
-import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
-import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
-import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
-import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
-import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
-import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
-import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
-import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
-import com.pvp_utils.client.render.MainUI.PVPUtilsMultiplayerScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsSingleplayerScreen;
-import com.pvp_utils.client.render.MainUI.PVPUtilsViaFabricPlusScreen;
-import com.pvp_utils.client.alt.AltManagerScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -64,12 +47,12 @@ public class MinecraftMixin {
     private boolean pvp_utils$shouldShowUseAttackVisual() {
         Minecraft client = (Minecraft) (Object) this;
         return Config.legacy17Animations
-                && Config.legacy17UseSwing
-                && client.player != null
-                && client.level != null
-                && client.player.isUsingItem()
-                && !client.player.getItemInHand(client.player.getUsedItemHand()).isEmpty()
-                && client.options.keyAttack.isDown();
+        && Config.legacy17UseSwing
+        && client.player != null
+        && client.level != null
+        && client.player.isUsingItem()
+        && !client.player.getItemInHand(client.player.getUsedItemHand()).isEmpty()
+        && client.options.keyAttack.isDown();
     }
 
     private void pvp_utils$playUseAttackVisual() {
@@ -85,8 +68,8 @@ public class MinecraftMixin {
         }
         LivingEntitySwingAccessor swingAccessor = (LivingEntitySwingAccessor) player;
         if (!swingAccessor.pvp_utils$isSwinging()
-                || swingAccessor.pvp_utils$getSwingTime() >= swingAccessor.pvp_utils$invokeGetCurrentSwingDuration() / 2
-                || swingAccessor.pvp_utils$getSwingTime() < 0) {
+        || swingAccessor.pvp_utils$getSwingTime() >= swingAccessor.pvp_utils$invokeGetCurrentSwingDuration() / 2
+        || swingAccessor.pvp_utils$getSwingTime() < 0) {
             swingAccessor.pvp_utils$setSwingTime(-1);
             swingAccessor.pvp_utils$setSwinging(true);
             swingAccessor.pvp_utils$setSwingingArm(InteractionHand.MAIN_HAND);
@@ -108,11 +91,11 @@ public class MinecraftMixin {
     }
 
     @Redirect(
-            method = "startAttack",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V"
-            )
+    method = "startAttack",
+    at = @At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V"
+    )
     )
     private void pvp_utils$attackWithEffects(MultiPlayerGameMode gameMode, Player player, Entity target) {
         gameMode.attack(player, target);
@@ -174,56 +157,20 @@ public class MinecraftMixin {
         }
     }
 
-    @Inject(
-            method = "runTick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V"
-            )
-    )
-    private void pvp_utils$renderClickGuiFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        PotionStatusRenderer.getInstance().renderFrameEnd();
-        KeystrokesRenderer.getInstance().renderFrameEnd();
-        DynamicIslandRenderer.getInstance().renderFrameEnd();
-        SkiaTextHudRenderer.renderFrameEnd(
-                PingHudRenderer.getInstance(),
-                TpsHudRenderer.getInstance(),
-                ClockHudRenderer.getInstance()
-        );
-        MusicInfoHudRenderer.getInstance().renderFrameEnd();
-        LiquidGlassRenderer.getInstance().tick();
-        Minecraft client = (Minecraft) (Object) this;
-        if (client.screen instanceof NewSettingsScreen settingsScreen) {
-            settingsScreen.renderFrameEnd();
-        }
-        if (client.screen instanceof NeteaseMusicScreen musicScreen) {
-            musicScreen.renderFrameEnd();
-        }
-        if (client.screen instanceof PVPUtilsMainUI mainUI) {
-            mainUI.renderFrameEnd();
-        }
-        if (client.screen instanceof PVPUtilsSingleplayerScreen singleplayerScreen) {
-            singleplayerScreen.renderFrameEnd();
-        }
-        if (client.screen instanceof PVPUtilsMultiplayerScreen multiplayerScreen) {
-            multiplayerScreen.renderFrameEnd();
-        }
-        if (client.screen instanceof AltManagerScreen altManagerScreen) {
-            altManagerScreen.renderFrameEnd();
-        }
-        if (client.screen instanceof PVPUtilsViaFabricPlusScreen viaFabricPlusScreen) {
-            viaFabricPlusScreen.renderFrameEnd();
-        }
+    @Inject(method = "runTick", at = @At("HEAD"))
+    private void pvp_utils$beginSkijaFrame(boolean advanceGameTime, CallbackInfo ci) {
+        com.pvp_utils.client.render.skia.SkijaRenderer.beginFrame();
     }
 
     @Inject(
-            method = "runTick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/platform/Window;updateDisplay(Lcom/mojang/blaze3d/TracyFrameCapture;)V"
-            )
+    method = "runTick",
+    at = @At(
+    value = "INVOKE",
+    target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen()V",
+    shift = At.Shift.AFTER
     )
-    private void pvp_utils$renderHudEditorFrameEnd(boolean advanceGameTime, CallbackInfo ci) {
-        HudEditOverlay.getInstance().renderFrameEnd();
+    )
+    private void pvp_utils$renderSkija(boolean advanceGameTime, CallbackInfo ci) {
+        com.pvp_utils.client.render.skia.SkijaFrameRenderer.render();
     }
 }

@@ -4,35 +4,21 @@ import com.mojang.blaze3d.opengl.GlDevice;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorFilter;
 import io.github.humbleui.skija.ColorType;
 import io.github.humbleui.skija.DirectContext;
-import io.github.humbleui.skija.FilterTileMode;
 import io.github.humbleui.skija.Image;
-import io.github.humbleui.skija.ImageFilter;
-import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.skija.SurfaceOrigin;
 import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 
-import java.util.List;
-
 import static org.lwjgl.opengl.GL45.*;
 
-public final class SkiaBlurRenderer {
-    private static final SkiaBlurRenderer INSTANCE = new SkiaBlurRenderer();
-    private static final float MIN_CAPTURE_MARGIN = 18f;
-    private final Paint blurPaint = new Paint().setAntiAlias(true);
-    private final Paint frostPaint = new Paint().setAntiAlias(true);
-    private final Paint tintPaint = new Paint().setAntiAlias(true);
-    private final SkiaGlBackend framebufferBackend = new SkiaGlBackend();
-    private ImageFilter linearizeFilter;
-    private ImageFilter blurFilter;
-    private ImageFilter encodeFilter;
-    private float filterSigma = Float.NaN;
+public final class GlassCaptureRenderer {
+    private static final GlassCaptureRenderer INSTANCE = new GlassCaptureRenderer();
+
+    private final GlassGlBackend framebufferBackend = new GlassGlBackend();
+
     private boolean nativeLoaded = false;
     private final int[] oldTexture = new int[1];
     private final int[] oldActiveTexture = new int[1];
@@ -45,9 +31,9 @@ public final class SkiaBlurRenderer {
     private final int[] oldScissorBox = new int[4];
     private int captureFramebufferId = 0;
 
-    private SkiaBlurRenderer() {}
+    private GlassCaptureRenderer() {}
 
-    public static SkiaBlurRenderer getInstance() {
+    public static GlassCaptureRenderer getInstance() {
         return INSTANCE;
     }
 
@@ -57,57 +43,17 @@ public final class SkiaBlurRenderer {
         return framebuffer[0];
     }
 
-    public boolean render(Minecraft client, float x, float y, float width, float height, float radius, int tintColor, float strength) {
-        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null) return false;
-        int framebufferId = mainFramebufferId(client);
-        Canvas canvas = framebufferBackend.begin(framebufferId);
-        DirectContext context = framebufferBackend.getContext();
-        if (canvas == null || context == null) {
-            framebufferBackend.end();
-            return false;
-        }
-        try {
-            return render(canvas, context, client, framebufferId, x, y, width, height, radius, tintColor, strength);
-        } finally {
-            framebufferBackend.end();
-        }
-    }
-
-    public boolean renderRegions(Minecraft client, List<Region> regions, int tintColor, float strength) {
-        if (client == null || client.getWindow() == null || client.getMainRenderTarget() == null || regions == null || regions.isEmpty()) {
-            return false;
-        }
-        float left = Float.MAX_VALUE;
-        float top = Float.MAX_VALUE;
-        float right = -Float.MAX_VALUE;
-        float bottom = -Float.MAX_VALUE;
-        for (Region region : regions) {
-            left = Math.min(left, region.x());
-            top = Math.min(top, region.y());
-            right = Math.max(right, region.x() + region.width());
-            bottom = Math.max(bottom, region.y() + region.height());
-        }
-
-        int framebufferId = mainFramebufferId(client);
-        Canvas canvas = framebufferBackend.begin(framebufferId);
-        DirectContext context = framebufferBackend.getContext();
-        if (canvas == null || context == null) {
-            framebufferBackend.end();
-            return false;
-        }
-        try {
-            return renderRegions(canvas, context, client, framebufferId, regions, left, top, right - left, bottom - top, tintColor, strength);
-        } finally {
-            framebufferBackend.end();
-        }
-    }
-
     public Canvas beginFrame(int framebufferId) {
+        if (SkijaRenderer.isDrawing()) {
+            SkijaRenderer.flush();
+            framebufferId = SkijaRenderer.currentFramebuffer();
+        }
         return framebufferBackend.begin(framebufferId);
     }
 
     public void endFrame() {
         framebufferBackend.end();
+        SkijaRenderer.restoreContext();
     }
 
     public DirectContext context() {
@@ -119,78 +65,9 @@ public final class SkiaBlurRenderer {
         ensureNativeLoaded();
         DirectContext context = framebufferBackend.ensureContext();
         int framebufferId = mainFramebufferId(client);
+        if (framebufferId == 0) return Capture.EMPTY;
         float scale = (float) client.getWindow().getGuiScale();
         return captureRegion(context, client, framebufferId, x, y, width, height, scale, margin);
-    }
-
-    public boolean render(Canvas canvas, DirectContext context, Minecraft client, int sourceFramebufferId,
-                          float x, float y, float width, float height, float radius, int tintColor, float strength) {
-        if (canvas == null || context == null || client == null || client.getWindow() == null) return false;
-        ensureNativeLoaded();
-
-        float scale = (float) client.getWindow().getGuiScale();
-        boolean blurEnabled = strength > 0.001f;
-        float blurSigma = blurEnabled ? blurSigma(strength) : 0f;
-        Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
-        if (capture.image == null) return false;
-
-        if (blurEnabled) ensureFilters(blurSigma);
-        canvas.save();
-        try {
-            canvas.clipRRect(RRect.makeXYWH(x, y, width, height, radius), true);
-            blurPaint.setImageFilter(blurEnabled ? encodeFilter : null);
-            canvas.drawImageRect(capture.image,
-                    Rect.makeXYWH(0f, 0f, capture.width, capture.height),
-                    Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH),
-                    SamplingMode.LINEAR,
-                    blurPaint,
-                    true);
-
-            frostPaint.setColor(0x10000000);
-            canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), frostPaint);
-
-            tintPaint.setColor(tintColor);
-            canvas.drawRRect(RRect.makeXYWH(x, y, width, height, radius), tintPaint);
-            return true;
-        } finally {
-            blurPaint.setImageFilter(null);
-            canvas.restore();
-            capture.image.close();
-        }
-    }
-
-    private boolean renderRegions(Canvas canvas, DirectContext context, Minecraft client, int sourceFramebufferId,
-                                  List<Region> regions, float x, float y, float width, float height, int tintColor, float strength) {
-        ensureNativeLoaded();
-        float scale = (float) client.getWindow().getGuiScale();
-        boolean blurEnabled = strength > 0.001f;
-        float blurSigma = blurEnabled ? blurSigma(strength) : 0f;
-        Capture capture = captureRegion(context, client, sourceFramebufferId, x, y, width, height, scale, Math.max(MIN_CAPTURE_MARGIN, blurSigma * 2f));
-        if (capture.image == null) return false;
-
-        if (blurEnabled) ensureFilters(blurSigma);
-        canvas.save();
-        try {
-            blurPaint.setImageFilter(blurEnabled ? encodeFilter : null);
-            frostPaint.setColor(0x10000000);
-            tintPaint.setColor(tintColor);
-            Rect source = Rect.makeXYWH(0f, 0f, capture.width, capture.height);
-            Rect destination = Rect.makeXYWH(capture.dstX, capture.dstY, capture.dstW, capture.dstH);
-            for (Region region : regions) {
-                RRect shape = RRect.makeXYWH(region.x(), region.y(), region.width(), region.height(), region.radius());
-                canvas.save();
-                canvas.clipRRect(shape, true);
-                canvas.drawImageRect(capture.image, source, destination, SamplingMode.LINEAR, blurPaint, true);
-                canvas.drawRRect(shape, frostPaint);
-                canvas.drawRRect(shape, tintPaint);
-                canvas.restore();
-            }
-            return true;
-        } finally {
-            blurPaint.setImageFilter(null);
-            canvas.restore();
-            capture.image.close();
-        }
     }
 
     private Capture captureRegion(DirectContext context, Minecraft client, int sourceFramebufferId,
@@ -288,8 +165,11 @@ public final class SkiaBlurRenderer {
                 return null;
             }
 
-            image = Image.adoptGLTextureFrom(context, textureId, GL_TEXTURE_2D, requiredW, requiredH,
-                    GL_RGBA8, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
+            try (io.github.humbleui.skija.BackendTexture backend = io.github.humbleui.skija.BackendTexture.makeGL(
+                    requiredW, requiredH, false,
+                    new io.github.humbleui.skija.GLTextureInfo(GL_TEXTURE_2D, textureId, GL_RGBA8))) {
+                image = Image.adoptTextureFrom(context, backend, SurfaceOrigin.BOTTOM_LEFT, ColorType.RGB_888X);
+            }
             created = new CaptureTarget(textureId, framebufferId, requiredW, requiredH, image);
             return created;
         } finally {
@@ -303,25 +183,6 @@ public final class SkiaBlurRenderer {
                 glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
             }
         }
-    }
-
-    private void ensureFilters(float sigma) {
-        if (encodeFilter != null && Math.abs(filterSigma - sigma) < 0.001f) return;
-        destroyFilters();
-        linearizeFilter = ImageFilter.makeColorFilter(ColorFilter.getSRGBToLinearGamma(), null);
-        blurFilter = ImageFilter.makeBlur(sigma, sigma, FilterTileMode.CLAMP, linearizeFilter, (Rect) null);
-        encodeFilter = ImageFilter.makeColorFilter(ColorFilter.getLinearToSRGBGamma(), blurFilter);
-        filterSigma = sigma;
-    }
-
-    private void destroyFilters() {
-        if (encodeFilter != null) encodeFilter.close();
-        if (blurFilter != null) blurFilter.close();
-        if (linearizeFilter != null) linearizeFilter.close();
-        encodeFilter = null;
-        blurFilter = null;
-        linearizeFilter = null;
-        filterSigma = Float.NaN;
     }
 
     private int prepareReadFramebuffer(int framebufferId) {
@@ -387,15 +248,16 @@ public final class SkiaBlurRenderer {
         return currentDrawFramebufferId();
     }
 
-    private float blurSigma(float strength) {
-        float clamped = Math.max(0f, Math.min(2f, strength));
-        return clamped * 10.5f;
-    }
-
     private void ensureNativeLoaded() {
         if (nativeLoaded) return;
         Library.load();
         nativeLoaded = true;
+    }
+
+    public void destroy() {
+        framebufferBackend.destroy();
+        if (captureFramebufferId != 0) glDeleteFramebuffers(captureFramebufferId);
+        captureFramebufferId = 0;
     }
 
     public static final class Capture {
@@ -419,8 +281,6 @@ public final class SkiaBlurRenderer {
             this.dstH = dstH;
         }
     }
-
-    public record Region(float x, float y, float width, float height, float radius) {}
 
     private record CaptureTarget(int textureId, int framebufferId, int width, int height, Image image) {}
 }

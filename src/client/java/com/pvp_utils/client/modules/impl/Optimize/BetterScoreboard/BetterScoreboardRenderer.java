@@ -1,14 +1,13 @@
 package com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
-import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -31,7 +30,6 @@ public final class BetterScoreboardRenderer {
     private static final float RADIUS = 9.0f;
     private static final float VISUAL_Y_OFFSET = 3.0f;
     private static final float TITLE_CENTER_FIX = -1.5f;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
 
     private BetterScoreboardRenderer() {
     }
@@ -41,75 +39,65 @@ public final class BetterScoreboardRenderer {
     }
 
     public void render(GuiGraphics graphics) {
-        if (!Config.betterScoreboard || !Config.betterScoreboardVisualImprovement) {
-            return;
-        }
-        Minecraft client = Minecraft.getInstance();
-        if (client.level == null || client.options.hideGui) {
-            return;
-        }
+        SkijaRenderer.draw(canvas -> {
+            if (!Config.betterScoreboard || !Config.betterScoreboardVisualImprovement) {
+                return;
+            }
+            Minecraft client = Minecraft.getInstance();
+            if (client.level == null || client.options.hideGui) {
+                return;
+            }
 
-        Objective objective = client.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
-        boolean editActive = HudEditOverlay.getInstance().isActive();
-        if (client.screen != null && !editActive) {
-            return;
-        }
-        if (objective == null && !editActive) {
-            return;
-        }
+            Objective objective = client.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
+            boolean editActive = HudEditOverlay.getInstance().isActive();
+            if (client.screen != null && !editActive) {
+                return;
+            }
+            if (objective == null && !editActive) {
+                return;
+            }
 
-        Component titleComponent = objective == null ? Component.literal("Better Scoreboard") : objective.getDisplayName();
-        String title = objective == null ? "Better Scoreboard" : BetterScoreboardManager.encodeStyled(titleComponent);
-        boolean titleFormatted = objective != null && BetterScoreboardManager.needsNativeRendering(titleComponent);
-        List<BetterScoreboardManager.Row> rows = objective == null
-                ? List.of(new BetterScoreboardManager.Row("Player", "10"), new BetterScoreboardManager.Row("Kills", "2"))
-                : BetterScoreboardManager.getRows(objective);
-        if (editActive && rows.isEmpty()) {
-            rows = List.of(new BetterScoreboardManager.Row("Player", "10"), new BetterScoreboardManager.Row("Kills", "2"));
-        }
-        if (rows.isEmpty() && !editActive) {
-            return;
-        }
+            Component titleComponent = objective == null ? Component.literal("Better Scoreboard") : objective.getDisplayName();
+            String title = objective == null ? "Better Scoreboard" : BetterScoreboardManager.encodeStyled(titleComponent);
+            boolean titleFormatted = objective != null && BetterScoreboardManager.needsNativeRendering(titleComponent);
+            List<BetterScoreboardManager.Row> rows = objective == null
+            ? List.of(new BetterScoreboardManager.Row("Player", "10"), new BetterScoreboardManager.Row("Kills", "2"))
+            : BetterScoreboardManager.getRows(objective);
+            if (editActive && rows.isEmpty()) {
+                rows = List.of(new BetterScoreboardManager.Row("Player", "10"), new BetterScoreboardManager.Row("Kills", "2"));
+            }
+            if (rows.isEmpty() && !editActive) {
+                return;
+            }
 
-        int guiW = client.getWindow().getGuiScaledWidth();
-        int guiH = client.getWindow().getGuiScaledHeight();
-        BetterScoreboardManager.Rect base = BetterScoreboardManager.getCurrentRect(guiW, guiH);
-        float scale = BetterScoreboardManager.getScale();
-        float contentX = base.x() + Config.betterScoreboardX;
-        float contentY = base.y() + Config.betterScoreboardY + VISUAL_Y_OFFSET * scale;
-        float contentW = Math.max(96.0f, base.w()) * scale;
-        float contentH = Math.max(28.0f, base.h()) * scale;
-        float bgPad = EXTRA_PAD * scale;
-        float w = contentW + bgPad * 2.0f;
-        float h = contentH + bgPad * 2.0f;
-        float x = clamp(contentX - bgPad, 0.0f, Math.max(0.0f, guiW - w));
-        float y = clamp(contentY - bgPad, 0.0f, Math.max(0.0f, guiH - h));
+            int guiW = client.getWindow().getGuiScaledWidth();
+            int guiH = client.getWindow().getGuiScaledHeight();
+            BetterScoreboardManager.Rect base = BetterScoreboardManager.getCurrentRect(guiW, guiH);
+            float scale = BetterScoreboardManager.getScale();
+            float contentX = base.x() + Config.betterScoreboardX;
+            float contentY = base.y() + Config.betterScoreboardY + VISUAL_Y_OFFSET * scale;
+            float contentW = Math.max(96.0f, base.w()) * scale;
+            float contentH = Math.max(28.0f, base.h()) * scale;
+            float bgPad = EXTRA_PAD * scale;
+            float w = contentW + bgPad * 2.0f;
+            float h = contentH + bgPad * 2.0f;
+            float x = clamp(contentX - bgPad, 0.0f, Math.max(0.0f, guiW - w));
+            float y = clamp(contentY - bgPad, 0.0f, Math.max(0.0f, guiH - h));
 
-        boolean rendered = Config.betterScoreboardLiquidGlass && LiquidGlassRenderer.getInstance().renderPanel(client, x, y, w, h,
-                RADIUS * scale, LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
-        if (!rendered) {
-            SkiaBlurRenderer.getInstance().render(client, x, y, w, h, RADIUS * scale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
-        }
-        Canvas canvas = glBackend.begin(mainFramebufferId(client));
-        if (canvas == null) {
-            return;
-        }
+            boolean rendered = Config.betterScoreboardLiquidGlass && LiquidGlassRenderer.getInstance().renderPanel(client, x, y, w, h,
+            RADIUS * scale, LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
+            if (!rendered) {
+                SkijaRenderer.draw(blurCanvas -> {
+                    SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(x, y, w, h, RADIUS * scale), x, y, w, h, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+                    SkijaUi.rounded(blurCanvas, x, y, w, h, RADIUS * scale, Config.skiaBlurTintColor());
+                });
+            }
 
-        ArrayList<NativeGlyph> nativeGlyphs = new ArrayList<>();
-        try {
+            ArrayList<NativeGlyph> nativeGlyphs = new ArrayList<>();
             drawCard(canvas, nativeGlyphs, x, y, w, h, bgPad, title, rows, scale);
-        } finally {
-            glBackend.end();
-        }
-        drawNativeGlyphs(graphics, client, nativeGlyphs);
-    }
 
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+            drawNativeGlyphs(graphics, client, nativeGlyphs);
+        });
     }
 
     private void drawCard(Canvas canvas, List<NativeGlyph> nativeGlyphs, float x, float y, float w, float h, float bgPad, String title, List<BetterScoreboardManager.Row> rows, float scale) {
@@ -142,8 +130,8 @@ public final class BetterScoreboardRenderer {
     }
 
     private void drawNativeFormattedText(GuiGraphics graphics, Minecraft client, float x, float y, float w, float bgPad,
-                                         Component titleComponent, String titleText, boolean titleFormatted,
-                                         List<BetterScoreboardManager.Row> rows, float scale) {
+    Component titleComponent, String titleText, boolean titleFormatted,
+    List<BetterScoreboardManager.Row> rows, float scale) {
         float contentX = x + bgPad;
         float contentY = y + bgPad;
         float contentW = w - bgPad * 2.0f;
@@ -216,9 +204,9 @@ public final class BetterScoreboardRenderer {
             return x;
         }
         String text = buffer.toString();
-        FontRenderer.drawText(canvas, text, x, y, size, color);
+        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
         buffer.setLength(0);
-        return x + FontRenderer.measureTextWidth(text, size);
+        return x + SkijaUi.textWidth(text, size);
     }
 
     private float measureMixedText(String text, float size) {
@@ -238,7 +226,7 @@ public final class BetterScoreboardRenderer {
             }
             if (isNativeSymbol(cp)) {
                 if (!buffer.isEmpty()) {
-                    width += FontRenderer.measureTextWidth(buffer.toString(), size);
+                    width += SkijaUi.textWidth(buffer.toString(), size);
                     buffer.setLength(0);
                 }
                 String symbol = new String(Character.toChars(cp));
@@ -249,7 +237,7 @@ public final class BetterScoreboardRenderer {
             offset += charCount;
         }
         if (!buffer.isEmpty()) {
-            width += FontRenderer.measureTextWidth(buffer.toString(), size);
+            width += SkijaUi.textWidth(buffer.toString(), size);
         }
         return width;
     }
@@ -262,7 +250,7 @@ public final class BetterScoreboardRenderer {
 
     private boolean isNativeSymbol(int codePoint) {
         return Character.isSupplementaryCodePoint(codePoint)
-                || Character.UnicodeBlock.of(codePoint) == Character.UnicodeBlock.PRIVATE_USE_AREA;
+        || Character.UnicodeBlock.of(codePoint) == Character.UnicodeBlock.PRIVATE_USE_AREA;
     }
 
     private void drawNativeComponent(GuiGraphics graphics, Minecraft client, Component component, float x, float y, float scale, int fallbackColor) {
@@ -332,7 +320,7 @@ public final class BetterScoreboardRenderer {
             return text;
         }
         String result = stripLegacyCodes(text);
-        while (result.length() > 1 && FontRenderer.measureTextWidth(result + "...", size) > maxWidth) {
+        while (result.length() > 1 && SkijaUi.textWidth(result + "...", size) > maxWidth) {
             result = result.substring(0, result.length() - 1);
         }
         return result + "...";
@@ -362,7 +350,7 @@ public final class BetterScoreboardRenderer {
                     flushSegment(segments, current, color);
                     color = parsedColor;
                 }
-                // Style codes are intentionally ignored so all scoreboard text stays on the custom standard font.
+
                 continue;
             }
             current.append(ch);
@@ -382,15 +370,15 @@ public final class BetterScoreboardRenderer {
     private void drawSegments(Canvas canvas, List<TextSegment> segments, float x, float y, float size) {
         float cursor = x;
         for (TextSegment segment : segments) {
-            FontRenderer.drawText(canvas, segment.text(), cursor, y, size, segment.color());
-            cursor += FontRenderer.measureTextWidth(segment.text(), size);
+            SkijaUi.text(canvas, segment.text(), cursor, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), segment.color(), size);
+            cursor += SkijaUi.textWidth(segment.text(), size);
         }
     }
 
     private float measureSegments(List<TextSegment> segments, float size) {
         float width = 0.0f;
         for (TextSegment segment : segments) {
-            width += FontRenderer.measureTextWidth(segment.text(), size);
+            width += SkijaUi.textWidth(segment.text(), size);
         }
         return width;
     }

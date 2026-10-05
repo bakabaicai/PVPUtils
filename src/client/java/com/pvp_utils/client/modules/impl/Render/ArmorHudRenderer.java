@@ -1,36 +1,20 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
-import io.github.humbleui.skija.PixelGeometry;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
-import io.github.humbleui.skija.SurfaceProps;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.ByteBuffer;
 
 public class ArmorHudRenderer {
-
     private static final float CARD_W = 54f;
     private static final float CARD_H = 18f;
     private static final float CARD_MIN_W = 18f;
@@ -46,26 +30,12 @@ public class ArmorHudRenderer {
     private static final float LITE_TEXT_GAP = 2.5f;
     private static final float LITE_TEXT_H = 8f;
 
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
-    private static final Identifier[] CARD_TEXTURE_IDS = new Identifier[] {
-            Identifier.fromNamespaceAndPath("pvp_utils", "armor_hud_head"),
-            Identifier.fromNamespaceAndPath("pvp_utils", "armor_hud_chest"),
-            Identifier.fromNamespaceAndPath("pvp_utils", "armor_hud_legs"),
-            Identifier.fromNamespaceAndPath("pvp_utils", "armor_hud_feet")
-    };
     private static final ArmorHudRenderer INSTANCE = new ArmorHudRenderer();
 
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1f);
     private final Paint barTrackPaint = new Paint().setAntiAlias(true);
     private final Paint barFillPaint = new Paint().setAntiAlias(true);
-    private final CardTexture[] cardTextures = new CardTexture[] {
-            new CardTexture(CARD_TEXTURE_IDS[0]),
-            new CardTexture(CARD_TEXTURE_IDS[1]),
-            new CardTexture(CARD_TEXTURE_IDS[2]),
-            new CardTexture(CARD_TEXTURE_IDS[3])
-    };
-    private boolean nativeLoaded = false;
 
     public static ArmorHudRenderer getInstance() {
         return INSTANCE;
@@ -74,23 +44,20 @@ public class ArmorHudRenderer {
     public void render(GuiGraphics graphics) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.armorHud) {
-            destroyTextures(client);
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof com.pvp_utils.client.render.skia.SkiaScreen) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof com.pvp_utils.client.render.skia.SkijaScreen) {
             return;
         }
 
         ArmorEntry[] entries = collectEntries(client);
         if (entries.length == 0) {
-            destroyTextures(client);
             return;
         }
 
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         if (Config.armorHudMode == Config.ArmorHudMode.LITE) {
-            destroyTextures(client);
             renderLite(graphics, client, entries, screenW, screenH);
         } else {
             renderNew(graphics, client, entries, screenW, screenH);
@@ -162,35 +129,24 @@ public class ArmorHudRenderer {
 
     private void renderNew(GuiGraphics graphics, Minecraft client, ArmorEntry[] entries, int screenW, int screenH) {
         NewLayout layout = makeNewLayout(entries.length, screenW, screenH);
-        float guiScale = Math.max(1f, (float) client.getWindow().getGuiScale() * getRenderScale());
-
-        for (CardTexture cardTexture : cardTextures) {
-            if (!containsTexture(entries, cardTexture.textureId)) {
-                cardTexture.destroy(client);
-            }
-        }
 
         for (int i = 0; i < entries.length; i++) {
             ArmorEntry entry = entries[i];
-            CardTexture cardTexture = textureFor(entry.textureId);
+
             float x = layout.xs[i];
             float y = layout.ys[i];
-            renderNewCard(graphics, client, cardTexture, entry.stack, x, y, guiScale);
+            renderNewCard(graphics, entry.stack, x, y);
         }
     }
 
-    private void renderNewCard(GuiGraphics graphics, Minecraft client, CardTexture cardTexture, ItemStack stack, float x, float y, float guiScale) {
-        ensureNativeLoaded();
-        renderCardTexture(client, cardTexture, stack, guiScale);
-        if (cardTexture.dynamicTexture == null) {
-            return;
-        }
-
+    private void renderNewCard(GuiGraphics graphics, ItemStack stack, float x, float y) {
         float scale = getRenderScale();
-        float drawW = CARD_W * scale;
         float drawH = CARD_H * scale;
-        graphics.blit(RenderPipelines.GUI_TEXTURED, cardTexture.textureId, Math.round(x), Math.round(y), 0f, 0f,
-                Math.round(drawW), Math.round(drawH), cardTexture.textureW, cardTexture.textureH, cardTexture.textureW, cardTexture.textureH);
+        SkijaRenderer.draw(canvas -> {
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
+            drawNewCard(canvas, stack);
+        });
 
         float iconX = x + CARD_PAD * scale;
         float iconY = y + (drawH - CARD_ICON * scale) * 0.5f;
@@ -239,41 +195,6 @@ public class ArmorHudRenderer {
         graphics.drawString(client.font, text, textX, Math.round(y), 0xFFFFFFFF, false);
     }
 
-    private void renderCardTexture(Minecraft client, CardTexture cardTexture, ItemStack stack, float guiScale) {
-        int targetW = Math.max(1, Math.round(newCardWidth() * guiScale));
-        int targetH = Math.max(1, Math.round(newCardHeight() * guiScale));
-        String signature = stackSignature(stack) + ":" + Config.armorHudShowPercentage + ":" + Config.armorHudShowBar;
-        if (cardTexture.dynamicTexture != null
-                && cardTexture.textureW == targetW
-                && cardTexture.textureH == targetH
-                && cardTexture.lastSignature.equals(signature)) {
-            return;
-        }
-
-        if (cardTexture.surface == null || cardTexture.dynamicTexture == null || cardTexture.textureW != targetW || cardTexture.textureH != targetH) {
-            cardTexture.destroy(client);
-            cardTexture.surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            cardTexture.dynamicTexture = new DynamicTexture("pvp_utils:" + cardTexture.textureId.getPath(), targetW, targetH, false);
-            client.getTextureManager().register(cardTexture.textureId, cardTexture.dynamicTexture);
-            cardTexture.textureW = targetW;
-            cardTexture.textureH = targetH;
-            cardTexture.lastSignature = "";
-        }
-
-        Canvas canvas = cardTexture.surface.getCanvas();
-        canvas.restoreToCount(1);
-        canvas.resetMatrix();
-        canvas.clear(0x00000000);
-        canvas.save();
-        canvas.scale(guiScale, guiScale);
-        drawNewCard(canvas, stack);
-        canvas.restore();
-
-        if (uploadSurface(cardTexture.surface, cardTexture.dynamicTexture, cardTexture.textureW, cardTexture.textureH)) {
-            cardTexture.lastSignature = signature;
-        }
-    }
-
     private void drawNewCard(Canvas canvas, ItemStack stack) {
         bgPaint.setColor(0x7A262D39);
         float cardW = newCardWidth();
@@ -289,9 +210,9 @@ public class ArmorHudRenderer {
         float ratio = clamp((stack.getMaxDamage() - stack.getDamageValue()) / (float) stack.getMaxDamage(), 0f, 1f);
         String percent = Math.round(ratio * 100f) + "%";
         if (Config.armorHudShowPercentage) {
-            float textW = FontRenderer.measureTextWidth(percent, 8.5f);
+            float textW = SkijaUi.textWidth(percent, 8.5f);
             float textX = Math.max(CARD_PAD + CARD_ICON + CARD_PAD, cardW - CARD_PAD - textW);
-            FontRenderer.drawText(canvas, percent, textX, 12.4f, 8.5f, 0xFFFFFFFF);
+            SkijaUi.text(canvas, percent, textX, (12.4f) + SkijaUi.textMetrics(8.5f).getAscent(), SkijaUi.textMetrics(8.5f).getDescent() - SkijaUi.textMetrics(8.5f).getAscent(), 0xFFFFFFFF, 8.5f);
         }
 
         if (Config.armorHudShowBar) {
@@ -307,10 +228,10 @@ public class ArmorHudRenderer {
 
     private ArmorEntry[] collectEntries(Minecraft client) {
         ArmorEntry[] raw = new ArmorEntry[] {
-                new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.HEAD), CARD_TEXTURE_IDS[0]),
-                new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.CHEST), CARD_TEXTURE_IDS[1]),
-                new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.LEGS), CARD_TEXTURE_IDS[2]),
-                new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.FEET), CARD_TEXTURE_IDS[3])
+            new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.HEAD)),
+            new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.CHEST)),
+            new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.LEGS)),
+            new ArmorEntry(client.player.getItemBySlot(EquipmentSlot.FEET))
         };
         int count = 0;
         for (ArmorEntry entry : raw) {
@@ -414,56 +335,6 @@ public class ArmorHudRenderer {
         return LITE_ICON + (Config.armorHudShowPercentage ? (LITE_TEXT_GAP + LITE_TEXT_H) : 0f);
     }
 
-    private boolean containsTexture(ArmorEntry[] entries, Identifier textureId) {
-        for (ArmorEntry entry : entries) {
-            if (entry.textureId.equals(textureId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private CardTexture textureFor(Identifier textureId) {
-        for (CardTexture cardTexture : cardTextures) {
-            if (cardTexture.textureId.equals(textureId)) {
-                return cardTexture;
-            }
-        }
-        throw new IllegalStateException("Missing texture slot for " + textureId);
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) {
-            return;
-        }
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private boolean uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) {
-                return false;
-            }
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-            return true;
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyTextures(Minecraft client) {
-        for (CardTexture cardTexture : cardTextures) {
-            cardTexture.destroy(client);
-        }
-    }
-
     private String stackSignature(ItemStack stack) {
         return stack.getItem() + ":" + stack.getDamageValue() + ":" + stack.getMaxDamage();
     }
@@ -520,11 +391,9 @@ public class ArmorHudRenderer {
 
     private static final class ArmorEntry {
         final ItemStack stack;
-        final Identifier textureId;
 
-        ArmorEntry(ItemStack stack, Identifier textureId) {
+        ArmorEntry(ItemStack stack) {
             this.stack = stack;
-            this.textureId = textureId;
         }
     }
 
@@ -547,33 +416,6 @@ public class ArmorHudRenderer {
             this.xs = xs;
             this.ys = ys;
             this.scale = scale;
-        }
-    }
-
-    private static final class CardTexture {
-        final Identifier textureId;
-        Surface surface;
-        DynamicTexture dynamicTexture;
-        int textureW = -1;
-        int textureH = -1;
-        String lastSignature = "";
-
-        CardTexture(Identifier textureId) {
-            this.textureId = textureId;
-        }
-
-        void destroy(Minecraft client) {
-            if (surface != null) {
-                surface.close();
-                surface = null;
-            }
-            if (dynamicTexture != null) {
-                client.getTextureManager().release(textureId);
-                dynamicTexture = null;
-            }
-            textureW = -1;
-            textureH = -1;
-            lastSignature = "";
         }
     }
 }

@@ -1,17 +1,15 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -36,12 +34,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public class PVPUtilsSingleplayerScreen extends Screen {
+public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long OPEN_MS = 440L;
     private static final long CLOSE_MS = 440L;
     private final String shaderPath;
     private final Runnable embeddedBack;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<WorldEntry> worlds = new ArrayList<>();
     private final List<Float> worldHover = new ArrayList<>();
     private final Map<Path, Image> worldImages = new HashMap<>();
@@ -131,9 +128,9 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         LevelStorageSource source = minecraft.getLevelSource();
         loadFuture = source.loadLevelSummaries(source.findLevelCandidates()).thenAccept(summaries -> {
             List<WorldEntry> loaded = summaries.stream()
-                    .sorted(Comparator.comparingLong(LevelSummary::getLastPlayed).reversed())
-                    .map(WorldEntry::new)
-                    .toList();
+            .sorted(Comparator.comparingLong(LevelSummary::getLastPlayed).reversed())
+            .map(WorldEntry::new)
+            .toList();
             Minecraft.getInstance().execute(() -> {
                 worlds.clear();
                 worlds.addAll(loaded);
@@ -201,36 +198,23 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     protected void renderMenuBackground(GuiGraphics guiGraphics) {
     }
 
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
-        Canvas canvas = glBackend.begin(mainFramebufferId());
-        if (canvas == null) return;
         try {
             float layoutScale = layoutScale();
             if (!closingToMain) {
-                SkiaBlurRenderer.getInstance().render(
-                        canvas,
-                        glBackend.getContext(),
-                        Minecraft.getInstance(),
-                        mainFramebufferId(),
-                        MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()),
-                        MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()),
-                        MainUiScale.pageScreenSize(cardW(), layoutScale),
-                        MainUiScale.pageScreenSize(cardH(), layoutScale),
-                        MainUiScale.pageScreenSize(18f, layoutScale),
-                        0x12000000,
-                        blurStrength()
-                );
+                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale)), MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), Math.max(0f, Math.min(2f, blurStrength())) * 10.5f);
+                SkijaUi.rounded(canvas, MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale), 0x12000000);;
             }
             canvas.save();
             MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
             draw(canvas);
             canvas.restore();
         } finally {
-            glBackend.end();
             pendingFrame = false;
         }
     }
@@ -265,7 +249,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         int alpha = Math.round(255f * contentFade);
         float titleSize = 30f;
         String title = "Single player";
-        FontRenderer.drawText(canvas, title, (layoutWidth() - FontRenderer.measureTextWidth(title, titleSize)) * 0.5f, 44f, titleSize, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, title, (layoutWidth() - SkijaUi.textWidth(title, titleSize)) * 0.5f, (44f) + SkijaUi.textMetrics(titleSize).getAscent(), SkijaUi.textMetrics(titleSize).getDescent() - SkijaUi.textMetrics(titleSize).getAscent(), (alpha << 24) | 0xFFFFFF, titleSize);
         drawWorldList(canvas, alpha);
         float buttonsAlpha = contentFade;
         for (ActionButton button : buttons) {
@@ -333,12 +317,12 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                 imagePaint.setAntiAlias(true);
                 imagePaint.setColor((alpha << 24) | 0xFFFFFF);
                 canvas.drawImageRect(
-                        worldImage,
-                        Rect.makeXYWH(0f, 0f, worldImage.getWidth(), worldImage.getHeight()),
-                        Rect.makeXYWH(imageX, imageY, imageSize, imageSize),
-                        SamplingMode.LINEAR,
-                        imagePaint,
-                        true
+                worldImage,
+                Rect.makeXYWH(0f, 0f, worldImage.getWidth(), worldImage.getHeight()),
+                Rect.makeXYWH(imageX, imageY, imageSize, imageSize),
+                SamplingMode.LINEAR,
+                imagePaint,
+                true
                 );
                 canvas.restore();
             }
@@ -346,17 +330,15 @@ public class PVPUtilsSingleplayerScreen extends Screen {
         if (worldImage(world) == null) {
             String worldIcon = "\uE30A";
             float iconSize = 25f;
-            float iconWidth = FontRenderer.measureTextWidth(worldIcon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, worldIcon, x + 36f - iconWidth * 0.5f, y + 43f, iconSize,
-                    (Math.round(alpha * (0.72f + 0.20f * hoverCurve)) << 24) | 0xFFFFFF,
-                    FontRenderer.MATERIAL_SYMBOLS);
+            float iconWidth = SkijaUi.iconWidth(worldIcon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, worldIcon, x + 36f - iconWidth * 0.5f, (y + 43f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * (0.72f + 0.20f * hoverCurve)) << 24) | 0xFFFFFF, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
-        FontRenderer.drawText(canvas, world.name(), x + 74f, y + 28f, 15f, (alpha << 24) | 0xFFFFFF);
-        FontRenderer.drawText(canvas, world.info(), x + 74f, y + 47f, 11f, (Math.round(alpha * 0.68f) << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, world.name(), x + 74f, (y + 28f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
+        SkijaUi.text(canvas, world.info(), x + 74f, (y + 47f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.68f) << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawCentered(Canvas canvas, String text, float cx, float y, float size, int color) {
-        FontRenderer.drawText(canvas, text, cx - FontRenderer.measureTextWidth(text, size) * 0.5f, y, size, color);
+        SkijaUi.text(canvas, text, cx - SkijaUi.textWidth(text, size) * 0.5f, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
     }
 
     private void drawBookPageCard(Canvas canvas, float cx, float y, float w, float h, float angle, Paint paint) {
@@ -491,17 +473,8 @@ public class PVPUtilsSingleplayerScreen extends Screen {
             image.close();
         }
         worldImages.clear();
-        glBackend.destroy();
-        super.removed();
-    }
 
-    private int mainFramebufferId() {
-        Minecraft client = Minecraft.getInstance();
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+        super.removed();
     }
 
     private float openProgress() {
@@ -559,10 +532,10 @@ public class PVPUtilsSingleplayerScreen extends Screen {
     private float layoutScale() {
         float x = cardX();
         return MainUiScale.pageScale(
-                x,
-                18f,
-                x + cardW(),
-                cardY() + cardH() + 76f
+        x,
+        18f,
+        x + cardW(),
+        cardY() + cardH() + 76f
         );
     }
 
@@ -625,7 +598,7 @@ public class PVPUtilsSingleplayerScreen extends Screen {
                 canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
             }
             float size = 13f;
-            FontRenderer.drawText(canvas, label, x + (w - FontRenderer.measureTextWidth(label, size)) * 0.5f, y + 20f, size, (a << 24) | 0xFFFFFF);
+            SkijaUi.text(canvas, label, x + (w - SkijaUi.textWidth(label, size)) * 0.5f, (y + 20f) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), (a << 24) | 0xFFFFFF, size);
         }
 
         private int lerpRgb(int from, int to, float t) {

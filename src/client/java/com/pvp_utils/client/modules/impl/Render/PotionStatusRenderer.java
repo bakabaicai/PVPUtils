@@ -1,19 +1,17 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.skia.SkijaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -53,8 +51,7 @@ public class PotionStatusRenderer {
     private final Paint borderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1f);
     private final Map<String, EffectVisual> visuals = new HashMap<>();
     private final Map<String, Image> iconCache = new HashMap<>();
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
-    private boolean nativeLoaded = false;
+
     private long lastFrameMs = 0L;
     private List<EffectVisual> pendingVisuals = List.of();
     private boolean pendingFrame = false;
@@ -77,7 +74,7 @@ public class PotionStatusRenderer {
             clearPendingFrame();
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -112,10 +109,10 @@ public class PotionStatusRenderer {
         pendingBaseH = baseH;
     }
 
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -152,7 +149,7 @@ public class PotionStatusRenderer {
     public boolean shouldHideVanillaEffects() {
         if (!Config.potionStatus || !Config.potionStatusHideVanilla) return false;
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkiaScreen || client.screen instanceof NeteaseMusicScreen) return false;
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) return false;
         return HudEditOverlay.getInstance().isActive() || !visibleEffects(client).isEmpty();
     }
 
@@ -263,10 +260,7 @@ public class PotionStatusRenderer {
     }
 
     private void renderGl(Minecraft client, List<EffectVisual> visuals, float x, float y, float userScale, float bgProgress, float baseH) {
-        ensureNativeLoaded();
-        Canvas canvas = glBackend.begin(mainFramebufferId(client));
-        if (canvas == null) return;
-        try {
+        SkijaRenderer.draw(canvas -> {
             float easedBg = easeOutCubic(bgProgress);
             canvas.save();
             canvas.translate(x, y);
@@ -278,17 +272,7 @@ public class PotionStatusRenderer {
             }
             drawIcons(client, canvas, visuals);
             canvas.restore();
-        } finally {
-            glBackend.end();
-        }
-    }
-
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
+        });
     }
 
     private void drawBackground(Canvas canvas, float baseH, float bgProgress) {
@@ -329,24 +313,24 @@ public class PotionStatusRenderer {
         String name = truncate(Component.translatable(effect.getDescriptionId()).getString(), 70f, 10f);
         String amp = amplifier(effect.getAmplifier());
         if (showCountdown) {
-            FontRenderer.drawText(canvas, name, drawX + ICON + 10f, rowY + 11f, 10f, withAlpha(0xF6FFFFFF, alpha));
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
             drawDurationLine(canvas, visual, amp, drawX + ICON + 10f, rowY + 22f, withAlpha(0xCFFFFFFF, alpha));
         } else {
-            FontRenderer.drawText(canvas, name, drawX + ICON + 10f, rowY + 17f, 10f, withAlpha(0xF6FFFFFF, alpha));
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
         }
     }
 
     private void drawDurationLine(Canvas canvas, EffectVisual visual, String amp, float x, float y, int color) {
         if (visual.effect != null && (visual.effect.isInfiniteDuration() || visual.displayDurationTicks < 0f)) {
             if (!amp.isEmpty()) {
-                FontRenderer.drawText(canvas, amp, x, y, 8f, color);
-                x += FontRenderer.measureTextWidth(amp, 8f) + 5f;
+                SkijaUi.text(canvas, amp, x, (y) + SkijaUi.textMetrics(8f).getAscent(), SkijaUi.textMetrics(8f).getDescent() - SkijaUi.textMetrics(8f).getAscent(), color, 8f);
+                x += SkijaUi.textWidth(amp, 8f) + 5f;
             }
-            FontRenderer.drawText(canvas, INFINITE_ICON, x, y + 1.5f, 10f, color, FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, INFINITE_ICON, x, (y + 1.5f) + SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), color, 10f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
             return;
         }
         String time = formatDuration(visual);
-        FontRenderer.drawText(canvas, amp.isEmpty() ? time : amp + "  " + time, x, y, 8f, color);
+        SkijaUi.text(canvas, amp.isEmpty() ? time : amp + "  " + time, x, (y) + SkijaUi.textMetrics(8f).getAscent(), SkijaUi.textMetrics(8f).getDescent() - SkijaUi.textMetrics(8f).getAscent(), color, 8f);
     }
 
     private void drawIcons(Minecraft client, Canvas canvas, List<EffectVisual> visuals) {
@@ -412,8 +396,8 @@ public class PotionStatusRenderer {
     }
 
     private String truncate(String text, float maxWidth, float size) {
-        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
-        while (text.length() > 1 && FontRenderer.measureTextWidth(text + "...", size) > maxWidth) {
+        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
+        while (text.length() > 1 && SkijaUi.textWidth(text + "...", size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + "...";
@@ -483,14 +467,7 @@ public class PotionStatusRenderer {
         return 1f - t * t * t;
     }
 
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
     private void destroyTexture(Minecraft client) {
-        glBackend.destroy();
         for (Image image : iconCache.values()) {
             image.close();
         }

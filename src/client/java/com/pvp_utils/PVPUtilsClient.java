@@ -15,7 +15,6 @@ import com.pvp_utils.client.modules.impl.Misc.VictorySound;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
 import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Render.CustomEnchantmentGlint;
-import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.AutoGGManager;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
@@ -27,7 +26,6 @@ import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
 import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.Minecraft;
 
 public class PVPUtilsClient implements ClientModInitializer {
     @Override
@@ -43,6 +41,8 @@ public class PVPUtilsClient implements ClientModInitializer {
         MainUIScreenManager.init();
         CommandManager.register();
         Update.startAutoCheck();
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
+                client -> com.pvp_utils.client.render.skia.SkijaFrameRenderer.close());
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             AutoChestDepositManager.tick(client);

@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 import static org.lwjgl.opengl.GL45.*;
 
-final class SkiaGlState {
+final class GlassGlState {
     private static final int TRACKED_TEXTURE_UNITS = 16;
     private final int glVersion;
     private final int[] lastActiveTexture = new int[1];
@@ -69,7 +69,7 @@ final class SkiaGlState {
     private final int[] lastStencilPassDepthFail = new int[2];
     private final int[] lastStencilPassDepthPass = new int[2];
 
-    SkiaGlState(int glVersion) {
+    GlassGlState(int glVersion) {
         this.glVersion = glVersion;
     }
 

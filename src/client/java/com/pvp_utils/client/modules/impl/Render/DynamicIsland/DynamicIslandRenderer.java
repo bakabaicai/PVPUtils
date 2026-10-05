@@ -1,24 +1,20 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.Song;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
-import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.*;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
@@ -81,8 +77,6 @@ public class DynamicIslandRenderer {
     private static final long LYRICS_EXPAND_DURATION_MS = 700L;
     private static final float LYRICS_STAGGER_RATIO = 0.45f;
 
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
-    private boolean nativeLoaded = false;
     private float animatedWidth = -1f;
     private float animatedHeight = -1f;
     private float tabContentFade = 0f;
@@ -124,7 +118,7 @@ public class DynamicIslandRenderer {
         lastTabRequestTime = System.currentTimeMillis();
     }
 
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!Config.dynamicIsland) {
             resetAnimation();
             return;
@@ -143,11 +137,11 @@ public class DynamicIslandRenderer {
         boolean tabOpen = isTabOpen();
         List<PlayerInfo> tabPlayers = tabOpen ? getTabPlayers(client) : List.of();
         BlockCountDisplayRenderer.Snapshot blockSnapshot = Config.dynamicIslandBlockCount
-                ? BlockCountDisplayRenderer.getInstance().snapshot(client)
-                : BlockCountDisplayRenderer.Snapshot.EMPTY;
+        ? BlockCountDisplayRenderer.getInstance().snapshot(client)
+        : BlockCountDisplayRenderer.Snapshot.EMPTY;
         ItemUseStatusRenderer.Snapshot itemUseSnapshot = Config.dynamicIslandItemUseStatus
-                ? ItemUseStatusRenderer.getInstance().snapshot(client)
-                : ItemUseStatusRenderer.Snapshot.EMPTY;
+        ? ItemUseStatusRenderer.getInstance().snapshot(client)
+        : ItemUseStatusRenderer.Snapshot.EMPTY;
         DynamicIslandNotificationCard notificationCard = DynamicIslandNotifications.snapshot();
         LowHealthHandler.Snapshot alertSnapshot = LowHealthHandler.snapshot();
         boolean notificationOpen = !tabOpen && notificationCard.visible();
@@ -155,8 +149,8 @@ public class DynamicIslandRenderer {
         boolean itemUseOpen = !tabOpen && !notificationOpen && !alertOpen && itemUseSnapshot.visible();
         boolean blockOpen = !tabOpen && !notificationOpen && !alertOpen && !itemUseOpen && blockSnapshot.visible();
         DynamicIslandLyrics.LyricsCard lyricsCard = Config.dynamicIslandLyrics && !tabOpen && !notificationOpen && !alertOpen
-                ? DynamicIslandLyrics.snapshot()
-                : DynamicIslandLyrics.HIDDEN;
+        ? DynamicIslandLyrics.snapshot()
+        : DynamicIslandLyrics.HIDDEN;
         boolean lyricsOpen = !blockOpen && lyricsCard.visible();
         lyricsFade += ((lyricsOpen ? 1f : 0f) - lyricsFade) * 0.15f;
         if (lyricsFade < 0.001f) lyricsFade = 0f;
@@ -180,10 +174,14 @@ public class DynamicIslandRenderer {
         boolean blurred;
         if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
             blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y,
-                    layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale,
-                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
+            layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale,
+            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
         } else {
-            blurred = SkiaBlurRenderer.getInstance().render(client, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint(), blurStrength());
+            SkijaRenderer.draw(blurCanvas -> {
+                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale), x, y, layout.width * islandScale, layout.height * islandScale, Math.max(0f, Math.min(2f, blurStrength())) * 10.5f);
+                SkijaUi.rounded(blurCanvas, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint());
+            });
+            blurred = true;
         }
         renderContentDirect(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen, x, y, islandScale, blurred);
     }
@@ -254,11 +252,11 @@ public class DynamicIslandRenderer {
 
     private IslandLayout measureLayout(Minecraft client, IslandContent content) {
         float textW = measure(content.brand)
-                + measureIconSegment(content.username)
-                + measureIconSegment(content.location)
-                + measureIconSegment("FPS:" + content.fps)
-                + measure("|") * 3f
-                + SEPARATOR_GAP * 6f;
+        + measureIconSegment(content.username)
+        + measureIconSegment(content.location)
+        + measureIconSegment("FPS:" + content.fps)
+        + measure("|") * 3f
+        + SEPARATOR_GAP * 6f;
         float maxW = Math.max(120f, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
         float width = clamp(Math.max(MIN_WIDTH, textW + PADDING_X * 2f), MIN_WIDTH, maxW);
         return new IslandLayout(width, HEIGHT, Math.min(HEIGHT * 0.5f, 16f), false);
@@ -343,24 +341,15 @@ public class DynamicIslandRenderer {
     }
 
     private float measure(String text) {
-        return FontRenderer.measureTextWidth(text, TEXT_SIZE);
+        return SkijaUi.textWidth(text, TEXT_SIZE);
     }
 
     private float measureBlockText(String text, float size) {
-        return FontRenderer.measureTextWidth(text, size);
+        return SkijaUi.textWidth(text, size);
     }
 
     private void renderContentDirect(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, LowHealthHandler.Snapshot alertSnapshot, DynamicIslandNotificationCard notificationCard, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen, boolean alertOpen, boolean notificationOpen, float x, float y, float islandScale, boolean blurred) {
-        ensureNativeLoaded();
-        int framebufferId = mainFramebufferId(client);
-        if (framebufferId == 0) {
-            return;
-        }
-        Canvas canvas = glBackend.begin(framebufferId);
-        if (canvas == null) {
-            return;
-        }
-        try {
+        SkijaRenderer.draw(canvas -> {
             canvas.save();
             canvas.translate(x, y);
             canvas.scale(islandScale, islandScale);
@@ -385,9 +374,7 @@ public class DynamicIslandRenderer {
                 drawCenteredContent(canvas, content, layout);
             }
             canvas.restore();
-        } finally {
-            glBackend.end();
-        }
+        });
     }
 
     private void drawLyricsContent(Canvas canvas, String text, IslandLayout layout, float fade, long durationMs) {
@@ -409,8 +396,8 @@ public class DynamicIslandRenderer {
             combined = combined.isEmpty() ? artist : combined + " - " + artist;
         }
         if (!combined.isEmpty()) {
-            float infoW = FontRenderer.measureTextWidth(combined, 10f);
-            FontRenderer.drawText(canvas, combined, centerX - infoW * 0.5f, infoY, 10f, withAlpha(0xFFA0A4B0, alpha));
+            float infoW = SkijaUi.textWidth(combined, 10f);
+            SkijaUi.text(canvas, combined, centerX - infoW * 0.5f, (infoY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xFFA0A4B0, alpha), 10f);
             infoY += 14f;
         }
 
@@ -420,7 +407,7 @@ public class DynamicIslandRenderer {
         float textY = infoY + 4f;
 
         int charCount = text.length();
-        float totalTextW = FontRenderer.measureTextWidth(text, textSize);
+        float totalTextW = SkijaUi.textWidth(text, textSize);
         float textCenterX = centerX;
 
         long now = System.currentTimeMillis();
@@ -434,7 +421,7 @@ public class DynamicIslandRenderer {
         float cursorX = centerX - totalTextW * 0.5f;
         for (int i = 0; i < charCount; i++) {
             String ch = text.substring(i, i + 1);
-            float charW = FontRenderer.measureTextWidth(ch, textSize);
+            float charW = SkijaUi.textWidth(ch, textSize);
 
             float charProgress = clamp((expandProgress * (charCount + staggerWindow) - i) / staggerWindow, 0f, 1f);
             charProgress = easeOutCubic(charProgress);
@@ -442,7 +429,7 @@ public class DynamicIslandRenderer {
             float finalX = cursorX;
             float drawX = textCenterX + (finalX - textCenterX) * charProgress;
             int charAlpha = Math.round(charProgress * alpha);
-            FontRenderer.drawText(canvas, ch, drawX, textY, textSize, withAlpha(0xFFF2F4F8, charAlpha));
+            SkijaUi.text(canvas, ch, drawX, (textY) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(0xFFF2F4F8, charAlpha), textSize);
             cursorX += charW;
         }
     }
@@ -450,18 +437,18 @@ public class DynamicIslandRenderer {
     private String tabKey(List<PlayerInfo> players, boolean tabOpen) {
         if (!tabOpen) return "compact";
         StringBuilder key = new StringBuilder("tab:")
-                .append(Config.nickHider)
-                .append('|')
-                .append(Config.nickHiderTab)
-                .append('|')
-                .append(Config.nickHiderNickname)
-                .append(':');
+        .append(Config.nickHider)
+        .append('|')
+        .append(Config.nickHiderTab)
+        .append('|')
+        .append(Config.nickHiderNickname)
+        .append(':');
         for (int i = 0; i < Math.min(players.size(), 80); i++) {
             PlayerInfo player = players.get(i);
             key.append(player.getProfile().id())
-                    .append(':').append(getPlayerName(player))
-                    .append('@').append(player.getLatency())
-                    .append(';');
+            .append(':').append(getPlayerName(player))
+            .append('@').append(player.getLatency())
+            .append(';');
         }
         return key.toString();
     }
@@ -500,11 +487,11 @@ public class DynamicIslandRenderer {
 
     private void drawCenteredContent(Canvas canvas, IslandContent content, IslandLayout layout) {
         float fullW = measure(content.brand)
-                + measureIconSegment(content.username)
-                + measureIconSegment(content.location)
-                + measureIconSegment("FPS:" + content.fps)
-                + measure("|") * 3f
-                + SEPARATOR_GAP * 6f;
+        + measureIconSegment(content.username)
+        + measureIconSegment(content.location)
+        + measureIconSegment("FPS:" + content.fps)
+        + measure("|") * 3f
+        + SEPARATOR_GAP * 6f;
         float x = (layout.width - fullW) * 0.5f;
         float y = 19.5f;
         x = drawSegment(canvas, content.brand, x, y);
@@ -517,14 +504,14 @@ public class DynamicIslandRenderer {
     }
 
     private float drawSegment(Canvas canvas, String text, float x, float y) {
-        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, compactTextColor());
+        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), compactTextColor(), TEXT_SIZE);
         return x + measure(text);
     }
 
     private float drawIconSegment(Canvas canvas, String icon, String text, float x, float y) {
-        FontRenderer.drawText(canvas, icon, x, y + ICON_Y_OFFSET, ICON_SIZE, compactTextColor(), FontRenderer.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, x, (y + ICON_Y_OFFSET) + SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), compactTextColor(), ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         x += measureIcon() + ICON_GAP;
-        FontRenderer.drawText(canvas, text, x, y, TEXT_SIZE, compactTextColor());
+        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), compactTextColor(), TEXT_SIZE);
         return x + measure(text);
     }
 
@@ -533,12 +520,12 @@ public class DynamicIslandRenderer {
     }
 
     private float measureIcon() {
-        return FontRenderer.measureTextWidth(ICON_PERSON, ICON_SIZE, FontRenderer.MATERIAL_SYMBOLS);
+        return SkijaUi.iconWidth(ICON_PERSON, ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     }
 
     private float drawSeparator(Canvas canvas, float x, float y) {
         x += SEPARATOR_GAP;
-        FontRenderer.drawText(canvas, "|", x, y, TEXT_SIZE, separatorColor());
+        SkijaUi.text(canvas, "|", x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), separatorColor(), TEXT_SIZE);
         return x + measure("|") + SEPARATOR_GAP;
     }
 
@@ -551,14 +538,14 @@ public class DynamicIslandRenderer {
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
         String icon = Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
         float iconSize = 23f;
-        float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconW = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        FontRenderer.drawText(canvas, icon, iconX + 0.2f, 42.8f, iconSize, withAlpha(detailPrimaryTextColor(), alpha), FontRenderer.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, iconX + 0.2f, (42.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
 
         String title = trimToWidth(snapshot.itemName(), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String detail = blockDetail(snapshot);
-        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(detailPrimaryTextColor(), alpha));
-        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
+        SkijaUi.text(canvas, title, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), 13.5f);
+        SkijaUi.text(canvas, detail, BLOCK_TEXT_X, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
 
         float progressX = BLOCK_PROGRESS_X;
         float progressW = Math.max(80f, layout.width - progressX * 2f);
@@ -581,14 +568,14 @@ public class DynamicIslandRenderer {
         iconBg.setColor(iconChipColor(alpha));
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
         float iconSize = 23f;
-        float iconW = FontRenderer.measureTextWidth(ICON_ITEM_USE, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconW = SkijaUi.iconWidth(ICON_ITEM_USE, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        FontRenderer.drawText(canvas, ICON_ITEM_USE, iconX + 0.2f, 42.8f, iconSize, withAlpha(detailPrimaryTextColor(), alpha), FontRenderer.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, ICON_ITEM_USE, iconX + 0.2f, (42.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
 
         String title = trimToWidth(itemUseTitle(snapshot), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String detail = itemUseDetail(snapshot);
-        FontRenderer.drawText(canvas, title, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(detailPrimaryTextColor(), alpha));
-        FontRenderer.drawText(canvas, detail, BLOCK_TEXT_X, 40f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
+        SkijaUi.text(canvas, title, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), 13.5f);
+        SkijaUi.text(canvas, detail, BLOCK_TEXT_X, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
 
         float progressX = BLOCK_PROGRESS_X;
         float progressW = Math.max(80f, layout.width - progressX * 2f);
@@ -619,18 +606,18 @@ public class DynamicIslandRenderer {
         canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, 8f, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
 
         float iconSize = 23f;
-        float iconW = FontRenderer.measureTextWidth(icon, iconSize, FontRenderer.MATERIAL_SYMBOLS);
+        float iconW = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
         if (animateIcon) {
             drawAnimatedNotificationIcon(canvas, icon, iconX + 0.2f, 40.8f, iconSize, accentColor, iconProgress);
         } else {
-            FontRenderer.drawText(canvas, icon, iconX + 0.2f, 40.8f, iconSize, withAlpha(accentColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, icon, iconX + 0.2f, (40.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(accentColor, alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
 
         String trimmedTitle = trimToWidth(title, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
         String trimmedMessage = trimToWidth(message, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 11f);
-        FontRenderer.drawText(canvas, trimmedTitle, BLOCK_TEXT_X, 24f, 13.5f, withAlpha(accentColor, alpha));
-        FontRenderer.drawText(canvas, trimmedMessage, BLOCK_TEXT_X, 41f, 11f, withAlpha(detailSecondaryTextColor(), alpha));
+        SkijaUi.text(canvas, trimmedTitle, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(accentColor, alpha), 13.5f);
+        SkijaUi.text(canvas, trimmedMessage, BLOCK_TEXT_X, (41f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
     }
 
     private int blurTint() {
@@ -701,7 +688,7 @@ public class DynamicIslandRenderer {
         canvas.translate(cx, cy);
         canvas.scale(scale, scale);
         canvas.translate(-cx, -cy);
-        FontRenderer.drawText(canvas, icon, iconX, iconY, iconSize, withAlpha(accentColor, animatedAlpha), FontRenderer.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, iconX, (iconY) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(accentColor, animatedAlpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         canvas.restore();
     }
 
@@ -709,8 +696,8 @@ public class DynamicIslandRenderer {
         if (client.getConnection() == null) return List.of();
         List<PlayerInfo> players = new ArrayList<>(client.getConnection().getListedOnlinePlayers());
         players.sort(Comparator
-                .comparingInt(PlayerInfo::getTabListOrder)
-                .thenComparing(info -> getPlayerName(info).toLowerCase()));
+        .comparingInt(PlayerInfo::getTabListOrder)
+        .thenComparing(info -> getPlayerName(info).toLowerCase()));
         return players;
     }
 
@@ -736,11 +723,11 @@ public class DynamicIslandRenderer {
             Map.Entry<String, Integer> formattedName = resolveTabName(player, baseColor);
             String name = trimToWidth(formattedName.getKey(), columnW - 46f, TAB_NAME_SIZE);
             int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.getValue();
-            FontRenderer.drawText(canvas, name, x, y, TAB_NAME_SIZE, withAlpha(color, alpha));
+            SkijaUi.text(canvas, name, x, (y) + SkijaUi.textMetrics(TAB_NAME_SIZE).getAscent(), SkijaUi.textMetrics(TAB_NAME_SIZE).getDescent() - SkijaUi.textMetrics(TAB_NAME_SIZE).getAscent(), withAlpha(color, alpha), TAB_NAME_SIZE);
 
             String latency = formatLatency(player.getLatency());
-            float latencyW = FontRenderer.measureTextWidth(latency, 9f);
-            FontRenderer.drawText(canvas, latency, x + columnW - latencyW, y, 9f, withAlpha(latencyColor(player.getLatency()), alpha));
+            float latencyW = SkijaUi.textWidth(latency, 9f);
+            SkijaUi.text(canvas, latency, x + columnW - latencyW, (y) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), withAlpha(latencyColor(player.getLatency()), alpha), 9f);
         }
     }
 
@@ -935,13 +922,13 @@ public class DynamicIslandRenderer {
     }
 
     private String trimToWidth(String text, float maxWidth, float size) {
-        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
+        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
         String suffix = "...";
-        float suffixW = FontRenderer.measureTextWidth(suffix, size);
+        float suffixW = SkijaUi.textWidth(suffix, size);
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             String next = out + text.substring(i, i + 1);
-            if (FontRenderer.measureTextWidth(next, size) + suffixW > maxWidth) break;
+            if (SkijaUi.textWidth(next, size) + suffixW > maxWidth) break;
             out.append(text.charAt(i));
         }
         return out + suffix;
@@ -982,20 +969,6 @@ public class DynamicIslandRenderer {
         int baseAlpha = (argb >>> 24) & 0xFF;
         int finalAlpha = Math.round(baseAlpha * (clamp(alpha, 0, 255) / 255f));
         return (argb & 0x00FFFFFF) | (finalAlpha << 24);
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
     }
 
     private void resetAnimation() {

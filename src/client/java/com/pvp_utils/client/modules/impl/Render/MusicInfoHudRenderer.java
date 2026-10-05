@@ -1,27 +1,24 @@
 package com.pvp_utils.client.modules.impl.Render;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
-import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.SamplingMode;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.util.Mth;
-
-import java.util.List;
 
 public class MusicInfoHudRenderer {
     private static final MusicInfoHudRenderer INSTANCE = new MusicInfoHudRenderer();
@@ -34,13 +31,12 @@ public class MusicInfoHudRenderer {
     private static final int NEW_COVER_SIZE = 48;
     private static final int ACCENT = 0xFFE5484D;
 
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final Paint bgPaint = new Paint().setAntiAlias(true);
     private final Paint coverBackPaint = new Paint().setAntiAlias(true);
     private final Paint coverImagePaint = new Paint().setAntiAlias(true);
     private final Paint trackPaint = new Paint().setAntiAlias(true);
     private final Paint fillPaint = new Paint().setAntiAlias(true);
-    private boolean nativeLoaded;
+
     private boolean pendingFrame;
 
     public static MusicInfoHudRenderer getInstance() {
@@ -73,7 +69,7 @@ public class MusicInfoHudRenderer {
         }
     }
 
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!Config.musicInfoHud || Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE) {
             pendingFrame = false;
             return;
@@ -97,32 +93,26 @@ public class MusicInfoHudRenderer {
     }
 
     private void renderCardFrameEnd(Minecraft client, MusicPlaybackService player, Song song, boolean blurMode, boolean liquid) {
-        ensureNativeLoaded();
-        int framebufferId = mainFramebufferId(client);
-        if (framebufferId == 0) {
-            return;
-        }
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
-        float userScale = getScale();
-        float x = getRenderX(screenW);
-        float y = getRenderY(screenH);
-        float scaledW = CARD_W * userScale;
-        float scaledH = CARD_H * userScale;
+        SkijaRenderer.draw(canvas -> {
+            int screenW = client.getWindow().getGuiScaledWidth();
+            int screenH = client.getWindow().getGuiScaledHeight();
+            float userScale = getScale();
+            float x = getRenderX(screenW);
+            float y = getRenderY(screenH);
+            float scaledW = CARD_W * userScale;
+            float scaledH = CARD_H * userScale;
 
-        boolean blurred = false;
-        if (liquid) {
-            blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
-                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 2);
-        } else if (blurMode) {
-            blurred = SkiaBlurRenderer.getInstance().render(client, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
-        }
-
-        Canvas canvas = glBackend.begin(framebufferId);
-        if (canvas == null) {
-            return;
-        }
-        try {
+            boolean blurred = false;
+            if (liquid) {
+                blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
+                LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 2);
+            } else if (blurMode) {
+                SkijaRenderer.draw(blurCanvas -> {
+                    SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(x, y, scaledW, scaledH, RADIUS * userScale), x, y, scaledW, scaledH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+                    SkijaUi.rounded(blurCanvas, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor());
+                });
+                blurred = true;
+            }
             canvas.save();
             canvas.translate(x, y);
             canvas.scale(userScale, userScale);
@@ -143,16 +133,16 @@ public class MusicInfoHudRenderer {
                     canvas.clipRect(io.github.humbleui.types.Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE));
                 }
                 canvas.drawImageRect(cover,
-                        Rect.makeXYWH(0f, 0f, cover.getWidth(), cover.getHeight()),
-                        Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE),
-                        SamplingMode.LINEAR, coverImagePaint, true);
+                Rect.makeXYWH(0f, 0f, cover.getWidth(), cover.getHeight()),
+                Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE),
+                SamplingMode.LINEAR, coverImagePaint, true);
                 canvas.restore();
             } else {
-                FontRenderer.drawText(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, 10f + NEW_COVER_SIZE / 2f + 4f, 12f, 0x66FFFFFF);
+                SkijaUi.text(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, (10f + NEW_COVER_SIZE / 2f + 4f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0x66FFFFFF, 12f);
             }
 
-            FontRenderer.drawText(canvas, trimSkia(song.name(), 128f, 13f), 70f, 24f, 13f, primaryTextColor(blurMode));
-            FontRenderer.drawText(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, 40f, 11f, mutedTextColor(blurMode));
+            SkijaUi.text(canvas, trimSkia(song.name(), 128f, 13f), 70f, (24f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), primaryTextColor(blurMode), 13f);
+            SkijaUi.text(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
 
             long total = Math.max(0L, player.totalDurationMs());
             long position = Math.max(0L, Math.min(player.positionMs(), Math.max(total, 0L)));
@@ -165,14 +155,12 @@ public class MusicInfoHudRenderer {
             canvas.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), trackPaint);
             fillPaint.setColor(ACCENT);
             canvas.drawRRect(RRect.makeXYWH(barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f), fillPaint);
-            FontRenderer.drawText(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, 64f, 9f, mutedTextColor(blurMode));
+            SkijaUi.text(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
             String mode = player.playbackMode().label();
-            FontRenderer.drawText(canvas, mode, CARD_W - 14f - FontRenderer.measureTextWidth(mode, 9f), 64f, 9f, mutedTextColor(blurMode));
+            SkijaUi.text(canvas, mode, CARD_W - 14f - SkijaUi.textWidth(mode, 9f), (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
 
             canvas.restore();
-        } finally {
-            glBackend.end();
-        }
+        });
     }
 
     private void renderLite(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song) {
@@ -208,8 +196,8 @@ public class MusicInfoHudRenderer {
         net.minecraft.resources.Identifier texture = NeteaseMusicCovers.texture(song.image());
         if (texture != null) {
             graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, texture, x, y, 0f, 0f, size, size,
-                    NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE,
-                    NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE);
+            NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE,
+            NeteaseMusicCovers.TEXTURE_SIZE, NeteaseMusicCovers.TEXTURE_SIZE);
             return;
         }
         graphics.fill(x + size / 5, y + size / 5, x + size - size / 5, y + size - size / 5, 0x55FFFFFF);
@@ -264,20 +252,6 @@ public class MusicInfoHudRenderer {
         return Math.max(0.5f, Config.musicInfoHudScale);
     }
 
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        io.github.humbleui.skija.impl.Library.load();
-        nativeLoaded = true;
-    }
-
-    private int mainFramebufferId(Minecraft client) {
-        if (client.getMainRenderTarget().getColorTexture() instanceof com.mojang.blaze3d.opengl.GlTexture texture
-                && com.mojang.blaze3d.systems.RenderSystem.getDevice() instanceof com.mojang.blaze3d.opengl.GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
-    }
-
     private int cardColor() {
         return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
     }
@@ -316,9 +290,9 @@ public class MusicInfoHudRenderer {
 
     private String trimSkia(String text, float maxWidth, float size) {
         if (text == null || text.isBlank()) return "";
-        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
+        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "...";
-        while (text.length() > 1 && FontRenderer.measureTextWidth(text + ellipsis, size) > maxWidth) {
+        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + ellipsis;

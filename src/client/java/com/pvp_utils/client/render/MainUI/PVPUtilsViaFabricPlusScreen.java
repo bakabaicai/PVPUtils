@@ -1,17 +1,15 @@
 package com.pvp_utils.client.render.MainUI;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.SamplingMode;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,12 +23,11 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class PVPUtilsViaFabricPlusScreen extends Screen {
+public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long OPEN_MS = 440L;
     private final Screen parent;
     private final String shaderPath;
     private final Runnable embeddedBack;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<ViaFabricPlusBridge.ProtocolGroup> groups = new ArrayList<>();
     private final List<Image> images = new ArrayList<>();
     private final List<Float> hoverAnimations = new ArrayList<>();
@@ -115,17 +112,15 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
     }
 
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (!embedded && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
-        Canvas canvas = glBackend.begin(mainFramebufferId());
-        if (canvas == null) return;
         try {
             draw(canvas);
         } finally {
-            glBackend.end();
             pendingFrame = false;
         }
     }
@@ -140,8 +135,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         float cardY = cardY() + (1f - visibility) * 20f;
         int alpha = Math.round(255f * visibility);
 
-        SkiaBlurRenderer.getInstance().render(canvas, glBackend.getContext(), Minecraft.getInstance(), mainFramebufferId(),
-                cardX, cardY, cardW, cardH, 20f, 0x1A101010, 1.08f);
+        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(cardX, cardY, cardW, cardH, 20f), cardX, cardY, cardW, cardH, Math.max(0f, Math.min(2f, 1.08f)) * 10.5f);
+        SkijaUi.rounded(canvas, cardX, cardY, cardW, cardH, 20f, 0x1A101010);;
         try (Paint bg = new Paint(); Paint stroke = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor((Math.round(alpha * 0.20f) << 24) | 0x17191D);
@@ -154,10 +149,9 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         }
 
         String title = "ViaFabricPlus";
-        FontRenderer.drawText(canvas, title, cardX + 28f, cardY + 34f, 22f, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, title, cardX + 28f, (cardY + 34f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), (alpha << 24) | 0xFFFFFF, 22f);
         String current = currentTargetVersion();
-        FontRenderer.drawText(canvas, current.isBlank() ? "Protocol" : "Current: " + current,
-                cardX + cardW - 190f, cardY + 34f, 11f, (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, current.isBlank() ? "Protocol" : "Current: " + current, cardX + cardW - 190f, (cardY + 34f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
 
         int columns = 5;
         float gapX = 10f;
@@ -180,13 +174,13 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             float y = gridY + row * (itemH + gapY) - scroll;
             if (y + itemH < gridY || y > gridY + viewH) continue;
             drawGroup(canvas, i, groups.get(i), images.get(i), x, y, itemW, itemH, alpha, current, i == selectedGroup,
-                    pendingMouseX >= x && pendingMouseX <= x + itemW && pendingMouseY >= y && pendingMouseY <= y + itemH);
+            pendingMouseX >= x && pendingMouseX <= x + itemW && pendingMouseY >= y && pendingMouseY <= y + itemH);
         }
         canvas.restore();
 
         if (selectedGroup >= 0 && selectedGroup < groups.size()) {
             drawProtocolDetails(canvas, groups.get(selectedGroup), current, cardX + 22f, detailY,
-                    cardW - 44f, detailH, alpha);
+            cardW - 44f, detailH, alpha);
         }
 
         float bottomY = cardY + cardH - 42f;
@@ -203,18 +197,18 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     }
 
     private void drawGroup(Canvas canvas, int index, ViaFabricPlusBridge.ProtocolGroup group, Image image, float x, float y, float w, float h,
-                           int alpha, String current, boolean selected, boolean hovered) {
+    int alpha, String current, boolean selected, boolean hovered) {
         float hover = index < hoverAnimations.size() ? hoverAnimations.get(index) : 0f;
         float pressed = index == pressedGroup
-                ? Math.max(0f, 1f - (System.currentTimeMillis() - pressedGroupAt) / 180f)
-                : 0f;
+        ? Math.max(0f, 1f - (System.currentTimeMillis() - pressedGroupAt) / 180f)
+        : 0f;
         float state = Math.max(hover, pressed);
         float shade = selected ? 0.34f : 0.14f + state * 0.14f;
         try (Paint bg = new Paint(); Paint imagePaint = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor(image == null
-                    ? ((Math.round(alpha * shade) << 24) | lerpColor(0xFFFFFF, 0x73BDEB, state))
-                    : ((alpha << 24) | 0x17191D));
+            ? ((Math.round(alpha * shade) << 24) | lerpColor(0xFFFFFF, 0x73BDEB, state))
+            : ((alpha << 24) | 0x17191D));
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 16f), bg);
             if (image != null) {
                 canvas.save();
@@ -234,8 +228,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         boolean containsCurrent = group.entries().stream().anyMatch(entry -> entry.name().equals(current));
         int titleColor = containsCurrent ? 0x75F28A : 0xFFFFFF;
         String groupLabel = fit(group.name(), w - 18f, 18f);
-        float tw = FontRenderer.measureTextWidth(groupLabel, 18f);
-        FontRenderer.drawText(canvas, groupLabel, x + (w - tw) * 0.5f, y + 42f, 18f, (alpha << 24) | titleColor);
+        float tw = SkijaUi.textWidth(groupLabel, 18f);
+        SkijaUi.text(canvas, groupLabel, x + (w - tw) * 0.5f, (y + 42f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), (alpha << 24) | titleColor, 18f);
     }
 
     private void drawProtocolDetails(Canvas canvas, ViaFabricPlusBridge.ProtocolGroup group, String current, float x, float y, float w, float h, int alpha) {
@@ -245,8 +239,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 14f), panel);
         }
         String detailLabel = fit(group.name() + " versions", w - 28f, 11f);
-        FontRenderer.drawText(canvas, detailLabel, x + 14f, y + 20f, 11f,
-                (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, detailLabel, x + 14f, (y + 20f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
         List<ViaFabricPlusBridge.ProtocolEntry> entries = group.entries();
         float buttonW = Math.max(72f, Math.min(118f, (w - 28f) / Math.min(7f, Math.max(1, entries.size())) - 6f));
         float buttonX = x + 14f;
@@ -260,18 +253,17 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
                 buttonY += 24f;
             }
             if (buttonY + 6f >= y + 34f && buttonY - 14f <= contentBottom) {
-            boolean selected = entry.name().equals(current);
-            boolean hovered = inside(pendingMouseX, pendingMouseY, buttonX, buttonY - 14f, buttonW, 20f);
-            try (Paint bg = new Paint()) {
-                bg.setAntiAlias(true);
-                bg.setColor((Math.round(alpha * (selected ? 0.34f : hovered ? 0.25f : 0.12f)) << 24)
-                        | (selected ? 0x73BDEB : 0xFFFFFF));
-                canvas.drawRRect(RRect.makeXYWH(buttonX, buttonY - 14f, buttonW, 20f, 8f), bg);
-            }
-            String label = fit(entry.name(), buttonW - 8f, 10f);
-            float tw = FontRenderer.measureTextWidth(label, 10f);
-            FontRenderer.drawText(canvas, label, buttonX + (buttonW - tw) * 0.5f, buttonY, 10f,
-                    (alpha << 24) | 0xFFFFFF);
+                boolean selected = entry.name().equals(current);
+                boolean hovered = inside(pendingMouseX, pendingMouseY, buttonX, buttonY - 14f, buttonW, 20f);
+                try (Paint bg = new Paint()) {
+                    bg.setAntiAlias(true);
+                    bg.setColor((Math.round(alpha * (selected ? 0.34f : hovered ? 0.25f : 0.12f)) << 24)
+                    | (selected ? 0x73BDEB : 0xFFFFFF));
+                    canvas.drawRRect(RRect.makeXYWH(buttonX, buttonY - 14f, buttonW, 20f, 8f), bg);
+                }
+                String label = fit(entry.name(), buttonW - 8f, 10f);
+                float tw = SkijaUi.textWidth(label, 10f);
+                SkijaUi.text(canvas, label, buttonX + (buttonW - tw) * 0.5f, (buttonY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), (alpha << 24) | 0xFFFFFF, 10f);
             }
             buttonX += buttonW + 6f;
         }
@@ -279,9 +271,9 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     }
 
     private String fit(String value, float maxWidth, float size) {
-        if (FontRenderer.measureTextWidth(value, size) <= maxWidth) return value;
+        if (SkijaUi.textWidth(value, size) <= maxWidth) return value;
         String result = value;
-        while (result.length() > 1 && FontRenderer.measureTextWidth(result + "...", size) > maxWidth) {
+        while (result.length() > 1 && SkijaUi.textWidth(result + "...", size) > maxWidth) {
             result = result.substring(0, result.length() - 1);
         }
         return result + "...";
@@ -293,8 +285,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             bg.setColor((Math.round(alpha * (hovered ? 0.28f : 0.15f)) << 24) | 0x73BDEB);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 26f, 10f), bg);
         }
-        float tw = FontRenderer.measureTextWidth(text, 11f);
-        FontRenderer.drawText(canvas, text, x + (w - tw) * 0.5f, y + 17f, 11f, (alpha << 24) | 0xFFFFFF);
+        float tw = SkijaUi.textWidth(text, 11f);
+        SkijaUi.text(canvas, text, x + (w - tw) * 0.5f, (y + 17f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (alpha << 24) | 0xFFFFFF, 11f);
     }
 
     private Image loadImage(String name) {
@@ -310,7 +302,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
     }
 
     private void drawAspectCover(Canvas canvas, Image image, Paint paint, float x, float y, float w, float h,
-                                 int alpha, float state) {
+    int alpha, float state) {
         float sourceAspect = image.getWidth() / (float) image.getHeight();
         float destinationAspect = w / h;
         float srcW = image.getWidth();
@@ -359,7 +351,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         float y = gridY + row * (itemH + 12f) - scroll;
         float viewH = cardY + cardH - 56f - gridY;
         return y + itemH >= gridY && y <= gridY + viewH
-                && inside(pendingMouseX, pendingMouseY, x, y, itemW, itemH);
+        && inside(pendingMouseX, pendingMouseY, x, y, itemW, itemH);
     }
 
     @Override
@@ -373,7 +365,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         float detailY = cardY + 62f;
         float detailH = selectedGroup >= 0 ? 106f : 0f;
         if (selectedGroup >= 0
-                && inside(pageX, pageY, cardX + 23f, detailY + 35f, cardW - 46f, detailH - 36f)) {
+        && inside(pageX, pageY, cardX + 23f, detailY + 35f, cardW - 46f, detailH - 36f)) {
             List<ViaFabricPlusBridge.ProtocolEntry> entries = groups.get(selectedGroup).entries();
             float buttonW = Math.max(72f, Math.min(118f, (cardW - 72f) / Math.min(7f, Math.max(1, entries.size())) - 6f));
             int columns = Math.max(1, (int) Math.floor((cardW - 44f - 28f) / (buttonW + 6f)));
@@ -449,8 +441,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
                     buttonY += 24f;
                 }
                 if (buttonY + 6f >= detailY + 34f
-                        && buttonY - 14f <= detailY + detailH - 8f
-                        && inside(pageX, pageY, buttonX, buttonY - 14f, buttonW, 20f)) {
+                && buttonY - 14f <= detailY + detailH - 8f
+                && inside(pageX, pageY, buttonX, buttonY - 14f, buttonW, 20f)) {
                     ViaFabricPlusBridge.setTargetVersion(entry);
                     cachedTargetVersion = entry.name();
                     nextTargetRefreshAt = System.currentTimeMillis() + 250L;
@@ -497,7 +489,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
         pendingFrame = false;
         for (Image image : images) if (image != null) image.close();
         images.clear();
-        glBackend.destroy();
+
         super.removed();
     }
 
@@ -513,14 +505,6 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen {
             nextTargetRefreshAt = now + 250L;
         }
         return cachedTargetVersion;
-    }
-
-    private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
     }
 
     private float cardW() {

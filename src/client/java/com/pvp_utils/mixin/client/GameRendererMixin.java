@@ -14,6 +14,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
+    @Inject(
+            method = "render",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/render/GuiRenderer;render(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V"
+            )
+    )
+    private void pvp_utils$renderSkijaUnderlay(net.minecraft.client.DeltaTracker deltaTracker,
+                                             boolean renderLevel, CallbackInfo ci) {
+        com.pvp_utils.client.render.skia.SkijaRenderer.renderMainSubmitted();
+    }
+
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
     private void hideHurtShake(PoseStack poseStack, float tickProgress, CallbackInfo ci) {
         if (Config.hideHurtShake) ci.cancel();

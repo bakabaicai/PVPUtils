@@ -1,7 +1,8 @@
 package com.pvp_utils.client.modules.impl.Render;
 
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -110,10 +111,6 @@ public class NotificationOverlay {
     }
 
     public void render(GuiGraphics graphics) {
-        render(graphics, null);
-    }
-
-    public void render(GuiGraphics graphics, Canvas canvas) {
         boolean editPreview = previewActive && !active;
         if (!active && !editPreview) return;
 
@@ -127,7 +124,7 @@ public class NotificationOverlay {
         String renderMessage = active ? message : "Notification";
         ItemStack renderIcon = active ? iconStack : ItemStack.EMPTY;
         String renderSymbol = active ? symbolIcon : "";
-        int textWidth = Math.round(FontRenderer.measureTextWidth(renderMessage, TEXT_SIZE));
+        int textWidth = Math.round(SkijaUi.textWidth(renderMessage, TEXT_SIZE));
         boolean hasSymbol = !renderSymbol.isEmpty();
         boolean hasIcon = !renderIcon.isEmpty() || hasSymbol;
         int iconSize = 16;
@@ -146,12 +143,6 @@ public class NotificationOverlay {
         graphics.pose().translate(finalX, y);
         graphics.pose().scale(scale, scale);
         graphics.pose().translate(-finalX, -y);
-        if (canvas != null) {
-            canvas.save();
-            canvas.translate(finalX, y);
-            canvas.scale(scale, scale);
-            canvas.translate(-finalX, -y);
-        }
 
         float greenProgress = 0f;
         float blackProgress = 0f;
@@ -233,22 +224,32 @@ public class NotificationOverlay {
             float textY = y + HEIGHT / 2f + 5f;
 
             if (hasSymbol) {
-                if (canvas != null) {
-                    FontRenderer.drawText(canvas, renderSymbol, currentX, y + HEIGHT / 2f + 7f, SYMBOL_SIZE, symbolColor | 0xFF000000, FontRenderer.MATERIAL_SYMBOLS);
-                }
+                submitText(renderSymbol, currentX, y + HEIGHT / 2f + 7f, SYMBOL_SIZE,
+                symbolColor | 0xFF000000, SkijaUi.IconSet.MATERIAL_SYMBOLS, finalX, y, scale);
                 currentX += iconSize + iconMargin;
             } else if (hasIcon) {
                 graphics.renderFakeItem(renderIcon, currentX, y + (HEIGHT - iconSize) / 2);
                 currentX += iconSize + iconMargin;
             }
-            if (canvas != null) {
-                FontRenderer.drawText(canvas, renderMessage, currentX, textY, TEXT_SIZE, textColor | 0xFF000000);
-            }
+            submitText(renderMessage, currentX, textY, TEXT_SIZE, textColor | 0xFF000000,
+            null, finalX, y, scale);
         }
-        if (canvas != null) {
-            canvas.restore();
-        }
+
         graphics.pose().popMatrix();
+    }
+
+    private void submitText(String text, float x, float y, float size, int color,
+    SkijaUi.IconSet font, float anchorX, float anchorY, float scale) {
+        com.pvp_utils.client.render.skia.SkijaRenderer.submit(canvas -> {
+            canvas.translate(anchorX, anchorY);
+            canvas.scale(scale, scale);
+            canvas.translate(-anchorX, -anchorY);
+            if (font == null) {
+                SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
+            } else {
+                SkijaUi.icon(canvas, text, x, (y) + SkijaUi.iconMetrics(size, font).getAscent(), SkijaUi.iconMetrics(size, font).getDescent() - SkijaUi.iconMetrics(size, font).getAscent(), color, size, font);
+            }
+        });
     }
 
     public int getEditWidth() {
@@ -266,36 +267,6 @@ public class NotificationOverlay {
     public int getRenderY(int screenHeight) {
         if (Float.isNaN(Config.notificationY)) return (int) (screenHeight * 0.12);
         return Math.round(screenHeight * 0.5f + Config.notificationY);
-    }
-
-    public boolean needsCanvas() {
-        return active || previewActive || HudEditOverlay.getInstance().isActive();
-    }
-
-    public boolean needsStandaloneCanvas() {
-        return active || previewActive;
-    }
-
-    public int[] getCanvasBounds(int screenWidth, int screenHeight) {
-        boolean editPreview = previewActive && !active;
-        if (!active && !editPreview) return null;
-
-        String renderMessage = active ? message : "Notification";
-        int textWidth = Math.round(FontRenderer.measureTextWidth(renderMessage, TEXT_SIZE));
-        int dynamicWidth = active ? textWidth + PADDING + GREEN_BAR_WIDTH : PREVIEW_WIDTH;
-        float scale = Math.max(0.5f, Config.notificationScale);
-        int scaledWidth = Math.round(dynamicWidth * scale);
-        int scaledHeight = Math.round(HEIGHT * scale);
-        int finalX = getRenderX(screenWidth, scaledWidth);
-        int y = getRenderY(screenHeight);
-        finalX = Math.max(0, Math.min(finalX, screenWidth - scaledWidth));
-        y = Math.max(0, Math.min(y, screenHeight - scaledHeight));
-
-        int x = Math.max(0, finalX - 2);
-        int right = Math.min(screenWidth, finalX + scaledWidth + 2);
-        int top = Math.max(0, y - 2);
-        int bottom = Math.min(screenHeight, y + scaledHeight + 2);
-        return new int[]{x, top, Math.max(1, right - x), Math.max(1, bottom - top)};
     }
 
     public int getRenderRight(int screenWidth) {

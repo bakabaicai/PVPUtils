@@ -1,5 +1,9 @@
 package com.pvp_utils.client.gui.clickgui;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
@@ -11,14 +15,11 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
 import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.skia.SkijaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,20 +27,18 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class NewSettingsScreen extends SkiaScreen {
+public class NewSettingsScreen extends Screen implements SkijaScreen {
+    private final Screen parent;
 
     private final List<BasePage> pages;
 
     private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900", "\uE3A9"};
-    private static final String[] TAB_ICON_FONTS = {FontRenderer.ICON, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.MATERIAL_SYMBOLS, FontRenderer.ICON, FontRenderer.MATERIAL_SYMBOLS};
+    private static final SkijaUi.IconSet[] TAB_ICON_FONTS = {SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS};
     private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他", "主题"};
     private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc", "Theme"};
 
@@ -91,9 +90,8 @@ public class NewSettingsScreen extends SkiaScreen {
     private final Paint searchLinePaint = new Paint().setAntiAlias(true);
     private final Paint thumbPaint = new Paint().setAntiAlias(true);
     private final Paint previewBorderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1.2f);
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
-    private final float resetIconWidth = FontRenderer.measureTextWidth("\uE042", 13f, FontRenderer.MATERIAL_SYMBOLS);
-    private final float themeBackIconWidth = FontRenderer.measureTextWidth("\uE5C4", 18f, FontRenderer.MATERIAL_SYMBOLS);
+    private final float resetIconWidth = SkijaUi.iconWidth("\uE042", 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+    private final float themeBackIconWidth = SkijaUi.iconWidth("\uE5C4", 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     private String cachedResetText = "";
     private float cachedResetTextWidth = 0f;
     private String cachedCloseText = "";
@@ -114,14 +112,14 @@ public class NewSettingsScreen extends SkiaScreen {
     private int pendingMouseY = 0;
     private float pendingDelta = 0f;
 
-    // 主题预览模式：右侧内容区显示全部主题缩略图（左侧功能栏保持不变）
     private boolean themePreviewMode = false;
     private int themeHoveredCard = -1;
     private boolean themeBackHovered = false;
     private final List<ClickGuiTheme> previewThemes = new ArrayList<>(ClickGuiThemeManager.themes());
 
     public NewSettingsScreen(Screen parent) {
-        super(Component.literal("Settings"), parent);
+        super(Component.literal("Settings"));
+        this.parent = parent;
         pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage()));
     }
 
@@ -163,10 +161,10 @@ public class NewSettingsScreen extends SkiaScreen {
         float contentY = cardY + 66f;
         float contentH = cardH - 66f - 12f;
         return new float[]{
-                cardX, cardY, cardW, cardH,
-                sidebarW, tabStartY, tabH, tabGap, tabW,
-                closeX, closeY, closeH, resetY, resetH,
-                contentX, contentY, contentW, contentH
+            cardX, cardY, cardW, cardH,
+            sidebarW, tabStartY, tabH, tabGap, tabW,
+            closeX, closeY, closeH, resetY, resetH,
+            contentX, contentY, contentW, contentH
         };
     }
 
@@ -205,21 +203,17 @@ public class NewSettingsScreen extends SkiaScreen {
         pendingFrame = true;
     }
 
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || this.minecraft == null || this.minecraft.screen != this) {
             pendingFrame = false;
             return;
         }
-        int framebufferId = mainFramebufferId();
+
         renderPanelBlur();
-        Canvas canvas = glBackend.begin(framebufferId);
-        if (canvas == null) {
-            return;
-        }
         try {
-            drawSkia(canvas, this.width, this.height, pendingMouseX, pendingMouseY, pendingDelta);
+            drawSettings(canvas, this.width, this.height, pendingMouseX, pendingMouseY, pendingDelta);
         } finally {
-            glBackend.end();
             pendingFrame = false;
         }
     }
@@ -232,8 +226,10 @@ public class NewSettingsScreen extends SkiaScreen {
         float visualScale = getVisualScale(this.width, this.height);
         float panelX = this.width * 0.5f + (l[0] - layoutWidth * 0.5f) * visualScale;
         float panelY = this.height * 0.5f + (l[1] - layoutHeight * 0.5f) * visualScale;
-        SkiaBlurRenderer.getInstance().render(minecraft, panelX, panelY, l[2] * visualScale, l[3] * visualScale,
-                16f * visualScale, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+        SkijaRenderer.draw(blurCanvas -> {
+            SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(panelX, panelY, l[2] * visualScale, l[3] * visualScale, 16f * visualScale), panelX, panelY, l[2] * visualScale, l[3] * visualScale, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+            SkijaUi.rounded(blurCanvas, panelX, panelY, l[2] * visualScale, l[3] * visualScale, 16f * visualScale, Config.skiaBlurTintColor());
+        });
     }
 
     private float toLayoutX(double x, int width, float scale) {
@@ -281,8 +277,8 @@ public class NewSettingsScreen extends SkiaScreen {
     private void updateScrollCache(BasePage page, float contentH) {
         float contentTotalHeight = getContentTotalHeight(page);
         if (cachedScrollPage == page
-                && cachedScrollContentH == contentH
-                && Math.abs(cachedContentTotalHeight - contentTotalHeight) < 0.01f) {
+        && cachedScrollContentH == contentH
+        && Math.abs(cachedContentTotalHeight - contentTotalHeight) < 0.01f) {
             return;
         }
         cachedScrollPage = page;
@@ -296,18 +292,10 @@ public class NewSettingsScreen extends SkiaScreen {
         cachedScrollPage = null;
     }
 
-    private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
-    }
-
     @Override
     public void removed() {
         pendingFrame = false;
-        glBackend.destroy();
+
         super.removed();
     }
 
@@ -333,16 +321,16 @@ public class NewSettingsScreen extends SkiaScreen {
         String line3 = String.format("scroll %.1f/%.1f full=%s", contentScrollOffset, cachedScrollMax, Config.fullMode ? "Y" : "N");
         float padding = 10f;
         float textSize = 10f;
-        float w = Math.max(FontRenderer.measureTextWidth(line1, textSize), Math.max(FontRenderer.measureTextWidth(line2, textSize), FontRenderer.measureTextWidth(line3, textSize))) + padding * 2f;
+        float w = Math.max(SkijaUi.textWidth(line1, textSize), Math.max(SkijaUi.textWidth(line2, textSize), SkijaUi.textWidth(line3, textSize))) + padding * 2f;
         float h = 42f;
         float x = cardX + cardW - w - 14f;
         float y = cardY + 14f;
         Paint bg = new Paint().setAntiAlias(true);
         bg.setColor(withAlpha(tc.content, alpha));
         canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 8f), bg);
-        FontRenderer.drawText(canvas, line1, x + padding, y + 13f, textSize, withAlpha(tc.mutedText, alpha));
-        FontRenderer.drawText(canvas, line2, x + padding, y + 25f, textSize, withAlpha(tc.secondaryText, alpha));
-        FontRenderer.drawText(canvas, line3, x + padding, y + 37f, textSize, withAlpha(tc.secondaryText, alpha));
+        SkijaUi.text(canvas, line1, x + padding, (y + 13f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.mutedText, alpha), textSize);
+        SkijaUi.text(canvas, line2, x + padding, (y + 25f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
+        SkijaUi.text(canvas, line3, x + padding, (y + 37f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
     }
 
     private int computeHoverSignature(double mouseX, double mouseY) {
@@ -373,26 +361,7 @@ public class NewSettingsScreen extends SkiaScreen {
         return signature;
     }
 
-    @Override
-    protected boolean needsContinuousRedraw() {
-        if (closing) return true;
-        if (openProgress < 0.999f) return true;
-        if (SettingTextBox.isFocused()) return true;
-        if (draggingInContent || draggingScrollbar) return true;
-        if (Math.abs(contentScrollOffset - targetScrollOffset) > 0.35f) return true;
-        if (closeHoverAlpha > 0.01f || closeHovered) return true;
-        if (resetHoverAlpha > 0.01f || resetHovered) return true;
-        if (searchFocused || searchFocusAlpha > 0.01f || Math.abs(searchTextOffset) > 0.01f) return true;
-        if (indicatorY < 0f) return true;
-        float[] l = layout(layoutWidth(), layoutHeight());
-        float targetIndicatorY = l[5] + selectedTab * (l[6] + l[7]);
-        if (Math.abs(indicatorY - targetIndicatorY) > 0.35f) return true;
-        for (float alpha : tabHoverAlpha) if (alpha > 0.01f && alpha < 0.99f) return true;
-        return activePage().hasAnimatingModules();
-    }
-
-    @Override
-    protected void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta) {
+    private void drawSettings(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta) {
         long debugDrawStartNs = Version.DEBUG ? System.nanoTime() : 0L;
         long now = System.currentTimeMillis();
         float dt = lastRenderMs == 0 ? 0.016f : Math.min((now - lastRenderMs) / 1000f, 0.033f);
@@ -402,7 +371,7 @@ public class NewSettingsScreen extends SkiaScreen {
         if (closing) {
             openProgress = clamp01(openProgress - dt / OPEN_DURATION);
             if (openProgress < 0.005f) {
-                super.closing();
+                if (minecraft != null) minecraft.setScreen(parent);
                 return;
             }
         } else {
@@ -435,12 +404,12 @@ public class NewSettingsScreen extends SkiaScreen {
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (layoutMouseX >= cardX + 12f && layoutMouseX <= cardX + 12f + tabW && layoutMouseY >= ty && layoutMouseY <= ty + tabH)
-                hoveredTab = i;
+            hoveredTab = i;
         }
         if (layoutMouseX >= closeX && layoutMouseX <= closeX + tabW && layoutMouseY >= closeY && layoutMouseY <= closeY + closeH)
-            closeHovered = true;
+        closeHovered = true;
         if (layoutMouseX >= closeX && layoutMouseX <= closeX + tabW && layoutMouseY >= resetY && layoutMouseY <= resetY + resetH)
-            resetHovered = true;
+        resetHovered = true;
         themeBackHovered = themePreviewMode && isThemeBackButton(layoutMouseX, layoutMouseY, contentX, contentY, contentW);
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
@@ -478,7 +447,6 @@ public class NewSettingsScreen extends SkiaScreen {
         cardPaint.setColor(withAlpha(tc.window, panelAlpha));
         canvas.drawRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), cardPaint);
 
-        // Keep all child surfaces inside the same rounded card during scale animation.
         canvas.save();
         canvas.clipRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), true);
 
@@ -491,9 +459,9 @@ public class NewSettingsScreen extends SkiaScreen {
         dividerPaint.setColor(withAlpha(tc.border, alpha));
         canvas.drawRect(Rect.makeXYWH(cardX + sidebarW, cardY + 14f, 1f, cardH - 28f), dividerPaint);
 
-        FontRenderer.drawText(canvas, "PVPUtils", cardX + 18f, cardY + 38f, 16f, withAlpha(tc.primaryText, alpha));
+        SkijaUi.text(canvas, "PVPUtils", cardX + 18f, (cardY + 38f) + SkijaUi.textMetrics(16f).getAscent(), SkijaUi.textMetrics(16f).getDescent() - SkijaUi.textMetrics(16f).getAscent(), withAlpha(tc.primaryText, alpha), 16f);
         drawDebugOverlay(canvas, cardX, cardY, cardW, alpha, tc);
-        FontRenderer.drawText(canvas, UiText.t("在下方调整设置...", "Adjust the settings below..."), cardX + 18f, cardY + 54f, 10f, withAlpha(tc.secondaryText, alpha));
+        SkijaUi.text(canvas, UiText.t("在下方调整设置...", "Adjust the settings below..."), cardX + 18f, (cardY + 54f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
         drawSearchBox(canvas, searchX, searchY, searchW, searchH, alpha, dt, tc);
 
         indicatorPaint.setColor(withAlpha(tc.indicator, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
@@ -508,8 +476,8 @@ public class NewSettingsScreen extends SkiaScreen {
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveIcon, alpha);
             int textColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveText, alpha);
-            FontRenderer.drawText(canvas, TAB_ICONS[i], cardX + 18f, tabY + tabH / 2f + 6f, 13f, iconColor, TAB_ICON_FONTS[i]);
-            FontRenderer.drawText(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + tabH / 2f + 6f, 13f, textColor);
+            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, (tabY + tabH / 2f + 6f) + SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getDescent() - SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), iconColor, 13f, TAB_ICON_FONTS[i]);
+            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, (tabY + tabH / 2f + 6f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), textColor, 13f);
         }
 
         int closeBgColor = lerpColor(tc.buttonBackground, tc.dangerHoverBackground, closeHoverAlpha);
@@ -522,32 +490,32 @@ public class NewSettingsScreen extends SkiaScreen {
         String resetIcon = "\uE042";
         if (!resetText.equals(cachedResetText)) {
             cachedResetText = resetText;
-            cachedResetTextWidth = FontRenderer.measureTextWidth(resetText, 12f);
+            cachedResetTextWidth = SkijaUi.textWidth(resetText, 12f);
         }
         float resetTotalW = resetIconWidth + 6f + cachedResetTextWidth;
         float resetStartX = closeX + (tabW - resetTotalW) / 2f;
-        FontRenderer.drawText(canvas, resetIcon, resetStartX, resetY + 22f, 13f, withAlpha(resetTextColor, alpha), FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, resetText, resetStartX + resetIconWidth + 6f, resetY + 22f, 12f, withAlpha(resetTextColor, alpha));
+        SkijaUi.icon(canvas, resetIcon, resetStartX, (resetY + 22f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(resetTextColor, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.text(canvas, resetText, resetStartX + resetIconWidth + 6f, (resetY + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(resetTextColor, alpha), 12f);
 
         closeBgPaint.setColor(withAlpha(closeBgColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBgPaint);
         String closeText = UiText.t("× 关闭", "× Close");
         if (!closeText.equals(cachedCloseText)) {
             cachedCloseText = closeText;
-            cachedCloseTextWidth = FontRenderer.measureTextWidth(closeText, 12f);
+            cachedCloseTextWidth = SkijaUi.textWidth(closeText, 12f);
         }
-        FontRenderer.drawText(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, closeY + 22f, 12f, withAlpha(closeTextColor, alpha));
+        SkijaUi.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, (closeY + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(closeTextColor, alpha), 12f);
 
         if (themePreviewMode) {
-            FontRenderer.drawText(canvas, UiText.t("面板主题", "Panel Theme"), contentX + 18f, contentY + 26f, 18f, withAlpha(tc.primaryText, alpha));
-            FontRenderer.drawText(canvas, UiText.t("点击缩略图切换面板配色", "Click a thumbnail to switch the panel theme"), contentX + 18f, contentY + 42f, 10f, withAlpha(tc.secondaryText, alpha));
+            SkijaUi.text(canvas, UiText.t("面板主题", "Panel Theme"), contentX + 18f, (contentY + 26f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), withAlpha(tc.primaryText, alpha), 18f);
+            SkijaUi.text(canvas, UiText.t("点击缩略图切换面板配色", "Click a thumbnail to switch the panel theme"), contentX + 18f, (contentY + 42f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
             float backX = themeBackX(contentX, contentW);
             hoverPaint.setColor(withAlpha(themeBackHovered ? tc.hoverBackground : tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
             canvas.drawRRect(RRect.makeXYWH(backX, contentY + 12f, 28f, 28f, 6f), hoverPaint);
-            FontRenderer.drawText(canvas, "\uE5C4", backX + (28f - themeBackIconWidth) / 2f, contentY + 35f, 18f, withAlpha(tc.primaryText, alpha), FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, "\uE5C4", backX + (28f - themeBackIconWidth) / 2f, (contentY + 35f) + SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.primaryText, alpha), 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         } else {
-            FontRenderer.drawText(canvas, page.getTitle(), contentX + 18f, contentY + 26f, 18f, withAlpha(tc.primaryText, alpha));
-            FontRenderer.drawText(canvas, page.getSubtitle(), contentX + 18f, contentY + 42f, 10f, withAlpha(tc.secondaryText, alpha));
+            SkijaUi.text(canvas, page.getTitle(), contentX + 18f, (contentY + 26f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), withAlpha(tc.primaryText, alpha), 18f);
+            SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, (contentY + 42f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
         }
 
         float clipTop = contentY + 54f;
@@ -574,8 +542,6 @@ public class NewSettingsScreen extends SkiaScreen {
             debugLastDrawMs = (System.nanoTime() - debugDrawStartNs) / 1_000_000.0;
         }
     }
-
-    // —— 主题预览网格 ——
 
     private float previewGridWidth() {
         return THUMB_COLS * THUMB_SIZE + (THUMB_COLS - 1) * THUMB_GAP_X;
@@ -616,32 +582,32 @@ public class NewSettingsScreen extends SkiaScreen {
         ClickGuiThemeColors c = ClickGuiThemeColors.of(theme);
         thumbPaint.setColor(withAlpha(c.window, alpha));
         canvas.drawRRect(RRect.makeXYWH(cx, cy, THUMB_SIZE, THUMB_SIZE, 14f), thumbPaint);
-        // 迷你面板：左侧边栏竖条
+
         thumbPaint.setColor(withAlpha(c.sidebar, alpha));
         canvas.drawRRect(RRect.makeXYWH(cx + 12f, cy + 14f, 16f, 68f, 8f), thumbPaint);
-        // 强调色指示条
+
         thumbPaint.setColor(withAlpha(c.accent, alpha));
         canvas.drawRRect(RRect.makeXYWH(cx + 14f, cy + 16f, 4f, 14f, 2f), thumbPaint);
-        // 模块色块
+
         thumbPaint.setColor(withAlpha(c.module, alpha));
         canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 18f, 44f, 18f, 6f), thumbPaint);
         canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 42f, 30f, 18f, 6f), thumbPaint);
-        // 次级文字色条
+
         thumbPaint.setColor(withAlpha(c.secondaryText, alpha * 0.55f));
         canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 66f, 36f, 5f, 2.5f), thumbPaint);
-        // 边框
+
         int borderColor = selected ? c.accent : (hovered ? c.secondaryText : c.border);
         previewBorderPaint.setStrokeWidth(selected ? 2f : 1.2f);
         previewBorderPaint.setColor(withAlpha(borderColor, alpha));
         canvas.drawRRect(RRect.makeXYWH(cx, cy, THUMB_SIZE, THUMB_SIZE, 14f), previewBorderPaint);
-        // 选中勾选
+
         if (selected) {
-            FontRenderer.drawText(canvas, "\uE5CA", cx + THUMB_SIZE - 24f, cy + 20f, 13f, withAlpha(c.accent, alpha), FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, "\uE5CA", cx + THUMB_SIZE - 24f, (cy + 20f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(c.accent, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
-        // 主题名
+
         String name = theme.displayName();
-        float nw = FontRenderer.measureTextWidth(name, 12f);
-        FontRenderer.drawText(canvas, name, cx + (THUMB_SIZE - nw) / 2f, cy + THUMB_SIZE + 17f, 12f, withAlpha(ClickGuiThemeColors.current().primaryText, alpha));
+        float nw = SkijaUi.textWidth(name, 12f);
+        SkijaUi.text(canvas, name, cx + (THUMB_SIZE - nw) / 2f, (cy + THUMB_SIZE + 17f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(ClickGuiThemeColors.current().primaryText, alpha), 12f);
     }
 
     private void drawScrollbar(Canvas canvas, BasePage page, float contentX, float contentY, float contentW, float contentH, float alpha, ClickGuiThemeColors tc) {
@@ -668,19 +634,18 @@ public class NewSettingsScreen extends SkiaScreen {
         searchBgPaint.setColor(withAlpha(background, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, width, height, 7f), searchBgPaint);
 
-        FontRenderer.drawText(canvas, "\uE8B6", x + 9f, y + 19f, 12f, withAlpha(tc.searchIcon, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, "\uE8B6", x + 9f, (y + 19f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.searchIcon, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float textX = x + 28f;
         float textW = Math.max(1f, width - 36f);
         boolean empty = searchText.isEmpty();
         String display = empty ? UiText.t("\u8F93\u5165\u4EE5\u67E5\u627E...", "Type to search...") : searchText;
-        float realTextWidth = FontRenderer.measureTextWidth(searchText, 10f);
+        float realTextWidth = SkijaUi.textWidth(searchText, 10f);
         float targetOffset = empty ? 0f : Math.max(0f, realTextWidth - textW + 3f);
         searchTextOffset = lerp(searchTextOffset, targetOffset, dt * 16f);
 
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(textX, y + 2f, textW, height - 4f));
-        FontRenderer.drawText(canvas, display, textX - (empty ? 0f : searchTextOffset), y + 18.5f, 10f,
-                withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha));
+        SkijaUi.text(canvas, display, textX - (empty ? 0f : searchTextOffset), (y + 18.5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
         if (searchFocused) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(searchCursorTime * 6f));
             float cursorX = textX + Math.min(textW - 1f, Math.max(0f, realTextWidth - searchTextOffset));
@@ -727,7 +692,6 @@ public class NewSettingsScreen extends SkiaScreen {
         applySearch();
     }
 
-    /** 打开面板主题预览模式：右侧内容区切换为主题缩略图网格。 */
     public void openThemePreview() {
         clearSearch();
         themePreviewMode = true;
@@ -855,6 +819,23 @@ public class NewSettingsScreen extends SkiaScreen {
         return true;
     }
 
+    @Override
+    protected void renderBlurredBackground(GuiGraphics graphics) {
+    }
+
+    @Override
+    protected void renderMenuBackground(GuiGraphics graphics) {
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
     @Override public void onClose() {
         SettingTextBox.clearFocus();
         clearSearch();
@@ -915,17 +896,17 @@ public class NewSettingsScreen extends SkiaScreen {
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap);
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
-            if (button == 0) {
-                clearSearch();
-                themePreviewMode = false;
-                selectedTab = i;
-                if (pages.get(selectedTab) instanceof AddServerPage) {
-                    pages.set(selectedTab, new ToolPage());
+                if (button == 0) {
+                    clearSearch();
+                    themePreviewMode = false;
+                    selectedTab = i;
+                    if (pages.get(selectedTab) instanceof AddServerPage) {
+                        pages.set(selectedTab, new ToolPage());
+                    }
+                    targetScrollOffset = 0f;
+                    contentScrollOffset = 0f;
+                    invalidateScrollLayout();
                 }
-                targetScrollOffset = 0f;
-                contentScrollOffset = 0f;
-                invalidateScrollLayout();
-            }
                 return true;
             }
         }

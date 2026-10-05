@@ -1,19 +1,18 @@
 package com.pvp_utils.client.NeteaseMusic;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.LyricLine;
 import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.skia.SkijaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -46,7 +45,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
 
-public class NeteaseMusicScreen extends SkiaScreen {
+public class NeteaseMusicScreen extends Screen implements SkijaScreen {
+    private final Screen parent;
     private static final long ENTER_DURATION_MS = 320L;
     private static final long EXIT_DURATION_MS = 260L;
     private static final long PAGE_TRANSITION_MS = 420L;
@@ -64,7 +64,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         return thread;
     });
 
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final Paint uiPaint = new Paint().setAntiAlias(true);
     private final List<Song> songs = new ArrayList<>();
     private final List<Song> fullPlaylistSongs = new ArrayList<>();
@@ -147,7 +146,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private boolean userDetailOpen;
 
     public NeteaseMusicScreen(Screen parent) {
-        super(Component.literal("Netease Music"), parent);
+        super(Component.literal("Netease Music"));
+        this.parent = parent;
     }
 
     @Override
@@ -174,10 +174,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
     }
 
     @Override
-    protected void drawSkia(Canvas canvas, int width, int height, int mouseX, int mouseY, float delta) {
-    }
-
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || Minecraft.getInstance().screen != this) {
             pendingFrame = false;
             return;
@@ -207,11 +204,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         lastLayoutMouseY = layoutMouseY;
         updateScrollAnimation();
         ContentTransition transition = contentTransition();
-        Canvas canvas = glBackend.begin(mainFramebufferId());
-        if (canvas == null) {
-            pendingFrame = false;
-            return;
-        }
         width = layoutW;
         height = layoutH;
         try {
@@ -246,7 +238,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
             }
             canvas.restore();
         } finally {
-            glBackend.end();
             width = actualW;
             height = actualH;
             activeUiScale = 1.0F;
@@ -268,15 +259,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
     }
 
-    private int mainFramebufferId() {
-        Minecraft client = Minecraft.getInstance();
-        if (client.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), client.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
-    }
-
     private void renderBackdropSkia(Canvas canvas, int w, int h, int alpha) {
         fill(canvas, 0, 0, w, h, withAlpha(0x111315, Math.round(alpha * 0.68F)));
         fill(canvas, 0, 0, w, h, withAlpha(0x07120E, Math.round(alpha * 0.25F)));
@@ -293,7 +275,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
         searchInputW = SIDEBAR_WIDTH - 24;
         searchInputH = 22;
         drawInputSkia(canvas, searchInputX, searchInputY, searchInputW, searchInputH, mouseX, mouseY, query,
-                Config.isChinese ? "\u641c\u7d22..." : "Search...", Focus.SEARCH, alpha);
+        Config.isChinese ? "\u641c\u7d22..." : "Search...", Focus.SEARCH, alpha);
         drawSidebarItemSkia(canvas, 14, 74, SIDEBAR_WIDTH - 28, "Home", viewMode == ViewMode.HOME, mouseX, mouseY, alpha, "home");
         if (NeteaseMusicApi.isLoggedIn()) {
             int y = 136;
@@ -497,14 +479,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int localAlpha = Math.round(alpha * eased);
         int[] cover = nowPlayingCoverRect();
         int textAlpha = Math.round(localAlpha * clamp((eased - 0.32F) / 0.68F));
-        FontRenderer.drawText(canvas, "\uE5C4", 35f, 46f, 25f, withAlpha(nowPlayingBackHovered ? 0xFFFFFF : 0xD8DEE8, textAlpha), FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, trimToWidth(current.name(), cover[2] - 6f), cover[0], cover[1] + cover[2] + 38f, 24f, withAlpha(0xFFFFFF, textAlpha));
-        FontRenderer.drawText(canvas, trimToWidth(current.displayArtist(), cover[2] - 6f), cover[0], cover[1] + cover[2] + 64f, 14f, withAlpha(0xB8C0D4, textAlpha));
+        SkijaUi.icon(canvas, "\uE5C4", 35f, (46f) + SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(nowPlayingBackHovered ? 0xFFFFFF : 0xD8DEE8, textAlpha), 25f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.text(canvas, trimToWidth(current.name(), cover[2] - 6f), cover[0], (cover[1] + cover[2] + 38f) + SkijaUi.textMetrics(24f).getAscent(), SkijaUi.textMetrics(24f).getDescent() - SkijaUi.textMetrics(24f).getAscent(), withAlpha(0xFFFFFF, textAlpha), 24f);
+        SkijaUi.text(canvas, trimToWidth(current.displayArtist(), cover[2] - 6f), cover[0], (cover[1] + cover[2] + 64f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xB8C0D4, textAlpha), 14f);
         long total = player.totalDurationMs();
         long position = draggingProgress && total > 0L && pendingProgress >= 0.0F ? Math.round(total * pendingProgress) : player.positionMs();
-        FontRenderer.drawText(canvas, MusicPlaybackService.formatTime(position), cover[0], cover[1] + cover[2] + 105f, 11f, withAlpha(0x8F98AA, textAlpha));
+        SkijaUi.text(canvas, MusicPlaybackService.formatTime(position), cover[0], (cover[1] + cover[2] + 105f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, textAlpha), 11f);
         String right = MusicPlaybackService.formatTime(total);
-        FontRenderer.drawText(canvas, right, cover[0] + cover[2] - FontRenderer.measureTextWidth(right, 11f), cover[1] + cover[2] + 105f, 11f, withAlpha(0x8F98AA, textAlpha));
+        SkijaUi.text(canvas, right, cover[0] + cover[2] - SkijaUi.textWidth(right, 11f), (cover[1] + cover[2] + 105f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, textAlpha), 11f);
         renderNowPlayingLyrics(canvas, player, textAlpha);
     }
 
@@ -523,7 +505,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
         rounded(canvas, qrX, qrY, 96, 96, 4f, withAlpha(0xFFFFFF, alpha));
         if (qrLogin != null && !qrLogin.qrImage().isBlank()) renderCoverSkia(canvas, qrLogin.qrImage(), qrX + 4, qrY + 4, 88, alpha, 0f);
         else drawSkiaCentered(canvas, "QR", qrX + 48f, qrY + 54f, 14f, withAlpha(0x111111, alpha));
-        FontRenderer.drawText(canvas, Config.isChinese ? "\u4f7f\u7528\u7f51\u6613\u4e91\u97f3\u4e50\u626b\u7801" : "Scan with Netease app", qrX + 116f, qrY + 24f, 12f, withAlpha(0xFFFFFF, alpha));
+        SkijaUi.text(canvas, Config.isChinese ? "\u4f7f\u7528\u7f51\u6613\u4e91\u97f3\u4e50\u626b\u7801" : "Scan with Netease app", qrX + 116f, (qrY + 24f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
         drawButtonSkia(canvas, qrX + 116, qrY + 42, 110, 24, mouseX, mouseY, qrButtonText(), alpha);
         drawSkiaCentered(canvas, trim(statusText, 48), x + w / 2f, y + h - 18f, 11f, withAlpha(loading ? 0xE6C45B : 0x8F98AA, alpha));
     }
@@ -553,7 +535,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private void renderCloseButtonSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
         int x = width - 40, y = 8;
         boolean hovered = hit(x, y, 30, 30, mouseX, mouseY);
-        drawSkiaCentered(canvas, "\uE5CD", x + 15f, y + 22f, 21f, withAlpha(hovered ? 0xFF646B : 0xFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        drawSkiaCentered(canvas, "\uE5CD", x + 15f, y + 22f, 21f, withAlpha(hovered ? 0xFF646B : 0xFFFFFF, alpha), SkijaUi.IconSet.MATERIAL_SYMBOLS);
     }
 
     private void drawInputSkia(Canvas canvas, int x, int y, int w, int h, int mouseX, int mouseY, String value, String placeholder, Focus field, int alpha) {
@@ -565,14 +547,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int start = Math.min(selection < 0 ? cursor : selection, cursor);
         int end = Math.max(selection < 0 ? cursor : selection, cursor);
         if (focused && start != end) {
-            float sx = x + 8f + FontRenderer.measureTextWidth(value.substring(0, Math.min(start, value.length())), 12f);
-            float ex = x + 8f + FontRenderer.measureTextWidth(value.substring(0, Math.min(end, value.length())), 12f);
+            float sx = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(start, value.length())), 12f);
+            float ex = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(end, value.length())), 12f);
             fill(canvas, sx, y + 3, ex, y + h - 3, withAlpha(0x57C7FF, Math.round(alpha * 0.42F)));
         }
-        if (value.isBlank() && !focused) FontRenderer.drawText(canvas, trimToWidth(placeholder, w - 16f), x + 8f, y + h * 0.65f, 12f, withAlpha(0x7E8799, alpha));
-        else FontRenderer.drawText(canvas, trimToWidth(value, w - 16f), x + 8f, y + h * 0.65f, 12f, withAlpha(0xFFFFFF, alpha));
+        if (value.isBlank() && !focused) SkijaUi.text(canvas, trimToWidth(placeholder, w - 16f), x + 8f, (y + h * 0.65f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x7E8799, alpha), 12f);
+        else SkijaUi.text(canvas, trimToWidth(value, w - 16f), x + 8f, (y + h * 0.65f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
         if (focused && System.currentTimeMillis() / 500L % 2L == 0L) {
-            float caretX = x + 8f + FontRenderer.measureTextWidth(value.substring(0, Math.min(cursor, value.length())), 12f);
+            float caretX = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(cursor, value.length())), 12f);
             fill(canvas, caretX, y + 4, caretX + 1, y + h - 4, withAlpha(0xFFFFFF, alpha));
         }
     }
@@ -698,10 +680,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 float size = 17F + focus * 11F;
                 float y = centerY + delta * 68F;
                 String text = lyricText(line);
-                FontRenderer.drawText(canvas, trimToWidth(text, lyricsW), lyricsX, y, size, withAlpha(focus > 0.72F ? 0xFFFFFF : 0xAEB6C4, lineAlpha));
+                SkijaUi.text(canvas, trimToWidth(text, lyricsW), lyricsX, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(focus > 0.72F ? 0xFFFFFF : 0xAEB6C4, lineAlpha), size);
                 String translation = line.translation() == null ? "" : line.translation().trim();
                 if (!translation.isBlank()) {
-                    FontRenderer.drawText(canvas, trimToWidth(translation, lyricsW), lyricsX, y + size + 11F, Math.max(12F, size * 0.52F), withAlpha(0x8F98AA, Math.round(lineAlpha * 0.84F)));
+                    SkijaUi.text(canvas, trimToWidth(translation, lyricsW), lyricsX, (y + size + 11F) + SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getAscent(), SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getDescent() - SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getAscent(), withAlpha(0x8F98AA, Math.round(lineAlpha * 0.84F)), Math.max(12F, size * 0.52F));
                 }
             }
         } finally {
@@ -777,8 +759,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
     private void renderPoweredBy(Canvas canvas, int alpha) {
         String text = "Powered by GPT-5.6 Sol, Claude Opus 4.8 & Claude Fable 5.";
         float size = 9.0F;
-        float textWidth = FontRenderer.measureTextWidth(text, size);
-        FontRenderer.drawText(canvas, text, width - textWidth - 10f, height - 8f, size, withAlpha(0x8A8F98, Math.round(alpha * 0.42F)));
+        float textWidth = SkijaUi.textWidth(text, size);
+        SkijaUi.text(canvas, text, width - textWidth - 10f, (height - 8f) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(0x8A8F98, Math.round(alpha * 0.42F)), size);
     }
 
     private ViewMode mouseSafeViewMode() {
@@ -786,15 +768,15 @@ public class NeteaseMusicScreen extends SkiaScreen {
     }
 
     private void renderSidebarSkiaText(Canvas canvas, int alpha, ViewMode mode) {
-        FontRenderer.drawText(canvas, "PVPUtils Music", 14f, 66f, 14f, withAlpha(0xBFC2C7, alpha));
+        SkijaUi.text(canvas, "PVPUtils Music", 14f, (66f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xBFC2C7, alpha), 14f);
         float homeX = 14f;
-        FontRenderer.drawText(canvas, "\uE88A", homeX, 84f, 13f, withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha), FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, "Home", homeX + 18f, 84f, 12f, withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha));
-        FontRenderer.drawText(canvas, Config.isChinese ? "我的歌单" : "My Playlists", 14f, 126f, 11f, withAlpha(0x7C8088, alpha));
+        SkijaUi.icon(canvas, "\uE88A", homeX, (84f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.text(canvas, "Home", homeX + 18f, (84f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha), 12f);
+        SkijaUi.text(canvas, Config.isChinese ? "我的歌单" : "My Playlists", 14f, (126f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x7C8088, alpha), 11f);
         if (!NeteaseMusicApi.isLoggedIn()) {
-            FontRenderer.drawText(canvas, Config.isChinese ? "登录后显示歌单" : "Login required", 24f, 146f, 11f, withAlpha(0x8F98AA, alpha));
+            SkijaUi.text(canvas, Config.isChinese ? "登录后显示歌单" : "Login required", 24f, (146f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
         } else if (playlists.isEmpty()) {
-            FontRenderer.drawText(canvas, loading ? "Loading..." : "Empty", 24f, 146f, 11f, withAlpha(0x8F98AA, alpha));
+            SkijaUi.text(canvas, loading ? "Loading..." : "Empty", 24f, (146f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
         } else {
             int y = 146;
             for (int i = 0; i < Math.min(12, playlists.size()); i++) {
@@ -803,14 +785,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 boolean selected = selectedPlaylistIndex == i;
                 float itemX = 24f;
                 String icon = isLikedPlaylist(playlist) ? "\uE87D" : "\uE9B9";
-                FontRenderer.drawText(canvas, icon, itemX, y, 13f, withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha), FontRenderer.MATERIAL_SYMBOLS);
-                FontRenderer.drawText(canvas, trimToWidth(playlist.name(), 118f), itemX + 18f, y, 12f, withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha));
+                SkijaUi.icon(canvas, icon, itemX, (y) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+                SkijaUi.text(canvas, trimToWidth(playlist.name(), 118f), itemX + 18f, (y) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha), 12f);
                 y += 28;
             }
         }
         NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
         String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
-        FontRenderer.drawText(canvas, trimToWidth(name, 112f), 40f, height - PLAYER_HEIGHT - 20f, 12f, withAlpha(0xFFFFFF, alpha));
+        SkijaUi.text(canvas, trimToWidth(name, 112f), 40f, (height - PLAYER_HEIGHT - 20f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
         boolean avatarHovered = hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, lastLayoutMouseX, lastLayoutMouseY);
         if (avatarHovered || userDetailOpen) {
             rounded(canvas, 8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, 8f, withAlpha(0xFFFFFF, Math.round(alpha * (userDetailOpen ? 0.10F : 0.06F))));
@@ -848,12 +830,12 @@ public class NeteaseMusicScreen extends SkiaScreen {
             rounded(canvas, avatarX, avatarY, avatarSize, avatarSize, avatarSize / 2f, withAlpha(0xDDEBFF, alpha));
         }
         String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
-        FontRenderer.drawText(canvas, trimToWidth(name, 130f), x + 68, y + 32, 14f, withAlpha(0xFFFFFF, alpha));
+        SkijaUi.text(canvas, trimToWidth(name, 130f), x + 68, (y + 32) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xFFFFFF, alpha), 14f);
         String subtitle = session == null ? "" : "UID " + session.uid();
         if (!subtitle.isEmpty()) {
-            FontRenderer.drawText(canvas, subtitle, x + 68, y + 52, 11f, withAlpha(0x8F98AA, alpha));
+            SkijaUi.text(canvas, subtitle, x + 68, (y + 52) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
         }
-        FontRenderer.drawText(canvas, Config.isChinese ? "网易云音乐账号" : "Netease Music Account", x + 14, y + 78, 11f, withAlpha(0x7C8088, alpha));
+        SkijaUi.text(canvas, Config.isChinese ? "网易云音乐账号" : "Netease Music Account", x + 14, (y + 78) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x7C8088, alpha), 11f);
         int btnX = x + 14;
         int btnY = y + h - 44;
         int btnW = w - 28;
@@ -902,7 +884,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
         qrLogin = null;
         qrPolling = false;
         startQrLogin();
-        requestRedraw();
     }
 
     private void renderCurrentSkiaText(Canvas canvas, int alpha) {
@@ -938,12 +919,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int rowH = cover + GRID_TEXT_HEIGHT;
         int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
 
-        FontRenderer.drawText(canvas, Config.isChinese ? "欢迎来到 PVPUtils Music!" : "Welcome to PVPUtils Music!",
-                contentX, contentY + 18f, 22f, withAlpha(0xF3F5F8, alpha));
-        FontRenderer.drawText(canvas, Config.isChinese ? "网易云推荐歌单" : "Netease Recommended Playlists",
-                contentX, contentY + 43f, 13f, withAlpha(0x858B96, alpha));
+        SkijaUi.text(canvas, Config.isChinese ? "欢迎来到 PVPUtils Music!" : "Welcome to PVPUtils Music!", contentX, (contentY + 18f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), withAlpha(0xF3F5F8, alpha), 22f);
+        SkijaUi.text(canvas, Config.isChinese ? "网易云推荐歌单" : "Netease Recommended Playlists", contentX, (contentY + 43f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x858B96, alpha), 13f);
         if (!statusText.isBlank()) {
-            FontRenderer.drawText(canvas, trim(statusText, 48), contentX + 260f, contentY + 43f, 12f, withAlpha(0x9AA2AF, Math.round(alpha * 0.9F)));
+            SkijaUi.text(canvas, trim(statusText, 48), contentX + 260f, (contentY + 43f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x9AA2AF, Math.round(alpha * 0.9F)), 12f);
         }
 
         if (recommendedPlaylists.isEmpty()) {
@@ -974,8 +953,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 if (y > height - PLAYER_HEIGHT || y + cover + 30 < gridY) {
                     continue;
                 }
-                FontRenderer.drawText(canvas, trim(playlist.name(), Math.max(9, cardW / 8)), x, y + cover + 18f, 12f, withAlpha(0xF1F3F6, alpha));
-                FontRenderer.drawText(canvas, formatPlayCount(playlist.playCount()), x, y + cover + 34f, 10f, withAlpha(0x8C929D, alpha));
+                SkijaUi.text(canvas, trim(playlist.name(), Math.max(9, cardW / 8)), x, (y + cover + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xF1F3F6, alpha), 12f);
+                SkijaUi.text(canvas, formatPlayCount(playlist.playCount()), x, (y + cover + 34f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8C929D, alpha), 10f);
             }
         } finally {
             canvas.restore();
@@ -994,9 +973,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int rowH = cover + GRID_TEXT_HEIGHT;
         int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
 
-        FontRenderer.drawText(canvas, Config.isChinese ? "搜索结果" : "Search Results", contentX, contentY + 22f, 22f, withAlpha(0xF3F5F8, alpha));
-        FontRenderer.drawText(canvas, query.isBlank() ? (Config.isChinese ? "输入关键词搜索音乐" : "Type keywords to search music") : query,
-                contentX, contentY + 43f, 13f, withAlpha(0x858B96, alpha));
+        SkijaUi.text(canvas, Config.isChinese ? "搜索结果" : "Search Results", contentX, (contentY + 22f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), withAlpha(0xF3F5F8, alpha), 22f);
+        SkijaUi.text(canvas, query.isBlank() ? (Config.isChinese ? "输入关键词搜索音乐" : "Type keywords to search music") : query, contentX, (contentY + 43f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x858B96, alpha), 13f);
 
         if (songs.isEmpty()) {
             drawSkiaCentered(canvas, loading ? "Loading..." : "No songs", gridX + availableW / 2f, gridY + 84f, 15f, withAlpha(0xB8C0D4, alpha));
@@ -1025,8 +1003,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 if (y > height - PLAYER_HEIGHT || y + cover + 30 < gridY) {
                     continue;
                 }
-                FontRenderer.drawText(canvas, trim(song.name(), Math.max(9, cardW / 8)), x, y + cover + 18f, 12f, withAlpha(0xF1F3F6, alpha));
-                FontRenderer.drawText(canvas, trim(song.displayArtist(), Math.max(10, cardW / 7)), x, y + cover + 34f, 10f, withAlpha(0x8C929D, alpha));
+                SkijaUi.text(canvas, trim(song.name(), Math.max(9, cardW / 8)), x, (y + cover + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xF1F3F6, alpha), 12f);
+                SkijaUi.text(canvas, trim(song.displayArtist(), Math.max(10, cardW / 7)), x, (y + cover + 34f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8C929D, alpha), 10f);
             }
         } finally {
             canvas.restore();
@@ -1050,10 +1028,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
         int infoX = contentX + cover + 24;
         if (playlist != null) {
             String count = (playlist.trackCount() > 0 ? playlist.trackCount() : songs.size()) + (Config.isChinese ? "首歌曲" : " songs");
-            FontRenderer.drawText(canvas, trim(playlist.name(), 38), infoX, contentY + 40f, 26f, withAlpha(0xF0F0F0, localAlpha));
-            FontRenderer.drawText(canvas, count + " · " + estimatePlaylistDuration(), infoX, contentY + 64f, 12f, withAlpha(0x777A80, localAlpha));
-            FontRenderer.drawText(canvas, "\uE853", infoX, contentY + 93f, 15f, withAlpha(0xE8E8E8, localAlpha), FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(canvas, playlist.creator().isBlank() ? "Netease Music" : playlist.creator(), infoX + 24f, contentY + 92f, 13f, withAlpha(0xE8E8E8, localAlpha));
+            SkijaUi.text(canvas, trim(playlist.name(), 38), infoX, (contentY + 40f) + SkijaUi.textMetrics(26f).getAscent(), SkijaUi.textMetrics(26f).getDescent() - SkijaUi.textMetrics(26f).getAscent(), withAlpha(0xF0F0F0, localAlpha), 26f);
+            SkijaUi.text(canvas, count + " · " + estimatePlaylistDuration(), infoX, (contentY + 64f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x777A80, localAlpha), 12f);
+            SkijaUi.icon(canvas, "\uE853", infoX, (contentY + 93f) + SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xE8E8E8, localAlpha), 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.text(canvas, playlist.creator().isBlank() ? "Netease Music" : playlist.creator(), infoX + 24f, (contentY + 92f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0xE8E8E8, localAlpha), 13f);
             int buttonY = contentY + cover - 46;
             drawSkiaButtonLabel(canvas, "\uE037", Config.isChinese ? "播放歌单" : "Play", infoX, buttonY, 86, localAlpha);
             drawSkiaButtonLabel(canvas, "\uE043", Config.isChinese ? "乱序播放歌单" : "Shuffle", infoX + 102, buttonY, 112, localAlpha);
@@ -1075,10 +1053,10 @@ public class NeteaseMusicScreen extends SkiaScreen {
                 }
                 int rowAlpha = Math.round(localAlpha * rowProgress);
                 Song song = songs.get(index);
-                FontRenderer.drawText(canvas, String.valueOf(index + 1), contentX + 24f, y + 28f, 13f, withAlpha(0x878A90, rowAlpha));
-                FontRenderer.drawText(canvas, trim(song.name(), 56), contentX + 98f, y + 19f, 14f, withAlpha(0xF1F1F1, rowAlpha));
-                FontRenderer.drawText(canvas, trim(song.displayArtist() + " - " + song.name(), 72), contentX + 98f, y + 36f, 12f, withAlpha(0x777A80, rowAlpha));
-                FontRenderer.drawText(canvas, MusicPlaybackService.formatTime(song.durationMs()), width - 74f, y + 27f, 12f, withAlpha(0x858992, rowAlpha));
+                SkijaUi.text(canvas, String.valueOf(index + 1), contentX + 24f, (y + 28f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x878A90, rowAlpha), 13f);
+                SkijaUi.text(canvas, trim(song.name(), 56), contentX + 98f, (y + 19f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF1F1F1, rowAlpha), 14f);
+                SkijaUi.text(canvas, trim(song.displayArtist() + " - " + song.name(), 72), contentX + 98f, (y + 36f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x777A80, rowAlpha), 12f);
+                SkijaUi.text(canvas, MusicPlaybackService.formatTime(song.durationMs()), width - 74f, (y + 27f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x858992, rowAlpha), 12f);
             }
         } finally {
             canvas.restore();
@@ -1099,11 +1077,11 @@ public class NeteaseMusicScreen extends SkiaScreen {
         Song current = player.currentSong();
         int y = height - PLAYER_HEIGHT;
         if (current != null) {
-            FontRenderer.drawText(canvas, trim(current.name(), 34), SIDEBAR_WIDTH + 104f, y + 31f, 14f, withAlpha(0xF4F6FA, alpha));
-            FontRenderer.drawText(canvas, trim(current.displayArtist(), 38), SIDEBAR_WIDTH + 104f, y + 49f, 11f, withAlpha(0x8B929F, alpha));
+            SkijaUi.text(canvas, trim(current.name(), 34), SIDEBAR_WIDTH + 104f, (y + 31f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF4F6FA, alpha), 14f);
+            SkijaUi.text(canvas, trim(current.displayArtist(), 38), SIDEBAR_WIDTH + 104f, (y + 49f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8B929F, alpha), 11f);
         } else {
-            FontRenderer.drawText(canvas, Config.isChinese ? "未在播放" : "Not Playing", SIDEBAR_WIDTH + 44f, y + 34f, 14f, withAlpha(0xF4F6FA, alpha));
-            FontRenderer.drawText(canvas, Config.isChinese ? "无" : "None", SIDEBAR_WIDTH + 44f, y + 52f, 11f, withAlpha(0x8B929F, alpha));
+            SkijaUi.text(canvas, Config.isChinese ? "未在播放" : "Not Playing", SIDEBAR_WIDTH + 44f, (y + 34f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF4F6FA, alpha), 14f);
+            SkijaUi.text(canvas, Config.isChinese ? "无" : "None", SIDEBAR_WIDTH + 44f, (y + 52f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8B929F, alpha), 11f);
         }
         int centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2;
         int progressX = centerX - 160;
@@ -1111,8 +1089,8 @@ public class NeteaseMusicScreen extends SkiaScreen {
         long total = player.totalDurationMs();
         String left = MusicPlaybackService.formatTime(draggingProgress && total > 0L ? Math.round(total * pendingProgress) : player.positionMs());
         String right = MusicPlaybackService.formatTime(total);
-        FontRenderer.drawText(canvas, left, progressX - 42f, progressY + 5f, 10f, withAlpha(0x8F98AA, alpha));
-        FontRenderer.drawText(canvas, right, progressX + 328f, progressY + 5f, 10f, withAlpha(0x8F98AA, alpha));
+        SkijaUi.text(canvas, left, progressX - 42f, (progressY + 5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8F98AA, alpha), 10f);
+        SkijaUi.text(canvas, right, progressX + 328f, (progressY + 5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8F98AA, alpha), 10f);
         int controlX = playerControlStartX();
         float iconY = y + 38f;
         drawPlayerIcon(canvas, PlayerButton.MODE, playbackModeIcon(player.playbackMode()), controlX + 14f, iconY, 18f, alpha);
@@ -1130,16 +1108,16 @@ public class NeteaseMusicScreen extends SkiaScreen {
         canvas.translate(centerX, baselineY - size * 0.36F);
         canvas.scale(scale, scale);
         canvas.translate(-centerX, -(baselineY - size * 0.36F));
-        drawSkiaCentered(canvas, icon, centerX, baselineY, size, withAlpha(0xFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
+        drawSkiaCentered(canvas, icon, centerX, baselineY, size, withAlpha(0xFFFFFF, alpha), SkijaUi.IconSet.MATERIAL_SYMBOLS);
         canvas.restore();
     }
 
     private void drawSkiaButtonLabel(Canvas canvas, String icon, String text, float x, float y, float w, int alpha) {
-        float textW = FontRenderer.measureTextWidth(text, 13f);
-        float iconW = FontRenderer.measureTextWidth(icon, 15f, FontRenderer.MATERIAL_SYMBOLS);
+        float textW = SkijaUi.textWidth(text, 13f);
+        float iconW = SkijaUi.iconWidth(icon, 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float start = x + (w - iconW - 5f - textW) / 2f;
-        FontRenderer.drawText(canvas, icon, start, y + 21f, 15f, withAlpha(0xFFFFFF, alpha), FontRenderer.MATERIAL_SYMBOLS);
-        FontRenderer.drawText(canvas, text, start + iconW + 5f, y + 18f, 13f, withAlpha(0xFFFFFF, alpha));
+        SkijaUi.icon(canvas, icon, start, (y + 21f) + SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xFFFFFF, alpha), 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.text(canvas, text, start + iconW + 5f, (y + 18f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0xFFFFFF, alpha), 13f);
     }
 
     private static boolean isLikedPlaylist(Playlist playlist) {
@@ -1156,11 +1134,11 @@ public class NeteaseMusicScreen extends SkiaScreen {
     }
 
     private void drawSkiaCentered(Canvas canvas, String text, float centerX, float baselineY, float size, int argb) {
-        FontRenderer.drawText(canvas, text, centerX - FontRenderer.measureTextWidth(text, size) / 2.0F, baselineY, size, argb);
+        SkijaUi.text(canvas, text, centerX - SkijaUi.textWidth(text, size) / 2.0F, (baselineY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), argb, size);
     }
 
-    private void drawSkiaCentered(Canvas canvas, String text, float centerX, float baselineY, float size, int argb, String fontName) {
-        FontRenderer.drawText(canvas, text, centerX - FontRenderer.measureTextWidth(text, size, fontName) / 2.0F, baselineY, size, argb, fontName);
+    private void drawSkiaCentered(Canvas canvas, String text, float centerX, float baselineY, float size, int argb, SkijaUi.IconSet fontName) {
+        SkijaUi.icon(canvas, text, centerX - SkijaUi.iconWidth(text, size, fontName) / 2.0F, (baselineY) + SkijaUi.iconMetrics(size, fontName).getAscent(), SkijaUi.iconMetrics(size, fontName).getDescent() - SkijaUi.iconMetrics(size, fontName).getAscent(), argb, size, fontName);
     }
 
     @Override
@@ -1178,170 +1156,169 @@ public class NeteaseMusicScreen extends SkiaScreen {
         double mouseY = toLayoutY(event.y(), uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
         useVirtualLayout(actualW, actualH, uiScale);
         try {
-
-        if (hit(width - 40, 8, 30, 30, mouseX, mouseY)) {
-            onClose();
-            return true;
-        }
-
-        if (!NeteaseMusicApi.isLoggedIn()) {
-            return handleLoginClick(mouseX, mouseY);
-        }
-
-        if (nowPlayingOpen || nowPlayingClosing) {
-            if (hit(26, 22, 38, 32, mouseX, mouseY)) {
-                closeNowPlaying();
+            if (hit(width - 40, 8, 30, 30, mouseX, mouseY)) {
+                onClose();
                 return true;
             }
-            int[] target = nowPlayingCoverRect();
-            int progressX = target[0];
-            int progressY = target[1] + target[2] + 88;
-            if (hit(progressX, progressY - 8, target[2], 22, mouseX, mouseY)) {
+
+            if (!NeteaseMusicApi.isLoggedIn()) {
+                return handleLoginClick(mouseX, mouseY);
+            }
+
+            if (nowPlayingOpen || nowPlayingClosing) {
+                if (hit(26, 22, 38, 32, mouseX, mouseY)) {
+                    closeNowPlaying();
+                    return true;
+                }
+                int[] target = nowPlayingCoverRect();
+                int progressX = target[0];
+                int progressY = target[1] + target[2] + 88;
+                if (hit(progressX, progressY - 8, target[2], 22, mouseX, mouseY)) {
+                    draggingProgress = true;
+                    previewSeekFromMouse(mouseX);
+                    return true;
+                }
+                return true;
+            }
+
+            if (userDetailOpen) {
+                return handleUserDetailClick(mouseX, mouseY);
+            }
+
+            if (MusicPlaybackService.INSTANCE.currentSong() != null
+            && hit(SIDEBAR_WIDTH + 44, height - PLAYER_HEIGHT + 14, 48, 48, mouseX, mouseY)) {
+                openNowPlaying();
+                return true;
+            }
+
+            if (hit(12, 14, SIDEBAR_WIDTH - 24, 22, mouseX, mouseY)) {
+                focusAt(Focus.SEARCH, 12, mouseX);
+                return true;
+            }
+            if (hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, mouseX, mouseY)) {
+                userDetailOpen = true;
+                focus = Focus.NONE;
+
+                return true;
+            }
+            if (viewMode == ViewMode.PLAYLIST && hit(playlistSearchInputX, playlistSearchInputY, playlistSearchInputW, playlistSearchInputH, mouseX, mouseY)) {
+                focusAt(Focus.PLAYLIST_SEARCH, playlistSearchInputX, mouseX);
+                return true;
+            }
+            int progressX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2 - 160;
+            if (hit(progressX, height - PLAYER_HEIGHT + 50, 320, 16, mouseX, mouseY)) {
                 draggingProgress = true;
                 previewSeekFromMouse(mouseX);
                 return true;
             }
-            return true;
-        }
-
-        if (userDetailOpen) {
-            return handleUserDetailClick(mouseX, mouseY);
-        }
-
-        if (MusicPlaybackService.INSTANCE.currentSong() != null
-                && hit(SIDEBAR_WIDTH + 44, height - PLAYER_HEIGHT + 14, 48, 48, mouseX, mouseY)) {
-            openNowPlaying();
-            return true;
-        }
-
-        if (hit(12, 14, SIDEBAR_WIDTH - 24, 22, mouseX, mouseY)) {
-            focusAt(Focus.SEARCH, 12, mouseX);
-            return true;
-        }
-        if (hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, mouseX, mouseY)) {
-            userDetailOpen = true;
-            focus = Focus.NONE;
-            requestRedraw();
-            return true;
-        }
-        if (viewMode == ViewMode.PLAYLIST && hit(playlistSearchInputX, playlistSearchInputY, playlistSearchInputW, playlistSearchInputH, mouseX, mouseY)) {
-            focusAt(Focus.PLAYLIST_SEARCH, playlistSearchInputX, mouseX);
-            return true;
-        }
-        int progressX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2 - 160;
-        if (hit(progressX, height - PLAYER_HEIGHT + 50, 320, 16, mouseX, mouseY)) {
-            draggingProgress = true;
-            previewSeekFromMouse(mouseX);
-            return true;
-        }
-        int controlX = playerControlStartX();
-        int playerY = height - PLAYER_HEIGHT;
-        int volumeX = controlX + 232;
-        int volumeY = playerY + 30;
-        int volumeW = volumeSliderWidth(controlX);
-        if (hit(controlX + 202, playerY + 17, 24, 28, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.VOLUME);
-            toggleMute();
-            return true;
-        }
-        if (hit(volumeX - 4, volumeY - 7, volumeW + 8, 18, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.VOLUME);
-            draggingVolume = true;
-            updateVolumeFromMouse(mouseX);
-            return true;
-        }
-        if (NeteaseMusicApi.isLoggedIn() && hit(lastGridSliderX - 6, lastGridSliderY, 14, lastGridSliderH, mouseX, mouseY)) {
-            if (viewMode == ViewMode.HOME && !recommendedPlaylists.isEmpty()) {
-                draggingListSlider = true;
-                draggingSliderTarget = SliderTarget.PLAYLIST_GRID;
-                updateDraggedGridSlider(mouseY);
+            int controlX = playerControlStartX();
+            int playerY = height - PLAYER_HEIGHT;
+            int volumeX = controlX + 232;
+            int volumeY = playerY + 30;
+            int volumeW = volumeSliderWidth(controlX);
+            if (hit(controlX + 202, playerY + 17, 24, 28, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.VOLUME);
+                toggleMute();
                 return true;
             }
-            if (viewMode == ViewMode.SEARCH && !songs.isEmpty()) {
-                draggingListSlider = true;
-                draggingSliderTarget = SliderTarget.SONG_GRID;
-                updateDraggedGridSlider(mouseY);
+            if (hit(volumeX - 4, volumeY - 7, volumeW + 8, 18, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.VOLUME);
+                draggingVolume = true;
+                updateVolumeFromMouse(mouseX);
                 return true;
             }
-        }
-
-        if (hit(8, 68, SIDEBAR_WIDTH - 28, 28, mouseX, mouseY)) {
-            switchView(ViewMode.HOME);
-            selectedPlaylistIndex = -1;
-            currentPlaylist = null;
-            if (recommendedPlaylists.isEmpty()) {
-                loadRecommendedPlaylists();
+            if (NeteaseMusicApi.isLoggedIn() && hit(lastGridSliderX - 6, lastGridSliderY, 14, lastGridSliderH, mouseX, mouseY)) {
+                if (viewMode == ViewMode.HOME && !recommendedPlaylists.isEmpty()) {
+                    draggingListSlider = true;
+                    draggingSliderTarget = SliderTarget.PLAYLIST_GRID;
+                    updateDraggedGridSlider(mouseY);
+                    return true;
+                }
+                if (viewMode == ViewMode.SEARCH && !songs.isEmpty()) {
+                    draggingListSlider = true;
+                    draggingSliderTarget = SliderTarget.SONG_GRID;
+                    updateDraggedGridSlider(mouseY);
+                    return true;
+                }
             }
-            return true;
-        }
-        int playlistY = 130;
-        for (int i = 0; i < Math.min(12, playlists.size()); i++) {
-            if (hit(18, playlistY + i * 28, SIDEBAR_WIDTH - 36, 24, mouseX, mouseY)) {
-                selectedPlaylistIndex = i;
-                loadPlaylist(playlists.get(i));
-                return true;
-            }
-        }
 
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        int buttonY = playerY + 17;
-        if (hit(controlX, buttonY, 28, 28, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.MODE);
-            player.cyclePlaybackMode();
-            return true;
-        }
-        if (hit(controlX + 38, buttonY, 28, 28, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.STOP);
-            player.stop();
-            return true;
-        }
-        if (hit(controlX + 76, buttonY, 28, 28, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.PREVIOUS);
-            player.playPrevious();
-            ensureIndexVisible(player.currentIndex());
-            return true;
-        }
-        if (hit(controlX + 114, buttonY - 1, 32, 30, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.PLAY_PAUSE);
-            player.toggle();
-            return true;
-        }
-        if (hit(controlX + 156, buttonY, 28, 28, mouseX, mouseY)) {
-            pressPlayerButton(PlayerButton.NEXT);
-            player.playNext();
-            ensureIndexVisible(player.currentIndex());
-            return true;
-        }
-
-        if (viewMode == ViewMode.HOME) {
-            int playlistIndex = playlistIndexAt(mouseX, mouseY);
-            if (playlistIndex >= 0 && playlistIndex < recommendedPlaylists.size()) {
+            if (hit(8, 68, SIDEBAR_WIDTH - 28, 28, mouseX, mouseY)) {
+                switchView(ViewMode.HOME);
                 selectedPlaylistIndex = -1;
-                loadPlaylist(recommendedPlaylists.get(playlistIndex));
+                currentPlaylist = null;
+                if (recommendedPlaylists.isEmpty()) {
+                    loadRecommendedPlaylists();
+                }
                 return true;
             }
-        }
-        int playlistButtonY = 24 + playlistCoverSize() - 46;
-        int playlistInfoX = SIDEBAR_WIDTH + 28 + playlistCoverSize() + 24;
-        if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX, playlistButtonY, 86, 26, mouseX, mouseY) && !songs.isEmpty()) {
-            player.setPlaylist(songs, 0);
-            player.playSong(songs.getFirst());
-            return true;
-        }
-        if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX + 102, playlistButtonY, 112, 26, mouseX, mouseY) && !songs.isEmpty()) {
-            int randomIndex = (int) (Math.random() * songs.size());
-            player.setPlaylist(songs, randomIndex);
-            player.playSong(songs.get(randomIndex));
-            return true;
-        }
-        int clickedIndex = songIndexAt(mouseX, mouseY);
-        if (clickedIndex >= 0 && clickedIndex < songs.size()) {
-            player.setPlaylist(songs, clickedIndex);
-            player.playSong(songs.get(clickedIndex));
-            return true;
-        }
-        focus = Focus.NONE;
-        return super.mouseClicked(event, consumed);
+            int playlistY = 130;
+            for (int i = 0; i < Math.min(12, playlists.size()); i++) {
+                if (hit(18, playlistY + i * 28, SIDEBAR_WIDTH - 36, 24, mouseX, mouseY)) {
+                    selectedPlaylistIndex = i;
+                    loadPlaylist(playlists.get(i));
+                    return true;
+                }
+            }
+
+            MusicPlaybackService player = MusicPlaybackService.INSTANCE;
+            int buttonY = playerY + 17;
+            if (hit(controlX, buttonY, 28, 28, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.MODE);
+                player.cyclePlaybackMode();
+                return true;
+            }
+            if (hit(controlX + 38, buttonY, 28, 28, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.STOP);
+                player.stop();
+                return true;
+            }
+            if (hit(controlX + 76, buttonY, 28, 28, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.PREVIOUS);
+                player.playPrevious();
+                ensureIndexVisible(player.currentIndex());
+                return true;
+            }
+            if (hit(controlX + 114, buttonY - 1, 32, 30, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.PLAY_PAUSE);
+                player.toggle();
+                return true;
+            }
+            if (hit(controlX + 156, buttonY, 28, 28, mouseX, mouseY)) {
+                pressPlayerButton(PlayerButton.NEXT);
+                player.playNext();
+                ensureIndexVisible(player.currentIndex());
+                return true;
+            }
+
+            if (viewMode == ViewMode.HOME) {
+                int playlistIndex = playlistIndexAt(mouseX, mouseY);
+                if (playlistIndex >= 0 && playlistIndex < recommendedPlaylists.size()) {
+                    selectedPlaylistIndex = -1;
+                    loadPlaylist(recommendedPlaylists.get(playlistIndex));
+                    return true;
+                }
+            }
+            int playlistButtonY = 24 + playlistCoverSize() - 46;
+            int playlistInfoX = SIDEBAR_WIDTH + 28 + playlistCoverSize() + 24;
+            if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX, playlistButtonY, 86, 26, mouseX, mouseY) && !songs.isEmpty()) {
+                player.setPlaylist(songs, 0);
+                player.playSong(songs.getFirst());
+                return true;
+            }
+            if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX + 102, playlistButtonY, 112, 26, mouseX, mouseY) && !songs.isEmpty()) {
+                int randomIndex = (int) (Math.random() * songs.size());
+                player.setPlaylist(songs, randomIndex);
+                player.playSong(songs.get(randomIndex));
+                return true;
+            }
+            int clickedIndex = songIndexAt(mouseX, mouseY);
+            if (clickedIndex >= 0 && clickedIndex < songs.size()) {
+                player.setPlaylist(songs, clickedIndex);
+                player.playSong(songs.get(clickedIndex));
+                return true;
+            }
+            focus = Focus.NONE;
+            return super.mouseClicked(event, consumed);
         } finally {
             width = actualW;
             height = actualH;
@@ -1372,23 +1349,23 @@ public class NeteaseMusicScreen extends SkiaScreen {
         mouseY = toLayoutY(mouseY, uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
         useVirtualLayout(actualW, actualH, uiScale);
         try {
-        if (NeteaseMusicApi.isLoggedIn() && viewMode == ViewMode.HOME && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !recommendedPlaylists.isEmpty()) {
-            firstPlaylistIndex = Math.max(0, Math.min(maxPlaylistGridStart(), firstPlaylistIndex - (int) Math.signum(scrollY) * playlistGridColumns()));
-            return true;
-        }
-        if (NeteaseMusicApi.isLoggedIn() && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !songs.isEmpty()) {
-            if (viewMode == ViewMode.PLAYLIST) {
-                int maxStart = Math.max(0, songs.size() - playlistVisibleRows());
-                firstSongIndex = Math.max(0, Math.min(maxStart, firstSongIndex - (int) Math.signum(scrollY) * 3));
-                if (scrollY < 0.0D && firstSongIndex >= Math.max(0, maxStart - 1)) {
-                    loadNextPlaylistPage();
-                }
-            } else if (viewMode == ViewMode.SEARCH) {
-                firstSongIndex = Math.max(0, Math.min(maxGridStart(), firstSongIndex - (int) Math.signum(scrollY) * gridColumns()));
+            if (NeteaseMusicApi.isLoggedIn() && viewMode == ViewMode.HOME && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !recommendedPlaylists.isEmpty()) {
+                firstPlaylistIndex = Math.max(0, Math.min(maxPlaylistGridStart(), firstPlaylistIndex - (int) Math.signum(scrollY) * playlistGridColumns()));
+                return true;
             }
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+            if (NeteaseMusicApi.isLoggedIn() && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !songs.isEmpty()) {
+                if (viewMode == ViewMode.PLAYLIST) {
+                    int maxStart = Math.max(0, songs.size() - playlistVisibleRows());
+                    firstSongIndex = Math.max(0, Math.min(maxStart, firstSongIndex - (int) Math.signum(scrollY) * 3));
+                    if (scrollY < 0.0D && firstSongIndex >= Math.max(0, maxStart - 1)) {
+                        loadNextPlaylistPage();
+                    }
+                } else if (viewMode == ViewMode.SEARCH) {
+                    firstSongIndex = Math.max(0, Math.min(maxGridStart(), firstSongIndex - (int) Math.signum(scrollY) * gridColumns()));
+                }
+                return true;
+            }
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         } finally {
             width = actualW;
             height = actualH;
@@ -1439,23 +1416,23 @@ public class NeteaseMusicScreen extends SkiaScreen {
         double mouseY = toLayoutY(event.y(), uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
         useVirtualLayout(actualW, actualH, uiScale);
         try {
-        if (event.button() == 0 && draggingTextSelection != Focus.NONE) {
-            setCursor(draggingTextSelection, cursorFromMouse(draggingTextSelection, inputX(draggingTextSelection), mouseX));
-            return true;
-        }
-        if (event.button() == 0 && draggingProgress) {
-            previewSeekFromMouse(mouseX);
-            return true;
-        }
-        if (event.button() == 0 && draggingVolume) {
-            updateVolumeFromMouse(mouseX);
-            return true;
-        }
-        if (event.button() == 0 && draggingListSlider) {
-            updateDraggedGridSlider(mouseY);
-            return true;
-        }
-        return super.mouseDragged(event, dragX, dragY);
+            if (event.button() == 0 && draggingTextSelection != Focus.NONE) {
+                setCursor(draggingTextSelection, cursorFromMouse(draggingTextSelection, inputX(draggingTextSelection), mouseX));
+                return true;
+            }
+            if (event.button() == 0 && draggingProgress) {
+                previewSeekFromMouse(mouseX);
+                return true;
+            }
+            if (event.button() == 0 && draggingVolume) {
+                updateVolumeFromMouse(mouseX);
+                return true;
+            }
+            if (event.button() == 0 && draggingListSlider) {
+                updateDraggedGridSlider(mouseY);
+                return true;
+            }
+            return super.mouseDragged(event, dragX, dragY);
         } finally {
             width = actualW;
             height = actualH;
@@ -1468,7 +1445,7 @@ public class NeteaseMusicScreen extends SkiaScreen {
             if (event.key() == GLFW_KEY_ESCAPE) {
                 if (userDetailOpen) {
                     userDetailOpen = false;
-                    requestRedraw();
+
                     return true;
                 }
                 if (nowPlayingOpen && !nowPlayingClosing) {
@@ -1553,7 +1530,6 @@ public class NeteaseMusicScreen extends SkiaScreen {
 
     @Override
     public void removed() {
-        glBackend.destroy();
         uiPaint.close();
         super.removed();
     }
@@ -2436,14 +2412,14 @@ public class NeteaseMusicScreen extends SkiaScreen {
         if (text == null || text.isBlank()) {
             return "";
         }
-        if (FontRenderer.measureTextWidth(text, 12f) <= maxWidth) {
+        if (SkijaUi.textWidth(text, 12f) <= maxWidth) {
             return text;
         }
         String suffix = "...";
         int end = text.length();
         while (end > 0) {
             String candidate = text.substring(0, end) + suffix;
-            if (FontRenderer.measureTextWidth(candidate, 12f) <= maxWidth) {
+            if (SkijaUi.textWidth(candidate, 12f) <= maxWidth) {
                 return candidate;
             }
             end--;
@@ -2467,15 +2443,15 @@ public class NeteaseMusicScreen extends SkiaScreen {
             float progress = clamp((now - closeStartedAt) / (float) EXIT_DURATION_MS);
             float eased = easeInOutCubic(progress);
             float scale = progress < 0.32F
-                    ? lerp(1.0F, 1.025F, easeOutCubic(progress / 0.32F))
-                    : lerp(1.025F, 0.98F, easeInCubic((progress - 0.32F) / 0.68F));
+            ? lerp(1.0F, 1.025F, easeOutCubic(progress / 0.32F))
+            : lerp(1.025F, 0.98F, easeInCubic((progress - 0.32F) / 0.68F));
             return new AnimationState(scale, 1.0F - eased, progress >= 1.0F);
         }
 
         float progress = clamp((now - openStartedAt) / (float) ENTER_DURATION_MS);
         float scale = progress < 0.72F
-                ? lerp(0.98F, 1.015F, easeOutCubic(progress / 0.72F))
-                : lerp(1.015F, 1.0F, easeInOutCubic((progress - 0.72F) / 0.28F));
+        ? lerp(0.98F, 1.015F, easeOutCubic(progress / 0.72F))
+        : lerp(1.015F, 1.0F, easeInOutCubic((progress - 0.72F) / 0.28F));
         return new AnimationState(scale, easeOutCubic(progress), false);
     }
 

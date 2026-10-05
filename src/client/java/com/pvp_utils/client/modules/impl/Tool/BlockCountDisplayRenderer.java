@@ -1,28 +1,21 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.lwjgl.system.MemoryUtil;
 
-import java.nio.ByteBuffer;
 import java.util.Locale;
 
 public class BlockCountDisplayRenderer {
@@ -32,9 +25,6 @@ public class BlockCountDisplayRenderer {
     private static final float WIDTH = 190f;
     private static final float HEIGHT = 58f;
     private static final float PURPLE = 0xFF8F5CFF;
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display");
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "block_count_display_overlay");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     private final RateCounter rightClicks = new RateCounter();
     private final RateCounter placements = new RateCounter();
@@ -43,28 +33,12 @@ public class BlockCountDisplayRenderer {
     private final Paint ringTrackPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
     private final Paint ringArcPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(4f);
 
-    private Surface surface;
-    private Surface overlaySurface;
-    private DynamicTexture dynamicTexture;
-    private DynamicTexture overlayTexture;
     private boolean visible = false;
     private boolean closing = false;
-    private boolean nativeLoaded = false;
+
     private float scale = 0f;
     private float ringProgress = 0f;
     private float closingRingProgress = 0f;
-    private String lastTextureName = "";
-    private String lastTextureSpeed = "";
-    private int lastTextureProgress = -1;
-    private Config.HudTheme lastTextureTheme = null;
-    private Config.HudTheme lastOverlayTextureTheme = null;
-    private boolean lastTextureBlurMode = false;
-    private boolean lastOverlayTextureBlurMode = false;
-    private int textureW = -1;
-    private int textureH = -1;
-    private int overlayTextureW = -1;
-    private int overlayTextureH = -1;
-    private float textureScale = -1f;
     private long lastInteractionMs = 0L;
     private long appearanceTime = 0L;
     private long closeTime = 0L;
@@ -74,10 +48,6 @@ public class BlockCountDisplayRenderer {
 
     public static BlockCountDisplayRenderer getInstance() {
         return INSTANCE;
-    }
-
-    public boolean needsCanvas() {
-        return false;
     }
 
     public float getEditWidth() {
@@ -175,12 +145,10 @@ public class BlockCountDisplayRenderer {
 
     public void render(GuiGraphics graphics, Canvas canvas) {
         if (!isFeatureActive()) {
-            destroyTexture(Minecraft.getInstance());
             reset();
             return;
         }
         if (!Config.blockCountDisplay) {
-            destroyTexture(Minecraft.getInstance());
             updateScale(System.currentTimeMillis());
             return;
         }
@@ -235,8 +203,8 @@ public class BlockCountDisplayRenderer {
         float drawRadius = 16f * userScale * drawScale;
 
         String name = displayStack.getHoverName().getString();
-        if (FontRenderer.measureTextWidth(name, 13f) > 128f) {
-            while (name.length() > 1 && FontRenderer.measureTextWidth(name + "...", 13f) > 128f) {
+        if (SkijaUi.textWidth(name, 13f) > 128f) {
+            while (name.length() > 1 && SkijaUi.textWidth(name + "...", 13f) > 128f) {
                 name = name.substring(0, name.length() - 1);
             }
             name += "...";
@@ -249,18 +217,26 @@ public class BlockCountDisplayRenderer {
         ringProgress += (ratio - ringProgress) * 0.18f;
 
         boolean blurMode = Config.blockCountDisplayMode == Config.BlockCountDisplayMode.BLUR;
-        renderBaseTexture(client, name, blurMode);
-        renderOverlayTexture(client, speed, ringProgress, blurMode);
         if (blurMode) {
-            SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+            SkijaRenderer.draw(blurCanvas -> {
+                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(drawX, drawY, drawW, drawH, drawRadius), drawX, drawY, drawW, drawH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+                SkijaUi.rounded(blurCanvas, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor());
+            });
         }
+
+        String frameName = name;
+        float frameProgress = ringProgress;
+        SkijaRenderer.draw(c -> {
+            c.translate(drawX, drawY);
+            c.scale(userScale * drawScale, userScale * drawScale);
+            drawBase(c, frameName, blurMode);
+            drawOverlay(c, speed, frameProgress, blurMode);
+        });
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
         graphics.pose().scale(drawScale, drawScale);
         graphics.pose().translate(-cx, -cy);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(scaledW), Math.round(scaledH), textureW, textureH, textureW, textureH);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, Math.round(x), Math.round(y), 0f, 0f, Math.round(scaledW), Math.round(scaledH), overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
 
         int itemX = Math.round(ringCx - 8f);
         int itemY = Math.round(ringCy - 8f);
@@ -272,10 +248,6 @@ public class BlockCountDisplayRenderer {
         graphics.renderItemDecorations(client.font, displayStack, itemX, itemY);
         graphics.renderDeferredElements();
         graphics.pose().popMatrix();
-    }
-
-    public void renderFrameEnd() {
-        // Kept for the shared frame-end hook. BlockCount renders through GuiGraphics to keep item layering correct.
     }
 
     public Snapshot snapshot(Minecraft client) {
@@ -366,68 +338,16 @@ public class BlockCountDisplayRenderer {
         placements.clear();
     }
 
-    private void renderBaseTexture(Minecraft client, String name, boolean blurMode) {
-        ensureNativeLoaded();
-        float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
-        int targetW = Math.max(1, Math.round(WIDTH * targetScale));
-        int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme && lastTextureBlurMode == blurMode) return;
-
-        if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyBaseTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:block_count_display", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            textureW = targetW;
-            textureH = targetH;
-            textureScale = targetScale;
-            lastTextureName = "";
-        }
-
-        Canvas c = surface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(textureScale, textureScale);
+    private void drawBase(Canvas c, String name, boolean blurMode) {
         if (!blurMode) {
             bgPaint.setColor(newCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
         }
-        FontRenderer.drawText(c, name, 16f, 22f, 12f, primaryTextColor(blurMode));
-        c.restore();
-        uploadSurface(surface, dynamicTexture, textureW, textureH);
-        lastTextureName = name;
-        lastTextureTheme = Config.hudTheme;
-        lastTextureBlurMode = blurMode;
+        SkijaUi.text(c, name, 16f, (22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), primaryTextColor(blurMode), 12f);
     }
 
-    private void renderOverlayTexture(Minecraft client, String speed, float progress, boolean blurMode) {
-        ensureNativeLoaded();
-        float userScale = Math.max(0.5f, Config.blockCountDisplayScale);
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * userScale);
-        int targetW = Math.max(1, Math.round(WIDTH * targetScale));
-        int targetH = Math.max(1, Math.round(HEIGHT * targetScale));
-        int progressKey = Math.round(progress * 48f);
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && speed.equals(lastTextureSpeed) && progressKey == lastTextureProgress && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode) return;
-
-        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
-            destroyOverlayTexture(client);
-            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            overlayTexture = new DynamicTexture("pvp_utils:block_count_display_overlay", targetW, targetH, false);
-            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
-            overlayTextureW = targetW;
-            overlayTextureH = targetH;
-        }
-
-        Canvas c = overlaySurface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(targetScale, targetScale);
-        FontRenderer.drawText(c, speed, 16f, 40f, 11f, mutedTextColor(blurMode));
+    private void drawOverlay(Canvas c, String speed, float progress, boolean blurMode) {
+        SkijaUi.text(c, speed, 16f, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;
@@ -437,12 +357,6 @@ public class BlockCountDisplayRenderer {
         c.drawCircle(ringCx, ringCy, radius, ringTrackPaint);
         ringArcPaint.setColor((int) PURPLE);
         c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, ringArcPaint);
-        c.restore();
-        uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
-        lastTextureSpeed = speed;
-        lastTextureProgress = progressKey;
-        lastOverlayTextureTheme = Config.hudTheme;
-        lastOverlayTextureBlurMode = blurMode;
     }
 
     private int newCardColor() {
@@ -469,66 +383,6 @@ public class BlockCountDisplayRenderer {
             return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x338F5CFF;
         }
         return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x668F5CFF;
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) return;
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyBaseTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        textureScale = -1f;
-        lastTextureName = "";
-        lastTextureBlurMode = false;
-        lastTextureTheme = null;
-    }
-
-    private void destroyOverlayTexture(Minecraft client) {
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        lastTextureSpeed = "";
-        lastTextureProgress = -1;
-        lastOverlayTextureBlurMode = false;
-        lastOverlayTextureTheme = null;
-    }
-
-    private void destroyTexture(Minecraft client) {
-        destroyBaseTexture(client);
-        destroyOverlayTexture(client);
     }
 
     private float clamp(float value, float min, float max) {

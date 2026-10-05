@@ -1,19 +1,17 @@
 package com.pvp_utils.client.alt;
 
-import com.mojang.blaze3d.opengl.GlDevice;
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUiScale;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
-import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -33,13 +31,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public final class AltManagerScreen extends Screen {
+public final class AltManagerScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long OPEN_MS = 440L;
     private static final long CLOSE_MS = 440L;
     private final Screen parent;
     private final String shaderPath;
     private final Runnable embeddedBack;
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private final List<Float> accountHover = new ArrayList<>();
     private final List<Float> accountSelection = new ArrayList<>();
     private final Map<UUID, Image> accountAvatars = new HashMap<>();
@@ -170,32 +167,19 @@ public final class AltManagerScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
     }
 
-    public void renderFrameEnd() {
+    @Override
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
         }
-        Canvas canvas = glBackend.begin(mainFramebufferId());
-        if (canvas == null) return;
         try {
             if (!closingToMain) {
-                SkiaBlurRenderer.getInstance().render(
-                        canvas,
-                        glBackend.getContext(),
-                        minecraft,
-                        mainFramebufferId(),
-                        cardX(),
-                        cardY(),
-                        cardW(),
-                        cardH(),
-                        20f,
-                        0x12000000,
-                        0.95f
-                );
+                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(cardX(), cardY(), cardW(), cardH(), 20f), cardX(), cardY(), cardW(), cardH(), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
+                SkijaUi.rounded(canvas, cardX(), cardY(), cardW(), cardH(), 20f, 0x12000000);;
             }
             draw(canvas);
         } finally {
-            glBackend.end();
             pendingFrame = false;
         }
     }
@@ -210,44 +194,26 @@ public final class AltManagerScreen extends Screen {
         drawMainCard(canvas, x, y, w, h);
         String title = "Alt Manager";
         float pageW = MainUiScale.pageWidth();
-        FontRenderer.drawText(
-                canvas,
-                title,
-                pageW * .5f - FontRenderer.measureTextWidth(title, 30f) * .5f,
-                titleY(),
-                30f,
-                (alpha << 24) | 0xFFFFFF
-        );
+        SkijaUi.text(canvas, title, pageW * .5f - SkijaUi.textWidth(title, 30f) * .5f, (titleY()) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawAccounts(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
         if (!status.isBlank()) {
             drawCentered(canvas, status, pageW * .5f, y + h - 40f, 10f, (Math.round(alpha * .62f) << 24) | 0xFFFFFF);
         }
         drawCentered(canvas, currentLoginText(), pageW * .5f, y + h - 20f, 11f,
-                (Math.round(alpha * .82f) << 24) | 0xFFFFFF);
+        (Math.round(alpha * .82f) << 24) | 0xFFFFFF);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
         drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Login", alpha);
         drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, "Delete", alpha,
-                selected == null || !selected.isCurrent());
+        selected == null || !selected.isCurrent());
         drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Add", alpha);
         drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Offline", alpha);
         drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
         float modalProgress = Math.max(offlineDialogProgress, Math.max(microsoftDialogProgress, deleteDialogProgress));
         if (modalProgress > .01f) {
             int tintAlpha = Math.round(0x26 * ease(modalProgress));
-            SkiaBlurRenderer.getInstance().render(
-                    canvas,
-                    glBackend.getContext(),
-                    minecraft,
-                    mainFramebufferId(),
-                    0f,
-                    0f,
-                    pageW,
-                    MainUiScale.pageHeight(),
-                    0f,
-                    tintAlpha << 24,
-                    0.45f + 0.50f * ease(modalProgress)
-            );
+            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(0f, 0f, pageW, MainUiScale.pageHeight(), 0f), 0f, 0f, pageW, MainUiScale.pageHeight(), Math.max(0f, Math.min(2f, 0.45f + 0.50f * ease(modalProgress))) * 10.5f);
+            SkijaUi.rounded(canvas, 0f, 0f, pageW, MainUiScale.pageHeight(), 0f, tintAlpha << 24);;
         }
         if (offlineDialogProgress > .01f) drawAnimatedDialog(canvas, offlineDialogProgress, () -> drawOfflineDialog(canvas));
         if (microsoftDialogProgress > .01f) drawAnimatedDialog(canvas, microsoftDialogProgress, () -> drawMicrosoftDialog(canvas));
@@ -300,11 +266,11 @@ public final class AltManagerScreen extends Screen {
         try (Paint bg = new Paint(); Paint icon = new Paint()) {
             bg.setAntiAlias(true);
             float opacity = current
-                    ? .15f + curve * .08f + selectionCurve * .08f
-                    : .06f + curve * .13f + selectionCurve * .18f;
+            ? .15f + curve * .08f + selectionCurve * .08f
+            : .06f + curve * .13f + selectionCurve * .18f;
             int backgroundColor = current
-                    ? lerpRgb(0x8DE8AE, 0xB8F4CB, selectionCurve)
-                    : lerpRgb(0xFFFFFF, 0x86D4FF, selectionCurve);
+            ? lerpRgb(0x8DE8AE, 0xB8F4CB, selectionCurve)
+            : lerpRgb(0xFFFFFF, 0x86D4FF, selectionCurve);
             bg.setColor((Math.round(alpha * opacity) << 24) | backgroundColor);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 13f), bg);
             icon.setAntiAlias(true);
@@ -314,20 +280,12 @@ public final class AltManagerScreen extends Screen {
         if (!drawAvatar(canvas, account, x + 10f, y + 10f, 44f, alpha)) {
             String symbol = account.typeName().equals("Microsoft") ? "\uE853" : "\uE7FD";
             float symbolSize = 24f;
-            float symbolWidth = FontRenderer.measureTextWidth(symbol, symbolSize, FontRenderer.MATERIAL_SYMBOLS);
-            FontRenderer.drawText(
-                    canvas,
-                    symbol,
-                    x + 32f - symbolWidth * .5f,
-                    y + 39f,
-                    symbolSize,
-                    (Math.round(alpha * .86f) << 24) | 0xFFFFFF,
-                    FontRenderer.MATERIAL_SYMBOLS
-            );
+            float symbolWidth = SkijaUi.iconWidth(symbol, symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, symbol, x + 32f - symbolWidth * .5f, (y + 39f) + SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
-        FontRenderer.drawText(canvas, account.name(), x + 66f, y + 26f, 15f, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, account.name(), x + 66f, (y + 26f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
         String detail = account.typeName() + (account.isCurrent() ? "  |  Active" : "");
-        FontRenderer.drawText(canvas, detail, x + 66f, y + 46f, 11f, (Math.round(alpha * .72f) << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, detail, x + 66f, (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawOfflineDialog(Canvas canvas) {
@@ -337,7 +295,7 @@ public final class AltManagerScreen extends Screen {
         float y = (MainUiScale.pageHeight() - h) * .5f;
         drawDialogCard(canvas, x, y, w, h);
         drawCentered(canvas, "Add Offline", MainUiScale.pageWidth() * .5f, y + 38f, 18f, 0xFFFFFFFF);
-        FontRenderer.drawText(canvas, "Username", x + 24f, y + 72f, 12f, 0xB8FFFFFF);
+        SkijaUi.text(canvas, "Username", x + 24f, (y + 72f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
         drawInput(canvas, x + 24f, y + 84f, w - 48f, 34f);
         float buttonW = (w - 56f) * .5f;
         drawButton(canvas, x + 24f, y + 136f, buttonW, 30f, "Confirm", 255);
@@ -366,13 +324,13 @@ public final class AltManagerScreen extends Screen {
         drawDialogCard(canvas, x, y, w, h);
         drawCentered(canvas, "Microsoft Login", MainUiScale.pageWidth() * .5f, y + 38f, 18f, 0xFFFFFFFF);
         if (microsoftSuccessAt > 0L) {
-            FontRenderer.drawText(canvas, "\uE876", x + 24f, y + 83f, 24f, 0xFF62E58B, FontRenderer.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, "\uE876", x + 24f, (y + 83f) + SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFF62E58B, 24f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         } else {
             drawSpinner(canvas, x + 38f, y + 76f);
         }
-        FontRenderer.drawText(canvas, microsoftStatus, x + 66f, y + 80f, 13f, microsoftStatusColor);
+        SkijaUi.text(canvas, microsoftStatus, x + 66f, (y + 80f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), microsoftStatusColor, 13f);
         if (!deviceCode.isBlank()) {
-            FontRenderer.drawText(canvas, "Code: " + deviceCode, x + 24f, y + 112f, 11f, 0xB8FFFFFF);
+            SkijaUi.text(canvas, "Code: " + deviceCode, x + 24f, (y + 112f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xB8FFFFFF, 11f);
         }
         float buttonW = (w - 56f) * .5f;
         String copyLabel = System.currentTimeMillis() - deviceCodeCopiedAt < 1500L ? "Copied" : "Copy Code";
@@ -381,19 +339,8 @@ public final class AltManagerScreen extends Screen {
     }
 
     private void drawDialogCard(Canvas canvas, float x, float y, float w, float h) {
-        SkiaBlurRenderer.getInstance().render(
-                canvas,
-                glBackend.getContext(),
-                minecraft,
-                mainFramebufferId(),
-                x,
-                y,
-                w,
-                h,
-                20f,
-                0x12000000,
-                0.95f
-        );
+        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, w, h, 20f), x, y, w, h, Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
+        SkijaUi.rounded(canvas, x, y, w, h, 20f, 0x12000000);;
         drawMainCard(canvas, x, y, w, h);
     }
 
@@ -422,9 +369,9 @@ public final class AltManagerScreen extends Screen {
         }
         String shown = input.isBlank() ? "Enter username" : input;
         int color = input.isBlank() ? 0x8AFFFFFF : 0xFFFFFFFF;
-        FontRenderer.drawText(canvas, shown, x + 12f, y + 22f, 12f, color);
+        SkijaUi.text(canvas, shown, x + 12f, (y + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), color, 12f);
         if ((System.currentTimeMillis() / 500L) % 2L == 0L) {
-            float cursorX = x + 12f + FontRenderer.measureTextWidth(input, 12f);
+            float cursorX = x + 12f + SkijaUi.textWidth(input, 12f);
             try (Paint cursor = new Paint()) {
                 cursor.setColor(0xFFFFFFFF);
                 canvas.drawRect(Rect.makeXYWH(cursorX, y + 8f, 1f, h - 16f), cursor);
@@ -446,14 +393,7 @@ public final class AltManagerScreen extends Screen {
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
         }
         float fontSize = h <= 28f ? 12f : 13f;
-        FontRenderer.drawText(
-                canvas,
-                label,
-                x + (w - FontRenderer.measureTextWidth(label, fontSize)) * .5f,
-                y + (h <= 28f ? 18f : 21f),
-                fontSize,
-                (Math.round(alpha * (enabled ? 1f : .48f)) << 24) | 0xFFFFFF
-        );
+        SkijaUi.text(canvas, label, x + (w - SkijaUi.textWidth(label, fontSize)) * .5f, (y + (h <= 28f ? 18f : 21f)) + SkijaUi.textMetrics(fontSize).getAscent(), SkijaUi.textMetrics(fontSize).getDescent() - SkijaUi.textMetrics(fontSize).getAscent(), (Math.round(alpha * (enabled ? 1f : .48f)) << 24) | 0xFFFFFF, fontSize);
     }
 
     private void drawSpinner(Canvas canvas, float x, float y) {
@@ -463,14 +403,14 @@ public final class AltManagerScreen extends Screen {
             paint.setStrokeWidth(3f);
             paint.setColor(0xFFA7E0FF);
             canvas.drawArc(
-                    x - 14f,
-                    y - 14f,
-                    x + 14f,
-                    y + 14f,
-                    (System.currentTimeMillis() % 1200L) / 1200f * 360f,
-                    270f,
-                    false,
-                    paint
+            x - 14f,
+            y - 14f,
+            x + 14f,
+            y + 14f,
+            (System.currentTimeMillis() % 1200L) / 1200f * 360f,
+            270f,
+            false,
+            paint
             );
         }
     }
@@ -741,7 +681,7 @@ public final class AltManagerScreen extends Screen {
             offlineAvatar.close();
             offlineAvatar = null;
         }
-        glBackend.destroy();
+
         super.removed();
     }
 
@@ -781,12 +721,12 @@ public final class AltManagerScreen extends Screen {
                 canvas.save();
                 canvas.clipRRect(RRect.makeXYWH(x, y, size, size, 10f), true);
                 canvas.drawImageRect(
-                        image,
-                        Rect.makeXYWH(0f, 0f, image.getWidth(), image.getHeight()),
-                        Rect.makeXYWH(x, y, size, size),
-                        SamplingMode.DEFAULT,
-                        paint,
-                        true
+                image,
+                Rect.makeXYWH(0f, 0f, image.getWidth(), image.getHeight()),
+                Rect.makeXYWH(x, y, size, size),
+                SamplingMode.DEFAULT,
+                paint,
+                true
                 );
                 canvas.restore();
             }
@@ -801,20 +741,20 @@ public final class AltManagerScreen extends Screen {
             canvas.save();
             canvas.clipRRect(RRect.makeXYWH(x, y, size, size, 10f), true);
             canvas.drawImageRect(
-                    image,
-                    Rect.makeXYWH(8f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
-                    destination,
-                    SamplingMode.DEFAULT,
-                    paint,
-                    true
+            image,
+            Rect.makeXYWH(8f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
+            destination,
+            SamplingMode.DEFAULT,
+            paint,
+            true
             );
             canvas.drawImageRect(
-                    image,
-                    Rect.makeXYWH(40f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
-                    destination,
-                    SamplingMode.DEFAULT,
-                    paint,
-                    true
+            image,
+            Rect.makeXYWH(40f * scaleX, 8f * scaleY, 8f * scaleX, 8f * scaleY),
+            destination,
+            SamplingMode.DEFAULT,
+            paint,
+            true
             );
             canvas.restore();
         }
@@ -866,8 +806,8 @@ public final class AltManagerScreen extends Screen {
         }
         if (minecraft != null && minecraft.getUser() != null) {
             String type = minecraft.getUser().getXuid().isPresent() || minecraft.getUser().getClientId().isPresent()
-                    ? "Microsoft"
-                    : "Offline";
+            ? "Microsoft"
+            : "Offline";
             return "Logged in as " + minecraft.getUser().getName() + " (" + type + ")";
         }
         return "No account is currently logged in";
@@ -896,7 +836,7 @@ public final class AltManagerScreen extends Screen {
     }
 
     private void drawCentered(Canvas canvas, String text, float centerX, float y, float size, int color) {
-        FontRenderer.drawText(canvas, text, centerX - FontRenderer.measureTextWidth(text, size) * .5f, y, size, color);
+        SkijaUi.text(canvas, text, centerX - SkijaUi.textWidth(text, size) * .5f, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
     }
 
     private boolean inside(double mx, double my, float x, float y, float w, float h) {
@@ -926,14 +866,6 @@ public final class AltManagerScreen extends Screen {
         int g = Math.round(((from >> 8) & 255) + (((to >> 8) & 255) - ((from >> 8) & 255)) * t);
         int b = Math.round((from & 255) + ((to & 255) - (from & 255)) * t);
         return (r << 16) | (g << 8) | b;
-    }
-
-    private int mainFramebufferId() {
-        if (minecraft.getMainRenderTarget().getColorTexture() instanceof GlTexture texture
-                && RenderSystem.getDevice() instanceof GlDevice device) {
-            return texture.getFbo(device.directStateAccess(), minecraft.getMainRenderTarget().getDepthTexture());
-        }
-        return 0;
     }
 
     private float cardW() {

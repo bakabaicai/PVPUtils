@@ -1,10 +1,12 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 
 import java.util.function.Supplier;
 
@@ -38,9 +40,9 @@ public class SettingButton extends SettingWidget {
         String text = label.get();
         if (!text.equals(cachedText)) {
             cachedText = text;
-            cachedTextWidth = FontRenderer.measureTextWidth(text, 11f);
+            cachedTextWidth = SkijaUi.textWidth(text, 11f);
         }
-        FontRenderer.drawText(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, y + 15.5f, 11f, withAlpha(0xFFFFFF, alpha));
+        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, (y + 15.5f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0xFFFFFF, alpha), 11f);
     }
 
     @Override

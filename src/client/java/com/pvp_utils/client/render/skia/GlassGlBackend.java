@@ -28,12 +28,12 @@ import static org.lwjgl.opengl.GL30.GL_MAJOR_VERSION;
 import static org.lwjgl.opengl.GL30.GL_MINOR_VERSION;
 import static org.lwjgl.opengl.GL30.glGetIntegerv;
 
-public final class SkiaGlBackend {
+public final class GlassGlBackend {
     private DirectContext context;
     private BackendRenderTarget renderTarget;
     private Surface surface;
     private Canvas canvas;
-    private SkiaGlState state;
+    private GlassGlState state;
     private int width = -1;
     private int height = -1;
     private int framebufferId = -1;
@@ -126,7 +126,7 @@ public final class SkiaGlBackend {
         if (drawing) {
             end();
         }
-        SkiaGlState savedState = state;
+        GlassGlState savedState = state;
         if (savedState != null) {
             savedState.push();
         }
@@ -191,7 +191,7 @@ public final class SkiaGlBackend {
 
     private void ensureState() {
         if (state != null) return;
-        state = new SkiaGlState(readGlVersion());
+        state = new GlassGlState(readGlVersion());
     }
 
     private static int readGlVersion() {

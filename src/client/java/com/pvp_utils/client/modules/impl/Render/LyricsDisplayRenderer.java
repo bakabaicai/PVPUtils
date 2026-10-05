@@ -1,39 +1,22 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.LyricLine;
 import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.ColorAlphaType;
-import io.github.humbleui.skija.ColorInfo;
-import io.github.humbleui.skija.ColorType;
-import io.github.humbleui.skija.ImageInfo;
-import io.github.humbleui.skija.PixelGeometry;
-import io.github.humbleui.skija.Pixmap;
-import io.github.humbleui.skija.Surface;
-import io.github.humbleui.skija.SurfaceProps;
-import io.github.humbleui.skija.impl.Library;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
-import org.lwjgl.system.MemoryUtil;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
 public class LyricsDisplayRenderer {
     private static final LyricsDisplayRenderer INSTANCE = new LyricsDisplayRenderer();
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "lyrics_display");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
-    private static final float MAX_CACHE_SCALE = 2.0f;
     private static final float BASE_W = 460f;
     private static final float BASE_H = 196f;
     private static final float LINE_SPACING = 34f;
@@ -41,7 +24,6 @@ public class LyricsDisplayRenderer {
     private static final float CURRENT_SIZE = 21f;
     private static final float SIDE_SIZE = 15f;
 
-    private boolean nativeLoaded = false;
     private float visualIndex = 0f;
     private float displayAlpha = 1f;
     private long lastFrameMs = 0L;
@@ -49,18 +31,6 @@ public class LyricsDisplayRenderer {
     private long pausedSinceMs = 0L;
     private long lastObservedPositionMs = -1L;
     private long lastPositionChangeMs = 0L;
-    private Surface cacheSurface;
-    private DynamicTexture cacheTexture;
-    private int cachePixelW = -1;
-    private int cachePixelH = -1;
-    private int cacheRegionX = 0;
-    private int cacheRegionY = 0;
-    private int cacheRegionW = 0;
-    private int cacheRegionH = 0;
-    private int lastCachedIndex = Integer.MIN_VALUE;
-    private int lastCachedVisualStep = Integer.MIN_VALUE;
-    private int lastCachedAlphaStep = Integer.MIN_VALUE;
-    private float cacheTextureScale = -1f;
 
     public static LyricsDisplayRenderer getInstance() {
         return INSTANCE;
@@ -112,113 +82,11 @@ public class LyricsDisplayRenderer {
         float y = getRenderY(screenH);
         float scale = getScale();
 
-        renderCachedRegion(graphics, client, x, y, scale, lyrics, positionMs, alpha, currentIndex, now);
-    }
-
-    private void renderCachedRegion(GuiGraphics graphics, Minecraft client, float x, float y, float scale, List<LyricLine> lyrics, long positionMs, float alpha, int currentIndex, long now) {
-        ensureNativeLoaded();
-        int regionX = Math.max(0, (int) Math.floor(x - 2f));
-        int regionY = Math.max(0, (int) Math.floor(y - 2f));
-        int regionW = Math.max(1, (int) Math.ceil(BASE_W * scale + 4f));
-        int regionH = Math.max(1, (int) Math.ceil(BASE_H * scale + 4f));
-        float targetScale = Math.min(MAX_CACHE_SCALE, Math.max(1f, (float) client.getWindow().getGuiScale()));
-        int pixelW = Math.max(1, (int) Math.ceil(regionW * targetScale));
-        int pixelH = Math.max(1, (int) Math.ceil(regionH * targetScale));
-
-        boolean sizeChanged = ensureCacheTexture(client, pixelW, pixelH, targetScale);
-        int visualStep = Math.round(visualIndex * 12f);
-        int alphaStep = Math.round(alpha * 64f);
-        boolean dirty = sizeChanged
-                || currentIndex != lastCachedIndex
-                || visualStep != lastCachedVisualStep
-                || alphaStep != lastCachedAlphaStep;
-        cacheRegionX = regionX;
-        cacheRegionY = regionY;
-        cacheRegionW = regionW;
-        cacheRegionH = regionH;
-
-        if (dirty && cacheSurface != null && cacheTexture != null) {
-            Canvas canvas = cacheSurface.getCanvas();
-            canvas.restoreToCount(1);
-            canvas.resetMatrix();
-            canvas.clear(0x00000000);
-            canvas.save();
-            canvas.scale(cacheTextureScale, cacheTextureScale);
-            canvas.translate(-regionX, -regionY);
+        SkijaRenderer.submit(canvas -> {
             canvas.translate(x, y);
             canvas.scale(scale, scale);
             drawLyrics(canvas, lyrics, positionMs, alpha);
-            canvas.restore();
-            if (uploadCacheTexture()) {
-                lastCachedIndex = currentIndex;
-                lastCachedVisualStep = visualStep;
-                lastCachedAlphaStep = alphaStep;
-            }
-        }
-
-        drawCacheTexture(graphics);
-    }
-
-    private boolean ensureCacheTexture(Minecraft client, int pixelW, int pixelH, float targetScale) {
-        if (cacheSurface != null && cacheTexture != null && pixelW == cachePixelW && pixelH == cachePixelH && cacheTextureScale == targetScale) {
-            return false;
-        }
-        destroyCacheTexture(client);
-        cacheSurface = Surface.makeRaster(
-                new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), pixelW, pixelH),
-                0,
-                SURFACE_PROPS
-        );
-        cacheTexture = new DynamicTexture("pvp_utils:lyrics_display", pixelW, pixelH, false);
-        client.getTextureManager().register(TEXTURE_ID, cacheTexture);
-        cachePixelW = pixelW;
-        cachePixelH = pixelH;
-        cacheTextureScale = targetScale;
-        lastCachedIndex = Integer.MIN_VALUE;
-        lastCachedVisualStep = Integer.MIN_VALUE;
-        lastCachedAlphaStep = Integer.MIN_VALUE;
-        return true;
-    }
-
-    private void drawCacheTexture(GuiGraphics graphics) {
-        if (cacheTexture == null || cachePixelW <= 0 || cachePixelH <= 0) {
-            return;
-        }
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, cacheRegionX, cacheRegionY, 0f, 0f, cacheRegionW, cacheRegionH, cachePixelW, cachePixelH, cachePixelW, cachePixelH);
-    }
-
-    private boolean uploadCacheTexture() {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (cacheSurface == null || cacheTexture == null || !cacheSurface.peekPixels(pixmap)) {
-                return false;
-            }
-            long addr = pixmap.getAddr();
-            int byteSize = cachePixelH * pixmap.getRowBytes();
-            ByteBuffer buffer = MemoryUtil.memByteBuffer(addr, byteSize);
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(cacheTexture.getTexture(), buffer, NativeImage.Format.RGBA, 0, 0, 0, 0, cachePixelW, cachePixelH);
-            return true;
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyCacheTexture(Minecraft client) {
-        if (cacheSurface != null) {
-            cacheSurface.close();
-            cacheSurface = null;
-        }
-        if (cacheTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            cacheTexture = null;
-        }
-        cachePixelW = -1;
-        cachePixelH = -1;
-        cacheTextureScale = -1f;
-        lastCachedIndex = Integer.MIN_VALUE;
-        lastCachedVisualStep = Integer.MIN_VALUE;
-        lastCachedAlphaStep = Integer.MIN_VALUE;
+        });
     }
 
     public float getEditWidth() {
@@ -304,8 +172,8 @@ public class LyricsDisplayRenderer {
     private boolean isExplicitlyPaused(String status) {
         if (status == null) return false;
         return status.equalsIgnoreCase("Paused")
-                || status.equalsIgnoreCase("Stopped")
-                || status.equalsIgnoreCase("Ended");
+        || status.equalsIgnoreCase("Stopped")
+        || status.equalsIgnoreCase("Ended");
     }
 
     private void drawCenteredLyric(Canvas canvas, LyricLine line, String text, float centerX, float baselineY, float size, int argb, float focus) {
@@ -323,9 +191,9 @@ public class LyricsDisplayRenderer {
 
     private void drawCenteredText(Canvas canvas, String text, float centerX, float baselineY, float size, int argb) {
         text = trimToWidth(text, BASE_W - 32f, size);
-        float w = FontRenderer.measureTextWidth(text, size);
+        float w = SkijaUi.textWidth(text, size);
         float x = centerX - w * 0.5f;
-        FontRenderer.drawText(canvas, text, x, baselineY, size, argb);
+        SkijaUi.text(canvas, text, x, (baselineY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), argb, size);
     }
 
     private String displayText(String text) {
@@ -336,9 +204,9 @@ public class LyricsDisplayRenderer {
     }
 
     private String trimToWidth(String text, float maxWidth, float size) {
-        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
+        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "...";
-        while (text.length() > 1 && FontRenderer.measureTextWidth(text + ellipsis, size) > maxWidth) {
+        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + ellipsis;
@@ -353,20 +221,13 @@ public class LyricsDisplayRenderer {
             return List.of();
         }
         return List.of(
-                new LyricLine(player.currentSong().name(), 0L),
-                new LyricLine(player.currentSong().displayArtist(), 60_000L)
+        new LyricLine(player.currentSong().name(), 0L),
+        new LyricLine(player.currentSong().displayArtist(), 60_000L)
         );
     }
 
     private float getScale() {
         return Math.max(0.5f, Config.lyricsDisplayScale);
-    }
-
-    private void ensureNativeLoaded() {
-        if (!nativeLoaded) {
-            Library.load();
-            nativeLoaded = true;
-        }
     }
 
     private void clearState() {
@@ -377,12 +238,11 @@ public class LyricsDisplayRenderer {
         pausedSinceMs = 0L;
         lastObservedPositionMs = -1L;
         lastPositionChangeMs = 0L;
-        destroyCacheTexture(Minecraft.getInstance());
     }
 
     private boolean shouldSkipScreen(Minecraft client) {
-        return client.screen instanceof SkiaScreen
-                || (client.screen != null && !(client.screen instanceof ChatScreen));
+        return client.screen instanceof SkijaScreen
+        || (client.screen != null && !(client.screen instanceof ChatScreen));
     }
 
     private float clamp(float value) {

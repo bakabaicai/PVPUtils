@@ -1,5 +1,9 @@
 package com.pvp_utils.client.modules.impl.Render;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
@@ -7,24 +11,19 @@ import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaGlBackend;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.PathEffect;
-import io.github.humbleui.skija.impl.Library;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BooleanSupplier;
 
 public class HudEditOverlay {
-
     private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
@@ -43,7 +42,6 @@ public class HudEditOverlay {
     private static final float HINT_TEXT_SIZE = 11f;
 
     private final float[] hoverAlpha = new float[DragTarget.values().length];
-    private final SkiaGlBackend glBackend = new SkiaGlBackend();
     private DragTarget dragTarget = DragTarget.NONE;
     private boolean wasMouseDown = false;
     private float dragOffsetX;
@@ -60,7 +58,7 @@ public class HudEditOverlay {
     private float snapXAlpha = 0f;
     private float snapYAlpha = 0f;
     private boolean configDirty = false;
-    private boolean nativeLoaded = false;
+
     private boolean pendingFrame = false;
     private int pendingGuiW = 0;
     private int pendingGuiH = 0;
@@ -116,7 +114,7 @@ public class HudEditOverlay {
         float my = (float) (rawY[0] / guiScale);
         boolean mouseDown = GLFW.glfwGetMouseButton(windowHandle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean weakSnap = GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+        || GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
 
         List<EditItemState> items = buildEditItems(guiW, guiH);
         updateDrag(items, mx, my, mouseDown, weakSnap, guiW, guiH);
@@ -148,7 +146,7 @@ public class HudEditOverlay {
         }
     }
 
-    public void renderFrameEnd() {
+    public void renderSkija(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
         if (!active || client.options.hideGui) {
@@ -156,15 +154,9 @@ public class HudEditOverlay {
             return;
         }
 
-        ensureNativeLoaded();
-        Canvas canvas = glBackend.begin();
-        if (canvas == null) return;
-        try {
-            drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingItems);
-        } finally {
-            glBackend.end();
-            pendingFrame = false;
-        }
+        drawOverlay(canvas, pendingGuiW, pendingGuiH, pendingProgress, pendingItems);
+
+        pendingFrame = false;
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
@@ -421,15 +413,15 @@ public class HudEditOverlay {
         float centerX = rect.x + rect.w * 0.5f;
         float centerY = rect.y + rect.h * 0.5f + 7f * scale;
         String[] lines = Config.isChinese
-                ? new String[]{"第一行歌词", "第二行歌词", "第三行歌词"}
-                : new String[]{"First line of lyrics", "Second line of lyrics", "Third line of lyrics"};
+        ? new String[]{"第一行歌词", "第二行歌词", "第三行歌词"}
+        : new String[]{"First line of lyrics", "Second line of lyrics", "Third line of lyrics"};
         long elapsed = Math.max(0L, System.currentTimeMillis() - animStartTime);
         long cycle = elapsed / 2000L;
         float cycleTime = elapsed % 2000L;
         float slideProgress = Math.max(0f, Math.min(1f, (cycleTime - 1550f) / 450f));
         slideProgress = slideProgress < 0.5f
-                ? 4f * slideProgress * slideProgress * slideProgress
-                : 1f - (float) Math.pow(-2f * slideProgress + 2f, 3f) * 0.5f;
+        ? 4f * slideProgress * slideProgress * slideProgress
+        : 1f - (float) Math.pow(-2f * slideProgress + 2f, 3f) * 0.5f;
         float visualCenter = 1f + cycle + slideProgress;
         int base = (int) Math.floor(visualCenter);
         float spacing = 27f * scale;
@@ -442,21 +434,21 @@ public class HudEditOverlay {
             float focus = Math.max(0f, 1f - Math.abs(distance));
             float size = (15f + 6f * focus) * scale;
             String text = trimToWidth(lines[lineIndex], Math.max(24f, rect.w - 32f * scale), size);
-            float textW = FontRenderer.measureTextWidth(text, size);
+            float textW = SkijaUi.textWidth(text, size);
             int alpha = Math.round((120f + 125f * focus) * progress);
             int color = focus > 0.7f ? 0xFFFFFF : 0xC8CDD8;
             float x = centerX - textW * 0.5f;
             float y = centerY + distance * spacing;
-            FontRenderer.drawText(canvas, text, x + 1.2f * scale, y + 1.2f * scale, size, alpha << 24);
-            FontRenderer.drawText(canvas, text, x, y, size, (alpha << 24) | color);
+            SkijaUi.text(canvas, text, x + 1.2f * scale, (y + 1.2f * scale) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), alpha << 24, size);
+            SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), (alpha << 24) | color, size);
         }
         canvas.restore();
     }
 
     private String trimToWidth(String text, float maxWidth, float size) {
-        if (FontRenderer.measureTextWidth(text, size) <= maxWidth) return text;
+        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "...";
-        while (text.length() > 1 && FontRenderer.measureTextWidth(text + ellipsis, size) > maxWidth) {
+        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + ellipsis;
@@ -488,16 +480,16 @@ public class HudEditOverlay {
             canvas.drawRRect(RRect.makeXYWH(drawX - pad, drawY - pad, rw, rh, 6f), p);
         }
 
-        FontRenderer.drawText(canvas, label, drawX - pad, drawY - pad - 4f, 10f, (alphaInt << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, label, drawX - pad, (drawY - pad - 4f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), (alphaInt << 24) | 0xFFFFFF, 10f);
     }
 
     private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
         String text = Config.isChinese ? "悬浮滚轮调节大小，按住 Shift 弱对齐" : "Hover and scroll to resize, hold Shift for weak snap";
-        float textW = FontRenderer.measureTextWidth(text, HINT_TEXT_SIZE);
+        float textW = SkijaUi.textWidth(text, HINT_TEXT_SIZE);
         float x = (guiW - textW) * 0.5f;
         float y = Math.max(48f, guiH - 92f);
         int alpha = Math.round(210f * Math.max(0f, Math.min(1f, progress)));
-        FontRenderer.drawText(canvas, text, x, y, HINT_TEXT_SIZE, (alpha << 24) | 0xFFFFFF);
+        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(HINT_TEXT_SIZE).getAscent(), SkijaUi.textMetrics(HINT_TEXT_SIZE).getDescent() - SkijaUi.textMetrics(HINT_TEXT_SIZE).getAscent(), (alpha << 24) | 0xFFFFFF, HINT_TEXT_SIZE);
     }
 
     private RectState getTargetHudRect(int guiW, int guiH) {
@@ -566,7 +558,7 @@ public class HudEditOverlay {
         float pad = Config.betterScoreboardVisualImprovement ? 7.0f * scale : 0.0f;
         float visualYOffset = Config.betterScoreboardVisualImprovement ? 3.0f * scale : 0.0f;
         return clampRect(rect.x() + Config.betterScoreboardX - pad, rect.y() + Config.betterScoreboardY + visualYOffset - pad,
-                rect.w() * scale + pad * 2.0f, rect.h() * scale + pad * 2.0f, guiW, guiH);
+        rect.w() * scale + pad * 2.0f, rect.h() * scale + pad * 2.0f, guiW, guiH);
     }
 
     private RectState clampRect(float x, float y, float w, float h, int guiW, int guiH) {
@@ -645,12 +637,6 @@ public class HudEditOverlay {
 
     private float clampScale(float scale) {
         return Math.max(0.5f, Math.min(2.0f, scale));
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
     }
 
     private interface MoveHandler {

@@ -1,23 +1,19 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
+import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.font.FontRenderer;
-import com.pvp_utils.client.render.skia.SkiaBlurRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import io.github.humbleui.skija.*;
-import io.github.humbleui.skija.impl.Library;
 import io.github.humbleui.types.Rect;
-import io.github.humbleui.types.RRect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -28,9 +24,6 @@ import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.system.MemoryUtil;
-
-import java.nio.ByteBuffer;
 
 public class TargetHudRenderer {
     private static final TargetHudRenderer INSTANCE = new TargetHudRenderer();
@@ -41,31 +34,7 @@ public class TargetHudRenderer {
     private boolean isFullyHidden = true;
     private boolean editPreview = false;
     private boolean wasEditActive = false;
-    private Surface surface;
-    private Surface overlaySurface;
-    private Surface avatarMaskSurface;
-    private DynamicTexture dynamicTexture;
-    private DynamicTexture overlayTexture;
-    private DynamicTexture avatarMaskTexture;
-    private boolean nativeLoaded = false;
-    private int textureW = -1;
-    private int textureH = -1;
-    private int overlayTextureW = -1;
-    private int overlayTextureH = -1;
-    private int avatarMaskW = -1;
-    private int avatarMaskH = -1;
-    private String lastTextureName = "";
-    private String lastTextureHealthText = "";
-    private int lastTextureHealth = -1;
-    private int lastTextureAbsorption = -1;
-    private int lastTextureHealthTextAnim = -1;
-    private int lastTextureDistTextAnim = -1;
-    private String lastTextureDistText = "";
-    private Config.HudTheme lastTextureTheme = null;
-    private Config.HudTheme lastOverlayTextureTheme = null;
-    private boolean lastTextureBlurMode = false;
-    private boolean lastOverlayTextureBlurMode = false;
-    private Config.HudTheme lastAvatarMaskTheme = null;
+
     private String lastRawName = "";
     private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
@@ -81,8 +50,6 @@ public class TargetHudRenderer {
     private final Paint newHudTrackPaint = new Paint();
     private final Paint newHudFillPaint = new Paint();
     private final Paint newHudAbsorbPaint = new Paint();
-    private final Paint avatarMaskCoverPaint = new Paint();
-    private final Paint avatarMaskHolePaint = new Paint();
     private PlayerSkin cachedPlayerSkin = null;
     private int cachedPlayerSkinEntityId = Integer.MIN_VALUE;
     private final float[] healthCharWidthCache = new float[128];
@@ -110,18 +77,10 @@ public class TargetHudRenderer {
     private static final int NEW_HUD_WIDTH = 190;
     private static final int NEW_HUD_HEIGHT = 58;
     private static final int NEW_AVATAR_SIZE = 38;
-    private static final int NEW_OVERLAY_X = 58;
-    private static final int NEW_OVERLAY_Y = 18;
-    private static final int NEW_OVERLAY_WIDTH = 120;
-    private static final int NEW_OVERLAY_HEIGHT = 34;
     private static final float NEW_AVATAR_RADIUS = 12f;
     private static final int AVATAR_SIZE = 28;
     private static final int PADDING = 6;
     private static final int BORDER = 1;
-    private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_new");
-    private static final Identifier OVERLAY_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_new_overlay");
-    private static final Identifier AVATAR_MASK_TEXTURE_ID = Identifier.fromNamespaceAndPath("pvp_utils", "target_hud_avatar_mask");
-    private static final SurfaceProps SURFACE_PROPS = new SurfaceProps(false, PixelGeometry.RGB_H);
 
     public static TargetHudRenderer getInstance() {
         return INSTANCE;
@@ -133,9 +92,6 @@ public class TargetHudRenderer {
         newHudTrackPaint.setAntiAlias(true);
         newHudFillPaint.setAntiAlias(true);
         newHudAbsorbPaint.setAntiAlias(true);
-        avatarMaskCoverPaint.setAntiAlias(true);
-        avatarMaskHolePaint.setAntiAlias(true);
-        avatarMaskHolePaint.setBlendMode(BlendMode.CLEAR);
     }
 
     private PlayerSkin resolvePlayerSkin(Minecraft client, Player player) {
@@ -160,13 +116,13 @@ public class TargetHudRenderer {
             char c = ch.charAt(0);
             if (c < healthCharWidthCache.length) {
                 if (!healthCharWidthCached[c]) {
-                    healthCharWidthCache[c] = FontRenderer.measureTextWidth(ch, 10f);
+                    healthCharWidthCache[c] = SkijaUi.textWidth(ch, 10f);
                     healthCharWidthCached[c] = true;
                 }
                 return healthCharWidthCache[c];
             }
         }
-        return FontRenderer.measureTextWidth(ch, 10f);
+        return SkijaUi.textWidth(ch, 10f);
     }
 
     public void onHit(LivingEntity entity) {
@@ -223,7 +179,6 @@ public class TargetHudRenderer {
 
         if ((!Config.targetHud && !editPreview) || target == null) {
             if (!Config.targetHud) {
-                destroyTexture(client);
                 resetNewHudRuntimeState();
             }
             return;
@@ -246,7 +201,6 @@ public class TargetHudRenderer {
                 resetHealthTextAnimation();
                 resetNewHudRuntimeState();
                 lastObservedHealth = -1f;
-                destroyTexture(client);
             }
             return;
         }
@@ -258,7 +212,6 @@ public class TargetHudRenderer {
             return;
         }
 
-        destroyTexture(client);
         renderLite(graphics, client, alpha, now);
     }
 
@@ -426,15 +379,22 @@ public class TargetHudRenderer {
         float drawRadius = 16f * hudScale * drawScale;
 
         boolean transparentMode = blurMode || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
-        renderNewBaseTexture(client, name, transparentMode);
-        renderNewOverlayTexture(client, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
-        renderAvatarMaskTexture(client);
         if (blurMode) {
-            SkiaBlurRenderer.getInstance().render(client, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor(), Config.skiaBlurStrength);
+            SkijaRenderer.draw(blurCanvas -> {
+                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(drawX, drawY, drawW, drawH, drawRadius), drawX, drawY, drawW, drawH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+                SkijaUi.rounded(blurCanvas, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor());
+            });
         } else if (Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
             LiquidGlassRenderer.getInstance().renderPanel(client, drawX, drawY, drawW, drawH, drawRadius,
-                    LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
+            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
         }
+
+        SkijaRenderer.draw(c -> {
+            c.translate(drawX, drawY);
+            c.scale(hudScale * drawScale, hudScale * drawScale);
+            drawNewBase(c, name, transparentMode);
+            drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
+        });
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -443,8 +403,6 @@ public class TargetHudRenderer {
         graphics.pose().translate(x, y);
         graphics.pose().scale(hudScale, hudScale);
         graphics.pose().translate(-x, -y);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE_ID, x, y, 0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, textureW, textureH, textureW, textureH);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, OVERLAY_TEXTURE_ID, x + NEW_OVERLAY_X, y + NEW_OVERLAY_Y, 0f, 0f, NEW_OVERLAY_WIDTH, NEW_OVERLAY_HEIGHT, overlayTextureW, overlayTextureH, overlayTextureW, overlayTextureH);
 
         int avatarX = x + 12;
         int avatarY = y + 10;
@@ -466,12 +424,8 @@ public class TargetHudRenderer {
         graphics.pose().scale(avatarScale, avatarScale);
         graphics.pose().translate(-avatarCenterX, -avatarCenterY);
         if (target instanceof Player player) {
-            try {
-                PlayerSkin skin = resolvePlayerSkin(client, player);
-                PlayerFaceRenderer.draw(graphics, skin, avatarX, avatarY, NEW_AVATAR_SIZE);
-            } catch (Exception e) {
-                graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, alphaBits | 0x111111);
-            }
+            renderNewAvatar(client, player, drawX, drawY, hudScale * drawScale, avatarScale,
+            hurtFlashFactor, healFlashFactor, alphaInt);
         } else {
             SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
             if (eggItem != null) {
@@ -488,34 +442,11 @@ public class TargetHudRenderer {
             int healAlphaInt = (int) (alphaInt * healFlashFactor * 0.62f);
             graphics.fill(avatarX, avatarY, avatarX + NEW_AVATAR_SIZE, avatarY + NEW_AVATAR_SIZE, (healAlphaInt << 24) | 0x55FF55);
         }
-        graphics.blit(RenderPipelines.GUI_TEXTURED, AVATAR_MASK_TEXTURE_ID, avatarX, avatarY, 0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, avatarMaskW, avatarMaskH, avatarMaskW, avatarMaskH);
         graphics.pose().popMatrix();
         graphics.pose().popMatrix();
     }
 
-    private void renderNewBaseTexture(Minecraft client, String name, boolean blurMode) {
-        ensureNativeLoaded();
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
-        int targetW = Math.max(1, Math.round(NEW_HUD_WIDTH * targetScale));
-        int targetH = Math.max(1, Math.round(NEW_HUD_HEIGHT * targetScale));
-        if (dynamicTexture != null && targetW == textureW && targetH == textureH && name.equals(lastTextureName) && lastTextureTheme == Config.hudTheme && lastTextureBlurMode == blurMode) return;
-
-        if (surface == null || dynamicTexture == null || targetW != textureW || targetH != textureH) {
-            destroyBaseTexture(client);
-            surface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            dynamicTexture = new DynamicTexture("pvp_utils:target_hud_new", targetW, targetH, false);
-            client.getTextureManager().register(TEXTURE_ID, dynamicTexture);
-            textureW = targetW;
-            textureH = targetH;
-            lastTextureName = "";
-        }
-
-        Canvas c = surface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(targetScale, targetScale);
+    private void drawNewBase(Canvas c, String name, boolean blurMode) {
         if (!blurMode) {
             newHudBgPaint.setColor(newHudCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
@@ -523,22 +454,10 @@ public class TargetHudRenderer {
         newHudAvatarPaint.setColor(newHudAvatarBackplateColor());
         c.drawRRect(RRect.makeXYWH(12f, 10f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), newHudAvatarPaint);
 
-        FontRenderer.drawText(c, name, 60f, 24f, 13f, newHudPrimaryTextColor(blurMode));
-        c.restore();
-        uploadSurface(surface, dynamicTexture, textureW, textureH);
-        lastTextureName = name;
-        lastTextureTheme = Config.hudTheme;
-        lastTextureBlurMode = blurMode;
+        SkijaUi.text(c, name, 60f, (24f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), newHudPrimaryTextColor(blurMode), 13f);
     }
 
-    private void renderNewOverlayTexture(Minecraft client, String healthText, float healthRatio, float absorptionRatio, long now, boolean blurMode) {
-        ensureNativeLoaded();
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
-        int targetW = Math.max(1, Math.round(NEW_OVERLAY_WIDTH * targetScale));
-        int targetH = Math.max(1, Math.round(NEW_OVERLAY_HEIGHT * targetScale));
-        int healthKey = Math.round(healthRatio * 120f);
-        int absorptionKey = Math.round(absorptionRatio * 80f);
-        int healthTextAnimKey = getHealthTextAnimKey(now);
+    private void drawNewOverlay(Canvas c, String healthText, float healthRatio, float absorptionRatio, long now, boolean blurMode) {
         boolean showDist = attackReachActive(now);
         if (showDist) {
             updateDistTextAnimation(lastAttackDistance, now);
@@ -549,29 +468,9 @@ public class TargetHudRenderer {
             distTextDirection = 0;
             lastDistTextValue = -1f;
         }
-        int distAnimKey = showDist ? getDistTextAnimKey(now) : -1;
-        if (overlayTexture != null && targetW == overlayTextureW && targetH == overlayTextureH && healthText.equals(lastTextureHealthText) && healthTextAnimKey == lastTextureHealthTextAnim && healthKey == lastTextureHealth && absorptionKey == lastTextureAbsorption && lastOverlayTextureTheme == Config.hudTheme && lastOverlayTextureBlurMode == blurMode && distAnimKey == lastTextureDistTextAnim && currentDistText.equals(lastTextureDistText)) return;
-
-        if (overlaySurface == null || overlayTexture == null || targetW != overlayTextureW || targetH != overlayTextureH) {
-            destroyOverlayTexture(client);
-            overlaySurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-            overlayTexture = new DynamicTexture("pvp_utils:target_hud_new_overlay", targetW, targetH, false);
-            client.getTextureManager().register(OVERLAY_TEXTURE_ID, overlayTexture);
-            overlayTextureW = targetW;
-            overlayTextureH = targetH;
-            lastTextureHealthText = "";
-        }
-
-        Canvas c = overlaySurface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(targetScale, targetScale);
-        c.translate(-NEW_OVERLAY_X, -NEW_OVERLAY_Y);
         drawAnimatedHealthText(c, healthText, now, blurMode);
         if (showDist) {
-            float healthTextEndX = 60f + FontRenderer.measureTextWidth(healthText, 10f) + 4f;
+            float healthTextEndX = 60f + SkijaUi.textWidth(healthText, 10f) + 4f;
             drawAnimatedDistText(c, currentDistText, healthTextEndX, now, blurMode);
         }
 
@@ -589,17 +488,6 @@ public class TargetHudRenderer {
             newHudAbsorbPaint.setColor(0xFFF5B83D);
             c.drawRRect(RRect.makeXYWH(barX + barW - absorbW, barY, absorbW, barH, barH * 0.5f), newHudAbsorbPaint);
         }
-
-        c.restore();
-        uploadSurface(overlaySurface, overlayTexture, overlayTextureW, overlayTextureH);
-        lastTextureHealthText = healthText;
-        lastTextureHealth = healthKey;
-        lastTextureAbsorption = absorptionKey;
-        lastTextureHealthTextAnim = healthTextAnimKey;
-        lastOverlayTextureTheme = Config.hudTheme;
-        lastOverlayTextureBlurMode = blurMode;
-        lastTextureDistTextAnim = distAnimKey;
-        lastTextureDistText = currentDistText;
     }
 
     private void updateHealthTextAnimation(float value, long now) {
@@ -653,10 +541,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                FontRenderer.drawText(c, oldCh, x, oldY, 10f, newHudMutedTextColor(blurMode));
-                FontRenderer.drawText(c, ch, x, newY, 10f, newHudMutedTextColor(blurMode));
+                SkijaUi.text(c, oldCh, x, (oldY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
+                SkijaUi.text(c, ch, x, (newY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
             } else {
-                FontRenderer.drawText(c, ch, x, baseY, 10f, newHudMutedTextColor(blurMode));
+                SkijaUi.text(c, ch, x, (baseY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
             }
             x += w;
         }
@@ -681,10 +569,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (distTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (distTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                FontRenderer.drawText(c, oldCh, x, oldY, 10f, 0xFFFFAA00);
-                FontRenderer.drawText(c, ch, x, newY, 10f, 0xFFFFAA00);
+                SkijaUi.text(c, oldCh, x, (oldY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
+                SkijaUi.text(c, ch, x, (newY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
             } else {
-                FontRenderer.drawText(c, ch, x, baseY, 10f, 0xFFFFAA00);
+                SkijaUi.text(c, ch, x, (baseY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
             }
             x += w;
         }
@@ -747,13 +635,6 @@ public class TargetHudRenderer {
         distTextAnimStart = 0L;
         distTextDirection = 0;
         lastDistTextValue = -1f;
-        lastTextureName = "";
-        lastTextureHealthText = "";
-        lastTextureHealth = -1;
-        lastTextureAbsorption = -1;
-        lastTextureHealthTextAnim = -1;
-        lastTextureDistTextAnim = -1;
-        lastTextureDistText = "";
     }
 
     private void updateHealthTransition(float currentHealth, long now) {
@@ -771,7 +652,7 @@ public class TargetHudRenderer {
 
     private boolean attackReachActive(long now) {
         return Config.attackReachDisplay && lastAttackDistance >= 0f
-                && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION;
+        && now - lastAttackDistanceTime < ATTACK_DISTANCE_DISPLAY_DURATION;
     }
 
     private void updateAttackDistance(Minecraft client, long now) {
@@ -794,7 +675,7 @@ public class TargetHudRenderer {
         if (rawName.equals(lastRawName)) return lastTruncatedName;
 
         lastRawName = rawName;
-        if (FontRenderer.measureTextWidth(rawName, 13f) <= 95f) {
+        if (SkijaUi.textWidth(rawName, 13f) <= 95f) {
             lastTruncatedName = rawName;
             return lastTruncatedName;
         }
@@ -803,7 +684,7 @@ public class TargetHudRenderer {
         int high = rawName.length();
         while (low < high) {
             int mid = (low + high + 1) >>> 1;
-            if (FontRenderer.measureTextWidth(rawName.substring(0, mid) + "...", 13f) <= 95f) {
+            if (SkijaUi.textWidth(rawName.substring(0, mid) + "...", 13f) <= 95f) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -813,119 +694,41 @@ public class TargetHudRenderer {
         return lastTruncatedName;
     }
 
-    private void renderAvatarMaskTexture(Minecraft client) {
-        ensureNativeLoaded();
-        float targetScale = Math.max(1f, (float) client.getWindow().getGuiScale() * Math.max(0.5f, Config.targetHudScale));
-        int targetW = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
-        int targetH = Math.max(1, Math.round(NEW_AVATAR_SIZE * targetScale));
-        if (avatarMaskTexture != null && targetW == avatarMaskW && targetH == avatarMaskH && lastAvatarMaskTheme == Config.hudTheme) return;
-
-        if (avatarMaskSurface != null) {
-            avatarMaskSurface.close();
-            avatarMaskSurface = null;
-        }
-        if (avatarMaskTexture != null) {
-            client.getTextureManager().release(AVATAR_MASK_TEXTURE_ID);
-            avatarMaskTexture = null;
-        }
-
-        avatarMaskSurface = Surface.makeRaster(new ImageInfo(new ColorInfo(ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, null), targetW, targetH), 0, SURFACE_PROPS);
-        avatarMaskTexture = new DynamicTexture("pvp_utils:target_hud_avatar_mask", targetW, targetH, false);
-        client.getTextureManager().register(AVATAR_MASK_TEXTURE_ID, avatarMaskTexture);
-        avatarMaskW = targetW;
-        avatarMaskH = targetH;
-
-        Canvas c = avatarMaskSurface.getCanvas();
-        c.restoreToCount(1);
-        c.resetMatrix();
-        c.clear(0x00000000);
-        c.save();
-        c.scale(targetScale, targetScale);
-        avatarMaskCoverPaint.setColor(newHudAvatarBackplateColor());
-        c.drawRect(io.github.humbleui.types.Rect.makeXYWH(0f, 0f, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE), avatarMaskCoverPaint);
-        c.drawRRect(RRect.makeXYWH(-0.75f, -0.75f, NEW_AVATAR_SIZE + 1.5f, NEW_AVATAR_SIZE + 1.5f, NEW_AVATAR_RADIUS + 0.75f), avatarMaskHolePaint);
-        c.restore();
-        uploadSurface(avatarMaskSurface, avatarMaskTexture, avatarMaskW, avatarMaskH);
-        lastAvatarMaskTheme = Config.hudTheme;
+    private void renderNewAvatar(Minecraft client, Player player, float x, float y, float scale,
+    float avatarScale, float hurt, float heal, int alpha) {
+        PlayerSkin skin = resolvePlayerSkin(client, player);
+        net.minecraft.resources.Identifier texture = skin.body().texturePath();
+        SkijaRenderer.submit(canvas -> {
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
+            canvas.translate(12f + NEW_AVATAR_SIZE * 0.5f, 10f + NEW_AVATAR_SIZE * 0.5f);
+            canvas.scale(avatarScale, avatarScale);
+            canvas.translate(-NEW_AVATAR_SIZE * 0.5f, -NEW_AVATAR_SIZE * 0.5f);
+            canvas.clipRRect(RRect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), true);
+            try (SkijaRenderer.BorrowedImage borrowed = SkijaRenderer.borrowTexture(texture);
+            io.github.humbleui.skija.Paint paint = new io.github.humbleui.skija.Paint()) {
+                if (borrowed == null) return;
+                paint.setAlphaf(alpha / 255f);
+                io.github.humbleui.types.Rect destination = io.github.humbleui.types.Rect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE);
+                canvas.drawImageRect(borrowed.image(), io.github.humbleui.types.Rect.makeXYWH(8, 8, 8, 8),
+                destination, io.github.humbleui.skija.SamplingMode.DEFAULT, paint, true);
+                canvas.drawImageRect(borrowed.image(), io.github.humbleui.types.Rect.makeXYWH(40, 8, 8, 8),
+                destination, io.github.humbleui.skija.SamplingMode.DEFAULT, paint, true);
+                if (hurt > 0f) {
+                    paint.setColor((Math.round(alpha * hurt * 0.6f) << 24) | 0xFF0000);
+                    canvas.drawRect(destination, paint);
+                }
+                if (heal > 0f) {
+                    paint.setColor((Math.round(alpha * heal * 0.62f) << 24) | 0x55FF55);
+                    canvas.drawRect(destination, paint);
+                }
+            }
+        });
     }
 
     private float easeOutBack(float value) {
         float t = Mth.clamp(value, 0f, 1f) - 1f;
         return 1f + t * t * (1.55f * t + 0.55f);
-    }
-
-    private void ensureNativeLoaded() {
-        if (nativeLoaded) return;
-        Library.load();
-        nativeLoaded = true;
-    }
-
-    private void uploadSurface(Surface sourceSurface, DynamicTexture targetTexture, int width, int height) {
-        Pixmap pixmap = new Pixmap();
-        try {
-            if (!sourceSurface.peekPixels(pixmap)) {
-                return;
-            }
-            long addr = pixmap.getAddr();
-            int byteSize = height * pixmap.getRowBytes();
-            ByteBuffer buf = MemoryUtil.memByteBuffer(addr, byteSize);
-            GpuTexture gpuTexture = targetTexture.getTexture();
-            RenderSystem.getDevice().createCommandEncoder()
-                    .writeToTexture(gpuTexture, buf, NativeImage.Format.RGBA, 0, 0, 0, 0, width, height);
-        } finally {
-            pixmap.close();
-        }
-    }
-
-    private void destroyBaseTexture(Minecraft client) {
-        if (surface != null) {
-            surface.close();
-            surface = null;
-        }
-        if (dynamicTexture != null) {
-            client.getTextureManager().release(TEXTURE_ID);
-            dynamicTexture = null;
-        }
-        textureW = -1;
-        textureH = -1;
-        lastTextureName = "";
-        lastTextureTheme = null;
-    }
-
-    private void destroyOverlayTexture(Minecraft client) {
-        if (overlaySurface != null) {
-            overlaySurface.close();
-            overlaySurface = null;
-        }
-        if (overlayTexture != null) {
-            client.getTextureManager().release(OVERLAY_TEXTURE_ID);
-            overlayTexture = null;
-        }
-        overlayTextureW = -1;
-        overlayTextureH = -1;
-        lastTextureHealthText = "";
-        lastTextureHealth = -1;
-        lastTextureAbsorption = -1;
-        lastTextureHealthTextAnim = -1;
-        lastTextureBlurMode = false;
-        lastOverlayTextureBlurMode = false;
-        lastOverlayTextureTheme = null;
-    }
-
-    private void destroyTexture(Minecraft client) {
-        destroyBaseTexture(client);
-        destroyOverlayTexture(client);
-        if (avatarMaskSurface != null) {
-            avatarMaskSurface.close();
-            avatarMaskSurface = null;
-        }
-        if (avatarMaskTexture != null) {
-            client.getTextureManager().release(AVATAR_MASK_TEXTURE_ID);
-            avatarMaskTexture = null;
-        }
-        avatarMaskW = -1;
-        avatarMaskH = -1;
-        lastAvatarMaskTheme = null;
     }
 
     private int getHealthColor(float ratio) {

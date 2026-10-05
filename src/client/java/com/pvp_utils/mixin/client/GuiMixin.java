@@ -15,17 +15,15 @@ import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
-import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LyricsDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
-import com.pvp_utils.client.render.skia.SkiaRenderer;
-import com.pvp_utils.client.render.skia.SkiaScreen;
+
+import com.pvp_utils.client.render.skia.SkijaScreen;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;
@@ -63,25 +61,11 @@ public class GuiMixin {
         Minecraft mc = Minecraft.getInstance();
         int guiWidth = mc.getWindow().getGuiScaledWidth();
         int guiHeight = mc.getWindow().getGuiScaledHeight();
-        Canvas canvas = null;
-
-        boolean skiaScreenOpen = mc.screen instanceof SkiaScreen;
-        if (!skiaScreenOpen && NotificationOverlay.getInstance().needsStandaloneCanvas()) {
-            int[] bounds = NotificationOverlay.getInstance().getCanvasBounds(guiWidth, guiHeight);
-            if (bounds != null) {
-                canvas = SkiaRenderer.beginRegion(bounds[0], bounds[1], bounds[2], bounds[3]);
-            }
-        }
-
-        if (mc.options.hideGui) {
-            if (canvas != null) {
-                SkiaRenderer.endRegion(guiGraphics);
-            }
-            return;
-        }
+        boolean skiaScreenOpen = mc.screen instanceof SkijaScreen;
+        if (mc.options.hideGui) return;
 
         if (!skiaScreenOpen) {
-            NotificationOverlay.getInstance().render(guiGraphics, canvas);
+            NotificationOverlay.getInstance().render(guiGraphics);
         }
         HitMarkerRenderer.getInstance().render(guiGraphics);
         TargetHudRenderer.getInstance().render(guiGraphics);
@@ -97,11 +81,8 @@ public class GuiMixin {
         PingHudRenderer.getInstance().render(guiGraphics);
         TpsHudRenderer.getInstance().render(guiGraphics);
         ClockHudRenderer.getInstance().render(guiGraphics);
-        HudEditOverlay.getInstance().render(guiGraphics, canvas);
+        HudEditOverlay.getInstance().render(guiGraphics, null);
 
-        if (canvas != null) {
-            SkiaRenderer.endRegion(guiGraphics);
-        }
         guiGraphics.renderDeferredElements();
         LyricsDisplayRenderer.getInstance().render(guiGraphics);
         guiGraphics.renderDeferredElements();

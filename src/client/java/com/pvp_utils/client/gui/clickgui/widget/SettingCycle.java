@@ -1,17 +1,18 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
+import io.github.humbleui.types.RRect;
+
+import com.pvp_utils.client.render.skia.SkijaUi;
+
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.font.FontRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
 
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SettingCycle extends SettingWidget {
-
     private final List<String> options;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
@@ -35,12 +36,12 @@ public class SettingCycle extends SettingWidget {
         if (index != cachedIndex) {
             cachedIndex = index;
             cachedLabel = options.get(index);
-            cachedTextWidth = FontRenderer.measureTextWidth(cachedLabel, 12f);
+            cachedTextWidth = SkijaUi.textWidth(cachedLabel, 12f);
         }
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         bgPaint.setColor(withAlpha(tc.buttonBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
-        FontRenderer.drawText(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y + 16f, 12f, withAlpha(tc.subModuleText, alpha));
+        SkijaUi.text(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, (y + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, alpha), 12f);
     }
 
     @Override
