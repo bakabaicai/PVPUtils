@@ -29,6 +29,19 @@ public final class PluginStorage {
         return data.has(key);
     }
 
+    public double number(String key, double fallback) {
+        if (!data.has(key) || !data.get(key).isJsonPrimitive() || !data.get(key).getAsJsonPrimitive().isNumber()) {
+            return fallback;
+        }
+        return data.get(key).getAsDouble();
+    }
+
+    public void update(JsonObject values) throws IOException {
+        JsonObject merged = data.deepCopy();
+        values.entrySet().forEach(entry -> merged.add(entry.getKey(), entry.getValue().deepCopy()));
+        replace(merged);
+    }
+
     public void set(String key, String json) throws IOException {
         if (key.isBlank() || key.length() > 128) throw new IllegalArgumentException("Invalid storage key");
         JsonObject next = data.deepCopy();

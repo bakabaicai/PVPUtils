@@ -22,6 +22,10 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
+import com.pvp_utils.client.plugin.PluginManager;
 
 public class HudEditOverlay {
     private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD }
@@ -41,8 +45,8 @@ public class HudEditOverlay {
     private static final float ELEMENT_SNAP_PROXIMITY = 48f;
     private static final float HINT_TEXT_SIZE = 11f;
 
-    private final float[] hoverAlpha = new float[DragTarget.values().length];
-    private DragTarget dragTarget = DragTarget.NONE;
+    private final Map<Object, Float> hoverAlpha = new HashMap<>();
+    private Object dragTarget = DragTarget.NONE;
     private boolean wasMouseDown = false;
     private float dragOffsetX;
     private float dragOffsetY;
@@ -171,6 +175,7 @@ public class HudEditOverlay {
         for (EditItemState item : buildEditItems(guiW, guiH)) {
             if (contains(item.rect(), mx, my, 4f) && item.definition().scale().scale(delta)) {
                 Config.save();
+                PluginManager.INSTANCE.saveHudLayouts();
                 return true;
             }
         }
@@ -194,6 +199,19 @@ public class HudEditOverlay {
         addItem(items, DragTarget.TPS_HUD, "TPS HUD", Config.tpsHud, getRendererRect(TpsHudRenderer.getInstance(), guiW, guiH), this::moveTpsHud, delta -> setScale(v -> Config.tpsHudScale = v, Config.tpsHudScale, delta));
         addItem(items, DragTarget.CLOCK_HUD, "Clock", Config.clockHud, getRendererRect(ClockHudRenderer.getInstance(), guiW, guiH), this::moveClockHud, delta -> setScale(v -> Config.clockHudScale = v, Config.clockHudScale, delta));
         addItem(items, DragTarget.TARGET_HUD, "Target HUD", Config.targetHud, getTargetHudRect(guiW, guiH), this::moveTargetHud, delta -> setScale(v -> Config.targetHudScale = v, Config.targetHudScale, delta));
+        for (PluginManager.HudEditItem plugin : PluginManager.INSTANCE.hudEditItems(guiW, guiH)) {
+            var layout = plugin.layout();
+            RectState rect = clampRect(layout.x(), layout.y(), layout.width() * layout.scale(),
+                    layout.height() * layout.scale(), guiW, guiH);
+            items.add(new EditItemState(new EditItem(plugin.key(), plugin.label(),
+                    (moved, w, h) -> plugin.move().accept(moved.x, moved.y),
+                    delta -> {
+                        layout.setScale(layout.scale() + delta);
+                        plugin.move().accept(layout.x(), layout.y());
+                        return true;
+                    }, false), rect));
+        }
+        hoverAlpha.keySet().retainAll(items.stream().map(item -> item.definition().target()).toList());
         return items;
     }
 
@@ -223,6 +241,7 @@ public class HudEditOverlay {
         if (!mouseDown) {
             if (configDirty) {
                 Config.save();
+                PluginManager.INSTANCE.saveHudLayouts();
                 configDirty = false;
             }
             dragTarget = DragTarget.NONE;
@@ -241,15 +260,16 @@ public class HudEditOverlay {
     private void updateHover(List<EditItemState> items, float mx, float my, float dt) {
         for (EditItemState item : items) {
             boolean hovered = contains(item.rect(), mx, my, 4f) || dragTarget == item.definition().target();
-            int index = item.definition().target().ordinal();
-            hoverAlpha[index] += ((hovered ? 1f : 0f) - hoverAlpha[index]) * Math.min(1f, dt * 14f);
+            Object key = item.definition().target();
+            float alpha = hoverAlpha.getOrDefault(key, 0f);
+            hoverAlpha.put(key, alpha + ((hovered ? 1f : 0f) - alpha) * Math.min(1f, dt * 14f));
         }
     }
 
-    private EditItemState itemFor(List<EditItemState> items, DragTarget target) {
+    private EditItemState itemFor(List<EditItemState> items, Object target) {
         if (target == DragTarget.NONE) return null;
         for (EditItemState item : items) {
-            if (item.definition().target() == target) return item;
+            if (Objects.equals(item.definition().target(), target)) return item;
         }
         return null;
     }
@@ -399,7 +419,7 @@ public class HudEditOverlay {
         }
         for (EditItemState item : items) {
             RectState rect = item.rect();
-            float alpha = hoverAlpha[item.definition().target().ordinal()];
+            float alpha = hoverAlpha.getOrDefault(item.definition().target(), 0f);
             if (item.definition().target() == DragTarget.LYRICS_DISPLAY) {
                 drawLyricsPreview(canvas, rect, progress);
             }
@@ -567,7 +587,7 @@ public class HudEditOverlay {
         return new RectState(clampedX, clampedY, w, h);
     }
 
-    private RectState snapRect(RectState rect, int guiW, int guiH, boolean weakSnap, DragTarget draggedTarget, List<EditItemState> refs) {
+    private RectState snapRect(RectState rect, int guiW, int guiH, boolean weakSnap, Object draggedTarget, List<EditItemState> refs) {
         snapXLine = -1f;
         snapYLine = -1f;
         float[] xLines = buildSnapLines(guiW * 0.25f, guiW * 0.5f, guiW * 0.75f, rect, refs, draggedTarget, true);
@@ -580,7 +600,7 @@ public class HudEditOverlay {
         return clampRect(sx.position, sy.position, rect.w, rect.h, guiW, guiH);
     }
 
-    private float[] buildSnapLines(float a, float b, float c, RectState dragged, List<EditItemState> refs, DragTarget draggedTarget, boolean horizontal) {
+    private float[] buildSnapLines(float a, float b, float c, RectState dragged, List<EditItemState> refs, Object draggedTarget, boolean horizontal) {
         float[] lines = new float[3 + refs.size() * 3];
         int count = 0;
         lines[count++] = a;
@@ -588,7 +608,7 @@ public class HudEditOverlay {
         lines[count++] = c;
         for (EditItemState item : refs) {
             RectState ref = item.rect();
-            if (item.definition().target() == draggedTarget || !isNearForSnap(dragged, ref, horizontal)) continue;
+            if (Objects.equals(item.definition().target(), draggedTarget) || !isNearForSnap(dragged, ref, horizontal)) continue;
             float start = horizontal ? ref.x : ref.y;
             float size = horizontal ? ref.w : ref.h;
             lines[count++] = start;
@@ -651,7 +671,7 @@ public class HudEditOverlay {
         void set(float value);
     }
 
-    private record EditItem(DragTarget target, String label, MoveHandler move, ScaleHandler scale, boolean locked) {}
+    private record EditItem(Object target, String label, MoveHandler move, ScaleHandler scale, boolean locked) {}
 
     private static final class EditItemState {
         private final EditItem definition;

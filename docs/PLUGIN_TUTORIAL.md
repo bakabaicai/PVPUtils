@@ -231,3 +231,30 @@ if (state) {
 
 建议调试顺序：先让 `load` 通知工作，再添加一个设置，再绘制固定文字，最后读取玩家并接入动作。
 每次只改一小部分，重载后观察日志，避免同时排查多个错误。
+
+## 9. 把自己的面板加入现有 HUD 拖动编辑
+
+在第 4 节的 `hud.register` 中加入
+`label: "我的状态面板"` 和
+`layout: {x: 20, y: 20, width: 190, height: 48, draggable: true}`。
+然后把 render 中的绘制位置改为从 `(0,0)` 开始，尺寸可使用 `ctx.width/height`。
+不再从 x/y 设置读取位置；位置和缩放由编辑器保存。
+
+重载插件，再打开原来的 HUD 编辑器。
+你的插件 HUD 会和 Java 模组 HUD 一起出现，使用同样的拖动、吸附和滚轮缩放。
+未声明 layout 的原脚本仍然按绝对坐标绘制，不会加入拖动列表。
+
+## 10. 开发自己的 UI Screen
+
+不必直接访问 Java Screen。使用 `pvputils.ui.screen({id, title, render})` 注册界面，
+在 render 中调用 `ctx.gradient`、`ctx.outline`、`ctx.shadow`、`ctx.glass`、
+`ctx.icon`、`ctx.texture` 等接口组成 UI。
+它们复用项目原来的绘制实现，而不是另外一套渲染引擎。
+
+按钮用 `ctx.button(id, label, x, y, width, height, onClick)`；
+回调中处理设置或自己的状态，需要返回时调用 `pvputils.ui.close()`。
+在游戏里输入 `.plugins screen my-status controls` 打开自己注册的 `controls` 界面。
+完整可运行示例、输入回调和每个高级绘制方法的参数见 API 参考第 12 节。
+
+新增界面后先运行 `.plugins check` 查语法，再重载。
+按钮回调、帧绘制与资源效果还要进入实际游戏操作验证，语法检查 OK 不代表逻辑已经正确。

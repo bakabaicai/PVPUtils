@@ -69,6 +69,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | `.plugins enable my-plugin` | 启用并保存启用状态 |
 | `.plugins disable my-plugin` | 卸载并保存关闭状态 |
 | `.plugins reload my-plugin` | 重读 manifest 与入口；原来启用的插件重新加载，原来关闭的仍关闭 |
+| `.plugins screen my-plugin controls` | 打开已启用插件注册的 `controls` 自定义界面 |
 
 框架异常会关闭当前实例并显示错误，但不会自动把其保存的启用状态改成关闭。
 因此刷新或下一次启动可能再次尝试加载，需要修改脚本或手动关闭插件。
@@ -99,6 +100,10 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | 设置数 | 64 |
 | HUD 数 | 16 |
 | 每轮绘制与测量调用 | 2048 |
+| 每轮阴影、背景模糊和液态玻璃合计 | 8 |
+| 绘制状态栈深度 | 32 |
+| 每插件自定义 Screen / 每 Screen 每帧按钮 | 8 / 128 |
+| 每轮事件的界面切换请求 | 8 |
 | 每插件持久化文件 | 1 MiB |
 
 这些是解释器计数与耗时预算，不是对所有内建运算、原生调用或内存分配的硬隔离。
@@ -119,7 +124,8 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | 设置句柄 | 可读写 `.value` |
 | `pvputils.storage` | `get(key, fallback?)`、`set(key, value)` |
 | `pvputils.hud` | `register({id, render})` |
-| 绘制上下文 | `width`、`height`、`text`、`textWidth`、`rect`、`roundedRect`、`line` |
+| `pvputils.ui` | `screen(definition)`、`open(id)`、`close()` |
+| 绘制上下文 | `width`、`height`、`screenWidth`、`screenHeight`、`mouseX`、`mouseY`、`text`、`textWidth`、`textShadow`、`rect`、`roundedRect`、`line`、`outline`、`gradient`、`gradientDiagonal`、`shadow`、`circle`、`icon`、`texture`、`blur`、`glass`、`save`、`restore`、`translate`、`scale`、`rotate`、`clip`、`clipRounded`、`button` |
 
 ## 4. 基础与通知
 
@@ -460,7 +466,7 @@ ID 格式与插件 ID 一致，插件内唯一，最多 16 个 HUD。
 
 使用 PVPUtils 已有 Skija 帧与字体 fallback，不创建额外 GPU context/framebuffer。
 框架保存并恢复每个插件的 Canvas 状态。不要把 ctx 留到 Tick 或卸载回调中使用。
-当前没有 HUD 拖动注册、纹理、液态玻璃或通用 ClickGUI 组件接口。
+HUD 可通过 `layout` 接入现有拖动编辑器；纹理、液态玻璃与直接绘制接口见第 12 节。
 
 ```js
 pvputils.hud.register({
@@ -479,8 +485,8 @@ pvputils.hud.register({
 ## 11. 当前范围与验证
 
 本阶段已开放玩家状态、受控玩家动作、准星交互、背包读取、快捷栏选择和容器点击。
-HTTP、异步任务、动态命令注册、键鼠事件、持续按键接管、任意世界实体枚举、
-现有模块开关、液态玻璃/纹理桥接和 HUD 拖动注册尚未实现。
+HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接管、任意世界实体枚举、
+现有模块开关和完整 ClickGUI 组件树尚未实现。自定义 Screen 有独立输入回调。
 不要把 Java/Minecraft 方法名直接当成 JS 接口。
 
 开发者验证命令：
@@ -493,3 +499,155 @@ HTTP、异步任务、动态命令注册、键鼠事件、持续按键接管、�
 冒烟测试验证 JS 回调、受控句柄与调用转发、玩家/世界/容器令牌失效、
 参数范围、渲染期修改限制、操作预算、卸载清理、HUD、设置与存储。
 原版移动效果、容器同步与其他模组交互仍应在实际客户端中测试。
+
+## 12. 高级 UI：直接复用项目绘制接口
+
+这一层不是固定模板：JS 直接调用已有 `SkijaUi`、`SkijaRenderer` 与
+`LiquidGlassRenderer` 的绘制桥接，在同一个客户端 Skija 帧中组合自己的 UI。
+原始 Canvas、GPU 对象和 Minecraft Screen 对象仍留在 Java 端。
+所有以下绘制方法仅在 render 回调中有效，返回 `undefined`，除非另行说明。
+
+### 12.1 图形、文字、图标与纹理
+
+| 方法 | 参数与效果 |
+|---|---|
+| `ctx.outline(x,y,w,h,radius,thickness,color)` | 项目圆角描边 |
+| `ctx.gradient(x,y,w,h,startColor,endColor,vertical?,radius?)` | 项目双色线性渐变；默认水平、半径 0 |
+| `ctx.gradientDiagonal(x,y,w,h,startColor,endColor,radius?)` | 项目对角渐变 |
+| `ctx.shadow(x,y,w,h,radius,offsetY,blur,color)` | 项目圆角投影；模糊参数范围 0–64 |
+| `ctx.circle(x,y,radius,color)` | 抗锯齿填充圆 |
+| `ctx.text(text,x,y,size,color,font?)` | 与原有文字接口兼容，可选项目字体名 |
+| `ctx.textShadow(text,x,y,size,color,font?)` | 项目带阴影 fallback 文字 |
+| `ctx.textWidth(text,size,font?)` | 返回 number；可选择与绘制一致的字体 |
+| `ctx.icon(glyph,x,y,size,color,set?)` | 项目图标字体；set 为 `"material"`（默认）或 `"pvp"` |
+| `ctx.texture(resource,x,y,w,h)` | 项目已加载 Minecraft 纹理；resource 是资源 ID 字符串 |
+
+字体名使用项目已有字体名称，例如 `"harmony"` 或用户在客户端导入的字体名。
+未指定字体时沿用当前客户端字体。图标使用实际字符，例如 `"\ue87b"`。
+纹理使用资源 ID，例如 `"minecraft:textures/gui/title/minecraft.png"`，不是磁盘路径。
+纹理由 Minecraft 纹理管理器拥有；借用的 Skija 包装在绘制后释放，插件无需关闭资源。
+图形尺寸范围 0–4096，文字/图标字号 1–128，坐标须有限且绝对值不超过 100000。
+
+### 12.2 状态栈、裁剪和坐标变换
+
+| 方法 | 行为 |
+|---|---|
+| `ctx.save()` / `ctx.restore()` | 保存/恢复 Canvas 状态；最多 32 层，额外 restore 抛出错误 |
+| `ctx.translate(x,y)` | 平移 |
+| `ctx.scale(x,y)` | 缩放 |
+| `ctx.rotate(degrees)` | 旋转，单位度 |
+| `ctx.clip(x,y,w,h)` | 矩形裁剪 |
+| `ctx.clipRounded(x,y,w,h,radius)` | 圆角裁剪 |
+
+每个 render 事件、每个 HUD 和每个 Screen 的绘制状态分别隔离；
+未配对的 save 在回调结束时清理，但仍建议显式配对。
+裁剪通常包在 save/restore 内，不影响其他插件。
+
+```js
+pvputils.events.on("render", ctx => {
+    ctx.save();
+    ctx.translate(20, 20);
+    ctx.clipRounded(0, 0, 180, 48, 10);
+    ctx.gradient(0, 0, 180, 48, "#304080", "#182038", false, 10);
+    ctx.textShadow("直接使用项目绘制接口", 12, 14, 12, "#FFFFFF");
+    ctx.restore();
+});
+```
+
+### 12.3 背景模糊与液态玻璃
+
+| 方法 | 行为 |
+|---|---|
+| `ctx.blur(x,y,w,h,radius,strength)` | 复用项目 framebuffer 背景模糊；strength 0–64 |
+| `ctx.glass(x,y,w,h,radius,tint?,shadow?,highlight?)` | 复用原有液态玻璃；默认项目 tint、开启投影和高光 |
+
+液态玻璃的折射、色散与模糊参数沿用客户端现有配置。
+若液态玻璃渲染失败，则绘制同色圆角背景；模糊快照首帧可能还未准备好。
+这些效果采样屏幕背景，仅支持回调的基础坐标；
+在调用 save、手动变换或裁剪后使用它们会抛出错误。
+对于带 `layout` 的 HUD，框架会自动换算其位置与缩放。
+同一插件每帧阴影、背景模糊、液态玻璃合计最多 8 次，避免无界滤镜成本。
+图形效果的真实视觉效果仍需在游戏内检验。
+
+### 12.4 HUD 布局与现有拖动编辑器
+
+`hud.register` 增加可选 `label` 和 `layout`：
+
+```js
+pvputils.hud.register({
+    id: "glass-status",
+    label: "我的玻璃 HUD",
+    layout: { x: 20, y: 20, width: 190, height: 48, draggable: true },
+    render(ctx) {
+        ctx.glass(0, 0, ctx.width, ctx.height, 10, "#40182030");
+        const state = pvputils.player.snapshot();
+        ctx.text(state ? state.name : "等待玩家", 12, 16, 14, "#FFFFFF");
+    }
+});
+```
+
+- `layout.x/y` 为默认 GUI 位置；`width/height` 为逻辑尺寸，范围 1–4096。
+- 声明 layout 后，绘制自动平移到 HUD 位置，并应用编辑器缩放。脚本从 `(0,0)` 开始绘制。
+- 此时 `ctx.width/height` 为 HUD 逻辑尺寸，`ctx.screenWidth/screenHeight` 为窗口 GUI 尺寸。
+- `draggable` 默认 true。false 时仍使用布局绘制，但不出现在 HUD 拖动编辑器中。
+- 直接进入已有 HUD 编辑器，复用原有拖动、吸附、边界限制与滚轮缩放（0.5–2），没有另建拖动系统。
+- 位置/缩放保存在该插件 `.data/<ID>.json` 的 `hud:<HUD-ID>:` 前缀下，鼠标松开、滚轮调整或卸载时保存。
+- 多插件可用相同 HUD ID，编辑器以“插件 ID + HUD ID”区分。
+- 未声明 layout 的旧 HUD 保留绝对坐标行为，不加入拖动编辑器。
+
+### 12.5 自定义 Screen 与交互控件
+
+`pvputils.ui.screen(definition)` 注册 Screen（返回 undefined），每插件最多 8 个。
+definition 必须包含唯一 `id` 与 `render(ctx)`，可选 `title`、`onOpen()`、`onClose()`：
+
+```js
+let count = 0;
+pvputils.ui.screen({
+    id: "controls",
+    title: "我的控制界面",
+    render(ctx) {
+        const panelX = (ctx.width - 240) / 2;
+        const panelY = (ctx.height - 160) / 2;
+        ctx.shadow(panelX, panelY, 240, 160, 14, 4, 16, "#80000000");
+        ctx.gradient(panelX, panelY, 240, 160, "#25304D", "#111827", true, 14);
+        ctx.text("计数：" + count, panelX + 20, panelY + 20, 16, "#FFFFFF");
+        ctx.button("increment", "点击加一", panelX + 20, panelY + 60, 200, 30, () => count++);
+        ctx.button("back", "返回", panelX + 20, panelY + 104, 200, 30, () => pvputils.ui.close());
+    }
+});
+```
+
+打开方式：
+
+- 在非渲染事件/按钮回调中调用 `pvputils.ui.open("controls")`。
+- 游戏命令 `.plugins screen <插件ID> controls`。
+- `pvputils.ui.close()` 仅关闭当前插件自己的 Screen，返回之前的界面。
+
+界面切换在下一次客户端 Tick 开头应用；render 中禁止切换界面。
+Esc 返回上一个界面；界面不暂停单人世界；卸载、重载或运行出错时自动清理本插件界面。
+打开插件 Screen 时会先正常关闭原版容器，避免保留一个失去 UI 的箱子菜单。
+
+`ctx.button(id,label,x,y,width,height,onClick,enabled?)`：
+
+- 复用项目圆角与 fallback 文字绘制按钮、悬停和禁用状态。
+- 每 Screen 每帧最多 128 个，id 格式与插件 ID 一致且当帧唯一。
+- 默认 enabled=true，左键点击执行 onClick；禁用按钮不触发回调。
+- 只在自定义 Screen 中具有交互能力，HUD 普通渲染不注册按钮。
+- 使用 GUI 绝对坐标；应在手动变换和裁剪前声明按钮，以保证绘制与命中区域一致。
+- 每帧重新定义按钮，旧命中区域在重绘及打开/关闭界面时清理。
+- 点击回调不在渲染阶段，可以修改设置、保存数据、通知或请求界面切换。
+- 原有玩家操作的 `SCREEN_OPEN` 规则不变；需要游戏动作时先关闭 Screen，再在 tick 执行。
+
+`ctx.mouseX/mouseY` 为当前鼠标 GUI 坐标，可自己绘制任意悬停、布局和控件。
+自定义 Screen 还可声明以下输入回调，返回 true 表示消费事件：
+
+| 回调 | 参数 |
+|---|---|
+| `onMouseDown(x,y,button)` | 未被内置按钮消费的鼠标按下 |
+| `onMouseUp(x,y,button)` | 鼠标释放 |
+| `onDrag(x,y,button,dx,dy)` | Screen 收到的鼠标拖动 |
+| `onScroll(x,y,horizontal,vertical)` | 滚轮 |
+| `onKey(key,scancode,modifiers)` | 非 Esc 按键，键码沿用 GLFW |
+
+这些输入仅针对当前打开的自定义 Screen，不是全局输入接管。
+需要复杂控件时可以用直接绘制与这些输入回调自行组合，不必修改 Java 模组。

@@ -141,7 +141,110 @@ public final class PluginSmokeTest {
         expectFailure(() -> storage.set("../bad", "\"" + "x".repeat(1048577) + "\""), "storage quota");
         testPlayers(directory, storage);
         testDocumentation(directory);
+        testAdvancedUi(directory);
         System.out.println("Plugin smoke tests passed: " + checks);
+    }
+
+    private static void testAdvancedUi(Path directory) throws Exception {
+        TestHost host = new TestHost();
+        PluginStorage storage = new PluginStorage(directory.resolve("advanced-ui.json"));
+        String source = """
+                let clicks = 0;
+                pvputils.hud.register({
+                    id: "advanced",
+                    label: "Advanced",
+                    layout: { x: 20, y: 30, width: 160, height: 40 },
+                    render(ctx) {
+                        if (ctx.width !== 160 || ctx.height !== 40 || ctx.screenWidth !== 800) throw Error("HUD dimensions");
+                        ctx.shadow(0, 0, 160, 40, 8, 2, 8, "#80000000");
+                        ctx.gradient(0, 0, 160, 40, "#102030", "#405060", false, 8);
+                        ctx.gradientDiagonal(0, 0, 10, 10, "#000000", "#FFFFFF", 2);
+                        ctx.outline(0, 0, 160, 40, 8, 1, "#FFFFFF");
+                        ctx.textShadow("Hello", 10, 10, 12, "#FFFFFF", "harmony");
+                        ctx.icon("A", 0, 0, 12, "#FFFFFF", "material");
+                        ctx.circle(12, 12, 4, "#FFFFFF");
+                        ctx.texture("minecraft:textures/gui/icons.png", 0, 0, 10, 10);
+                        ctx.blur(0, 0, 160, 40, 8, 6);
+                        ctx.glass(0, 0, 160, 40, 8, "#40102030", true, true);
+                        ctx.save();
+                        ctx.translate(1, 2);
+                        ctx.scale(1, 1);
+                        ctx.rotate(0);
+                        ctx.clip(0, 0, 100, 20);
+                        ctx.clipRounded(0, 0, 100, 20, 2);
+                        ctx.restore();
+                    }
+                });
+                pvputils.ui.screen({
+                    id: "controls",
+                    title: "Controls",
+                    onOpen() { pvputils.log("opened"); },
+                    onClose() { pvputils.log("screen-closed"); },
+                    onScroll(x,y,h,v) { return x === 40 && v === 1; },
+                    render(ctx) {
+                        ctx.button("count", "Count", 20, 20, 100, 30, () => {
+                            clicks++;
+                            pvputils.log("click=" + clicks);
+                        });
+                        ctx.button("disabled", "Disabled", 20, 60, 100, 30, () => {
+                            throw Error("Disabled button clicked");
+                        }, false);
+                    }
+                });
+                pvputils.ui.open("controls");
+                """;
+        PluginRuntime runtime = runtime(directory, source, storage, host);
+        runtime.start();
+        check(runtime.hasScreen("controls") && runtime.screenTitle("controls").equals("Controls"), "screen definition");
+        check(host.screenRequests.contains("open:controls"), "screen open bridge");
+        check(runtime.hudLayouts().size() == 1 && runtime.hudLayouts().getFirst().draggable(), "HUD layout default draggable");
+        runtime.render(800, 600);
+        check(host.draws.containsAll(List.of("gradient", "gradientDiagonal", "outline", "shadow", "textShadow",
+                "icon", "circle", "texture", "blur", "glass", "clip", "clipRounded", "rotate")), "advanced draw bridge");
+        check(host.scopes == 0, "draw scopes restored");
+        runtime.moveHud("advanced", 100, 200, 800, 600);
+        runtime.hudLayouts().getFirst().setScale(1.5f);
+        runtime.saveHudLayouts();
+        check(new PluginStorage(directory.resolve("advanced-ui.json")).number("hud:advanced:x", 0) == 100, "HUD position persisted");
+        runtime.screenEvent("controls", "onOpen");
+        runtime.renderScreen("controls", 800, 600);
+        check(runtime.clickScreen("controls", 40, 30, 0), "button click consumed");
+        check(host.messages.contains("click=1"), "button callback");
+        check(runtime.screenInput("controls", "onScroll", new Object[]{40, 30, 0, 1}), "screen input callback");
+        check(!runtime.screenInput("controls", "onScroll", new Object[]{40, 30, 0, 2}), "screen input propagation");
+        check(!runtime.clickScreen("controls", 40, 30, 1), "secondary click ignored");
+        check(!runtime.clickScreen("controls", 40, 70, 0), "disabled button ignored");
+        check(!runtime.clickScreen("controls", 500, 500, 0), "outside click ignored");
+        runtime.screenEvent("controls", "onClose");
+        check(!runtime.clickScreen("controls", 40, 30, 0), "closed screen clears hit boxes");
+        runtime.close();
+        PluginRuntime restored = runtime(directory, source, storage, host);
+        restored.start();
+        check(restored.hudLayouts().getFirst().x() == 100 && restored.hudLayouts().getFirst().scale() == 1.5f, "HUD restore scale and position");
+        restored.moveHud("advanced", 5000, -10, 800, 600);
+        check(restored.hudLayouts().getFirst().x() == 560 && restored.hudLayouts().getFirst().y() == 0, "scaled HUD bounds");
+        restored.close();
+        testFailure(directory, "pvputils.ui.open('missing');", "unknown screen denied", storage, host);
+        testFailure(directory, "pvputils.hud.register({id:'bad',layout:{width:5000},render(ctx){}});",
+                "HUD size limit", storage, host);
+        PluginRuntime underflow = runtime(directory, "pvputils.events.on('render', ctx => ctx.restore());", storage, host);
+        underflow.start();
+        expectFailure(() -> underflow.render(800, 600), "drawing restore underflow");
+        underflow.close();
+        PluginRuntime effects = runtime(directory, """
+                pvputils.events.on("render", ctx => {
+                    for (let i = 0; i < 9; i++) ctx.blur(0, 0, 100, 30, 4, 5);
+                });
+                """, storage, host);
+        effects.start();
+        expectFailure(() -> effects.render(800, 600), "effect frame budget");
+        effects.close();
+        PluginRuntime screenMutation = runtime(directory, """
+                pvputils.ui.screen({id:"test", render(ctx) { pvputils.ui.close(); }});
+                """, storage, host);
+        screenMutation.start();
+        expectFailure(() -> screenMutation.renderScreen("test", 800, 600), "screen change during render denied");
+        screenMutation.close();
     }
 
     private static void testDocumentation(Path directory) throws Exception {
@@ -347,6 +450,17 @@ public final class PluginSmokeTest {
         private int health = 20;
         private int releases;
         private String clickedMenu;
+        private int scopes;
+        private final List<String> screenRequests = new ArrayList<>();
+
+        @Override
+        public void pushDraw() { scopes++; }
+
+        @Override
+        public void popDraw() { scopes--; }
+
+        @Override
+        public void screen(String operation, String id) { screenRequests.add(operation + ":" + id); }
 
         @Override
         public void log(String message) {

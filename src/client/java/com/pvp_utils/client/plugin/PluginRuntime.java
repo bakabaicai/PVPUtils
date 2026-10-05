@@ -11,7 +11,6 @@ import org.mozilla.javascript.Undefined;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +32,11 @@ public final class PluginRuntime implements AutoCloseable {
         }
         void draw(String operation, Object[] arguments);
         double textWidth(Object[] arguments);
+        default void pushDraw() {}
+        default void popDraw() {}
+        default double mouseX() { return -1; }
+        default double mouseY() { return -1; }
+        default void screen(String operation, String id) {}
     }
 
     private static final Set<String> EVENTS = Set.of("load", "unload", "tick", "render", "join", "leave");
@@ -55,6 +59,18 @@ public final class PluginRuntime implements AutoCloseable {
     private int renderHeight;
     private Function parseJson;
     private Function stringifyJson;
+    private final Map<String, Scriptable> screens = new LinkedHashMap<>();
+    private final List<UiButton> buttons = new ArrayList<>();
+    private String drawingScreen;
+    private int stateDepth;
+    private int uiActions;
+    private boolean transformed;
+    private int screenWidth;
+    private int screenHeight;
+    private int effectCalls;
+    private float originX;
+    private float originY;
+    private float originScale = 1;
 
     public PluginRuntime(PluginManifest manifest, PluginStorage storage, Host host) {
         this.manifest = manifest;
@@ -161,6 +177,29 @@ public final class PluginRuntime implements AutoCloseable {
                     });
                 }
                 Scriptable hud = object(cx);
+                Scriptable ui = object(cx);
+                property(api, "ui", ui);
+                function(ui, "screen", (context, args) -> {
+                    if (args.length != 1 || !(args[0] instanceof Scriptable definition)
+                            || !(ScriptableObject.getProperty(definition, "render") instanceof Function)) {
+                        throw new IllegalArgumentException("Screen requires a render callback");
+                    }
+                    String id = Context.toString(ScriptableObject.getProperty(definition, "id"));
+                    if (!id.matches("[a-z][a-z0-9_-]{0,63}") || screens.containsKey(id) || screens.size() >= 8) {
+                        throw new IllegalArgumentException("Invalid, duplicate or excessive screen id");
+                    }
+                    screens.put(id, definition);
+                    return Undefined.instance;
+                });
+                for (String operation : List.of("open", "close")) {
+                    function(ui, operation, (context, args) -> {
+                        if (rendering || ++uiActions > 8) throw new IllegalStateException("Screen changes require a non-render callback");
+                        String id = operation.equals("open") ? string(args, 0) : "";
+                        if (operation.equals("open") && !screens.containsKey(id)) throw new IllegalArgumentException("Unknown screen");
+                        host.screen(operation, id);
+                        return Undefined.instance;
+                    });
+                }
                 property(api, "hud", hud);
                 function(hud, "register", (context, args) -> {
                     if (args.length == 0 || !(args[0] instanceof Scriptable definition)
@@ -172,7 +211,7 @@ public final class PluginRuntime implements AutoCloseable {
                     if (!id.matches("[a-z][a-z0-9_-]{0,63}") || huds.stream().anyMatch(existing -> existing.id().equals(id))) {
                         throw new IllegalArgumentException("Invalid or duplicate HUD id");
                     }
-                    huds.add(new HudRegistration(id, definition, callback));
+                    huds.add(new HudRegistration(id, definition, callback, hudLayout(definition, id)));
                     return Undefined.instance;
                 });
                 cx.evaluateString(scope, source, manifest.entry().getFileName().toString(), 1, null);
@@ -186,6 +225,56 @@ public final class PluginRuntime implements AutoCloseable {
 
     public List<PluginSetting> settings() {
         return List.copyOf(settings);
+    }
+
+    public List<HudLayout> hudLayouts() {
+        return huds.stream().map(HudRegistration::layout).filter(layout -> layout != null).toList();
+    }
+
+    public void moveHud(String id, float x, float y, int width, int height) {
+        for (HudRegistration hud : huds) {
+            if (!hud.id().equals(id) || hud.layout() == null) continue;
+            hud.layout().move(x, y, width, height);
+        }
+    }
+
+    public void saveHudLayouts() throws java.io.IOException {
+        com.google.gson.JsonObject values = new com.google.gson.JsonObject();
+        for (HudLayout layout : hudLayouts()) {
+            values.addProperty(layout.keyX(), layout.x);
+            values.addProperty(layout.keyY(), layout.y);
+            values.addProperty("hud:" + layout.id + ":scale", layout.scale);
+        }
+        if (values.size() > 0) storage.update(values);
+    }
+
+    private HudLayout hudLayout(Scriptable definition, String id) {
+        Object raw = ScriptableObject.getProperty(definition, "layout");
+        if (!(raw instanceof Scriptable layout)) return null;
+        float x = finite(ScriptableObject.getProperty(layout, "x"), 20);
+        float y = finite(ScriptableObject.getProperty(layout, "y"), 20);
+        float width = finite(ScriptableObject.getProperty(layout, "width"), 160);
+        float height = finite(ScriptableObject.getProperty(layout, "height"), 40);
+        Object drag = ScriptableObject.getProperty(layout, "draggable");
+        boolean draggable = drag == Scriptable.NOT_FOUND || Context.toBoolean(drag);
+        String key = "hud:" + id + ":";
+        x = (float) storage.number(key + "x", x);
+        y = (float) storage.number(key + "y", y);
+        Object label = ScriptableObject.getProperty(definition, "label");
+        if (!Float.isFinite(x + y + width + height) || width <= 0 || height <= 0 || width > 4096 || height > 4096
+                || Math.abs(x) > 100000 || Math.abs(y) > 100000) throw new IllegalArgumentException("Invalid HUD layout");
+        HudLayout result = new HudLayout(id, label == Scriptable.NOT_FOUND ? id : Context.toString(label),
+                x, y, Math.max(1, width), Math.max(1, height), draggable, key + "x", key + "y");
+        double savedScale = storage.number(key + "scale", 1);
+        result.scale = Double.isFinite(savedScale) ? (float) Math.max(0.5, Math.min(2, savedScale)) : 1;
+        return result;
+    }
+
+    private static float finite(Object value, float fallback) {
+        if (value == Scriptable.NOT_FOUND) return fallback;
+        double number = Context.toNumber(value);
+        if (!Double.isFinite(number) || Math.abs(number) > 100000) throw new IllegalArgumentException("Invalid layout number");
+        return (float) number;
     }
 
     public void emit(String event) {
@@ -202,14 +291,32 @@ public final class PluginRuntime implements AutoCloseable {
         run(cx -> {
             rendering = true;
             drawCalls = 0;
+            effectCalls = 0;
+            screenWidth = width;
+            screenHeight = height;
             renderWidth = width;
             renderHeight = height;
             try {
                 if (renderContext == null) renderContext = drawingContext(cx);
                 Scriptable context = renderContext;
-                emit(cx, "render", new Object[]{context});
+                drawScoped(() -> emit(cx, "render", new Object[]{context}));
                 for (HudRegistration hud : List.copyOf(huds)) {
-                    hud.callback().call(cx, scope, hud.definition(), new Object[]{context});
+                    drawScoped(() -> {
+                        HudLayout layout = hud.layout();
+                        if (layout != null) {
+                            layout.move(layout.x, layout.y, width, height);
+                            renderWidth = Math.round(layout.width);
+                            renderHeight = Math.round(layout.height);
+                            host.draw("translate", new Object[]{layout.x, layout.y});
+                            host.draw("scale", new Object[]{layout.scale, layout.scale});
+                            originX = layout.x;
+                            originY = layout.y;
+                            originScale = layout.scale;
+                        }
+                        hud.callback().call(cx, scope, hud.definition(), new Object[]{context});
+                    });
+                    renderWidth = width;
+                    renderHeight = height;
                 }
             } finally {
                 rendering = false;
@@ -224,10 +331,53 @@ public final class PluginRuntime implements AutoCloseable {
         context.setGetterOrSetter("height", 0, createFunction((current, args) -> renderHeight), false);
         context.setAttributes("width", ScriptableObject.READONLY | ScriptableObject.PERMANENT);
         context.setAttributes("height", ScriptableObject.READONLY | ScriptableObject.PERMANENT);
-        for (String operation : List.of("text", "textWidth", "rect", "roundedRect", "line")) {
+        for (String key : List.of("screenWidth", "screenHeight", "mouseX", "mouseY")) {
+            context.setGetterOrSetter(key, 0, createFunction((current, args) -> switch (key) {
+                case "screenWidth" -> screenWidth;
+                case "screenHeight" -> screenHeight;
+                case "mouseX" -> host.mouseX();
+                default -> host.mouseY();
+            }), false);
+            context.setAttributes(key, ScriptableObject.READONLY | ScriptableObject.PERMANENT);
+        }
+        for (String operation : List.of("text", "textWidth", "rect", "roundedRect", "line", "outline",
+                "gradient", "gradientDiagonal", "shadow", "textShadow", "icon", "texture", "blur",
+                "circle", "glass", "save", "restore", "translate", "scale", "rotate", "clip", "clipRounded")) {
             function(context, operation, (current, args) -> {
                 if (!rendering) throw new IllegalStateException("Drawing is only available during render");
                 if (++drawCalls > 2048) throw new IllegalStateException("Too many draw calls");
+                if (operation.equals("save")) {
+                    if (stateDepth >= 32) throw new IllegalStateException("Drawing stack limit");
+                    stateDepth++;
+                }
+                if (operation.equals("restore")) {
+                    if (stateDepth <= 0) throw new IllegalStateException("Unbalanced restore");
+                    stateDepth--;
+                }
+                if (List.of("translate", "scale", "rotate", "clip", "clipRounded").contains(operation)) transformed = true;
+                if (List.of("shadow", "blur", "glass").contains(operation) && ++effectCalls > 8) {
+                    throw new IllegalStateException("At most 8 filtered effects per frame");
+                }
+                if (operation.equals("glass") || operation.equals("blur")) {
+                    if (transformed || stateDepth != 0) throw new IllegalStateException("Backdrop effects require base coordinates");
+                    if (args.length < 5) throw new IllegalArgumentException("Missing backdrop bounds");
+                    Object[] adjusted = args.clone();
+                    adjusted[0] = originX + Context.toNumber(args[0]) * originScale;
+                    adjusted[1] = originY + Context.toNumber(args[1]) * originScale;
+                    for (int i = 2; i <= 4; i++) adjusted[i] = Context.toNumber(args[i]) * originScale;
+                    if (operation.equals("blur")) {
+                        host.pushDraw();
+                        try {
+                            host.draw("resetTransform", new Object[0]);
+                            host.draw(operation, adjusted);
+                        } finally {
+                            host.popDraw();
+                        }
+                    } else {
+                        host.draw(operation, adjusted);
+                    }
+                    return Undefined.instance;
+                }
                 if (operation.equals("textWidth")) {
                     return host.textWidth(args);
                 }
@@ -235,7 +385,115 @@ public final class PluginRuntime implements AutoCloseable {
                 return Undefined.instance;
             });
         }
+        function(context, "button", (current, args) -> {
+            if (!rendering || drawingScreen == null || transformed) {
+                throw new IllegalStateException("Interactive buttons require an untransformed custom screen");
+            }
+            if (args.length < 7 || !(args[6] instanceof Function callback) || buttons.size() >= 128
+                    || ++drawCalls > 2048) throw new IllegalArgumentException("Invalid or excessive buttons");
+            String id = string(args, 0);
+            if (!id.matches("[a-z][a-z0-9_-]{0,63}") || buttons.stream().anyMatch(b -> b.id.equals(id))) {
+                throw new IllegalArgumentException("Invalid or duplicate button id");
+            }
+            float x = finite(args[2], Float.NaN);
+            float y = finite(args[3], Float.NaN);
+            float width = finite(args[4], Float.NaN);
+            float height = finite(args[5], Float.NaN);
+            if (!Float.isFinite(x + y + width + height) || width <= 0 || height <= 0
+                    || Math.abs(x) > 100000 || Math.abs(y) > 100000 || width > 4096 || height > 4096) {
+                throw new IllegalArgumentException("Invalid button bounds");
+            }
+            boolean enabled = args.length < 8 || Context.toBoolean(args[7]);
+            boolean hover = host.mouseX() >= x && host.mouseY() >= y
+                    && host.mouseX() < x + width && host.mouseY() < y + height;
+            host.draw("button", new Object[]{string(args, 1), x, y, width, height, enabled, hover});
+            buttons.add(new UiButton(drawingScreen, id, x, y, width, height, enabled, callback));
+            return Undefined.instance;
+        });
         return context;
+    }
+
+    private void drawScoped(Runnable callback) {
+        host.pushDraw();
+        stateDepth = 0;
+        transformed = false;
+        originX = originY = 0;
+        originScale = 1;
+        try {
+            callback.run();
+        } finally {
+            try {
+                while (stateDepth > 0) {
+                    host.draw("restore", new Object[0]);
+                    stateDepth--;
+                }
+            } finally {
+                host.popDraw();
+            }
+        }
+    }
+
+    public boolean hasScreen(String id) { return screens.containsKey(id); }
+
+    public String screenTitle(String id) {
+        Object title = ScriptableObject.getProperty(screens.get(id), "title");
+        return title == Scriptable.NOT_FOUND ? id : Context.toString(title);
+    }
+
+    public void screenEvent(String id, String event) {
+        if (!screens.containsKey(id) || closed) return;
+        if (event.equals("onOpen") || event.equals("onClose")) buttons.clear();
+        run(cx -> {
+            Object callback = ScriptableObject.getProperty(screens.get(id), event);
+            if (callback instanceof Function function) function.call(cx, scope, screens.get(id), new Object[0]);
+            return null;
+        });
+    }
+
+    public boolean screenInput(String id, String event, Object[] args) {
+        if (closed || !screens.containsKey(id)) return false;
+        return run(cx -> {
+            Object callback = ScriptableObject.getProperty(screens.get(id), event);
+            return callback instanceof Function function
+                    && Context.toBoolean(function.call(cx, scope, screens.get(id), args));
+        });
+    }
+
+    public void renderScreen(String id, int width, int height) {
+        if (!screens.containsKey(id)) return;
+        run(cx -> {
+            buttons.clear();
+            rendering = true;
+            drawingScreen = id;
+            drawCalls = 0;
+            effectCalls = 0;
+            screenWidth = renderWidth = width;
+            screenHeight = renderHeight = height;
+            try {
+                if (renderContext == null) renderContext = drawingContext(cx);
+                drawScoped(() -> ((Function) ScriptableObject.getProperty(screens.get(id), "render"))
+                        .call(cx, scope, screens.get(id), new Object[]{renderContext}));
+            } finally {
+                rendering = false;
+                drawingScreen = null;
+            }
+            return null;
+        });
+    }
+
+    public boolean clickScreen(String id, double x, double y, int button) {
+        if (closed || button != 0 || !screens.containsKey(id)) return false;
+        return run(cx -> {
+            for (int i = buttons.size() - 1; i >= 0; i--) {
+                UiButton control = buttons.get(i);
+                if (control.screen.equals(id) && control.enabled && x >= control.x && y >= control.y
+                        && x < control.x + control.width && y < control.y + control.height) {
+                    control.callback.call(cx, scope, scope, new Object[0]);
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     private Scriptable playerHandle(Context cx, String token) {
@@ -323,6 +581,7 @@ public final class PluginRuntime implements AutoCloseable {
         if (Thread.currentThread() != owner) throw new IllegalStateException("Plugin called from another thread");
         messages = 0;
         playerActions = 0;
+        uiActions = 0;
         return factory.call(action);
     }
 
@@ -330,7 +589,10 @@ public final class PluginRuntime implements AutoCloseable {
     public void close() {
         if (closed) return;
         try {
+            saveHudLayouts();
             if (scope != null) emit("unload");
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Failed to save HUD layouts", e);
         } finally {
             closed = true;
             listeners.clear();
@@ -340,6 +602,8 @@ public final class PluginRuntime implements AutoCloseable {
             parseJson = null;
             stringifyJson = null;
             renderContext = null;
+            screens.clear();
+            buttons.clear();
             host.releasePlayer();
         }
     }
@@ -355,8 +619,87 @@ public final class PluginRuntime implements AutoCloseable {
         Object call(Context cx, Object[] arguments) throws Exception;
     }
 
-    private record HudRegistration(String id, Scriptable definition, Function callback) {
+    public static final class HudLayout {
+        private final String id;
+        private final String label;
+        private float x;
+        private float y;
+        private final float width;
+        private final float height;
+        private final boolean draggable;
+        private float scale = 1;
+        private final String keyX;
+        private final String keyY;
+
+        private HudLayout(String id, String label, float x, float y, float width, float height,
+                          boolean draggable, String keyX, String keyY) {
+            this.id = id;
+            if (label.length() > 96) throw new IllegalArgumentException("HUD label exceeds 96 characters");
+            this.label = label.isBlank() ? id : label;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.draggable = draggable;
+            this.keyX = keyX;
+            this.keyY = keyY;
+        }
+
+        public String id() {
+            return id;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public float x() {
+            return x;
+        }
+
+        public float y() {
+            return y;
+        }
+
+        public float width() {
+            return width;
+        }
+
+        public float height() {
+            return height;
+        }
+
+        public boolean draggable() {
+            return draggable;
+        }
+
+        public float scale() { return scale; }
+
+        public void setScale(float value) {
+            if (!Float.isFinite(value)) throw new IllegalArgumentException("Invalid scale");
+            scale = Math.max(0.5f, Math.min(2, value));
+        }
+
+        private String keyX() {
+            return keyX;
+        }
+
+        private String keyY() {
+            return keyY;
+        }
+
+        private void move(float x, float y, int guiWidth, int guiHeight) {
+            if (!Float.isFinite(x) || !Float.isFinite(y)) throw new IllegalArgumentException("Invalid HUD position");
+            this.x = Math.max(0, Math.min(x, guiWidth - width * scale));
+            this.y = Math.max(0, Math.min(y, guiHeight - height * scale));
+        }
     }
+
+    private record HudRegistration(String id, Scriptable definition, Function callback, HudLayout layout) {
+    }
+
+    private record UiButton(String screen, String id, float x, float y, float width, float height,
+                            boolean enabled, Function callback) {}
 
     private static final class BudgetContext extends Context {
         private final long deadline;
