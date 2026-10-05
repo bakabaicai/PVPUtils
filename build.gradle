@@ -73,8 +73,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-    implementation "top.fpsmaster:music-api:0.1.2"
-    include "top.fpsmaster:music-api:0.1.2"
+    implementation project(":Cadence")
+    include project(":Cadence")
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:2.4.0"
     include "org.jetbrains.kotlin:kotlin-stdlib:2.4.0"
