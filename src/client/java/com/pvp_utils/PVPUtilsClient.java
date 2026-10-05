@@ -31,6 +31,7 @@ public class PVPUtilsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         Config.load();
+        com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
         ClickGuiThemeManager.applyConfig();
         AntiCheat.verifyEnvironment();
         VictorySound.init();

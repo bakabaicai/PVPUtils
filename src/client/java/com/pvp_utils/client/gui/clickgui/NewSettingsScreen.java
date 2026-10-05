@@ -37,10 +37,10 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
     private final List<BasePage> pages;
 
-    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900", "\uE3A9"};
-    private static final SkijaUi.IconSet[] TAB_ICON_FONTS = {SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS};
-    private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他", "主题"};
-    private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc", "Theme"};
+    private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900", "\uE3A9", "\uE87B"};
+    private static final SkijaUi.IconSet[] TAB_ICON_FONTS = {SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS};
+    private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他", "主题", "插件"};
+    private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc", "Theme", "Plugins"};
 
     private int selectedTab = 0;
     private int hoveredTab = -1;
@@ -120,7 +120,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"));
         this.parent = parent;
-        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage()));
+        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage(), new PluginPage()));
     }
 
     public void rebuildCurrentPage() {
@@ -130,6 +130,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             case 2 -> new ToolPage();
             case 3 -> new OptimizePage();
             case 4 -> new MiscPage();
+            case 6 -> new PluginPage();
             default -> new ThemePage();
         });
         invalidateScrollLayout();
@@ -345,7 +346,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
         int hovered = -1;
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
-            float ty = tabStartY + i * (tabH + tabGap);
+            float ty = tabStartY + i * (tabH + tabGap) + 4f;
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
                 hovered = i;
                 break;
@@ -402,7 +403,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         closeHovered = false;
         resetHovered = false;
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
-            float ty = tabStartY + i * (tabH + tabGap);
+            float ty = tabStartY + i * (tabH + tabGap) + 4f;
             if (layoutMouseX >= cardX + 12f && layoutMouseX <= cardX + 12f + tabW && layoutMouseY >= ty && layoutMouseY <= ty + tabH)
             hoveredTab = i;
         }
@@ -421,7 +422,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         searchFocusAlpha = lerp(searchFocusAlpha, searchFocused ? 1f : 0f, dt * 14f);
         searchCursorTime += dt;
 
-        float targetIndicatorY = tabStartY + selectedTab * (tabH + tabGap);
+        float targetIndicatorY = tabStartY + selectedTab * (tabH + tabGap) + 4f;
         if (indicatorY < 0f) indicatorY = targetIndicatorY;
         indicatorY = lerp(indicatorY, targetIndicatorY, dt * 12f);
 
@@ -471,13 +472,13 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             float tabY = tabStartY + i * (tabH + tabGap);
             if (tabHoverAlpha[i] > 0.01f) {
                 hoverPaint.setColor(withAlpha(tc.hoverBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha * tabHoverAlpha[i])));
-                canvas.drawRRect(RRect.makeXYWH(cardX + 12f, tabY, tabW, tabH, 8f), hoverPaint);
+                canvas.drawRRect(RRect.makeXYWH(cardX + 12f, tabY + 4f, tabW, tabH, 8f), hoverPaint);
             }
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveIcon, alpha);
             int textColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveText, alpha);
-            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, (tabY + tabH / 2f + 6f) + SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getDescent() - SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), iconColor, 13f, TAB_ICON_FONTS[i]);
-            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, (tabY + tabH / 2f + 6f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), textColor, 13f);
+            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, (tabY + tabH / 2f + 10f) + SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getDescent() - SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), iconColor, 13f, TAB_ICON_FONTS[i]);
+            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, (tabY + tabH / 2f + 8f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), textColor, 13f);
         }
 
         int closeBgColor = lerpColor(tc.buttonBackground, tc.dangerHoverBackground, closeHoverAlpha);
@@ -528,7 +529,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             drawThemePreviewGrid(canvas, contentX, contentY, contentW, alpha, layoutMouseX, layoutMouseY);
         } else {
             float moduleStartY = contentY + 54f;
-            page.draw(canvas, contentX + 10f, moduleStartY, contentW - 40f, contentH - 54f, alpha, contentScrollOffset, layoutMouseX, layoutMouseY);
+            float pageX = page instanceof PluginPage ? contentX : contentX + 10f;
+            float pageWidth = page instanceof PluginPage ? contentW : contentW - 40f;
+            page.draw(canvas, pageX, moduleStartY, pageWidth, contentH - 54f, alpha, contentScrollOffset, layoutMouseX, layoutMouseY);
             drawScrollbar(canvas, page, contentX, contentY, contentW, contentH, alpha, tc);
         }
 
@@ -894,7 +897,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
-            float ty = tabStartY + i * (tabH + tabGap);
+            float ty = tabStartY + i * (tabH + tabGap) + 4f;
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
                 if (button == 0) {
                     clearSearch();
