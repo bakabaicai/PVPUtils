@@ -9,4 +9,10 @@ pluginManagement {
 	}
 }
 
-includeBuild("../Cadence")
+dependencyResolutionManagement {
+	repositories {
+		mavenCentral()
+	}
+}
+
+include("Cadence")

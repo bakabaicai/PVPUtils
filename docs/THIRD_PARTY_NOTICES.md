@@ -48,7 +48,7 @@ Permission notices for MIT components are the standard text in [`LICENSES/MIT.tx
 - Local commit `b4a3613` — `feat: 用户资料与推荐歌单 API，版本 0.1.2` (ThinkReally114, 2026-09-25), applied on top of upstream `FPSMasterTeam/Cadence`.
 - Added user profile and daily-recommendation playlist APIs: `src/main/kotlin/top/fpsmaster/music/MusicModels.kt` (+7) and `NeteaseMusicApi.kt` (+35).
 - Version bump `0.1.1` → `0.1.2` in `build.gradle.kts`, which is the coordinate PVPUtils declares (`top.fpsmaster:music-api:0.1.2`).
-- Built from the sibling checkout `../Cadence` through `settings.gradle` `includeBuild` (composite build) and jar-in-jar `include`, **not** from the upstream release artifact.
+- Built from the `Cadence` Git submodule through `settings.gradle` `include` (Gradle subproject) and jar-in-jar `include`, **not** from the upstream release artifact.
 - Modified tree: https://github.com/ThinkReally114/Cadence (`main`); the change is **not yet merged** into upstream https://github.com/FPSMasterTeam/Cadence.
 - No copyright or license headers were removed; [`LICENSES/MIT.txt`](./LICENSES/MIT.txt) applies to the modified library unchanged.
 
@@ -242,7 +242,7 @@ For each component, corresponding source is available as:
 |---|---|
 | Maven Central sources JAR | e.g. `https://repo1.maven.org/maven2/<group>/<artifact>/<version>/<artifact>-<version>-sources.jar` |
 | Upstream VCS | Clone **Source** URL at the release/tag matching the Maven version |
-| Rebuild this project | `./gradlew build` from a full checkout with sibling `../Cadence` (composite build); nested jars are resolved by Gradle/Loom from the coordinates in `build.gradle` |
+| Rebuild this project | Run `git submodule update --init --recursive` and `./gradlew build`; Cadence is built as a Gradle subproject and nested jars are resolved by Gradle/Loom from `build.gradle` |
 
 PVPUtils does **not** modify these LGPL libraries (unmodified published artifacts).
 
@@ -254,7 +254,7 @@ Loom jar-in-jar nests libraries under the published mod jar. PVPUtils does not p
 2. **Replace with same API** — put a different compatible build of the same Maven coordinate (or an interface-compatible LGPL build) in place of the nested file, preserving the nested filename Loom expects.
 3. **Rebuild from source instead** — preferred path:
    - Clone PVPUtils
-   - Place Cadence at `../Cadence` (see `settings.gradle` `includeBuild`)
+   - Initialize `Cadence` with `git submodule update --init --recursive` (see `settings.gradle` `include`)
    - Run `./gradlew build`
    - Dependency versions are pinned in `build.gradle`; change a coordinate there to upgrade/replace an LGPL library
 4. **Obtain library source** — use the `-sources.jar` coordinates in §2.3; PVPUtils ships no modified object code for these libraries.
