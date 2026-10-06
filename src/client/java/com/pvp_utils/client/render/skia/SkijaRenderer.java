@@ -12,18 +12,14 @@ import io.github.humbleui.skija.ColorAlphaType;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ColorSpace;
 import io.github.humbleui.skija.ColorType;
+import io.github.humbleui.skija.ContentChangeMode;
 import io.github.humbleui.skija.DirectContext;
-import io.github.humbleui.skija.FilterTileMode;
 import io.github.humbleui.skija.FramebufferFormat;
 import io.github.humbleui.skija.GLTextureInfo;
 import io.github.humbleui.skija.Image;
-import io.github.humbleui.skija.ImageFilter;
-import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.Path;
-import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.skija.Surface;
 import io.github.humbleui.skija.SurfaceOrigin;
-import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.resources.Identifier;
@@ -119,8 +115,11 @@ public final class SkijaRenderer {
             ensureSurface(width, height, framebuffer, 0, 0);
 
             context.resetGLAll();
+            surface.notifyContentWillChange(ContentChangeMode.RETAIN);
             if (captureBackdrop) {
-                backdrop = surface.makeImageSnapshot();
+                SurfaceTarget target = surfaces.get(framebuffer);
+                if (target == null) throw new IllegalStateException("Missing Skija surface target");
+                backdrop = target.backdrop().capture(context, framebuffer, width, height);
                 frameBackdropSnapshot = backdrop;
             }
             Canvas canvas = surface.getCanvas();
@@ -267,28 +266,9 @@ public final class SkijaRenderer {
         float guiHeight = window.getGuiScaledHeight();
         if (guiWidth <= 0.0F || guiHeight <= 0.0F) return;
 
-        float scaleX = targetWidth / guiWidth;
-        float scaleY = targetHeight / guiHeight;
-        float padding = Math.max(2.0F, strength * 2.5F);
-        int left = Math.max(0, (int) Math.floor((x - padding) * scaleX));
-        int top = Math.max(0, (int) Math.floor((y - padding) * scaleY));
-        int right = Math.min(targetWidth, (int) Math.ceil((x + width + padding) * scaleX));
-        int bottom = Math.min(targetHeight, (int) Math.ceil((y + height + padding) * scaleY));
-        if (right <= left || bottom <= top) return;
-
-        try (ImageFilter filter = ImageFilter.makeBlur(strength, strength, FilterTileMode.CLAMP);
-        Paint paint = new Paint().setAntiAlias(true).setImageFilter(filter)) {
-            Rect source = Rect.makeLTRB(left, top, right, bottom);
-            Rect destination = Rect.makeLTRB(
-            left / scaleX, top / scaleY, right / scaleX, bottom / scaleY);
-            int save = canvas.save();
-            try {
-                clipper.accept(canvas);
-                canvas.drawImageRect(frameBackdropSnapshot, source, destination,
-                SamplingMode.LINEAR, paint, true);
-            } finally {
-                canvas.restoreToCount(save);
-            }
+        try {
+            SkijaBackdrop.draw(canvas, frameBackdropSnapshot, clipper,
+            x, y, width, height, guiWidth, guiHeight, strength);
         } catch (Throwable throwable) {
             backdropBlurFailed = true;
             PVPUtils.LOGGER.warn("Framebuffer snapshot blur is unavailable; disabling HUD blur for this session",
@@ -357,14 +337,13 @@ public final class SkijaRenderer {
             framebuffer, FramebufferFormat.GR_GL_RGBA8);
             Surface created;
             try {
-                created = Surface.wrapBackendRenderTarget(context, backend, SurfaceOrigin.BOTTOM_LEFT,
-                ColorType.RGBA_8888, ColorSpace.getSRGB());
+                created = SkijaBackdrop.wrap(context, backend);
                 if (created == null) throw new IllegalStateException("Failed to wrap framebuffer " + framebuffer);
             } catch (Throwable error) {
                 backend.close();
                 throw error;
             }
-            target = new SurfaceTarget(width, height, samples, stencilBits, backend, created);
+            target = new SurfaceTarget(width, height, samples, stencilBits, backend, created, new SkijaBackdrop());
             surfaces.put(framebuffer, target);
         }
         renderTarget = target.backend();
@@ -389,9 +368,10 @@ public final class SkijaRenderer {
     }
 
     private record SurfaceTarget(int width, int height, int samples, int stencilBits,
-    BackendRenderTarget backend, Surface surface) implements AutoCloseable {
+    BackendRenderTarget backend, Surface surface, SkijaBackdrop backdrop) implements AutoCloseable {
         @Override
         public void close() {
+            backdrop.close();
             surface.close();
             backend.close();
         }
