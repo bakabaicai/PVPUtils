@@ -492,13 +492,13 @@ HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接�
 开发者验证命令：
 
 ```powershell
-.\gradlew.bat compileJava compileClientJava pluginSmokeTest build --no-daemon
+.\gradlew.bat compileJava compileClientJava :build --no-daemon
 ```
 
 先按项目 `AGENTS.md` 设置进程临时目录。
-冒烟测试验证 JS 回调、受控句柄与调用转发、玩家/世界/容器令牌失效、
-参数范围、渲染期修改限制、操作预算、卸载清理、HUD、设置与存储。
-原版移动效果、容器同步与其他模组交互仍应在实际客户端中测试。
+上述命令验证源码编译与打包。JS 回调、受控句柄与调用转发、玩家/世界/容器令牌失效、
+参数范围、渲染期修改限制、操作预算、卸载清理、HUD、设置与存储，
+以及原版移动效果、容器同步与其他模组交互应在实际客户端中测试。
 
 ## 12. 高级 UI：直接复用项目绘制接口
 
