@@ -1,13 +1,10 @@
 # 插件编写规范与 API 参考
 
 本文用于查阅插件格式、运行规则和全部公开接口。第一次开发请先阅读 [从零开发插件](PLUGIN_TUTORIAL.md)。
-仅记录当前代码已实现的接口；新增玩家接口仍属于 API 1 的兼容扩展。
 
 ## 1. 插件格式与管理规范
 
 插件根目录是当前游戏运行目录中的 `PVPUtils/plugin`，客户端启动时自动创建。
-本项目开发运行目录为 `E:\JavaCode\其他项目\PVPUtils-1.21.11\run\PVPUtils\plugin`；
-第三方启动器应以其实际游戏目录为准。
 
 ```text
 PVPUtils/plugin/
