@@ -8,7 +8,7 @@ public final class Version {
     public static final String VERSION = "1.8";
 
     // 版本类型：0 = 正式版，1 = alpha，2 = beta
-    public static final int TYPE = 1;
+    public static final int TYPE = 0;
 
     // 修订号：0 不显示修订号，例如 alpha；1 则显示为 alpha.1
     public static final int REVISION = 9;
