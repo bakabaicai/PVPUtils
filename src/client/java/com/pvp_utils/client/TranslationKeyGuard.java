@@ -21,18 +21,54 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 public final class TranslationKeyGuard {
     private static final Set<String> VANILLA_TRANSLATION_KEYS = loadVanillaTranslationKeys();
     private static final Map<String, Set<String>> SERVER_PACK_TRANSLATION_KEYS = new HashMap<>();
+    private static final ThreadLocal<Boolean> FROM_PACKET = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private static final long SERVER_PACK_CACHE_LIFETIME_MS = 5_000L;
+
+    private static Set<String> cachedServerPackKeys = Set.of();
+    private static String cachedServerPackSignature = "";
+    private static long cachedServerPackTime;
 
     private TranslationKeyGuard() {
     }
 
     public static String getSafeText(Component component) {
         return sanitize(component, new IdentityHashMap<>()).getString();
+    }
+
+    public static void setFromPacket(boolean fromPacket) {
+        FROM_PACKET.set(fromPacket);
+    }
+
+    public static boolean isFromPacket() {
+        return FROM_PACKET.get();
+    }
+
+    /**
+     * Clones a component tree decoded from a server packet and marks every contents
+     * object inside it. Marked contents are later prevented from resolving client
+     * side mod translation keys (see the TranslatableContents mixin).
+     */
+    public static Component markFromNetwork(Component component) {
+        MutableComponent copy = MutableComponent.create(markContents(component.getContents()));
+        copy.setStyle(component.getStyle());
+        for (Component sibling : component.getSiblings()) {
+            copy.append(markFromNetwork(sibling));
+        }
+        return copy;
+    }
+
+    private static ComponentContents markContents(ComponentContents contents) {
+        if (contents instanceof TranslationKeyMarker marker) {
+            marker.pvp_utils$markTranslationKey();
+        }
+        return contents;
     }
 
     private static Component sanitize(Component component, IdentityHashMap<Component, Component> sanitizedComponents) {
@@ -85,22 +121,41 @@ public final class TranslationKeyGuard {
         }
     }
 
-    private static synchronized boolean isAllowedTranslationKey(String key) {
+    /**
+     * A translation key is safe to resolve when it is either shipped by vanilla or
+     * provided by a resource pack pushed by the current server. Keys that only exist
+     * in the client installation (mod language files) must not be resolved while
+     * showing text controlled by the server.
+     */
+    public static synchronized boolean isAllowedTranslationKey(String key) {
         if (VANILLA_TRANSLATION_KEYS.contains(key)) {
             return true;
         }
 
-        Set<String> activePackIds = new HashSet<>();
-        Set<String> translationKeys = new HashSet<>();
-        Minecraft.getInstance().getResourceManager().listPacks().forEach(pack -> {
-            if (pack.location().source() != PackSource.SERVER) {
-                return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.getResourceManager() == null) {
+            return false;
+        }
+
+        Map<String, PackResources> serverPacks = new LinkedHashMap<>();
+        minecraft.getResourceManager().listPacks().forEach(pack -> {
+            if (pack.location().source() == PackSource.SERVER) {
+                serverPacks.put(pack.packId(), pack);
             }
-            activePackIds.add(pack.packId());
-            translationKeys.addAll(SERVER_PACK_TRANSLATION_KEYS.computeIfAbsent(pack.packId(), ignored -> loadTranslationKeys(pack)));
         });
-        SERVER_PACK_TRANSLATION_KEYS.keySet().retainAll(activePackIds);
-        return translationKeys.contains(key);
+
+        String signature = String.join(",", serverPacks.keySet());
+        long now = System.currentTimeMillis();
+        if (!signature.equals(cachedServerPackSignature) || now - cachedServerPackTime > SERVER_PACK_CACHE_LIFETIME_MS) {
+            Set<String> translationKeys = new HashSet<>();
+            serverPacks.forEach((packId, pack) ->
+                    translationKeys.addAll(SERVER_PACK_TRANSLATION_KEYS.computeIfAbsent(packId, ignored -> loadTranslationKeys(pack))));
+            SERVER_PACK_TRANSLATION_KEYS.keySet().retainAll(serverPacks.keySet());
+            cachedServerPackKeys = Set.copyOf(translationKeys);
+            cachedServerPackSignature = signature;
+            cachedServerPackTime = now;
+        }
+        return cachedServerPackKeys.contains(key);
     }
 
     private static Set<String> loadTranslationKeys(PackResources pack) {
@@ -119,5 +174,4 @@ public final class TranslationKeyGuard {
         }
         return Set.copyOf(keys);
     }
-
 }

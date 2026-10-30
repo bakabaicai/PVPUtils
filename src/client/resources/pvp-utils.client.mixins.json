@@ -104,7 +104,13 @@
     "ChatComponentDrawingFocusedGraphicsAccessor",
     "BetterChatScreenMixin",
     "ClientConfigurationMixin",
-    "ClientNetworkMixin"
+    "ClientNetworkMixin",
+    "HttpUtilMixin",
+    "DownloadedPackSourceMixin",
+    "ComponentSerializationMixin",
+    "PacketDecoderMixin",
+    "TranslatableContentsTranslationKeyMixin",
+    "KeybindContentsTranslationKeyMixin"
   ],
   "injectors": {
     "defaultRequire": 1
