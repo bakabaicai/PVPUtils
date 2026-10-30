@@ -4,7 +4,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
-import com.pvp_utils.client.gui.clickgui.TermsScreen;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
@@ -150,8 +149,7 @@ public final class ModuleKeybindManager {
 
     private static void trigger(Minecraft client, String id) {
         if (ACTION_CLICK_GUI.equals(id)) {
-            Config.applyFirstUseLanguageDefault();
-            client.setScreen(Config.termsRead ? new NewSettingsScreen(null) : new TermsScreen(null));
+            client.setScreen(new NewSettingsScreen(null));
             return;
         }
         if (ACTION_OPEN_MUSIC.equals(id)) {

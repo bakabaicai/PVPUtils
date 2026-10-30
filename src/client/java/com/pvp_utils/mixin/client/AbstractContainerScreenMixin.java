@@ -1,8 +1,6 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
-import com.pvp_utils.client.gui.clickgui.TermsScreen;
-import com.pvp_utils.Config;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.components.Button;
@@ -19,8 +17,7 @@ public abstract class AbstractContainerScreenMixin extends Screen {
     @Inject(method = "init", at = @At("TAIL"))
     private void addGlobalSettingsButton(CallbackInfo ci) {
         this.addRenderableWidget(Button.builder(Component.literal("PVPUtils"), (button) -> {
-            Config.applyFirstUseLanguageDefault();
-            if (this.minecraft != null) this.minecraft.setScreen(Config.termsRead ? new NewSettingsScreen(this) : new TermsScreen(this));
+            if (this.minecraft != null) this.minecraft.setScreen(new NewSettingsScreen(this));
         }).bounds(this.width - 82, 2, 80, 20).build());
     }
 }
