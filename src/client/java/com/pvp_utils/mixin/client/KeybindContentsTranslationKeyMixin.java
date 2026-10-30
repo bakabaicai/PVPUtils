@@ -11,11 +11,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * A keybind component received from a server would otherwise resolve client side
- * key mapping names (and therefore leak installed mods). Marked components render
- * the raw key name instead.
- */
 @Mixin(KeybindContents.class)
 public class KeybindContentsTranslationKeyMixin implements TranslationKeyMarker {
 

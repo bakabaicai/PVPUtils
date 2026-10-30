@@ -8,12 +8,6 @@ import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
-/**
- * Wraps the vanilla component codec so that every component decoded from a server
- * packet is marked before it reaches the screen. Marked components refuse to resolve
- * client-side mod translation keys, which is what makes sign / anvil (and every other
- * server controlled text) unable to probe installed mods.
- */
 public record TranslationKeyFilteredCodec(Codec<Component> delegate) implements Codec<Component> {
 
     @Override

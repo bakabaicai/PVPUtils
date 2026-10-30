@@ -16,9 +16,6 @@ import java.net.Proxy;
 import java.net.URL;
 import java.util.Map;
 
-/**
- * 阻断服务器下发的资源包 URL 指向本机 / 内网地址的情况（含重定向绕过）。
- */
 @Mixin(HttpUtil.class)
 public class HttpUtilMixin {
     private static final int MAX_REDIRECTS = 5;

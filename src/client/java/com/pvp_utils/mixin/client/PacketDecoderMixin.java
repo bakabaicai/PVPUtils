@@ -8,10 +8,6 @@ import net.minecraft.network.codec.StreamCodec;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * Flags the current thread while a packet is being decoded, so the component codec
- * only filters text that actually arrived from a server.
- */
 @Mixin(PacketDecoder.class)
 public class PacketDecoderMixin {
 

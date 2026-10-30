@@ -50,11 +50,6 @@ public final class TranslationKeyGuard {
         return FROM_PACKET.get();
     }
 
-    /**
-     * Clones a component tree decoded from a server packet and marks every contents
-     * object inside it. Marked contents are later prevented from resolving client
-     * side mod translation keys (see the TranslatableContents mixin).
-     */
     public static Component markFromNetwork(Component component) {
         MutableComponent copy = MutableComponent.create(markContents(component.getContents()));
         copy.setStyle(component.getStyle());
@@ -121,12 +116,6 @@ public final class TranslationKeyGuard {
         }
     }
 
-    /**
-     * A translation key is safe to resolve when it is either shipped by vanilla or
-     * provided by a resource pack pushed by the current server. Keys that only exist
-     * in the client installation (mod language files) must not be resolved while
-     * showing text controlled by the server.
-     */
     public static synchronized boolean isAllowedTranslationKey(String key) {
         if (VANILLA_TRANSLATION_KEYS.contains(key)) {
             return true;
