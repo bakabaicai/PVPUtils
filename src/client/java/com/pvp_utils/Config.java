@@ -20,6 +20,7 @@ public class Config {
     private static final boolean PROFILE_GATE = false;
 
     public static boolean autoMode = false;
+    public static boolean pluginSecurity = true;
     public static boolean swordBlock = false;
     public static boolean legacy17Animations = false;
     public static boolean legacy17UseSwing = true;

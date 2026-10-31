@@ -22,6 +22,10 @@ public class MiscPage extends BasePage {
                 new SettingToggle(() -> Config.victorySound, v -> { Config.victorySound = v; Config.save(); }))
                 .addSub(UiText.t("打开自定义音效文件夹", "Open custom sound folder"), "", new SettingButton(UiText.t("打开", "Open"), VictorySound::openSoundsFolder)));
 
+        modules.add(new SettingModule(UiText.t("恶意插件识别", "Malicious Plugin Detection"),
+                UiText.t("启用 JS 插件前做静态安全检查；关闭后仅标记风险，不拦截加载", "Statically scan JS plugins before loading; when off, risky plugins are only flagged, not blocked"),
+                new SettingToggle(() -> Config.pluginSecurity, v -> { Config.pluginSecurity = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("语言切换", "Language Switch"), UiText.t("切换界面显示语言", "Switch the interface display language"), null)
                 .addSub(UiText.t("语言", "Language"), UiText.t("选择语言，关闭并重新打开界面后生效", "Choose language, close and reopen the UI to apply changes"),
                         new SettingCycle(List.of(UiText.t("中文", "Chinese"), UiText.t("英文", "English")),

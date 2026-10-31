@@ -33,6 +33,20 @@ final class PluginPlayerArguments {
                     throw new IllegalArgumentException("Hand must be main or off");
                 }
             }
+            case "attack" -> {
+                count(args, 1);
+                integer(args, 0, 0, Integer.MAX_VALUE);
+            }
+            case "interact" -> {
+                if (args.length < 1 || args.length > 2) {
+                    throw new IllegalArgumentException("Expected entity id and optional hand");
+                }
+                integer(args, 0, 0, Integer.MAX_VALUE);
+                if (args.length > 1 && !Context.toString(args[1]).equals("main")
+                        && !Context.toString(args[1]).equals("off")) {
+                    throw new IllegalArgumentException("Hand must be main or off");
+                }
+            }
             case "menuSnapshot" -> {
                 if (args.length > 1) throw new IllegalArgumentException("Invalid menu arguments");
             }
