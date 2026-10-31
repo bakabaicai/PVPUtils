@@ -91,7 +91,7 @@ public class MultiplayerCompatibilityScreen extends Screen {
     }
 
     private static Component oneClickLabel() {
-        return toggleLabel(Config.isChinese ? "一键害死 MCBI 无能的反作弊" : "Fuck MCBI & CNTier", allEnabled());
+        return toggleLabel(Config.isChinese ? "全部开启" : "Enable All", allEnabled());
     }
 
     private static Component brandLabel() {
