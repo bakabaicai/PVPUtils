@@ -106,9 +106,11 @@
     "ClientConfigurationMixin",
     "ClientNetworkMixin",
     "HttpUtilMixin",
-    "DownloadedPackSourceMixin",
+    "DownloadQueueMixin",
     "ComponentSerializationMixin",
     "PacketDecoderMixin",
+    "ClientLanguageTranslationMixin",
+    "ClientLanguageAccessor",
     "TranslatableContentsTranslationKeyMixin",
     "KeybindContentsTranslationKeyMixin"
   ],

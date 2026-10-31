@@ -6,9 +6,7 @@ import com.pvp_utils.client.TranslationKeyGuard;
 import com.pvp_utils.client.TranslationKeyMarker;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -18,17 +16,13 @@ public class TranslatableContentsTranslationKeyMixin implements TranslationKeyMa
     @Unique
     private boolean pvp_utils$fromNetwork = false;
 
-    @Shadow
-    @Final
-    private String fallback;
-
     @WrapOperation(
             method = "decompose",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/locale/Language;getOrDefault(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")
     )
     private String pvp_utils$decomposeWithFallback(Language language, String key, String vanillaFallback, Operation<String> original) {
-        if (pvp_utils$fromNetwork && !TranslationKeyGuard.isAllowedTranslationKey(key)) {
-            return vanillaFallback;
+        if (pvp_utils$fromNetwork) {
+            return TranslationKeyGuard.getTranslation(key, vanillaFallback);
         }
         return original.call(language, key, vanillaFallback);
     }
@@ -38,8 +32,8 @@ public class TranslatableContentsTranslationKeyMixin implements TranslationKeyMa
             at = @At(value = "INVOKE", target = "Lnet/minecraft/locale/Language;getOrDefault(Ljava/lang/String;)Ljava/lang/String;")
     )
     private String pvp_utils$decompose(Language language, String key, Operation<String> original) {
-        if (pvp_utils$fromNetwork && !TranslationKeyGuard.isAllowedTranslationKey(key)) {
-            return fallback != null ? fallback : key;
+        if (pvp_utils$fromNetwork) {
+            return TranslationKeyGuard.getTranslation(key, key);
         }
         return original.call(language, key);
     }
