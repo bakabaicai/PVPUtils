@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.pvp_utils.client.TranslationKeyGuard;
 import com.pvp_utils.client.TranslationKeyMarker;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -23,7 +24,12 @@ public class KeybindContentsTranslationKeyMixin implements TranslationKeyMarker 
 
     @ModifyReturnValue(method = "getNestedComponent", at = @At("RETURN"))
     private Component pvp_utils$replaceNestedComponent(Component original) {
-        return pvp_utils$fromNetwork ? Component.literal(name) : original;
+        if (!pvp_utils$fromNetwork || TranslationKeyGuard.isAllowedTranslationKey(name)) {
+            return original;
+        }
+        MutableComponent replacement = MutableComponent.create(new net.minecraft.network.chat.contents.TranslatableContents(name, null, new Object[0]));
+        ((TranslationKeyMarker) replacement.getContents()).pvp_utils$markTranslationKey();
+        return replacement;
     }
 
     @Override

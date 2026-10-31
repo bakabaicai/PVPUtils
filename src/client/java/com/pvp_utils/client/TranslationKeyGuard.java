@@ -1,39 +1,25 @@
 package com.pvp_utils.client;
 
-import com.google.gson.JsonParser;
-import com.pvp_utils.PVPUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.ClientLanguage;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.PackType;
-import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.repository.PackSource;
-import net.minecraft.server.packs.resources.IoSupplier;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 public final class TranslationKeyGuard {
-    private static final Set<String> VANILLA_TRANSLATION_KEYS = loadVanillaTranslationKeys();
-    private static final Map<String, Set<String>> SERVER_PACK_TRANSLATION_KEYS = new HashMap<>();
     private static final ThreadLocal<Boolean> FROM_PACKET = ThreadLocal.withInitial(() -> Boolean.FALSE);
-    private static final long SERVER_PACK_CACHE_LIFETIME_MS = 5_000L;
-
-    private static Set<String> cachedServerPackKeys = Set.of();
-    private static String cachedServerPackSignature = "";
-    private static long cachedServerPackTime;
+    private static final Set<String> VANILLA_TRANSLATION_KEYS = new HashSet<>();
+    private static final Map<String, String> SERVER_TRANSLATIONS = new HashMap<>();
+    private static Language serverLanguage;
 
     private TranslationKeyGuard() {
     }
@@ -75,17 +61,13 @@ public final class TranslationKeyGuard {
         ComponentContents contents = component.getContents();
         MutableComponent sanitized;
         if (contents instanceof TranslatableContents translation) {
-            if (isAllowedTranslationKey(translation.getKey())) {
-                Object[] arguments = translation.getArgs().clone();
-                for (int index = 0; index < arguments.length; index++) {
-                    if (arguments[index] instanceof Component argument) {
-                        arguments[index] = sanitize(argument, sanitizedComponents);
-                    }
+            Object[] arguments = translation.getArgs().clone();
+            for (int index = 0; index < arguments.length; index++) {
+                if (arguments[index] instanceof Component argument) {
+                    arguments[index] = sanitize(argument, sanitizedComponents);
                 }
-                sanitized = MutableComponent.create(new TranslatableContents(translation.getKey(), translation.getFallback(), arguments));
-            } else {
-                sanitized = Component.literal(translation.getFallback() != null ? translation.getFallback() : translation.getKey());
             }
+            sanitized = MutableComponent.create(markContents(new TranslatableContents(translation.getKey(), translation.getFallback(), arguments)));
         } else {
             sanitized = MutableComponent.create(contents);
         }
@@ -98,69 +80,33 @@ public final class TranslationKeyGuard {
         return sanitized;
     }
 
-    private static Set<String> loadVanillaTranslationKeys() {
-        IoSupplier<InputStream> resource = Minecraft.getInstance().getVanillaPackResources().getResource(
-                PackType.CLIENT_RESOURCES,
-                Identifier.withDefaultNamespace("lang/en_us.json")
-        );
-        if (resource == null) {
-            PVPUtils.LOGGER.warn("Could not find the vanilla English language file");
-            return Set.of();
-        }
+    public static String getTranslation(String key, String fallback) {
+        return getServerLanguage().getOrDefault(key, fallback);
+    }
 
-        try (Reader reader = new InputStreamReader(resource.get(), StandardCharsets.UTF_8)) {
-            return Set.copyOf(JsonParser.parseReader(reader).getAsJsonObject().keySet());
-        } catch (IOException exception) {
-            PVPUtils.LOGGER.warn("Could not load vanilla translation keys", exception);
-            return Set.of();
+    public static synchronized void beginLanguageLoad() {
+        VANILLA_TRANSLATION_KEYS.clear();
+        SERVER_TRANSLATIONS.clear();
+        serverLanguage = null;
+    }
+
+    public static synchronized void recordTranslation(String key, String value, boolean vanilla, PackSource source) {
+        if (source == PackSource.SERVER) {
+            SERVER_TRANSLATIONS.put(key, value);
+        } else if (vanilla) {
+            VANILLA_TRANSLATION_KEYS.add(key);
         }
+        serverLanguage = null;
     }
 
     public static synchronized boolean isAllowedTranslationKey(String key) {
-        if (VANILLA_TRANSLATION_KEYS.contains(key)) {
-            return true;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.getResourceManager() == null) {
-            return false;
-        }
-
-        Map<String, PackResources> serverPacks = new LinkedHashMap<>();
-        minecraft.getResourceManager().listPacks().forEach(pack -> {
-            if (pack.location().source() == PackSource.SERVER) {
-                serverPacks.put(pack.packId(), pack);
-            }
-        });
-
-        String signature = String.join(",", serverPacks.keySet());
-        long now = System.currentTimeMillis();
-        if (!signature.equals(cachedServerPackSignature) || now - cachedServerPackTime > SERVER_PACK_CACHE_LIFETIME_MS) {
-            Set<String> translationKeys = new HashSet<>();
-            serverPacks.forEach((packId, pack) ->
-                    translationKeys.addAll(SERVER_PACK_TRANSLATION_KEYS.computeIfAbsent(packId, ignored -> loadTranslationKeys(pack))));
-            SERVER_PACK_TRANSLATION_KEYS.keySet().retainAll(serverPacks.keySet());
-            cachedServerPackKeys = Set.copyOf(translationKeys);
-            cachedServerPackSignature = signature;
-            cachedServerPackTime = now;
-        }
-        return cachedServerPackKeys.contains(key);
+        return VANILLA_TRANSLATION_KEYS.contains(key) || SERVER_TRANSLATIONS.containsKey(key);
     }
 
-    private static Set<String> loadTranslationKeys(PackResources pack) {
-        Set<String> keys = new HashSet<>();
-        for (String namespace : pack.getNamespaces(PackType.CLIENT_RESOURCES)) {
-            pack.listResources(PackType.CLIENT_RESOURCES, namespace, "lang", (id, resource) -> {
-                if (!id.getPath().endsWith(".json")) {
-                    return;
-                }
-                try (Reader reader = new InputStreamReader(resource.get(), StandardCharsets.UTF_8)) {
-                    keys.addAll(JsonParser.parseReader(reader).getAsJsonObject().keySet());
-                } catch (IOException | IllegalStateException exception) {
-                    PVPUtils.LOGGER.warn("Could not load translation keys from server resource pack {}", pack.packId(), exception);
-                }
-            });
+    private static synchronized Language getServerLanguage() {
+        if (serverLanguage == null) {
+            serverLanguage = ClientLanguageAccessor.pvp_utils$create(Map.copyOf(SERVER_TRANSLATIONS), Language.getInstance().isDefaultRightToLeft());
         }
-        return Set.copyOf(keys);
+        return serverLanguage;
     }
 }
