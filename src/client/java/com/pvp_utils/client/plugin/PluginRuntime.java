@@ -37,6 +37,9 @@ public final class PluginRuntime implements AutoCloseable {
         default double mouseX() { return -1; }
         default double mouseY() { return -1; }
         default void screen(String operation, String id) {}
+        default String worldCall(String operation, Object[] arguments) {
+            throw new IllegalStateException("World bridge is not available");
+        }
     }
 
     private static final Set<String> EVENTS = Set.of("load", "unload", "tick", "render", "join", "leave");
@@ -48,6 +51,7 @@ public final class PluginRuntime implements AutoCloseable {
     private final PluginManifest manifest;
     private final PluginStorage storage;
     private final Host host;
+    private final PluginInput input = new PluginInput();
     private ScriptableObject scope;
     private boolean closed;
     private boolean rendering;
@@ -64,6 +68,8 @@ public final class PluginRuntime implements AutoCloseable {
     private String drawingScreen;
     private int stateDepth;
     private int uiActions;
+    private int inputActions;
+    private int worldQueries;
     private boolean transformed;
     private int screenWidth;
     private int screenHeight;
@@ -136,6 +142,28 @@ public final class PluginRuntime implements AutoCloseable {
                     String token = host.playerToken();
                     return token == null ? null : playerHandle(context, token);
                 });
+                Scriptable world = object(cx);
+                property(api, "world", world);
+                for (String operation : List.of("snapshot", "players", "entities", "entity", "block",
+                        "time", "dimension")) {
+                    function(world, operation, (context, args) -> worldCall(context, operation, args));
+                }
+                Scriptable game = object(cx);
+                property(api, "game", game);
+                Scriptable control = object(cx);
+                property(game, "control", control);
+                for (String operation : List.of("hold", "release", "releaseAll", "status")) {
+                    function(control, operation, (context, args) -> inputCall(context, operation, args));
+                }
+                Scriptable combat = object(cx);
+                property(game, "combat", combat);
+                for (String operation : List.of("attack", "interact")) {
+                    function(combat, operation, (context, args) -> {
+                        String token = host.playerToken();
+                        if (token == null) throw new IllegalStateException("No player available");
+                        return playerCall(context, token, operation, args, true);
+                    });
+                }
                 Scriptable store = object(cx);
                 property(api, "storage", store);
                 function(store, "get", (context, args) -> {
@@ -278,6 +306,9 @@ public final class PluginRuntime implements AutoCloseable {
     }
 
     public void emit(String event) {
+        if ("tick".equals(event)) {
+            input.apply(net.minecraft.client.Minecraft.getInstance());
+        }
         if (!closed && Thread.currentThread() == owner && listeners.getOrDefault(event, List.of()).isEmpty()) return;
         run(cx -> {
             emit(cx, event, new Object[0]);
@@ -502,7 +533,8 @@ public final class PluginRuntime implements AutoCloseable {
             function(player, operation, (current, args) -> playerCall(current, token, operation, args, false));
         }
         for (String operation : List.of("setRotation", "setVelocity", "setSprinting", "jump",
-                "swing", "useItem", "stopUsingItem", "closeMenu", "attackTarget", "interactTarget")) {
+                "swing", "useItem", "stopUsingItem", "closeMenu", "attackTarget", "interactTarget",
+                "attack", "interact")) {
             function(player, operation, (current, args) -> playerCall(current, token, operation, args, true));
         }
         Scriptable inventory = object(cx);
@@ -534,6 +566,17 @@ public final class PluginRuntime implements AutoCloseable {
             if (++playerActions > 32) throw new ScriptLimitException();
         }
         return parse(cx, host.playerCall(token, operation, arguments));
+    }
+
+    private Object worldCall(Context cx, String operation, Object[] arguments) {
+        if (++worldQueries > 64) throw new ScriptLimitException();
+        return parse(cx, host.worldCall(operation, arguments));
+    }
+
+    private Object inputCall(Context cx, String operation, Object[] arguments) {
+        if (rendering) throw new IllegalStateException("Game control is not available during render");
+        if (++inputActions > 16) throw new ScriptLimitException();
+        return parse(cx, input.call(operation, arguments));
     }
 
     private void emit(Context cx, String event, Object[] arguments) {
@@ -582,6 +625,8 @@ public final class PluginRuntime implements AutoCloseable {
         messages = 0;
         playerActions = 0;
         uiActions = 0;
+        inputActions = 0;
+        worldQueries = 0;
         return factory.call(action);
     }
 
@@ -595,6 +640,7 @@ public final class PluginRuntime implements AutoCloseable {
             throw new IllegalStateException("Failed to save HUD layouts", e);
         } finally {
             closed = true;
+            input.releaseAll();
             listeners.clear();
             huds.clear();
             settings.clear();

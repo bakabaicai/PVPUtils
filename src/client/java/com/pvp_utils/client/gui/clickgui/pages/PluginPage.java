@@ -40,6 +40,14 @@ public final class PluginPage extends BasePage {
             if (!plugin.description().isBlank()) {
                 module.addSub(UiText.t("简介", "Description"), plugin.description(), null);
             }
+            if (!plugin.security().isBlank() && !plugin.security().equals("clean")) {
+                String label = switch (plugin.security()) {
+                    case "malicious" -> UiText.t("安全检测：危险", "Security: malicious");
+                    case "suspicious" -> UiText.t("安全检测：可疑", "Security: suspicious");
+                    default -> UiText.t("安全检测", "Security");
+                };
+                module.addSub(label, plugin.securityDetail(), null);
+            }
             if (!plugin.error().isBlank()) {
                 module.addSub(UiText.t("错误", "Error"), plugin.error(), null);
             }

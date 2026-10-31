@@ -52,8 +52,11 @@ public final class PluginCommand implements DotCommand {
             }
             default -> {
                 for (var plugin : manager.plugins()) {
+                    String security = plugin.security().isBlank() || plugin.security().equals("clean") ? ""
+                            : " | " + plugin.security().toUpperCase(java.util.Locale.ROOT) + ": " + plugin.securityDetail();
                     ChatUtils.send(plugin.id() + " " + plugin.version() + " "
-                            + (plugin.enabled() ? "ON" : "OFF") + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
+                            + (plugin.enabled() ? "ON" : "OFF") + security
+                            + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
                 }
                 ChatUtils.send(".plugins <check|screen|refresh|folder|enable|disable|reload>");
             }

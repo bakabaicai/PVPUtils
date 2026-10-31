@@ -41,7 +41,7 @@ public final class PluginManager {
     }
 
     public record PluginInfo(String id, String name, String version, String description, String author,
-                             boolean enabled, String error) {
+                             boolean enabled, String error, String security, String securityDetail) {
     }
 
     public void initialize() {
@@ -78,11 +78,23 @@ public final class PluginManager {
         List<PluginInfo> result = new ArrayList<>();
         for (Entry entry : plugins.values()) {
             PluginManifest manifest = entry.manifest;
+            PluginSecurity.Audit audit = audit(entry);
             result.add(new PluginInfo(entry.id, manifest == null ? entry.id : manifest.name(),
                     manifest == null ? "" : manifest.version(), manifest == null ? "" : manifest.description(),
-                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error));
+                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error,
+                    audit == null ? "" : audit.level(), audit == null ? "" : audit.detail()));
         }
         return List.copyOf(result);
+    }
+
+    private static PluginSecurity.Audit audit(Entry entry) {
+        if (entry.manifest == null) {
+            return entry.audit;
+        }
+        if (entry.audit == null) {
+            entry.audit = PluginSecurity.audit(entry.manifest);
+        }
+        return entry.audit;
     }
 
     public record HudEditItem(String key, String label, PluginRuntime.HudLayout layout, Runnable save,
@@ -248,7 +260,10 @@ public final class PluginManager {
                 try {
                     PluginManifest manifest = PluginManifest.read(directory);
                     PluginRuntime.validateScript(manifest);
-                    result.add(manifest.id() + " OK");
+                    PluginSecurity.Audit audit = PluginSecurity.audit(manifest);
+                    result.add(manifest.id() + " OK"
+                            + (audit.suspicious() ? " | " + audit.level().toUpperCase(java.util.Locale.ROOT)
+                            + ": " + audit.detail() : ""));
                 } catch (Exception e) {
                     result.add(directory.getFileName() + " ERROR: " + message(e));
                 }
@@ -325,6 +340,15 @@ public final class PluginManager {
             PluginManifest latest = PluginManifest.read(entry.manifest.directory());
             if (!latest.id().equals(entry.id)) throw new IOException("Plugin id changed; refresh the plugin list");
             entry.manifest = latest;
+            entry.audit = null;
+            PluginSecurity.Audit audit = audit(entry);
+            if (audit != null && audit.blocked()) {
+                throw new IOException(UiText.t("已被恶意插件识别拦截：", "Blocked by malicious plugin detection: ")
+                        + audit.detail());
+            }
+            if (audit != null && audit.suspicious()) {
+                PVPUtils.LOGGER.warn("JS plugin {} flagged as {}: {}", entry.id, audit.level(), audit.detail());
+            }
             Path root = PluginDirectory.path().toRealPath();
             Path data = root.resolve(".data");
             Files.createDirectories(data);
@@ -398,6 +422,7 @@ public final class PluginManager {
         private PluginManifest manifest;
         private PluginRuntime runtime;
         private GameHost host;
+        private PluginSecurity.Audit audit;
         private String error = "";
 
         private Entry(String id) {
@@ -408,6 +433,7 @@ public final class PluginManager {
     private final class GameHost implements PluginRuntime.Host {
         private final String id;
         private final PluginPlayerBridge player = new PluginPlayerBridge();
+        private final PluginWorldBridge world = new PluginWorldBridge();
         private final ArrayDeque<Integer> drawScopes = new ArrayDeque<>();
         private Matrix33 baseMatrix;
 
@@ -438,6 +464,11 @@ public final class PluginManager {
         @Override
         public String playerCall(String token, String operation, Object[] arguments) {
             return player.call(token, operation, arguments);
+        }
+
+        @Override
+        public String worldCall(String operation, Object[] arguments) {
+            return world.call(operation, arguments);
         }
 
         @Override
