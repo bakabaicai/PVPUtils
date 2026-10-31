@@ -29,14 +29,13 @@ public final class PluginCommand implements DotCommand {
                     ChatUtils.error(e.getMessage());
                 }
             }
-            case "check" -> {
-                List<String> results = manager.check();
+            case "check" -> manager.checkAsync(results -> {
                 if (results.isEmpty()) {
                     ChatUtils.send("No plugins found");
                 } else {
                     results.forEach(ChatUtils::send);
                 }
-            }
+            });
             case "refresh" -> {
                 manager.refresh();
                 ChatUtils.send("Plugins: " + manager.plugins().size());
@@ -52,8 +51,12 @@ public final class PluginCommand implements DotCommand {
             }
             default -> {
                 for (var plugin : manager.plugins()) {
+                    String security = plugin.security().isBlank() || plugin.security().equals("clean") ? ""
+                            : " | " + plugin.security().toUpperCase(java.util.Locale.ROOT)
+                            + (plugin.securityDetail().isBlank() ? "" : ": " + plugin.securityDetail());
                     ChatUtils.send(plugin.id() + " " + plugin.version() + " "
-                            + (plugin.enabled() ? "ON" : "OFF") + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
+                            + (plugin.enabled() ? "ON" : "OFF") + security
+                            + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
                 }
                 ChatUtils.send(".plugins <check|screen|refresh|folder|enable|disable|reload>");
             }

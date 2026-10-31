@@ -8,6 +8,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
@@ -15,22 +16,33 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
-import java.util.Set;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import static com.pvp_utils.client.plugin.PluginPlayerArguments.integer;
 import static com.pvp_utils.client.plugin.PluginPlayerArguments.number;
 
 public final class PluginPlayerBridge {
-    private static final Set<String> READS = Set.of("snapshot", "target", "getItems", "getSlot",
-            "getSelectedSlot", "menuSnapshot");
-    private final Thread owner = Thread.currentThread();
     private LocalPlayer player;
     private ClientLevel level;
     private AbstractContainerMenu menu;
     private final PluginPlayerSession session = new PluginPlayerSession();
 
+    private static boolean isMainThread() {
+        Minecraft client = Minecraft.getInstance();
+        return client != null && client.isSameThread();
+    }
+
+    private static boolean isReadOnly(String operation) {
+        return switch (operation) {
+            case "snapshot", "target", "getItems", "getSlot", "getSelectedSlot", "menuSnapshot" -> true;
+            default -> false;
+        };
+    }
+
     public void synchronize() {
-        if (Thread.currentThread() != owner) throw new IllegalStateException("Player bridge called from another thread");
+        if (!isMainThread() && !RenderSystem.isOnRenderThread()) {
+            throw new IllegalStateException("Player bridge called from another thread");
+        }
         Minecraft client = Minecraft.getInstance();
         if (player != client.player || level != client.level) {
             player = client.player;
@@ -56,11 +68,11 @@ public final class PluginPlayerBridge {
     public String call(String token, String operation, Object[] args) {
         synchronize();
         if (!session.validPlayer(token)) {
-            return READS.contains(operation) ? "null" : result(false, "STALE_PLAYER");
+            return isReadOnly(operation) ? "null" : result(false, "STALE_PLAYER");
         }
         PluginPlayerArguments.validate(operation, args);
         Minecraft client = Minecraft.getInstance();
-        if (!READS.contains(operation)) {
+        if (!isReadOnly(operation)) {
             if (client.gameMode == null || !client.isWindowActive()) return result(false, "INACTIVE");
             if (!player.isAlive() || player.isSpectator()) return result(false, "PLAYER_UNAVAILABLE");
             if (client.screen != null && !operation.equals("click")
@@ -166,6 +178,8 @@ public final class PluginPlayerBridge {
                 yield result(true, "OK");
             }
             case "interactTarget" -> interactTarget(client, hand(args));
+            case "attack" -> attack(client, integer(args, 0, 0, Integer.MAX_VALUE));
+            case "interact" -> interact(client, integer(args, 0, 0, Integer.MAX_VALUE), hand(args, 1));
             default -> throw new IllegalArgumentException("Unknown player operation: " + operation);
         };
     }
@@ -252,6 +266,28 @@ public final class PluginPlayerBridge {
         return interaction(action, hand);
     }
 
+    private String attack(Minecraft client, int id) {
+        Entity target = level.getEntity(id);
+        if (target == null) return result(false, "NO_TARGET");
+        if (target == player || !target.isAlive()) return result(false, "INVALID_TARGET");
+        if (!level.getWorldBorder().isWithinBounds(target.blockPosition())) return result(false, "INVALID_TARGET");
+        if (!player.isWithinAttackRange(target.getBoundingBox(), 0)) return result(false, "OUT_OF_REACH");
+        client.gameMode.attack(player, target);
+        player.swing(InteractionHand.MAIN_HAND);
+        return result(true, "OK");
+    }
+
+    private String interact(Minecraft client, int id, InteractionHand hand) {
+        Entity target = level.getEntity(id);
+        if (target == null) return result(false, "NO_TARGET");
+        if (target == player || !target.isAlive()) return result(false, "INVALID_TARGET");
+        if (!level.getWorldBorder().isWithinBounds(target.blockPosition())) return result(false, "INVALID_TARGET");
+        if (!player.isWithinEntityInteractionRange(target, 0)) return result(false, "OUT_OF_REACH");
+        InteractionResult action = client.gameMode.interactAt(player, target, new EntityHitResult(target), hand);
+        if (!action.consumesAction()) action = client.gameMode.interact(player, target, hand);
+        return interaction(action, hand);
+    }
+
     private String click(Minecraft client, Object[] args) {
         if (menu == null || !session.validMenu(PluginRuntime.string(args, 0))) return result(false, "STALE_MENU");
         int slot = integer(args, 1, 0, menu.slots.size() - 1);
@@ -280,7 +316,11 @@ public final class PluginPlayerBridge {
     }
 
     private static InteractionHand hand(Object[] args) {
-        String hand = args.length == 0 ? "main" : PluginRuntime.string(args, 0);
+        return hand(args, 0);
+    }
+
+    private static InteractionHand hand(Object[] args, int index) {
+        String hand = args.length <= index ? "main" : PluginRuntime.string(args, index);
         return switch (hand) {
             case "main" -> InteractionHand.MAIN_HAND;
             case "off" -> InteractionHand.OFF_HAND;

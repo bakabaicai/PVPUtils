@@ -114,6 +114,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | `pvputils.notify` | `show(message)` |
 | `pvputils.events` | `on(event, callback)` |
 | `pvputils.player` | `snapshot()`、`get()` |
+| `pvputils.world` | `snapshot()`、`players(radius?, limit?)`、`entities(radius?, limit?, filter?)`、`entity(id)`、`block(x, y, z)`、`time()`、`dimension()` |
 | 玩家句柄 | `snapshot()`、`target()`、`setRotation(yaw, pitch)`、`setVelocity(x, y, z)`、`setSprinting(enabled)`、`jump()`、`swing(hand?)`、`useItem(hand?)`、`stopUsingItem()`、`closeMenu()`、`attackTarget()`、`interactTarget(hand?)`、`inventory` |
 | 玩家 `inventory` | `getItems()`、`getSlot(slot)`、`getSelectedSlot()`、`select(slot)`、`getMenu()` |
 | 容器句柄 | `snapshot()`、`click(slot, button, type)` |
@@ -481,10 +482,18 @@ pvputils.hud.register({
 
 ## 11. 当前范围与验证
 
-本阶段已开放玩家状态、受控玩家动作、准星交互、背包读取、快捷栏选择和容器点击。
-HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接管、任意世界实体枚举、
+本阶段已开放玩家状态、受控玩家动作、准星交互、背包读取、快捷栏选择和容器点击，
+以及只读的世界查询 `pvputils.world`。
+HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接管、
 现有模块开关和完整 ClickGUI 组件树尚未实现。自定义 Screen 有独立输入回调。
 不要把 Java/Minecraft 方法名直接当成 JS 接口。
+
+世界查询只读，与玩家修改一样只能在 `tick` 等非渲染回调中调用：
+`render`、HUD 回调内调用会抛出错误。
+`world.entities(radius, limit, filter)` 的 `filter` 是对实体类型 ID 的子串匹配
+（例如 `"minecraft:zombie"`、`":zombie"`），不是前缀匹配。
+`world.block(x, y, z)` 在目标区块未加载时返回 `loaded = false`，
+此时 `block` 为 `"unknown"`、`air` 为 `false`，不会读取方块状态。
 
 开发者验证命令：
 

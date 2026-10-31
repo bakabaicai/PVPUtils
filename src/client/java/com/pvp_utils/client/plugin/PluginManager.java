@@ -29,9 +29,16 @@ import java.util.ArrayDeque;
 
 public final class PluginManager {
     public static final PluginManager INSTANCE = new PluginManager();
+    private static final java.util.concurrent.ExecutorService AUDIT_POOL =
+            java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+                Thread thread = new Thread(task, "pvp-utils-plugin-audit");
+                thread.setDaemon(true);
+                return thread;
+            });
     private final Map<String, Entry> plugins = new LinkedHashMap<>();
+    private final java.util.Set<String> pendingAudits = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private JsonObject enabledState = new JsonObject();
-    private int revision;
+    private volatile int revision;
     private boolean initialized;
     private Object currentLevel;
     private Canvas currentCanvas;
@@ -41,7 +48,7 @@ public final class PluginManager {
     }
 
     public record PluginInfo(String id, String name, String version, String description, String author,
-                             boolean enabled, String error) {
+                             boolean enabled, String error, String security, String securityDetail) {
     }
 
     public void initialize() {
@@ -78,11 +85,48 @@ public final class PluginManager {
         List<PluginInfo> result = new ArrayList<>();
         for (Entry entry : plugins.values()) {
             PluginManifest manifest = entry.manifest;
+            PluginSecurity.Audit audit = entry.audit;
+            if (audit == null && manifest != null) {
+                scheduleAudit(entry);
+            }
             result.add(new PluginInfo(entry.id, manifest == null ? entry.id : manifest.name(),
                     manifest == null ? "" : manifest.version(), manifest == null ? "" : manifest.description(),
-                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error));
+                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error,
+                    audit == null ? "pending" : audit.level(),
+                    audit == null ? UiText.t("后台检测中", "Scanning in background") : audit.detail()));
         }
         return List.copyOf(result);
+    }
+
+    private void scheduleAudit(Entry entry) {
+        PluginManifest manifest = entry.manifest;
+        if (manifest == null || entry.audit != null || entry.auditFailed || !pendingAudits.add(entry.id)) {
+            return;
+        }
+        AUDIT_POOL.execute(() -> {
+            try {
+                PluginSecurity.Audit result = PluginSecurity.audit(manifest);
+                if (entry.manifest != null && entry.id.equals(manifest.id())) {
+                    entry.audit = result;
+                    revision++;
+                }
+            } catch (RuntimeException error) {
+                entry.auditFailed = true;
+                PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
+            } finally {
+                pendingAudits.remove(entry.id);
+            }
+        });
+    }
+
+    private static PluginSecurity.Audit audit(Entry entry) {
+        if (entry.manifest == null) {
+            return entry.audit;
+        }
+        if (entry.audit == null) {
+            entry.audit = PluginSecurity.audit(entry.manifest);
+        }
+        return entry.audit;
     }
 
     public record HudEditItem(String key, String label, PluginRuntime.HudLayout layout, Runnable save,
@@ -208,6 +252,9 @@ public final class PluginManager {
         } catch (Exception e) {
             PVPUtils.LOGGER.error("Failed to scan plugin directory", e);
         }
+        for (Entry entry : List.copyOf(plugins.values())) {
+            scheduleAudit(entry);
+        }
     }
 
     public void setEnabled(String id, boolean enabled) {
@@ -229,6 +276,8 @@ public final class PluginManager {
             PluginManifest updated = PluginManifest.read(entry.manifest.directory());
             if (!updated.id().equals(id)) throw new IOException("Plugin id changed; refresh the plugin list");
             entry.manifest = updated;
+            entry.audit = null;
+            entry.auditFailed = false;
             entry.error = "";
             if (wasEnabled) enable(entry);
         } catch (Exception e) {
@@ -240,7 +289,9 @@ public final class PluginManager {
 
     public List<String> check() {
         List<String> result = new ArrayList<>();
-        if (!PluginDirectory.ensureExists()) return List.of("插件目录创建失败");
+        if (!PluginDirectory.ensureExists()) {
+            return List.of(UiText.t("插件目录创建失败", "Failed to create plugin directory"));
+        }
         try (var children = Files.list(PluginDirectory.path())) {
             for (Path directory : children.filter(Files::isDirectory)
                     .filter(path -> !path.getFileName().toString().startsWith(".")).sorted().limit(64).toList()) {
@@ -248,7 +299,11 @@ public final class PluginManager {
                 try {
                     PluginManifest manifest = PluginManifest.read(directory);
                     PluginRuntime.validateScript(manifest);
-                    result.add(manifest.id() + " OK");
+                    PluginSecurity.Audit audit = PluginSecurity.audit(manifest);
+                    String detail = audit.detail();
+                    result.add(manifest.id() + " OK"
+                            + (audit.suspicious() ? " | " + audit.level().toUpperCase(java.util.Locale.ROOT)
+                            + (detail.isBlank() ? "" : ": " + detail) : ""));
                 } catch (Exception e) {
                     result.add(directory.getFileName() + " ERROR: " + message(e));
                 }
@@ -257,6 +312,26 @@ public final class PluginManager {
             result.add("SCAN ERROR: " + message(e));
         }
         return List.copyOf(result);
+    }
+
+    public void checkAsync(java.util.function.Consumer<List<String>> callback) {
+        Thread thread = new Thread(() -> {
+            List<String> results;
+            try {
+                results = check();
+            } catch (RuntimeException error) {
+                results = List.of("SCAN ERROR: " + message(error));
+            }
+            List<String> scanned = results;
+            Minecraft client = Minecraft.getInstance();
+            if (client == null) {
+                callback.accept(scanned);
+            } else {
+                client.execute(() -> callback.accept(scanned));
+            }
+        }, "pvp-utils-plugin-audit");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     public void prepareTick() {
@@ -325,6 +400,16 @@ public final class PluginManager {
             PluginManifest latest = PluginManifest.read(entry.manifest.directory());
             if (!latest.id().equals(entry.id)) throw new IOException("Plugin id changed; refresh the plugin list");
             entry.manifest = latest;
+            entry.audit = null;
+            entry.auditFailed = false;
+            PluginSecurity.Audit audit = audit(entry);
+            if (audit != null && audit.blocked()) {
+                throw new IOException(UiText.t("已被恶意插件识别拦截：", "Blocked by malicious plugin detection: ")
+                        + audit.detail());
+            }
+            if (audit != null && audit.suspicious()) {
+                PVPUtils.LOGGER.warn("JS plugin {} flagged as {}: {}", entry.id, audit.level(), audit.detail());
+            }
             Path root = PluginDirectory.path().toRealPath();
             Path data = root.resolve(".data");
             Files.createDirectories(data);
@@ -344,10 +429,11 @@ public final class PluginManager {
 
     private void fail(Entry entry, Throwable error) {
         entry.error = message(error);
-        PVPUtils.LOGGER.error("JS plugin {} failed", entry.id, error);
+        PVPUtils.LOGGER.error("JS plugin {} failed: {}", entry.id, entry.error, error);
         disable(entry);
         revision++;
-        NotificationOverlay.getInstance().show(UiText.t("插件运行失败：", "Plugin failed: ") + entry.id);
+        NotificationOverlay.getInstance().show(UiText.t("插件运行失败：", "Plugin failed: ") + entry.id
+                + (entry.error.isBlank() ? "" : " - " + entry.error));
     }
 
     private void disable(Entry entry) {
@@ -398,6 +484,8 @@ public final class PluginManager {
         private PluginManifest manifest;
         private PluginRuntime runtime;
         private GameHost host;
+        private volatile PluginSecurity.Audit audit;
+        private volatile boolean auditFailed;
         private String error = "";
 
         private Entry(String id) {
@@ -408,6 +496,7 @@ public final class PluginManager {
     private final class GameHost implements PluginRuntime.Host {
         private final String id;
         private final PluginPlayerBridge player = new PluginPlayerBridge();
+        private final PluginWorldBridge world = new PluginWorldBridge();
         private final ArrayDeque<Integer> drawScopes = new ArrayDeque<>();
         private Matrix33 baseMatrix;
 
@@ -438,6 +527,11 @@ public final class PluginManager {
         @Override
         public String playerCall(String token, String operation, Object[] arguments) {
             return player.call(token, operation, arguments);
+        }
+
+        @Override
+        public String worldCall(String operation, Object[] arguments) {
+            return world.call(operation, arguments);
         }
 
         @Override
