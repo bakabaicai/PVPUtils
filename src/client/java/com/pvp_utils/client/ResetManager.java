@@ -56,6 +56,15 @@ public class ResetManager {
         Config.nickHiderChat = true;
         Config.nickHiderTab = true;
         Config.nickHiderNametag = true;
+        Config.sunWorldRankSpoof = false;
+        Config.sunWorldRankVip1 = true;
+        Config.sunWorldRankVip2 = false;
+        Config.sunWorldRankVip3 = false;
+        Config.sunWorldRankVip4 = false;
+        Config.sunWorldRankSvip = false;
+        Config.sunWorldRankCreator = false;
+        Config.sunWorldRankGuide = false;
+        Config.sunWorldRankAdmin = false;
         Config.heldItemPosition = false;
         Config.heldItemMainX = 0.0f;
         Config.heldItemMainY = 0.0f;

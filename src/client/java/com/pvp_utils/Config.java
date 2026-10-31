@@ -76,6 +76,15 @@ public class Config {
     public static boolean nickHiderChat = true;
     public static boolean nickHiderTab = true;
     public static boolean nickHiderNametag = true;
+    public static boolean sunWorldRankSpoof = false;
+    public static boolean sunWorldRankVip1 = true;
+    public static boolean sunWorldRankVip2 = false;
+    public static boolean sunWorldRankVip3 = false;
+    public static boolean sunWorldRankVip4 = false;
+    public static boolean sunWorldRankSvip = false;
+    public static boolean sunWorldRankCreator = false;
+    public static boolean sunWorldRankGuide = false;
+    public static boolean sunWorldRankAdmin = false;
     public static boolean heldItemPosition = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
@@ -776,6 +785,7 @@ public class Config {
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
             new ModuleRule("NoSwimming", "noSwimming", "noSwimming"),
             new ModuleRule("NickHider", "nickHider", "nickHider"),
+            new ModuleRule("SunWorldRankSpoof", "sunWorldRankSpoof", "sunWorldRankSpoof", "sunWorldRankVip1", "sunWorldRankVip2", "sunWorldRankVip3", "sunWorldRankVip4", "sunWorldRankSvip", "sunWorldRankCreator", "sunWorldRankGuide", "sunWorldRankAdmin"),
             new ModuleRule("HeldItemPosition", "heldItem", "heldItemPosition"),
             new ModuleRule("FishingRodAssist", "fishingRodAssist", "fishingRodAssist"),
             new ModuleRule("BlockCountDisplay", "blockCountDisplay", "blockCountDisplay"),

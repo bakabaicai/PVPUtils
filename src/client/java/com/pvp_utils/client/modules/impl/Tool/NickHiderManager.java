@@ -18,24 +18,27 @@ public final class NickHiderManager {
     }
 
     public static Component replaceChat(Component component) {
-        if (!Config.nickHider || !Config.nickHiderChat) {
+        boolean disguise = Config.nickHider && Config.nickHiderChat;
+        if (!disguise && !Config.sunWorldRankSpoof) {
             return component;
         }
-        return replace(component);
+        return replace(component, disguise);
     }
 
     public static Component replaceTabName(Component component, PlayerInfo playerInfo) {
-        if (!Config.nickHider || !Config.nickHiderTab || !isLocalPlayer(playerInfo)) {
+        boolean disguise = Config.nickHider && Config.nickHiderTab;
+        if ((!disguise && !Config.sunWorldRankSpoof) || !isLocalPlayer(playerInfo)) {
             return component;
         }
-        return replace(component);
+        return replace(component, disguise);
     }
 
     public static Component replaceNameTag(Component component, Entity entity) {
-        if (!Config.nickHider || !Config.nickHiderNametag || !isLocalPlayer(entity)) {
+        boolean disguise = Config.nickHider && Config.nickHiderNametag;
+        if ((!disguise && !Config.sunWorldRankSpoof) || !isLocalPlayer(entity)) {
             return component;
         }
-        return replace(component);
+        return replace(component, disguise);
     }
 
     public static String normalizeNickname(String value) {
@@ -52,20 +55,21 @@ public final class NickHiderManager {
         return out.toString();
     }
 
-    private static Component replace(Component component) {
+    private static Component replace(Component component, boolean disguise) {
         if (component == null) {
             return null;
         }
         String realName = realName();
-        String nickname = replacementName();
-        if (realName.isBlank() || nickname.isBlank() || realName.equals(nickname)) {
+        String nickname = disguise ? replacementName() : realName;
+        String replacement = rankPrefix() + nickname;
+        if (realName.isBlank() || nickname.isBlank() || realName.equals(replacement)) {
             return component;
         }
 
         MutableComponent replaced = Component.empty().setStyle(component.getStyle());
         boolean[] changed = {false};
         component.visit((Style style, String text) -> {
-            String newText = replaceName(text, realName, nickname);
+            String newText = replaceName(text, realName, replacement);
             if (!newText.equals(text)) {
                 changed[0] = true;
             }
@@ -77,6 +81,22 @@ public final class NickHiderManager {
 
     private static String replacementName() {
         return normalizeNickname(Config.nickHiderNickname);
+    }
+
+    private static String rankPrefix() {
+        if (!Config.sunWorldRankSpoof) {
+            return "";
+        }
+        StringBuilder prefix = new StringBuilder();
+        if (Config.sunWorldRankVip1) prefix.append('\uE011');
+        if (Config.sunWorldRankVip2) prefix.append('\uE012');
+        if (Config.sunWorldRankVip3) prefix.append('\uE013');
+        if (Config.sunWorldRankVip4) prefix.append('\uE014');
+        if (Config.sunWorldRankSvip) prefix.append('\uE015');
+        if (Config.sunWorldRankCreator) prefix.append('\uE016');
+        if (Config.sunWorldRankGuide) prefix.append('\uE018');
+        if (Config.sunWorldRankAdmin) prefix.append('\uE017');
+        return prefix.length() == 0 ? "" : prefix + " ";
     }
 
     private static String replaceName(String text, String realName, String nickname) {

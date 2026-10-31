@@ -117,6 +117,17 @@ public class ToolPage extends BasePage {
                 .addSub("Nametag", UiText.t("替换自己头顶名称标签", "Replace your overhead name tag"),
                         new SettingToggle(() -> Config.nickHiderNametag, v -> { Config.nickHiderNametag = v; Config.save(); })));
 
+        modules.add(new SettingModule(UiText.t("SunWorld头衔破解", "SunWorld Rank Spoof"), UiText.t("在本地聊天、Tab栏和头顶名称前显示选择的头衔；不影响灵动岛", "Show selected rank glyphs before your name in local chat, tab list, and nametag; not applied to Dynamic Island"),
+                new SettingToggle(() -> Config.sunWorldRankSpoof, v -> { Config.sunWorldRankSpoof = v; Config.save(); }))
+                .addSub("VIP 1", "", new SettingToggle(() -> Config.sunWorldRankVip1, v -> { Config.sunWorldRankVip1 = v; Config.save(); }))
+                .addSub("VIP 2", "", new SettingToggle(() -> Config.sunWorldRankVip2, v -> { Config.sunWorldRankVip2 = v; Config.save(); }))
+                .addSub("VIP 3", "", new SettingToggle(() -> Config.sunWorldRankVip3, v -> { Config.sunWorldRankVip3 = v; Config.save(); }))
+                .addSub("VIP 4", "", new SettingToggle(() -> Config.sunWorldRankVip4, v -> { Config.sunWorldRankVip4 = v; Config.save(); }))
+                .addSub("SVIP", "", new SettingToggle(() -> Config.sunWorldRankSvip, v -> { Config.sunWorldRankSvip = v; Config.save(); }))
+                .addSub(UiText.t("Creator", "Creator"), "", new SettingToggle(() -> Config.sunWorldRankCreator, v -> { Config.sunWorldRankCreator = v; Config.save(); }))
+                .addSub(UiText.t("Guide", "Guide"), "", new SettingToggle(() -> Config.sunWorldRankGuide, v -> { Config.sunWorldRankGuide = v; Config.save(); }))
+                .addSub("Admin", "", new SettingToggle(() -> Config.sunWorldRankAdmin, v -> { Config.sunWorldRankAdmin = v; Config.save(); })));
+
         modules.add(new SettingModule(UiText.t("手持物品位置调整", "Held Item Position"), UiText.t("调整第一人称主手与副手物品的位置", "Adjust first-person main-hand and off-hand item position"),
                 new SettingToggle(() -> Config.heldItemPosition, v -> { Config.heldItemPosition = v; Config.save(); }))
                 .addSub(UiText.t("主手 X", "Main Hand X"), "",
