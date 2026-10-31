@@ -8,6 +8,7 @@ import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackSource;
+import com.pvp_utils.mixin.client.ClientLanguageAccessor;
 
 import java.util.HashMap;
 import java.util.HashSet;

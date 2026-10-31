@@ -1,4 +1,4 @@
-package com.pvp_utils.client;
+package com.pvp_utils.mixin.client;
 
 import net.minecraft.client.resources.language.ClientLanguage;
 import org.spongepowered.asm.mixin.Mixin;
