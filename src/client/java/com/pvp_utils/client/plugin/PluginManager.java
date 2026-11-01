@@ -36,7 +36,7 @@ public final class PluginManager {
                 return thread;
             });
     private final Map<String, Entry> plugins = new LinkedHashMap<>();
-    private final java.util.Set<String> pendingAudits = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<Entry> pendingAudits = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private JsonObject enabledState = new JsonObject();
     private final java.util.concurrent.atomic.AtomicInteger revision = new java.util.concurrent.atomic.AtomicInteger();
     private boolean initialized;
@@ -87,7 +87,7 @@ public final class PluginManager {
             PluginManifest manifest = entry.manifest;
             PluginSecurity.Audit audit = entry.audit;
             if (audit == null && manifest != null) {
-                if (!entry.auditFailed) scheduleAudit(entry);
+                scheduleAudit(entry);
             }
             String securityLevel;
             String securityDetail;
@@ -117,7 +117,7 @@ public final class PluginManager {
         if (manifest == null || entry.audit != null) return;
         if (entry.auditFailed && System.currentTimeMillis() < entry.nextAuditRetryAt) return;
         if (entry.auditFailed) entry.auditFailed = false;
-        if (!pendingAudits.add(entry.id)) return;
+        if (!pendingAudits.add(entry)) return;
         final int generation = entry.auditGeneration;
         AUDIT_POOL.execute(() -> {
             try {
@@ -134,7 +134,7 @@ public final class PluginManager {
                     PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
                 }
             } finally {
-                pendingAudits.remove(entry.id);
+                pendingAudits.remove(entry);
             }
         });
         return;
@@ -380,7 +380,12 @@ public final class PluginManager {
     public void tick(Minecraft client) {
         Object level = client.level;
         if (currentLevel != level) {
-            if (currentLevel != null) dispatch("leave");
+            if (currentLevel != null) {
+                dispatch("leave");
+                for (Entry entry : List.copyOf(plugins.values())) {
+                    if (entry.runtime != null) entry.runtime.releaseInputs();
+                }
+            }
             currentLevel = level;
             if (level != null) dispatch("join");
         }
@@ -504,7 +509,7 @@ public final class PluginManager {
 
     private static final class Entry {
         private String id;
-        private PluginManifest manifest;
+        private volatile PluginManifest manifest;
         private PluginRuntime runtime;
         private GameHost host;
         private volatile PluginSecurity.Audit audit;

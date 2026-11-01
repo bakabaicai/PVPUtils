@@ -305,6 +305,10 @@ public final class PluginRuntime implements AutoCloseable {
         return (float) number;
     }
 
+    public void releaseInputs() {
+        input.releaseAll();
+    }
+
     public void emit(String event) {
         if ("tick".equals(event)) {
             input.apply(net.minecraft.client.Minecraft.getInstance());
