@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.skin.OfflineSkinManager;
 import com.pvp_utils.client.skin.SkinManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
@@ -29,6 +30,12 @@ public class RenderPage extends BasePage {
         addSkinOption(skinModule, SkinManager.HORSE_ARMOR, "马铠皮肤");
         addSkinOption(skinModule, SkinManager.COSMETIC, "饰品显示");
         modules.add(skinModule);
+
+        OfflineSkinManager.load();
+        List<String> offlineNames = OfflineSkinManager.skins().stream().map(OfflineSkinManager.OfflineSkin::name).toList();
+        if (offlineNames.isEmpty()) offlineNames = List.of("No skins");
+        modules.add(new SettingModule("离线皮肤", "离线皮肤管理/快速切换",
+                new SettingCycle(offlineNames, OfflineSkinManager::selected, OfflineSkinManager::select)));
 
         modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("让部分物品使用1.7时候的动画", "Use 1.7-style animations for selected items"),
                 new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))

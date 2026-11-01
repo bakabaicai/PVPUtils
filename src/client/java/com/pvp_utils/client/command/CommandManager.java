@@ -5,6 +5,7 @@ import com.pvp_utils.client.command.impl.AutoGGCommand;
 import com.pvp_utils.client.command.impl.AutoLoginCommand;
 import com.pvp_utils.client.command.impl.ClientCommandPrefixCommand;
 import com.pvp_utils.client.command.impl.ClientNameCommand;
+import com.pvp_utils.client.command.impl.OfflineSkinCommand;
 import com.pvp_utils.client.command.impl.DotCommand;
 import com.pvp_utils.client.command.impl.HelpCommand;
 import com.pvp_utils.client.command.impl.PluginCommand;
@@ -26,7 +27,8 @@ public final class CommandManager {
             new VersionWarningCommand(),
             new ClientNameCommand(),
             new AutoGGCommand(),
-            new AutoLoginCommand()
+            new AutoLoginCommand(),
+            new OfflineSkinCommand()
     );
 
     private CommandManager() {
