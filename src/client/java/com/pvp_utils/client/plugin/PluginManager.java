@@ -87,13 +87,28 @@ public final class PluginManager {
             PluginManifest manifest = entry.manifest;
             PluginSecurity.Audit audit = entry.audit;
             if (audit == null && manifest != null) {
-                scheduleAudit(entry);
+                if (entry.auditFailed) {
+                    // keep failed state visible instead of looping "scanning"
+                } else {
+                    scheduleAudit(entry);
+                }
+            }
+            String securityLevel;
+            String securityDetail;
+            if (audit != null) {
+                securityLevel = audit.level();
+                securityDetail = audit.detail();
+            } else if (entry.auditFailed) {
+                securityLevel = "failed";
+                securityDetail = UiText.t("安全检测失败", "Security audit failed");
+            } else {
+                securityLevel = "pending";
+                securityDetail = UiText.t("后台检测中", "Scanning in background");
             }
             result.add(new PluginInfo(entry.id, manifest == null ? entry.id : manifest.name(),
                     manifest == null ? "" : manifest.version(), manifest == null ? "" : manifest.description(),
                     manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error,
-                    audit == null ? "pending" : audit.level(),
-                    audit == null ? UiText.t("后台检测中", "Scanning in background") : audit.detail()));
+                    securityLevel, securityDetail));
         }
         return List.copyOf(result);
     }
@@ -112,6 +127,7 @@ public final class PluginManager {
                 }
             } catch (RuntimeException error) {
                 entry.auditFailed = true;
+                revision++;
                 PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
             } finally {
                 pendingAudits.remove(entry.id);
