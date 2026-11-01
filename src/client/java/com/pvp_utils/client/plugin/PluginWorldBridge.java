@@ -15,9 +15,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import com.mojang.blaze3d.systems.RenderSystem;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static com.pvp_utils.client.plugin.PluginPlayerArguments.integer;
 
@@ -26,26 +23,7 @@ final class PluginWorldBridge {
     private static final int MAX_LIMIT = 64;
 
     String call(String operation, Object[] args) {
-        if (isMainThread() || RenderSystem.isOnRenderThread()) {
-            return execute(operation, args);
-        }
-        Minecraft client = Minecraft.getInstance();
-        CompletableFuture<String> future = new CompletableFuture<>();
-        client.execute(() -> {
-            try {
-                future.complete(execute(operation, args));
-            } catch (Throwable error) {
-                future.completeExceptionally(error);
-            }
-        });
-        try {
-            return future.get(2L, TimeUnit.SECONDS);
-        } catch (ExecutionException error) {
-            if (error.getCause() instanceof RuntimeException runtime) throw runtime;
-            throw new IllegalStateException("World query failed", error.getCause());
-        } catch (Exception error) {
-            throw new IllegalStateException("World query timed out", error);
-        }
+        return execute(operation, args);
     }
 
     private static boolean isMainThread() {

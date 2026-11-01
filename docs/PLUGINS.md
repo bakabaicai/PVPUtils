@@ -657,3 +657,17 @@ Esc 返回上一个界面；界面不暂停单人世界；卸载、重载或运�
 
 这些输入仅针对当前打开的自定义 Screen，不是全局输入接管。
 需要复杂控件时可以用直接绘制与这些输入回调自行组合，不必修改 Java 模组。
+
+## Game control and combat APIs
+
+### `pvputils.game.control`
+Provides client-side game control helpers exposed to plugins.
+
+### `pvputils.game.combat`
+Provides combat-related helpers exposed to plugins.
+
+### `player.attack`
+Triggers an attack action for the local player.
+
+### `player.interact`
+Triggers an interact action for the local player.
