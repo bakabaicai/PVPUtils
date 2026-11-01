@@ -75,6 +75,10 @@ public final class SkinManager {
         return isDisplayEnabled() && readModes().containsKey(type);
     }
 
+    public static boolean hasSwordSkinActive() {
+        return isActive(NETHERITE_SWORD) || isActive(DIAMOND_SWORD);
+    }
+
     public static void setActive(String type, boolean active) {
         Map<String, Integer> modes = readModes();
         if (active) modes.putIfAbsent(type, 0);

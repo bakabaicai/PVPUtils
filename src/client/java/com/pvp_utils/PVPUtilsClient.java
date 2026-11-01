@@ -23,6 +23,7 @@ import com.pvp_utils.client.modules.impl.Tool.FishingRodAssistManager;
 import com.pvp_utils.client.modules.impl.Tool.FoodInfo.FoodInfoHudOverlay;
 import com.pvp_utils.client.modules.impl.Tool.Freelook.FreelookManager;
 import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
+import com.pvp_utils.client.modules.impl.Tool.PseudoCreativeManager;
 import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -45,6 +46,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         Update.startAutoCheck();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
                 client -> {
+                    PseudoCreativeManager.setEnabled(false);
                     com.pvp_utils.client.plugin.PluginManager.INSTANCE.close();
                     com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();
                 });
@@ -52,10 +54,12 @@ public class PVPUtilsClient implements ClientModInitializer {
         ClientTickEvents.START_CLIENT_TICK.register(client ->
                 com.pvp_utils.client.plugin.PluginManager.INSTANCE.prepareTick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            com.pvp_utils.client.skin.McbiServerGate.tick(client);
             com.pvp_utils.client.plugin.PluginManager.INSTANCE.tick(client);
             AutoChestDepositManager.tick(client);
             AutoGGManager.tick(client);
             ServerAutoLoginManager.tick(client);
+            PseudoCreativeManager.tick(client);
             ElytraAssistManager.tick(client);
             MainHandAssistManager.tick(client);
             InputMethodFix.tick(client);

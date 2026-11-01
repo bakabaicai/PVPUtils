@@ -5,6 +5,7 @@ import com.mojang.math.Axis;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.SettingsScreen;
 import com.pvp_utils.client.modules.impl.Tool.HeldItemPositionManager;
+import com.pvp_utils.client.skin.SkinManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
@@ -77,7 +78,7 @@ public abstract class ItemInHandRendererMixin {
         boolean isWeapon = isWeapon(currentStack);
         boolean visibleItemMatches = ItemStack.matches(currentStack, this.mainHandItem);
         boolean hasTarget = Config.autoMode && isEntityInRange();
-        boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget);
+        boolean isBlocking = Config.swordBlock && !SkinManager.hasSwordSkinActive() && isSword && (client.options.keyUse.isDown() || hasTarget);
         boolean isEatingSwing = Config.legacy17Animations && Config.legacy17UseSwing
                 && client.player.isUsingItem() && !currentStack.is(ItemTags.SPEARS);
         boolean shouldSuppressCooldownRaise = Config.noAttackCooldownAnimation && isWeapon && visibleItemMatches && !waitingForWeaponCooldown && !client.player.isUsingItem();
@@ -103,7 +104,7 @@ public abstract class ItemInHandRendererMixin {
         boolean hasShield = offHandStack.is(Items.SHIELD);
         boolean hasTarget = Config.autoMode && isEntityInRange();
 
-        boolean isBlocking = Config.swordBlock && isSword && (client.options.keyUse.isDown() || hasTarget || client.screen instanceof SettingsScreen);
+        boolean isBlocking = Config.swordBlock && !SkinManager.hasSwordSkinActive() && isSword && (client.options.keyUse.isDown() || hasTarget || client.screen instanceof SettingsScreen);
 
         if (interactionHand == InteractionHand.OFF_HAND && isBlocking && hasShield) {
             ci.cancel();

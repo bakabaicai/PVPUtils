@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.skin.McbiServerGate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
@@ -27,7 +28,7 @@ public final class NickHiderManager {
 
     public static Component replaceTabName(Component component, PlayerInfo playerInfo) {
         boolean disguise = Config.nickHider && Config.nickHiderTab;
-        if ((!disguise && !Config.sunWorldRankSpoof) || !isLocalPlayer(playerInfo)) {
+        if ((!disguise && !rankSpoofActive()) || !isLocalPlayer(playerInfo)) {
             return component;
         }
         return replace(component, disguise);
@@ -35,7 +36,7 @@ public final class NickHiderManager {
 
     public static Component replaceNameTag(Component component, Entity entity) {
         boolean disguise = Config.nickHider && Config.nickHiderNametag;
-        if ((!disguise && !Config.sunWorldRankSpoof) || !isLocalPlayer(entity)) {
+        if ((!disguise && !rankSpoofActive()) || !isLocalPlayer(entity)) {
             return component;
         }
         return replace(component, disguise);
@@ -84,19 +85,23 @@ public final class NickHiderManager {
     }
 
     private static String rankPrefix() {
-        if (!Config.sunWorldRankSpoof) {
+        if (!rankSpoofActive()) {
             return "";
         }
         StringBuilder prefix = new StringBuilder();
-        if (Config.sunWorldRankVip1) prefix.append('\uE011');
-        if (Config.sunWorldRankVip2) prefix.append('\uE012');
-        if (Config.sunWorldRankVip3) prefix.append('\uE013');
-        if (Config.sunWorldRankVip4) prefix.append('\uE014');
-        if (Config.sunWorldRankSvip) prefix.append('\uE015');
-        if (Config.sunWorldRankCreator) prefix.append('\uE016');
-        if (Config.sunWorldRankGuide) prefix.append('\uE018');
-        if (Config.sunWorldRankAdmin) prefix.append('\uE017');
+        if (Config.sunWorldRankVip1) prefix.append('\uE0AE');
+        if (Config.sunWorldRankVip2) prefix.append('\uE0AF');
+        if (Config.sunWorldRankVip3) prefix.append('\uE0B0');
+        if (Config.sunWorldRankVip4) prefix.append('\uE0B1');
+        if (Config.sunWorldRankSvip) prefix.append('\uE0B2');
+        if (Config.sunWorldRankCreator) prefix.append('\uE0B3');
+        if (Config.sunWorldRankAdmin) prefix.append('\uE0B4');
+        if (Config.sunWorldRankGuide) prefix.append('\uE0B5');
         return prefix.length() == 0 ? "" : prefix + " ";
+    }
+
+    private static boolean rankSpoofActive() {
+        return Config.sunWorldRankSpoof && McbiServerGate.isAvailable();
     }
 
     private static String replaceName(String text, String realName, String nickname) {

@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.skin.SkinManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -61,7 +62,7 @@ public class ArraylistRenderer {
             new Entry("Remove Container Background", () -> Config.removeContainerBackground),
             new Entry("Remove Attack Cooldown Animation", () -> Config.noAttackCooldownAnimation),
             new Entry("Sneak Animation Adjustment", () -> Config.noSneakAnimation),
-            new Entry("Sword Blocking Animation", () -> Config.swordBlock),
+            new Entry("Sword Blocking Animation", () -> Config.swordBlock && !SkinManager.hasSwordSkinActive()),
             new Entry("Time Change", () -> Config.timeChange),
             new Entry("Victory Sound", () -> Config.victorySound),
             new Entry("Weather Change", () -> Config.weatherChange),

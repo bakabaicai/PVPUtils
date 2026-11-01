@@ -138,6 +138,7 @@ public class Config {
     public static boolean autoChestDeposit = false;
     public static boolean autoChestDepositResourcesOnly = true;
     public static boolean removeContainerBackground = false;
+    public static boolean pseudoCreative = false;
     public static boolean keystrokes = false;
     public static boolean disableImeInGame = false;
     public static boolean hideSignText = false;
@@ -241,6 +242,7 @@ public class Config {
     public static float nameTagScale = 1.0f;
     public static boolean nameTagDynamicScale = false;
     public static boolean nameTagOnlyPlayer = false;
+    public static boolean nameTagShowSelf = false;
     public static boolean dynamicMotionBlur = false;
     public static float dynamicMotionBlurStrength = 1.0f;
     public static boolean dynamicMotionBlurRefreshRateScaling = true;
@@ -769,6 +771,7 @@ public class Config {
             new ModuleRule("SwordBlockingAnimation", "swordBlock", "swordBlock", "offsetX", "offsetY", "offsetZ", "animSpeed", "animationMode"),
             new ModuleRule("AutoBlock", "autoMode", "autoMode", "range"),
             new ModuleRule("RemoveAttackCooldownAnimation", "noAttackCooldownAnimation", "noAttackCooldownAnimation"),
+            new ModuleRule("PseudoCreative", "pseudoCreative", "pseudoCreative"),
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
             new ModuleRule("AutoGG", "autoGG", "autoGG"),
@@ -822,7 +825,7 @@ public class Config {
             new ModuleRule("SmoothHotbarScrolling", "smoothHotbar", "smoothHotbarScrolling", "hotbarRollover"),
             new ModuleRule("MainUI", "mainUI", "useMainUI", "mainUIBackgroundImage", "mainUIGlslShader"),
             new ModuleRule("TargetHUD", "targetHud", "targetHud"),
-            new ModuleRule("NameTags", "nameTag", "nameTag"),
+            new ModuleRule("NameTags", "nameTag", "nameTag", "nameTagShowSelf"),
             new ModuleRule("DynamicMotionBlur", "dynamicMotionBlur", "dynamicMotionBlur", "motionBlurAlgorithm"),
             new ModuleRule("HUDTheme", "hud", "", "skiaBlurStrength"),
             new ModuleRule("ClickGuiScale", "clickGui", "", "clickGuiScale", "clickGuiScrollSpeed"),

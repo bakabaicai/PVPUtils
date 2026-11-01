@@ -157,6 +157,7 @@ public class ResetManager {
         Config.nameTagScale = 1.0f;
         Config.nameTagDynamicScale = false;
         Config.nameTagOnlyPlayer = false;
+        Config.nameTagShowSelf = false;
         Config.dynamicMotionBlur = false;
         Config.dynamicMotionBlurStrength = 1.0f;
         Config.dynamicMotionBlurRefreshRateScaling = true;

@@ -2,6 +2,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.skin.SkinManager;
+import com.pvp_utils.client.skin.McbiServerGate;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import net.minecraft.client.Minecraft;
@@ -30,6 +31,23 @@ public class RenderPage extends BasePage {
         addSkinOption(skinModule, SkinManager.COSMETIC, "饰品显示");
         modules.add(skinModule);
 
+        modules.add(new SettingModule("SunWorld头衔破解", "仅在 mcbi.top 服务器内可用",
+                new SettingToggle(() -> Config.sunWorldRankSpoof && McbiServerGate.isAvailable(), value -> {
+                    if (McbiServerGate.isAvailable()) {
+                        Config.sunWorldRankSpoof = value;
+                        Config.save();
+                    }
+                }))
+                .addSub("VIP 1", "", new SettingToggle(() -> Config.sunWorldRankVip1, v -> { Config.sunWorldRankVip1 = v; Config.save(); }))
+                .addSub("VIP 2", "", new SettingToggle(() -> Config.sunWorldRankVip2, v -> { Config.sunWorldRankVip2 = v; Config.save(); }))
+                .addSub("VIP 3", "", new SettingToggle(() -> Config.sunWorldRankVip3, v -> { Config.sunWorldRankVip3 = v; Config.save(); }))
+                .addSub("VIP 4", "", new SettingToggle(() -> Config.sunWorldRankVip4, v -> { Config.sunWorldRankVip4 = v; Config.save(); }))
+                .addSub("SVIP", "", new SettingToggle(() -> Config.sunWorldRankSvip, v -> { Config.sunWorldRankSvip = v; Config.save(); }))
+                .addSub("Creator", "", new SettingToggle(() -> Config.sunWorldRankCreator, v -> { Config.sunWorldRankCreator = v; Config.save(); }))
+                .addSub("Guide", "", new SettingToggle(() -> Config.sunWorldRankGuide, v -> { Config.sunWorldRankGuide = v; Config.save(); }))
+                .addSub("Admin", "", new SettingToggle(() -> Config.sunWorldRankAdmin, v -> { Config.sunWorldRankAdmin = v; Config.save(); }))
+                .visibleWhen(McbiServerGate::isAvailable));
+
         modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("让部分物品使用1.7时候的动画", "Use 1.7-style animations for selected items"),
                 new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))
                 .addSub(UiText.t("使用物品挥手偏移", "Item Use Swing Offset"), UiText.t("使用物品时应用 1.7 风格的挥手偏移", "Apply the 1.7 swing offset while using an item"),
@@ -48,7 +66,7 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("在聊天框中快速启用", "Quick Enable in Chat"), UiText.t("打开聊天框时自动启用 HUD 拖动编辑", "Automatically enable HUD drag editing when opening chat"),
                         new SettingToggle(() -> Config.chatHudEditQuickEnable, v -> { Config.chatHudEditQuickEnable = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("防砍动画", "Sword Blocking Animation"), UiText.t("模拟旧版格挡动画效果", "Simulate the old blocking animation"),
+        SettingModule swordBlockModule = new SettingModule(UiText.t("防砍动画", "Sword Blocking Animation"), UiText.t("模拟旧版格挡动画效果", "Simulate the old blocking animation"),
                 new SettingToggle(() -> Config.swordBlock, v -> { Config.swordBlock = v; Config.save(); }))
                 .addSub(UiText.t("动画模式", "Animation Mode"), UiText.t("选择动画风格", "Choose the animation style"),
                         new SettingCycle(List.of("1.7", "Push", "1.7+", "New"),
@@ -61,7 +79,9 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("偏移 Z", "Offset Z"), UiText.t("深度偏移量", "Depth offset"),
                         new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.offsetZ, v -> { Config.offsetZ = v.floatValue(); Config.save(); }))
                 .addSub(UiText.t("动画速度", "Animation Speed"), UiText.t("调整动画播放速度", "Adjust animation playback speed"),
-                        new SettingSlider(0.0, 4.0, "%.2f", () -> (double) Config.animSpeed, v -> { Config.animSpeed = v.floatValue(); Config.save(); })));
+                        new SettingSlider(0.0, 4.0, "%.2f", () -> (double) Config.animSpeed, v -> { Config.animSpeed = v.floatValue(); Config.save(); }));
+        swordBlockModule.visibleWhen(() -> !SkinManager.hasSwordSkinActive());
+        modules.add(swordBlockModule);
 
         modules.add(new SettingModule(UiText.t("去除攻击冷却动画", "Remove Attack Cooldown Animation"), UiText.t("去除武器挥动后高版本额外的抬手动画", "Remove the extra hand raise after weapon swings"),
                 new SettingToggle(() -> Config.noAttackCooldownAnimation, v -> { Config.noAttackCooldownAnimation = v; Config.save(); })));
@@ -373,7 +393,9 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("动态缩放", "Dynamic Scale"), UiText.t("根据距离自动缩放名称标签，让远近大小更接近", "Scale name tags by distance so their screen size stays closer"),
                         new SettingToggle(() -> Config.nameTagDynamicScale, v -> { Config.nameTagDynamicScale = v; Config.save(); }))
                 .addSub(UiText.t("仅玩家", "Only Player"), UiText.t("只放大真实玩家的名称标签，过滤多数 NPC", "Only scale real player name tags and filter most NPCs"),
-                        new SettingToggle(() -> Config.nameTagOnlyPlayer, v -> { Config.nameTagOnlyPlayer = v; Config.save(); })));
+                        new SettingToggle(() -> Config.nameTagOnlyPlayer, v -> { Config.nameTagOnlyPlayer = v; Config.save(); }))
+                .addSub(UiText.t("显示自身名称标签", "Show Own Name Tag"), UiText.t("在第三人称视角显示自己头顶的名称标签", "Show your own overhead name tag in third-person view"),
+                        new SettingToggle(() -> Config.nameTagShowSelf, v -> { Config.nameTagShowSelf = v; Config.save(); })));
     }
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }

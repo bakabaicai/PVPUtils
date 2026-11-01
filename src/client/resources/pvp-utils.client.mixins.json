@@ -33,6 +33,8 @@
     "ArmorTransparencyLivingEntityRendererMixin",
     "ArmorTransparencyEquipmentLayerRendererMixin",
     "EntityRendererMixin",
+    "MultiPlayerGameModeMixin",
+    "LivingEntityRendererMixin",
     "AvatarRendererMixin",
     "NameTagFeatureRendererStorageMixin",
     "CapeLayerMixin",

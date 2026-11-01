@@ -1,5 +1,6 @@
 package com.pvp_utils.mixin.client;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import com.pvp_utils.client.util.NameTagPlayerFilterState;
 import com.pvp_utils.client.util.NameTagPlayerFilterContext;

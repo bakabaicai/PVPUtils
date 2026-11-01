@@ -5,6 +5,7 @@ import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
+import com.pvp_utils.client.modules.impl.Tool.PseudoCreativeManager;
 import com.pvp_utils.client.web.WebGUIServer;
 
 import java.util.List;
@@ -27,6 +28,9 @@ public class MiscPage extends BasePage {
                         new SettingCycle(List.of(UiText.t("中文", "Chinese"), UiText.t("英文", "English")),
                                 () -> Config.isChinese ? 0 : 1,
                                 i -> { Config.isChinese = i == 0; Config.save(); })));
+
+        modules.add(new SettingModule(UiText.t("伪装创造", "Pseudo Creative"), UiText.t("在本地将你的模式改为创造", "Locally switch your game mode to Creative"),
+                new SettingToggle(PseudoCreativeManager::isActive, v -> { PseudoCreativeManager.setEnabled(v); Config.save(); })));
 
         if (Config.restrictedFeaturesUnlocked()) {
             modules.add(new SettingModule(UiText.t("完整性设置", "Integrity Settings"), UiText.t("在此处控制客户端功能的完整性", "Control client feature integrity here"), null)

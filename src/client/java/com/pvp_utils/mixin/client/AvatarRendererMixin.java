@@ -31,7 +31,7 @@ public class AvatarRendererMixin {
             if (pvp_utils$skinResolver == null) pvp_utils$skinResolver = new ItemModelResolver(minecraft.getModelManager());
             pvp_utils$skinResolver.updateForLiving(state.headItem, cosmetic, ItemDisplayContext.HEAD, entity);
         }
-        if (Config.swordBlock && minecraft.options.keyUse.isDown() && entity.getMainHandItem().is(ItemTags.SWORDS)) {
+        if (Config.swordBlock && !SkinManager.hasSwordSkinActive() && minecraft.options.keyUse.isDown() && entity.getMainHandItem().is(ItemTags.SWORDS)) {
             if (entity.getMainArm() == HumanoidArm.RIGHT) {
                 state.rightArmPose = HumanoidModel.ArmPose.BLOCK;
             } else {

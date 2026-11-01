@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.skin.SkinManager;
 import com.pvp_utils.mixin.client.RenderSetupAccessor;
 import com.pvp_utils.mixin.client.RenderTextureBindingAccessor;
 import com.pvp_utils.mixin.client.RenderTypeStateAccessor;
@@ -108,7 +109,7 @@ public final class HeldItemPositionManager {
     }
 
     private static boolean blockingAnimationActive(Player player, InteractionHand hand) {
-        if (player == null || hand != InteractionHand.MAIN_HAND || !Config.swordBlock || !player.getMainHandItem().is(ItemTags.SWORDS)) {
+        if (player == null || hand != InteractionHand.MAIN_HAND || !Config.swordBlock || SkinManager.hasSwordSkinActive() || !player.getMainHandItem().is(ItemTags.SWORDS)) {
             return false;
         }
         return Config.autoMode || isUseKeyDown() || isSettingsScreenOpen();

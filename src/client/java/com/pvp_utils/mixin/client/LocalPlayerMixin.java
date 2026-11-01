@@ -3,6 +3,7 @@ package com.pvp_utils.mixin.client;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Tool.PseudoCreativeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Final;
@@ -28,6 +29,27 @@ public class LocalPlayerMixin {
         ItemUseStatusRenderer.getInstance().captureFromMixin(player);
         if (Config.noSwimming && player.isInWater() && player.isSprinting()) {
             player.setSprinting(false);
+        }
+    }
+
+    @Inject(method = "onUpdateAbilities", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$blockFakeAbilitiesPacket(CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksMovement()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "sendPosition", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$blockFakePositionPacket(CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksMovement()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "drop", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$blockFakeDrop(boolean dropAll, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Boolean> cir) {
+        if (PseudoCreativeManager.blocksDrop()) {
+            cir.setReturnValue(false);
         }
     }
 }

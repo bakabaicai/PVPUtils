@@ -15,6 +15,12 @@ import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ClientboundSetCursorItemPacket;
+import net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket;
+import com.pvp_utils.client.modules.impl.Tool.PseudoCreativeManager;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.Entity;
@@ -42,6 +48,44 @@ public class ClientPacketListenerMixin {
     @Inject(method = "handleSystemChat", at = @At("HEAD"))
     private void pvp_utils$detectLoginPrompt(ClientboundSystemChatPacket packet, CallbackInfo ci) {
         ServerAutoLoginManager.onSystemChatMessage(packet.content().getString());
+    }
+
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$ignorePseudoCreativeCorrection(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksMovement()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleContainerContent", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$ignorePseudoCreativeContainerSync(ClientboundContainerSetContentPacket packet, CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksCreativePacket() && packet.containerId() == 0) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleContainerSetSlot", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$ignorePseudoCreativeSlotSync(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
+        Minecraft client = Minecraft.getInstance();
+        if (PseudoCreativeManager.blocksCreativePacket()
+                && packet.getContainerId() == 0
+                && client.player != null) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleSetCursorItem", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$ignorePseudoCreativeCursorSync(ClientboundSetCursorItemPacket packet, CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksCreativePacket()) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleSetPlayerInventory", at = @At("HEAD"), cancellable = true)
+    private void pvp_utils$ignorePseudoCreativeInventorySync(ClientboundSetPlayerInventoryPacket packet, CallbackInfo ci) {
+        if (PseudoCreativeManager.blocksCreativePacket()) {
+            ci.cancel();
+        }
     }
 
     @Inject(method = "handleSetTime", at = @At("HEAD"))
