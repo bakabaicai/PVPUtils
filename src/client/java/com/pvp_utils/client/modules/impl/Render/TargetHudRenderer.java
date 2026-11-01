@@ -389,12 +389,35 @@ public class TargetHudRenderer {
             LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
         }
 
-        SkijaRenderer.draw(c -> {
-            c.translate(drawX, drawY);
-            c.scale(hudScale * drawScale, hudScale * drawScale);
-            drawNewBase(c, name, transparentMode);
-            drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
-        });
+        Identifier avatarTexture = target instanceof Player player
+                ? resolvePlayerSkin(client, player).body().texturePath()
+                : null;
+        int alphaInt = Math.round(alpha * 255);
+        int alphaBits = alphaInt << 24;
+        float hurtFlashFactor = getFlashFactor(now, lastDamageTime);
+        float healFlashFactor = getFlashFactor(now, lastHealTime);
+        float damageFactor = 1.0f - hurtFlashFactor;
+        float scaleProgress = (float) Math.sin(damageFactor * Math.PI);
+        float avatarScale = hurtFlashFactor > 0.0f ? 1.0f - scaleProgress * 0.2f : 1.0f;
+        if (avatarTexture != null) {
+            SkijaRenderer.submit(c -> {
+                int save = c.save();
+                c.translate(drawX, drawY);
+                c.scale(hudScale * drawScale, hudScale * drawScale);
+                drawNewBase(c, name, transparentMode);
+                drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
+                c.restoreToCount(save);
+                renderNewAvatar(c, avatarTexture, drawX, drawY, hudScale * drawScale, avatarScale,
+                        hurtFlashFactor, healFlashFactor, alphaInt);
+            });
+        } else {
+            SkijaRenderer.draw(c -> {
+                c.translate(drawX, drawY);
+                c.scale(hudScale * drawScale, hudScale * drawScale);
+                drawNewBase(c, name, transparentMode);
+                drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
+            });
+        }
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(cx, cy);
@@ -406,16 +429,6 @@ public class TargetHudRenderer {
 
         int avatarX = x + 12;
         int avatarY = y + 10;
-        int alphaInt = Math.round(alpha * 255);
-        int alphaBits = alphaInt << 24;
-        float avatarScale = 1.0f;
-        float hurtFlashFactor = getFlashFactor(now, lastDamageTime);
-        float healFlashFactor = getFlashFactor(now, lastHealTime);
-        if (hurtFlashFactor > 0.0f) {
-            float damageFactor = 1.0f - hurtFlashFactor;
-            float scaleProgress = (float) Math.sin(damageFactor * Math.PI);
-            avatarScale = 1.0f - scaleProgress * 0.2f;
-        }
 
         graphics.pose().pushMatrix();
         float avatarCenterX = avatarX + NEW_AVATAR_SIZE * 0.5f;
@@ -423,10 +436,7 @@ public class TargetHudRenderer {
         graphics.pose().translate(avatarCenterX, avatarCenterY);
         graphics.pose().scale(avatarScale, avatarScale);
         graphics.pose().translate(-avatarCenterX, -avatarCenterY);
-        if (target instanceof Player player) {
-            renderNewAvatar(client, player, drawX, drawY, hudScale * drawScale, avatarScale,
-            hurtFlashFactor, healFlashFactor, alphaInt);
-        } else {
+        if (!(target instanceof Player)) {
             SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
             if (eggItem != null) {
                 graphics.renderFakeItem(new ItemStack(eggItem), avatarX + 11, avatarY + 11);
@@ -694,36 +704,37 @@ public class TargetHudRenderer {
         return lastTruncatedName;
     }
 
-    private void renderNewAvatar(Minecraft client, Player player, float x, float y, float scale,
+    private void renderNewAvatar(Canvas canvas, Identifier texture, float x, float y, float scale,
     float avatarScale, float hurt, float heal, int alpha) {
-        PlayerSkin skin = resolvePlayerSkin(client, player);
-        net.minecraft.resources.Identifier texture = skin.body().texturePath();
-        SkijaRenderer.submit(canvas -> {
-            canvas.translate(x, y);
-            canvas.scale(scale, scale);
-            canvas.translate(12f + NEW_AVATAR_SIZE * 0.5f, 10f + NEW_AVATAR_SIZE * 0.5f);
-            canvas.scale(avatarScale, avatarScale);
-            canvas.translate(-NEW_AVATAR_SIZE * 0.5f, -NEW_AVATAR_SIZE * 0.5f);
-            canvas.clipRRect(RRect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), true);
-            try (SkijaRenderer.BorrowedImage borrowed = SkijaRenderer.borrowTexture(texture);
-            io.github.humbleui.skija.Paint paint = new io.github.humbleui.skija.Paint()) {
-                if (borrowed == null) return;
-                paint.setAlphaf(alpha / 255f);
-                io.github.humbleui.types.Rect destination = io.github.humbleui.types.Rect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE);
-                canvas.drawImageRect(borrowed.image(), io.github.humbleui.types.Rect.makeXYWH(8, 8, 8, 8),
-                destination, io.github.humbleui.skija.SamplingMode.DEFAULT, paint, true);
-                canvas.drawImageRect(borrowed.image(), io.github.humbleui.types.Rect.makeXYWH(40, 8, 8, 8),
-                destination, io.github.humbleui.skija.SamplingMode.DEFAULT, paint, true);
-                if (hurt > 0f) {
-                    paint.setColor((Math.round(alpha * hurt * 0.6f) << 24) | 0xFF0000);
-                    canvas.drawRect(destination, paint);
-                }
-                if (heal > 0f) {
-                    paint.setColor((Math.round(alpha * heal * 0.62f) << 24) | 0x55FF55);
-                    canvas.drawRect(destination, paint);
-                }
+        int save = canvas.save();
+        canvas.translate(x, y);
+        canvas.scale(scale, scale);
+        canvas.translate(12f + NEW_AVATAR_SIZE * 0.5f, 10f + NEW_AVATAR_SIZE * 0.5f);
+        canvas.scale(avatarScale, avatarScale);
+        canvas.translate(-NEW_AVATAR_SIZE * 0.5f, -NEW_AVATAR_SIZE * 0.5f);
+        canvas.clipRRect(RRect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE, NEW_AVATAR_RADIUS), true);
+        try (SkijaRenderer.BorrowedImage borrowed = SkijaRenderer.borrowTexture(texture);
+             Paint paint = new Paint()) {
+            if (borrowed == null) {
+                return;
             }
-        });
+            paint.setAlphaf(alpha / 255f);
+            Rect destination = Rect.makeXYWH(0, 0, NEW_AVATAR_SIZE, NEW_AVATAR_SIZE);
+            canvas.drawImageRect(borrowed.image(), Rect.makeXYWH(8, 8, 8, 8),
+                    destination, SamplingMode.DEFAULT, paint, true);
+            canvas.drawImageRect(borrowed.image(), Rect.makeXYWH(40, 8, 8, 8),
+                    destination, SamplingMode.DEFAULT, paint, true);
+            if (hurt > 0f) {
+                paint.setColor((Math.round(alpha * hurt * 0.6f) << 24) | 0xFF0000);
+                canvas.drawRect(destination, paint);
+            }
+            if (heal > 0f) {
+                paint.setColor((Math.round(alpha * heal * 0.62f) << 24) | 0x55FF55);
+                canvas.drawRect(destination, paint);
+            }
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     private float easeOutBack(float value) {
