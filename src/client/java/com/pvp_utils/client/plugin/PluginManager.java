@@ -115,6 +115,7 @@ public final class PluginManager {
     private void scheduleAudit(Entry entry) {
         PluginManifest manifest = entry.manifest;
         if (manifest == null || entry.audit != null) return;
+        if (entry.auditFailed && entry.auditFailures >= 3) return;
         if (entry.auditFailed && System.currentTimeMillis() < entry.nextAuditRetryAt) return;
         if (entry.auditFailed) entry.auditFailed = false;
         if (!pendingAudits.add(entry)) return;
@@ -129,6 +130,7 @@ public final class PluginManager {
             } catch (RuntimeException error) {
                 if (entry.manifest == manifest && entry.auditGeneration == generation) {
                     entry.auditFailed = true;
+                    entry.auditFailures++;
                     entry.nextAuditRetryAt = System.currentTimeMillis() + 5000L;
                     revision.incrementAndGet();
                     PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
@@ -137,7 +139,7 @@ public final class PluginManager {
                 pendingAudits.remove(entry);
             }
         });
-        return;
+
     }
 
     private static PluginSecurity.Audit audit(Entry entry) {
@@ -299,6 +301,7 @@ public final class PluginManager {
             entry.manifest = updated;
             entry.audit = null;
             entry.auditFailed = false;
+            entry.auditFailures = 0;
             entry.auditGeneration++;
             entry.error = "";
             if (wasEnabled) enable(entry);
@@ -429,6 +432,7 @@ public final class PluginManager {
             entry.manifest = latest;
             entry.audit = null;
             entry.auditFailed = false;
+            entry.auditFailures = 0;
             entry.auditGeneration++;
             PluginSecurity.Audit audit = audit(entry);
             if (audit != null && audit.blocked()) {
@@ -514,6 +518,7 @@ public final class PluginManager {
         private GameHost host;
         private volatile PluginSecurity.Audit audit;
         private volatile boolean auditFailed;
+        private volatile int auditFailures;
         private volatile long nextAuditRetryAt;
         private volatile int auditGeneration;
         private String error = "";
