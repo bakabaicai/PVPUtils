@@ -72,6 +72,11 @@ public final class OfflineSkinManager {
         save();
     }
 
+    public static String folderPath() {
+        Path folder = file() == null ? null : file().getParent();
+        return folder == null ? "unavailable" : folder.toAbsolutePath().toString();
+    }
+
     public static void openFolder() {
         Path folder = file() == null ? null : file().getParent();
         if (folder == null) return;

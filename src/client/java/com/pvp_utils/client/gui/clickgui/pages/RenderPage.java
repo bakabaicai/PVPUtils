@@ -38,6 +38,7 @@ public class RenderPage extends BasePage {
                 new SettingCycle(offlineNames, OfflineSkinManager::selected, OfflineSkinManager::select)));
         modules.add(new SettingModule("离线皮肤文件夹", "从资源管理器打开离线皮肤目录",
                 new SettingToggle(() -> false, v -> { if (v) OfflineSkinManager.openFolder(); })));
+        modules.add(new SettingModule("离线皮肤路径", OfflineSkinManager.folderPath(), null));
 
         modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("让部分物品使用1.7时候的动画", "Use 1.7-style animations for selected items"),
                 new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))
