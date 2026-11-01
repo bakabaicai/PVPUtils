@@ -38,7 +38,7 @@ public final class PluginManager {
     private final Map<String, Entry> plugins = new LinkedHashMap<>();
     private final java.util.Set<String> pendingAudits = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private JsonObject enabledState = new JsonObject();
-    private volatile int revision;
+    private final java.util.concurrent.atomic.AtomicInteger revision = new java.util.concurrent.atomic.AtomicInteger();
     private boolean initialized;
     private Object currentLevel;
     private Canvas currentCanvas;
@@ -68,7 +68,7 @@ public final class PluginManager {
     }
 
     public int revision() {
-        return revision;
+        return revision.get();
     }
 
     public List<PluginSetting> settings(String id) {
@@ -87,17 +87,16 @@ public final class PluginManager {
             PluginManifest manifest = entry.manifest;
             PluginSecurity.Audit audit = entry.audit;
             if (audit == null && manifest != null) {
-                if (entry.auditFailed) {
-                    // keep failed state visible instead of looping "scanning"
-                } else {
-                    scheduleAudit(entry);
-                }
+                if (!entry.auditFailed) scheduleAudit(entry);
             }
             String securityLevel;
             String securityDetail;
             if (audit != null) {
                 securityLevel = audit.level();
                 securityDetail = audit.detail();
+            } else if (manifest == null) {
+                securityLevel = "invalid";
+                securityDetail = entry.error.isBlank() ? UiText.t("无效插件", "Invalid plugin") : entry.error;
             } else if (entry.auditFailed) {
                 securityLevel = "failed";
                 securityDetail = UiText.t("安全检测失败", "Security audit failed");
@@ -115,24 +114,30 @@ public final class PluginManager {
 
     private void scheduleAudit(Entry entry) {
         PluginManifest manifest = entry.manifest;
-        if (manifest == null || entry.audit != null || entry.auditFailed || !pendingAudits.add(entry.id)) {
-            return;
-        }
+        if (manifest == null || entry.audit != null) return;
+        if (entry.auditFailed && System.currentTimeMillis() < entry.nextAuditRetryAt) return;
+        if (entry.auditFailed) entry.auditFailed = false;
+        if (!pendingAudits.add(entry.id)) return;
+        final int generation = entry.auditGeneration;
         AUDIT_POOL.execute(() -> {
             try {
                 PluginSecurity.Audit result = PluginSecurity.audit(manifest);
-                if (entry.manifest != null && entry.id.equals(manifest.id())) {
+                if (entry.manifest == manifest && entry.auditGeneration == generation) {
                     entry.audit = result;
-                    revision++;
+                    revision.incrementAndGet();
                 }
             } catch (RuntimeException error) {
-                entry.auditFailed = true;
-                revision++;
-                PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
+                if (entry.manifest == manifest && entry.auditGeneration == generation) {
+                    entry.auditFailed = true;
+                    entry.nextAuditRetryAt = System.currentTimeMillis() + 5000L;
+                    revision.incrementAndGet();
+                    PVPUtils.LOGGER.warn("Failed to audit plugin {}", entry.id, error);
+                }
             } finally {
                 pendingAudits.remove(entry.id);
             }
         });
+        return;
     }
 
     private static PluginSecurity.Audit audit(Entry entry) {
@@ -238,7 +243,7 @@ public final class PluginManager {
     public void refresh() {
         shutdownRuntimes();
         plugins.clear();
-        revision++;
+        revision.incrementAndGet();
         if (!PluginDirectory.ensureExists()) return;
         try (var children = Files.list(PluginDirectory.path())) {
             Path root = PluginDirectory.path().toRealPath();
@@ -280,7 +285,7 @@ public final class PluginManager {
         if (!enabled) disable(entry);
         enabledState.addProperty(id, entry.runtime != null);
         saveState();
-        revision++;
+        revision.incrementAndGet();
     }
 
     public void reload(String id) {
@@ -294,13 +299,14 @@ public final class PluginManager {
             entry.manifest = updated;
             entry.audit = null;
             entry.auditFailed = false;
+            entry.auditGeneration++;
             entry.error = "";
             if (wasEnabled) enable(entry);
         } catch (Exception e) {
             entry.error = message(e);
             PVPUtils.LOGGER.error("Failed to reload plugin {}", id, e);
         }
-        revision++;
+        revision.incrementAndGet();
     }
 
     public List<String> check() {
@@ -418,6 +424,7 @@ public final class PluginManager {
             entry.manifest = latest;
             entry.audit = null;
             entry.auditFailed = false;
+            entry.auditGeneration++;
             PluginSecurity.Audit audit = audit(entry);
             if (audit != null && audit.blocked()) {
                 throw new IOException(UiText.t("已被恶意插件识别拦截：", "Blocked by malicious plugin detection: ")
@@ -447,7 +454,7 @@ public final class PluginManager {
         entry.error = message(error);
         PVPUtils.LOGGER.error("JS plugin {} failed: {}", entry.id, entry.error, error);
         disable(entry);
-        revision++;
+        revision.incrementAndGet();
         NotificationOverlay.getInstance().show(UiText.t("插件运行失败：", "Plugin failed: ") + entry.id
                 + (entry.error.isBlank() ? "" : " - " + entry.error));
     }
@@ -502,6 +509,8 @@ public final class PluginManager {
         private GameHost host;
         private volatile PluginSecurity.Audit audit;
         private volatile boolean auditFailed;
+        private volatile long nextAuditRetryAt;
+        private volatile int auditGeneration;
         private String error = "";
 
         private Entry(String id) {
