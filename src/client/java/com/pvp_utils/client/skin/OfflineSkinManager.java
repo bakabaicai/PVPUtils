@@ -72,6 +72,18 @@ public final class OfflineSkinManager {
         save();
     }
 
+    public static void openFolder() {
+        Path folder = file() == null ? null : file().getParent();
+        if (folder == null) return;
+        try {
+            Files.createDirectories(folder);
+            if (java.awt.Desktop.isDesktopSupported()) {
+                java.awt.Desktop.getDesktop().open(folder.toFile());
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private static void save() {
         Path file = file();
         if (file == null) return;
