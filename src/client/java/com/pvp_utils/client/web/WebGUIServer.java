@@ -26,7 +26,7 @@ public final class WebGUIServer {
 
     private static HttpServer server;
     private static ExecutorService executor;
-    private static String token;
+    private static volatile String token;
     private static int port;
 
     private WebGUIServer() {
@@ -201,11 +201,10 @@ public final class WebGUIServer {
                 WebGUICommands.executeJson(query.getOrDefault("id", ""), query.getOrDefault("value", "")));
     }
 
-    private static final String TEST_TOKEN = "test";
-
     private static boolean isAuthorized(HttpExchange exchange) {
         String input = query(exchange).get("token");
-        return token != null && (token.equals(input) || TEST_TOKEN.equals(input));
+        String currentToken = token;
+        return currentToken != null && currentToken.equals(input);
     }
 
     private static Map<String, String> query(HttpExchange exchange) {

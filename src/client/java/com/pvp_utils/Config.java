@@ -492,22 +492,17 @@ public class Config {
     private static final Path CONFIG_FILE = CONFIG_DIRECTORY.resolve("Config.cfg");
     private static final Path HUD_CONFIG_FILE = CONFIG_DIRECTORY.resolve("Hud.cfg");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static boolean configSaveAllowed;
+    private static boolean hudSaveAllowed;
 
-    public static void load() {
+    public static synchronized void load() {
         ensureConfigDirectory();
-        if (!Files.exists(CONFIG_FILE)) {
+        boolean newConfig = Files.notExists(CONFIG_FILE);
+        configSaveAllowed = newConfig || loadJsonConfig(CONFIG_FILE);
+        if (newConfig) {
             applyGameLanguageDefault();
-            if (Files.exists(HUD_CONFIG_FILE)) {
-                loadHudConfig(HUD_CONFIG_FILE);
-            }
-            enforceRestrictedProfile();
-            save();
-            return;
         }
-        loadJsonConfig(CONFIG_FILE);
-        if (Files.exists(HUD_CONFIG_FILE)) {
-            loadHudConfig(HUD_CONFIG_FILE);
-        }
+        hudSaveAllowed = Files.notExists(HUD_CONFIG_FILE) || loadHudConfig(HUD_CONFIG_FILE);
         normalizeDynamicIslandBlockCountState();
         enforceRestrictedProfile();
         save();
@@ -532,25 +527,31 @@ public class Config {
         fishingRodAssist = false;
     }
 
-    public static void save() {
+    public static synchronized void save() {
         ensureConfigDirectory();
         try {
-            Files.writeString(CONFIG_FILE, GSON.toJson(toJsonConfig()), StandardCharsets.UTF_8);
-            Files.writeString(HUD_CONFIG_FILE, GSON.toJson(toHudJsonConfig()), StandardCharsets.UTF_8);
+            if (configSaveAllowed) {
+                Files.writeString(CONFIG_FILE, GSON.toJson(toJsonConfig()), StandardCharsets.UTF_8);
+            }
+            if (hudSaveAllowed) {
+                Files.writeString(HUD_CONFIG_FILE, GSON.toJson(toHudJsonConfig()), StandardCharsets.UTF_8);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static void loadJsonConfig(Path path) {
+    private static boolean loadJsonConfig(Path path) {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             JsonElement element = JsonParser.parseReader(reader);
             if (!element.isJsonObject()) {
-                return;
+                throw new IOException("Expected a JSON object");
             }
             applyJsonConfig(element.getAsJsonObject());
+            return true;
         } catch (Exception e) {
-            e.printStackTrace();
+            PVPUtils.LOGGER.error("Failed to load {}; preserving the original file and disabling saves until it is loaded successfully", path, e);
+            return false;
         }
     }
 
@@ -588,15 +589,17 @@ public class Config {
         }
     }
 
-    private static void loadHudConfig(Path path) {
+    private static boolean loadHudConfig(Path path) {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             JsonElement element = JsonParser.parseReader(reader);
             if (!element.isJsonObject()) {
-                return;
+                throw new IOException("Expected a JSON object");
             }
             applyHudJsonConfig(element.getAsJsonObject());
+            return true;
         } catch (Exception e) {
-            e.printStackTrace();
+            PVPUtils.LOGGER.error("Failed to load {}; preserving the original file and disabling saves until it is loaded successfully", path, e);
+            return false;
         }
     }
 
@@ -686,7 +689,8 @@ public class Config {
             } else if (type.isEnum()) {
                 field.set(null, Enum.valueOf((Class<? extends Enum>) type, value.getAsString()));
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid value for configuration field " + field.getName(), e);
         }
     }
 
