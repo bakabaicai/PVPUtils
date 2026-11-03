@@ -4,7 +4,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -16,7 +15,7 @@ public record PluginManifest(String id, String name, String version, String desc
         if (!manifestPath.startsWith(root) || Files.size(manifestPath) > 65536) {
             throw new IOException("Invalid plugin manifest path or size");
         }
-        JsonObject json = JsonParser.parseString(Files.readString(manifestPath, StandardCharsets.UTF_8)).getAsJsonObject();
+        JsonObject json = JsonParser.parseString(PluginSource.readUtf8(manifestPath, 65536)).getAsJsonObject();
         String id = text(json, "id", "");
         if (!id.matches("[a-z][a-z0-9_-]{0,63}")) throw new IOException("Invalid plugin id: " + id);
         if (json.has("apiVersion") && json.get("apiVersion").getAsInt() != 1) {

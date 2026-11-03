@@ -3,10 +3,14 @@ package com.pvp_utils.client.plugin;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.pvp_utils.PVPUtils;
+import com.pvp_utils.client.gui.ConfirmationDialogScreen;
+import com.pvp_utils.client.gui.SettingsScreen;
+import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.render.skia.SkijaUi;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
+import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.Matrix33;
@@ -15,6 +19,9 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
 import org.mozilla.javascript.Context;
 
 import java.io.IOException;
@@ -26,6 +33,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayDeque;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public final class PluginManager {
     public static final PluginManager INSTANCE = new PluginManager();
@@ -36,12 +48,24 @@ public final class PluginManager {
     private Object currentLevel;
     private Canvas currentCanvas;
     private final List<ScreenRequest> screenRequests = new ArrayList<>();
+    private final PluginApprovalGate approvals = new PluginApprovalGate();
+    private final ArrayDeque<ApprovalDecision> approvalDecisions = new ArrayDeque<>();
+    private PluginApprovalGate.Request activeApproval;
+    private ConfirmationDialogScreen approvalDialog;
+    private final ArrayBlockingQueue<AuditResult> auditResults = new ArrayBlockingQueue<>(64);
+    private final ThreadPoolExecutor auditExecutor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(64), task -> {
+                Thread thread = new Thread(task, "pvp-utils-plugin-audit");
+                thread.setDaemon(true);
+                return thread;
+            });
+    private boolean checking;
 
     private PluginManager() {
     }
 
     public record PluginInfo(String id, String name, String version, String description, String author,
-                             boolean enabled, String error) {
+                             boolean enabled, String error, boolean auditing, boolean pendingApproval, List<String> findings) {
     }
 
     public void initialize() {
@@ -80,7 +104,8 @@ public final class PluginManager {
             PluginManifest manifest = entry.manifest;
             result.add(new PluginInfo(entry.id, manifest == null ? entry.id : manifest.name(),
                     manifest == null ? "" : manifest.version(), manifest == null ? "" : manifest.description(),
-                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error));
+                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error,
+                    entry.auditing, approvals.pending(entry.id), findingDetails(entry.report)));
         }
         return List.copyOf(result);
     }
@@ -123,11 +148,23 @@ public final class PluginManager {
         if (entry == null || entry.runtime == null || !entry.runtime.hasScreen(screen)) {
             throw new IllegalArgumentException("Unknown plugin screen");
         }
-        if (screenRequests.size() >= 32) throw new IllegalStateException("Screen request limit");
-        screenRequests.add(new ScreenRequest(plugin, "open", screen));
+        entry.screensSuppressed = false;
+        try {
+            queueScreen(entry, "open", screen);
+        } catch (PluginRuntime.ScriptLimitException error) {
+            fail(entry, error);
+            throw new IllegalStateException(message(error), error);
+        }
+    }
+
+    public void dismissScreen(String plugin) {
+        Entry entry = plugins.get(plugin);
+        if (entry != null) entry.screensSuppressed = true;
+        screenRequests.removeIf(request -> request.plugin.equals(plugin));
     }
 
     public void renderScreen(String plugin, String id, Canvas canvas, int width, int height) {
+        if (dialogOpen(Minecraft.getInstance())) return;
         Entry entry = plugins.get(plugin);
         if (entry == null || entry.runtime == null) return;
         Canvas previous = currentCanvas;
@@ -144,6 +181,7 @@ public final class PluginManager {
     }
 
     public boolean screenClick(String plugin, String id, double x, double y, int button) {
+        if (dialogOpen(Minecraft.getInstance())) return false;
         Entry entry = plugins.get(plugin);
         if (entry == null || entry.runtime == null) return false;
         try {
@@ -155,6 +193,7 @@ public final class PluginManager {
     }
 
     public void screenEvent(String plugin, String id, String event) {
+        if (dialogOpen(Minecraft.getInstance())) return;
         Entry entry = plugins.get(plugin);
         if (entry == null || entry.runtime == null) return;
         try {
@@ -165,6 +204,7 @@ public final class PluginManager {
     }
 
     public boolean screenInput(String plugin, String id, String event, Object... args) {
+        if (dialogOpen(Minecraft.getInstance())) return false;
         Entry entry = plugins.get(plugin);
         if (entry == null || entry.runtime == null) return false;
         try {
@@ -176,7 +216,9 @@ public final class PluginManager {
     }
 
     public void refresh() {
+        clearApprovals();
         shutdownRuntimes();
+        auditResults.clear();
         plugins.clear();
         revision++;
         if (!PluginDirectory.ensureExists()) return;
@@ -213,7 +255,7 @@ public final class PluginManager {
     public void setEnabled(String id, boolean enabled) {
         Entry entry = plugins.get(id);
         if (entry == null || entry.manifest == null) return;
-        if (enabled && entry.runtime == null) enable(entry);
+        if (enabled && entry.runtime == null && !entry.auditing && !approvals.pending(id)) enable(entry);
         if (!enabled) disable(entry);
         enabledState.addProperty(id, entry.runtime != null);
         saveState();
@@ -223,7 +265,7 @@ public final class PluginManager {
     public void reload(String id) {
         Entry entry = plugins.get(id);
         if (entry == null || entry.manifest == null) return;
-        boolean wasEnabled = entry.runtime != null;
+        boolean wasEnabled = entry.runtime != null || entry.auditing || approvals.pending(id);
         disable(entry);
         try {
             PluginManifest updated = PluginManifest.read(entry.manifest.directory());
@@ -235,6 +277,8 @@ public final class PluginManager {
             entry.error = message(e);
             PVPUtils.LOGGER.error("Failed to reload plugin {}", id, e);
         }
+        enabledState.addProperty(id, entry.runtime != null);
+        saveState();
         revision++;
     }
 
@@ -246,9 +290,11 @@ public final class PluginManager {
                     .filter(path -> !path.getFileName().toString().startsWith(".")).sorted().limit(64).toList()) {
                 if (!Files.exists(directory.resolve("plugin.json"))) continue;
                 try {
-                    PluginManifest manifest = PluginManifest.read(directory);
-                    PluginRuntime.validateScript(manifest);
-                    result.add(manifest.id() + " OK");
+                    PluginSource source = PluginSource.read(PluginDirectory.path(), directory);
+                    PluginSecurityAudit.Report report = PluginSecurityAudit.audit(source.code(), source.manifest().entry().getFileName().toString());
+                    String status = report.failed() ? " BLOCKED" : report.requiresApproval() ? " REVIEW" : " OK";
+                    result.add(source.manifest().id() + status + (report.findings().isEmpty() ? ""
+                            : ": " + String.join("; ", findingDetails(report).stream().limit(4).toList())));
                 } catch (Exception e) {
                     result.add(directory.getFileName() + " ERROR: " + message(e));
                 }
@@ -259,20 +305,161 @@ public final class PluginManager {
         return List.copyOf(result);
     }
 
+    public boolean checkAsync(Consumer<List<String>> callback) {
+        if (checking) return false;
+        checking = true;
+        try {
+            auditExecutor.execute(() -> {
+                List<String> result;
+                try {
+                    result = check();
+                } catch (RuntimeException error) {
+                    result = List.of("SCAN ERROR: " + message(error));
+                }
+                List<String> completed = result;
+                Minecraft.getInstance().schedule(() -> {
+                    checking = false;
+                    callback.accept(completed);
+                });
+            });
+            return true;
+        } catch (RuntimeException error) {
+            checking = false;
+            return false;
+        }
+    }
+
+    private static List<String> findingDetails(PluginSecurityAudit.Report report) {
+        if (report == null) return List.of();
+        return report.findings().stream().map(finding -> "[" + finding.ruleId() + ":" + finding.line() + "] "
+                + UiText.t(finding.descriptionZh(), finding.descriptionEn())).toList();
+    }
+
+    private static String displayText(String text) {
+        String clean = text.replaceAll("[\\p{Cntrl}\\p{Cf}]", " ").strip();
+        return clean.substring(0, Math.min(160, clean.length()));
+    }
+
+    private boolean dialogOpen(Minecraft client) {
+        return client.screen instanceof ConfirmationDialogScreen || activeApproval != null;
+    }
+
+    private void clearApprovals() {
+        approvals.clear();
+        approvalDecisions.clear();
+    }
+
+    private void showNextApproval(Minecraft client) {
+        if (activeApproval != null && (!approvals.current(activeApproval) || client.screen != approvalDialog)) {
+            approvals.cancel(activeApproval);
+            if (client.screen == approvalDialog) approvalDialog.onClose();
+            activeApproval = null;
+            approvalDialog = null;
+        }
+        if (activeApproval != null || client.getOverlay() != null || !canShowApproval(client.screen)) return;
+        PluginApprovalGate.Request request = approvals.next();
+        if (request == null) return;
+        PluginManifest manifest = request.source().manifest();
+        List<String> details = new ArrayList<>();
+        details.add(UiText.t("插件：", "Plugin: ") + manifest.id() + " · " + displayText(manifest.name())
+                + " (" + displayText(manifest.version()) + ")");
+        details.addAll(findingDetails(request.report()));
+        Screen parent = client.screen;
+        if (parent instanceof PluginScreen screen) parent = screen.parent();
+        activeApproval = request;
+        approvalDialog = new ConfirmationDialogScreen(parent,
+                UiText.t("检测到安全风险，请手动审批。", "Security risk detected. Manual approval required."),
+                UiText.t("你当前正在启用的插件疑似存在安全风险，启用后有可能会使游戏角色无法操作、游戏闪退、电脑文件内容被破坏等，若你执意要启动该插件，请点击下方按钮进行审批",
+                        "The plugin you are enabling may pose security risks, including loss of player control, game crashes, or damage to files on your computer. If you still wish to start it, use the button below to approve it."),
+                UiText.t("注：该识别并非100%准确，若其为误报，请忽略本提示",
+                        "Note: Detection is not 100% accurate. If this is a false positive, you may disregard this warning."),
+                UiText.t("禁用插件", "Disable plugin"), UiText.t("启用插件", "Enable plugin"), details,
+                approved -> approvalDecisions.addLast(new ApprovalDecision(request, approved)));
+        screenRequests.clear();
+        client.setScreen(approvalDialog);
+    }
+
+    private static boolean canShowApproval(Screen screen) {
+        return screen == null || screen instanceof TitleScreen || screen instanceof PauseScreen
+                || screen instanceof PVPUtilsMainUI || screen instanceof NewSettingsScreen
+                || screen instanceof SettingsScreen || screen instanceof PluginScreen;
+    }
+
+    private void processApprovalDecisions() {
+        while (!approvalDecisions.isEmpty()) {
+            ApprovalDecision decision = approvalDecisions.removeFirst();
+            PluginApprovalGate.Request request = decision.request();
+            if (activeApproval == request) {
+                activeApproval = null;
+                approvalDialog = null;
+            }
+            if (!approvals.current(request)) continue;
+            Entry entry = plugins.get(request.id());
+            if (entry == null || entry.manifest == null) {
+                approvals.cancel(request.id());
+                continue;
+            }
+            if (!decision.approved()) {
+                disable(entry);
+                enabledState.addProperty(entry.id, false);
+                saveState();
+                revision++;
+                continue;
+            }
+            try {
+                PluginSource latest = readSource(entry);
+                if (approvals.approve(request, latest)) {
+                    entry.manifest = request.source().manifest();
+                    start(entry, request.source());
+                } else {
+                    enable(entry);
+                }
+            } catch (Exception | PluginRuntime.ScriptLimitException e) {
+                fail(entry, e);
+            }
+        }
+    }
+
+    private void queueScreen(Entry entry, String operation, String id) {
+        long now = System.nanoTime();
+        if (now - entry.screenWindow >= 1_000_000_000L) {
+            entry.screenWindow = now;
+            entry.screenActions = 0;
+        }
+        if (++entry.screenActions > 8 || screenRequests.size() >= 32) {
+            throw new PluginRuntime.ScriptLimitException("Plugin screen switching limit exceeded");
+        }
+        screenRequests.add(new ScreenRequest(entry.id, operation, id));
+    }
+
     public void prepareTick() {
+        Minecraft client = Minecraft.getInstance();
+        processApprovalDecisions();
+        if (!dialogOpen(client) && client.getOverlay() == null) processAuditResults();
+        showNextApproval(client);
+        if (dialogOpen(client)) {
+            screenRequests.clear();
+            return;
+        }
         List<ScreenRequest> requests = List.copyOf(screenRequests);
         screenRequests.clear();
-        Minecraft client = Minecraft.getInstance();
         for (ScreenRequest request : requests) {
             Entry entry = plugins.get(request.plugin);
             if (entry == null || entry.runtime == null) continue;
-            if (request.operation.equals("close")) {
-                if (client.screen instanceof PluginScreen screen && screen.plugin().equals(request.plugin)) screen.onClose();
-            } else if (entry.runtime.hasScreen(request.id)) {
-                if (client.player != null && client.player.containerMenu != client.player.inventoryMenu) client.player.closeContainer();
-                net.minecraft.client.gui.screens.Screen parent = client.screen;
-                if (parent instanceof PluginScreen previous) parent = previous.parent();
-                client.setScreen(new PluginScreen(request.plugin, request.id, entry.runtime.screenTitle(request.id), parent));
+            try {
+                if (request.operation.equals("close")) {
+                    if (client.screen instanceof PluginScreen screen && screen.plugin().equals(request.plugin)) screen.onClose();
+                } else if (!entry.screensSuppressed && entry.runtime.hasScreen(request.id)) {
+                    if (client.screen instanceof PluginScreen screen && screen.plugin().equals(request.plugin)
+                            && screen.screenId().equals(request.id)) continue;
+                    if (client.player != null && client.player.containerMenu != client.player.inventoryMenu) client.player.closeContainer();
+                    Screen parent = client.screen;
+                    if (parent instanceof PluginScreen previous) parent = previous.parent();
+                    String title = entry.runtime.screenTitle(request.id);
+                    client.setScreen(new PluginScreen(request.plugin, request.id, title, parent));
+                }
+            } catch (RuntimeException | PluginRuntime.ScriptLimitException e) {
+                fail(entry, e);
             }
         }
         for (Entry entry : plugins.values()) {
@@ -281,6 +468,7 @@ public final class PluginManager {
     }
 
     public void tick(Minecraft client) {
+        if (dialogOpen(client)) return;
         Object level = client.level;
         if (currentLevel != level) {
             if (currentLevel != null) dispatch("leave");
@@ -291,6 +479,7 @@ public final class PluginManager {
     }
 
     public void render(Canvas canvas, int width, int height) {
+        if (dialogOpen(Minecraft.getInstance())) return;
         currentCanvas = canvas;
         try {
             for (Entry entry : List.copyOf(plugins.values())) {
@@ -321,10 +510,80 @@ public final class PluginManager {
     }
 
     private void enable(Entry entry) {
+        entry.error = "";
+        entry.report = null;
+        entry.auditing = true;
+        long ticket = ++entry.auditTicket;
+        enabledState.addProperty(entry.id, false);
+        saveState();
+        revision++;
+        Path root = PluginDirectory.path();
+        Path directory = entry.manifest.directory();
+        String id = entry.id;
         try {
-            PluginManifest latest = PluginManifest.read(entry.manifest.directory());
-            if (!latest.id().equals(entry.id)) throw new IOException("Plugin id changed; refresh the plugin list");
-            entry.manifest = latest;
+            auditExecutor.purge();
+            entry.auditTask = auditExecutor.submit(() -> {
+                AuditResult result;
+                try {
+                    PluginSource source = PluginSource.read(root, directory);
+                    if (!source.manifest().id().equals(id)) throw new IOException("Plugin id changed; refresh the plugin list");
+                    PluginSecurityAudit.Report report = PluginSecurityAudit.audit(source.code(), source.manifest().entry().getFileName().toString());
+                    result = new AuditResult(entry, ticket, source, report, null);
+                } catch (Exception error) {
+                    result = new AuditResult(entry, ticket, null, null, error);
+                }
+                if (!Thread.currentThread().isInterrupted()) {
+                    try {
+                        auditResults.put(result);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            });
+        } catch (RuntimeException e) {
+            fail(entry, e);
+        }
+    }
+
+    private void processAuditResults() {
+        for (int count = 0; count < 2; count++) {
+            AuditResult result = auditResults.poll();
+            if (result == null) return;
+            Entry entry = result.entry();
+            if (plugins.get(entry.id) != entry || !entry.auditing || entry.auditTicket != result.ticket()) continue;
+            entry.auditing = false;
+            entry.auditTask = null;
+            try {
+                if (result.error() != null) throw result.error();
+                PluginSource source = result.source();
+                entry.manifest = source.manifest();
+                entry.report = result.report();
+                revision++;
+                if (entry.report.failed()) {
+                    throw new IOException(UiText.t("安全审计未完成，已阻止启用：", "Security audit incomplete; activation blocked: ")
+                            + String.join("; ", findingDetails(entry.report)));
+                }
+                if (!source.fingerprint().equals(readSource(entry).fingerprint())) {
+                    enable(entry);
+                } else if (entry.report.requiresApproval()) {
+                    approvals.submit(source, entry.report);
+                } else {
+                    start(entry, source);
+                }
+            } catch (Exception | PluginRuntime.ScriptLimitException error) {
+                fail(entry, error);
+            }
+        }
+    }
+
+    private PluginSource readSource(Entry entry) throws IOException {
+        PluginSource source = PluginSource.read(PluginDirectory.path(), entry.manifest.directory());
+        if (!source.manifest().id().equals(entry.id)) throw new IOException("Plugin id changed; refresh the plugin list");
+        return source;
+    }
+
+    private void start(Entry entry, PluginSource source) throws Exception {
+        try {
             Path root = PluginDirectory.path().toRealPath();
             Path data = root.resolve(".data");
             Files.createDirectories(data);
@@ -332,10 +591,16 @@ public final class PluginManager {
             Path file = data.resolve(entry.id + ".json");
             if (Files.isSymbolicLink(file)) throw new IOException("Plugin storage is a symbolic link");
             PluginStorage storage = new PluginStorage(file);
+            entry.screensSuppressed = false;
+            entry.screenWindow = System.nanoTime();
+            entry.screenActions = 0;
             entry.host = new GameHost(entry.id);
             entry.runtime = new PluginRuntime(entry.manifest, storage, entry.host);
-            entry.runtime.start();
+            entry.runtime.start(source.code());
             entry.error = "";
+            enabledState.addProperty(entry.id, true);
+            saveState();
+            revision++;
             PVPUtils.LOGGER.info("Loaded JS plugin {} {}", entry.id, entry.manifest.version());
         } catch (Exception | PluginRuntime.ScriptLimitException e) {
             fail(entry, e);
@@ -346,16 +611,26 @@ public final class PluginManager {
         entry.error = message(error);
         PVPUtils.LOGGER.error("JS plugin {} failed", entry.id, error);
         disable(entry);
+        enabledState.addProperty(entry.id, false);
+        saveState();
         revision++;
         NotificationOverlay.getInstance().show(UiText.t("插件运行失败：", "Plugin failed: ") + entry.id);
     }
 
     private void disable(Entry entry) {
+        approvals.cancel(entry.id);
+        entry.auditing = false;
+        entry.auditTicket++;
+        if (entry.auditTask != null) entry.auditTask.cancel(true);
+        entry.auditTask = null;
+        auditResults.removeIf(result -> result.entry() == entry);
         PluginRuntime runtime = entry.runtime;
         entry.runtime = null;
         screenRequests.removeIf(request -> request.plugin.equals(entry.id));
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof PluginScreen screen && screen.plugin().equals(entry.id)) screen.onClose();
+        client.schedule(() -> {
+            if (!isEnabled(entry.id) && client.screen instanceof PluginScreen screen && screen.plugin().equals(entry.id)) screen.onClose();
+        });
         try {
             if (runtime != null) {
                 runtime.close();
@@ -363,13 +638,17 @@ public final class PluginManager {
         } catch (RuntimeException | PluginRuntime.ScriptLimitException e) {
             PVPUtils.LOGGER.error("Failed to unload JS plugin {}", entry.id, e);
         } finally {
+            screenRequests.removeIf(request -> request.plugin.equals(entry.id));
             if (entry.host != null) entry.host.player.close();
             entry.host = null;
         }
     }
 
     public void close() {
+        clearApprovals();
         shutdownRuntimes();
+        auditExecutor.shutdownNow();
+        auditResults.clear();
         currentLevel = null;
     }
 
@@ -399,6 +678,13 @@ public final class PluginManager {
         private PluginRuntime runtime;
         private GameHost host;
         private String error = "";
+        private PluginSecurityAudit.Report report;
+        private boolean screensSuppressed;
+        private long screenWindow;
+        private int screenActions;
+        private boolean auditing;
+        private long auditTicket;
+        private Future<?> auditTask;
 
         private Entry(String id) {
             this.id = id;
@@ -437,6 +723,9 @@ public final class PluginManager {
 
         @Override
         public String playerCall(String token, String operation, Object[] arguments) {
+            Entry entry = plugins.get(id);
+            if (entry == null || entry.runtime == null || entry.host != this) throw new IllegalStateException("Plugin is no longer active");
+            if (dialogOpen(Minecraft.getInstance())) throw new IllegalStateException("Player operations are suspended during confirmation");
             return player.call(token, operation, arguments);
         }
 
@@ -471,8 +760,9 @@ public final class PluginManager {
 
         @Override
         public void screen(String operation, String screen) {
-            if (screenRequests.size() >= 32) throw new IllegalStateException("Screen request limit");
-            screenRequests.add(new ScreenRequest(id, operation, screen));
+            Entry entry = plugins.get(id);
+            if (entry == null || entry.runtime == null || entry.screensSuppressed || dialogOpen(Minecraft.getInstance())) return;
+            queueScreen(entry, operation, screen);
         }
 
         @Override
@@ -596,6 +886,11 @@ public final class PluginManager {
     }
 
     private record ScreenRequest(String plugin, String operation, String id) {}
+
+    private record ApprovalDecision(PluginApprovalGate.Request request, boolean approved) {}
+
+    private record AuditResult(Entry entry, long ticket, PluginSource source, PluginSecurityAudit.Report report,
+                               Exception error) {}
 
     private static int color(Object[] args, int index) {
         String value = PluginRuntime.string(args, index);

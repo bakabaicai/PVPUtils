@@ -22,6 +22,7 @@ public final class PluginScreen extends Screen implements SkijaScreen {
     }
 
     public String plugin() { return plugin; }
+    public String screenId() { return id; }
     public Screen parent() { return parent; }
 
     @Override
@@ -75,7 +76,11 @@ public final class PluginScreen extends Screen implements SkijaScreen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (event.isEscape()) return super.keyPressed(event);
+        if (event.isEscape()) {
+            PluginManager.INSTANCE.dismissScreen(plugin);
+            onClose();
+            return true;
+        }
         return PluginManager.INSTANCE.screenInput(plugin, id, "onKey", event.key(), event.scancode(), event.modifiers())
                 || super.keyPressed(event);
     }

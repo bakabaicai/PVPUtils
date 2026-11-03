@@ -1,21 +1,29 @@
 package com.pvp_utils.client.plugin;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Undefined;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 
 public final class PluginRuntime implements AutoCloseable {
     public interface Host {
@@ -54,11 +62,15 @@ public final class PluginRuntime implements AutoCloseable {
     private int drawCalls;
     private int messages;
     private int playerActions;
+    private int storageWrites;
+    private final RateBudget messageBudget = new RateBudget(32);
+    private final RateBudget storageBudget = new RateBudget(16);
+    private final RateBudget screenBudget = new RateBudget(8);
+    private final RateBudget playerBudget = new RateBudget(128);
     private Scriptable renderContext;
     private int renderWidth;
     private int renderHeight;
     private Function parseJson;
-    private Function stringifyJson;
     private final Map<String, Scriptable> screens = new LinkedHashMap<>();
     private final List<UiButton> buttons = new ArrayList<>();
     private String drawingScreen;
@@ -71,6 +83,9 @@ public final class PluginRuntime implements AutoCloseable {
     private float originX;
     private float originY;
     private float originScale = 1;
+    private double transformScaleX = 1;
+    private double transformScaleY = 1;
+    private final ArrayDeque<double[]> transformStack = new ArrayDeque<>();
 
     public PluginRuntime(PluginManifest manifest, PluginStorage storage, Host host) {
         this.manifest = manifest;
@@ -79,7 +94,10 @@ public final class PluginRuntime implements AutoCloseable {
     }
 
     public static void validateScript(PluginManifest manifest) throws Exception {
-        String source = Files.readString(manifest.entry(), StandardCharsets.UTF_8);
+        validateScript(manifest, PluginSource.readUtf8(manifest.entry(), 1048576));
+    }
+
+    public static void validateScript(PluginManifest manifest, String source) {
         ContextFactory factory = new ContextFactory();
         factory.call(cx -> {
             cx.setLanguageVersion(Context.VERSION_ES6);
@@ -90,22 +108,22 @@ public final class PluginRuntime implements AutoCloseable {
         });
     }
 
-    public void start() throws Exception {
+    public void start(String source) throws Exception {
         if (scope != null) throw new IllegalStateException("Plugin already started");
-        String source = Files.readString(manifest.entry(), StandardCharsets.UTF_8);
+        if (source == null || source.length() > 1048576) throw new IllegalArgumentException("Invalid plugin source");
         factory.starting = true;
         try {
             run(cx -> {
                 scope = cx.initSafeStandardObjects();
                 Scriptable json = (Scriptable) ScriptableObject.getProperty(scope, "JSON");
                 parseJson = (Function) ScriptableObject.getProperty(json, "parse");
-                stringifyJson = (Function) ScriptableObject.getProperty(json, "stringify");
                 Scriptable api = object(cx);
                 ScriptableObject.putProperty(scope, "pvputils", api);
                 property(api, "apiVersion", 1);
                 property(api, "id", manifest.id());
                 function(api, "log", (context, args) -> {
                     if (++messages > 32) throw new ScriptLimitException();
+                    messageBudget.take();
                     host.log(string(args, 0));
                     return Undefined.instance;
                 });
@@ -113,6 +131,7 @@ public final class PluginRuntime implements AutoCloseable {
                 property(api, "notify", notifications);
                 function(notifications, "show", (context, args) -> {
                     if (++messages > 32) throw new ScriptLimitException();
+                    messageBudget.take();
                     host.notify(string(args, 0));
                     return Undefined.instance;
                 });
@@ -144,9 +163,10 @@ public final class PluginRuntime implements AutoCloseable {
                 });
                 function(store, "set", (context, args) -> {
                     if (args.length < 2) throw new IllegalArgumentException("Missing storage value");
-                    Object encoded = stringifyJson.call(context, scope, scope, new Object[]{args[1]});
-                    if (encoded instanceof Undefined) throw new IllegalArgumentException("Value is not JSON serializable");
-                    storage.set(string(args, 0), Context.toString(encoded));
+                    consumeStorageWrite();
+                    JsonElement encoded = storageValue(args[1], 0, new int[]{0, 0},
+                            Collections.newSetFromMap(new IdentityHashMap<>()));
+                    storage.set(string(args, 0), encoded.toString());
                     return Undefined.instance;
                 });
                 Scriptable settingsApi = object(cx);
@@ -170,6 +190,7 @@ public final class PluginRuntime implements AutoCloseable {
                         ScriptableObject handle = (ScriptableObject) object(context);
                         handle.setGetterOrSetter("value", 0, createFunction((current, unused) -> setting.value()), false);
                         handle.setGetterOrSetter("value", 0, createFunction((current, values) -> {
+                            consumeStorageWrite();
                             setting.set(values[0]);
                             return Undefined.instance;
                         }), true);
@@ -193,7 +214,9 @@ public final class PluginRuntime implements AutoCloseable {
                 });
                 for (String operation : List.of("open", "close")) {
                     function(ui, operation, (context, args) -> {
-                        if (rendering || ++uiActions > 8) throw new IllegalStateException("Screen changes require a non-render callback");
+                        if (rendering) throw new IllegalStateException("Screen changes require a non-render callback");
+                        if (++uiActions > 8) throw new ScriptLimitException();
+                        screenBudget.take();
                         String id = operation.equals("open") ? string(args, 0) : "";
                         if (operation.equals("open") && !screens.containsKey(id)) throw new IllegalArgumentException("Unknown screen");
                         host.screen(operation, id);
@@ -345,18 +368,23 @@ public final class PluginRuntime implements AutoCloseable {
                 "circle", "glass", "save", "restore", "translate", "scale", "rotate", "clip", "clipRounded")) {
             function(context, operation, (current, args) -> {
                 if (!rendering) throw new IllegalStateException("Drawing is only available during render");
-                if (++drawCalls > 2048) throw new IllegalStateException("Too many draw calls");
+                if (++drawCalls > 2048) throw new ScriptLimitException("Too many draw calls");
+                args = drawingArguments(operation, args);
                 if (operation.equals("save")) {
-                    if (stateDepth >= 32) throw new IllegalStateException("Drawing stack limit");
+                    if (stateDepth >= 32) throw new ScriptLimitException("Drawing stack limit");
+                    transformStack.push(new double[]{transformScaleX, transformScaleY});
                     stateDepth++;
                 }
                 if (operation.equals("restore")) {
                     if (stateDepth <= 0) throw new IllegalStateException("Unbalanced restore");
                     stateDepth--;
+                    double[] previous = transformStack.pop();
+                    transformScaleX = previous[0];
+                    transformScaleY = previous[1];
                 }
                 if (List.of("translate", "scale", "rotate", "clip", "clipRounded").contains(operation)) transformed = true;
                 if (List.of("shadow", "blur", "glass").contains(operation) && ++effectCalls > 8) {
-                    throw new IllegalStateException("At most 8 filtered effects per frame");
+                    throw new ScriptLimitException("At most 8 filtered effects per frame");
                 }
                 if (operation.equals("glass") || operation.equals("blur")) {
                     if (transformed || stateDepth != 0) throw new IllegalStateException("Backdrop effects require base coordinates");
@@ -389,8 +417,8 @@ public final class PluginRuntime implements AutoCloseable {
             if (!rendering || drawingScreen == null || transformed) {
                 throw new IllegalStateException("Interactive buttons require an untransformed custom screen");
             }
-            if (args.length < 7 || !(args[6] instanceof Function callback) || buttons.size() >= 128
-                    || ++drawCalls > 2048) throw new IllegalArgumentException("Invalid or excessive buttons");
+            if (buttons.size() >= 128 || ++drawCalls > 2048) throw new ScriptLimitException("Too many buttons");
+            if (args.length < 7 || !(args[6] instanceof Function callback)) throw new IllegalArgumentException("Invalid button");
             String id = string(args, 0);
             if (!id.matches("[a-z][a-z0-9_-]{0,63}") || buttons.stream().anyMatch(b -> b.id.equals(id))) {
                 throw new IllegalArgumentException("Invalid or duplicate button id");
@@ -413,12 +441,171 @@ public final class PluginRuntime implements AutoCloseable {
         return context;
     }
 
+    private Object[] drawingArguments(String operation, Object[] values) {
+        Object[] args = values.clone();
+        switch (operation) {
+            case "text", "textShadow", "icon" -> {
+                textArgument(args, 0);
+                numericArgument(args, 1, -100000, 100000);
+                numericArgument(args, 2, -100000, 100000);
+                numericArgument(args, 3, 1, 128);
+                textArgument(args, 4);
+                if (args.length > 5) textArgument(args, 5);
+            }
+            case "textWidth" -> {
+                textArgument(args, 0);
+                numericArgument(args, 1, 1, 128);
+                if (args.length > 2) textArgument(args, 2);
+            }
+            case "texture" -> {
+                textArgument(args, 0);
+                boundsArguments(args, 1);
+            }
+            case "rect", "roundedRect", "outline", "gradient", "gradientDiagonal", "shadow",
+                    "clip", "clipRounded", "blur", "glass" -> {
+                boundsArguments(args, 0);
+                switch (operation) {
+                    case "rect" -> textArgument(args, 4);
+                    case "roundedRect", "outline", "shadow", "clipRounded", "blur", "glass" ->
+                            numericArgument(args, 4, 0, 4096);
+                }
+                switch (operation) {
+                    case "roundedRect" -> textArgument(args, 5);
+                    case "outline" -> {
+                        numericArgument(args, 5, 0, 256);
+                        textArgument(args, 6);
+                    }
+                    case "gradient", "gradientDiagonal" -> {
+                        textArgument(args, 4);
+                        textArgument(args, 5);
+                        if (operation.equals("gradient")) {
+                            if (args.length > 6) args[6] = Context.toBoolean(args[6]);
+                            if (args.length > 7) numericArgument(args, 7, 0, 4096);
+                        } else if (args.length > 6) numericArgument(args, 6, 0, 4096);
+                    }
+                    case "shadow" -> {
+                        numericArgument(args, 5, -256, 256);
+                        numericArgument(args, 6, 0, 64);
+                        textArgument(args, 7);
+                    }
+                    case "blur" -> numericArgument(args, 5, 0, 64);
+                    case "glass" -> {
+                        if (args.length > 5) textArgument(args, 5);
+                        if (args.length > 6) args[6] = Context.toBoolean(args[6]);
+                        if (args.length > 7) args[7] = Context.toBoolean(args[7]);
+                    }
+                }
+            }
+            case "line" -> {
+                for (int i = 0; i < 4; i++) numericArgument(args, i, -100000, 100000);
+                numericArgument(args, 4, 0, 256);
+                textArgument(args, 5);
+            }
+            case "circle" -> {
+                numericArgument(args, 0, -100000, 100000);
+                numericArgument(args, 1, -100000, 100000);
+                numericArgument(args, 2, 0, 4096);
+                if ((double) args[2] * transformScaleX > 4096) throw new ScriptLimitException("Transformed radius exceeds limit");
+                textArgument(args, 3);
+            }
+            case "translate" -> {
+                numericArgument(args, 0, -100000, 100000);
+                numericArgument(args, 1, -100000, 100000);
+            }
+            case "scale" -> {
+                numericArgument(args, 0, -64, 64);
+                numericArgument(args, 1, -64, 64);
+                double x = Math.abs((double) args[0]);
+                double y = Math.abs((double) args[1]);
+                double maximum = transformScaleX * Math.max(x, y);
+                double minimum = transformScaleY * Math.min(x, y);
+                if (maximum > 64 || minimum < 1.0 / 64) throw new ScriptLimitException("Cumulative scale exceeds limit");
+                transformScaleX = maximum;
+                transformScaleY = minimum;
+            }
+            case "rotate" -> numericArgument(args, 0, -360000, 360000);
+        }
+        return args;
+    }
+
+    private void boundsArguments(Object[] args, int offset) {
+        numericArgument(args, offset, -100000, 100000);
+        numericArgument(args, offset + 1, -100000, 100000);
+        numericArgument(args, offset + 2, 0, 4096);
+        numericArgument(args, offset + 3, 0, 4096);
+        if ((double) args[offset + 2] * transformScaleX > 8192
+                || (double) args[offset + 3] * transformScaleX > 8192) {
+            throw new ScriptLimitException("Transformed drawing bounds exceed limit");
+        }
+    }
+
+    private static void numericArgument(Object[] args, int index, double minimum, double maximum) {
+        if (index >= args.length) throw new IllegalArgumentException("Missing drawing argument");
+        double value = Context.toNumber(args[index]);
+        if (!Double.isFinite(value) || value < minimum || value > maximum) {
+            throw new ScriptLimitException("Drawing argument exceeds limit");
+        }
+        args[index] = value;
+    }
+
+    private static void textArgument(Object[] args, int index) {
+        args[index] = string(args, index);
+    }
+
+    private JsonElement storageValue(Object value, int depth, int[] size, Set<Scriptable> active) {
+        if (depth > 64 || ++size[0] > 20000) throw new ScriptLimitException("Storage structure exceeds limit");
+        factory.check(Context.getCurrentContext());
+        if (value == null || value == Undefined.instance || value == Scriptable.NOT_FOUND) return JsonNull.INSTANCE;
+        if (value instanceof Boolean bool) return new JsonPrimitive(bool);
+        if (value instanceof Number number) {
+            return Double.isFinite(number.doubleValue()) ? new JsonPrimitive(number) : JsonNull.INSTANCE;
+        }
+        if (value instanceof CharSequence text) {
+            if (text.length() > 1048576 - size[1]) throw new ScriptLimitException("Storage text exceeds limit");
+            size[1] += text.length();
+            return new JsonPrimitive(text.toString());
+        }
+        if (!(value instanceof NativeArray) && !(value instanceof NativeObject)) {
+            throw new IllegalArgumentException("Storage accepts only JSON values");
+        }
+        Scriptable object = (Scriptable) value;
+        if (!active.add(object)) throw new IllegalArgumentException("Cyclic storage value");
+        try {
+            if (object instanceof NativeArray array) {
+                if (array.getLength() > 16384) throw new ScriptLimitException("Storage array exceeds limit");
+                JsonArray result = new JsonArray();
+                for (int i = 0; i < array.getLength(); i++) {
+                    Object item = ScriptableObject.getProperty(array, i);
+                    result.add(storageValue(item instanceof Function ? null : item, depth + 1, size, active));
+                }
+                return result;
+            }
+            Object[] ids = object.getIds();
+            if (ids.length > 16384) throw new ScriptLimitException("Storage object exceeds limit");
+            JsonObject result = new JsonObject();
+            for (Object id : ids) {
+                String key = Context.toString(id);
+                if (key.length() > 1048576 - size[1]) throw new ScriptLimitException("Storage keys exceed limit");
+                size[1] += key.length();
+                Object item = id instanceof Number number
+                        ? ScriptableObject.getProperty(object, number.intValue()) : ScriptableObject.getProperty(object, key);
+                if (item == Undefined.instance || item == Scriptable.NOT_FOUND || item instanceof Function) continue;
+                result.add(key, storageValue(item, depth + 1, size, active));
+            }
+            return result;
+        } finally {
+            active.remove(object);
+        }
+    }
+
     private void drawScoped(Runnable callback) {
         host.pushDraw();
         stateDepth = 0;
         transformed = false;
         originX = originY = 0;
         originScale = 1;
+        transformScaleX = transformScaleY = 1;
+        transformStack.clear();
         try {
             callback.run();
         } finally {
@@ -428,6 +615,7 @@ public final class PluginRuntime implements AutoCloseable {
                     stateDepth--;
                 }
             } finally {
+                transformStack.clear();
                 host.popDraw();
             }
         }
@@ -436,8 +624,11 @@ public final class PluginRuntime implements AutoCloseable {
     public boolean hasScreen(String id) { return screens.containsKey(id); }
 
     public String screenTitle(String id) {
-        Object title = ScriptableObject.getProperty(screens.get(id), "title");
-        return title == Scriptable.NOT_FOUND ? id : Context.toString(title);
+        if (!screens.containsKey(id)) throw new IllegalArgumentException("Unknown screen");
+        return run(cx -> {
+            Object title = ScriptableObject.getProperty(screens.get(id), "title");
+            return title == Scriptable.NOT_FOUND ? id : string(new Object[]{title}, 0);
+        });
     }
 
     public void screenEvent(String id, String event) {
@@ -532,6 +723,7 @@ public final class PluginRuntime implements AutoCloseable {
         if (action) {
             if (rendering) throw new IllegalStateException("Player actions are not available during render");
             if (++playerActions > 32) throw new ScriptLimitException();
+            playerBudget.take();
         }
         return parse(cx, host.playerCall(token, operation, arguments));
     }
@@ -563,7 +755,10 @@ public final class PluginRuntime implements AutoCloseable {
             @Override
             public Object call(Context cx, Scriptable callScope, Scriptable self, Object[] args) {
                 try {
-                    return implementation.call(cx, args);
+                    factory.check(cx);
+                    Object result = implementation.call(cx, args);
+                    factory.check(cx);
+                    return result;
                 } catch (Exception e) {
                     var error = ScriptRuntime.typeError(e.getMessage() == null ? "Plugin API call failed" : e.getMessage());
                     error.initCause(e);
@@ -582,7 +777,21 @@ public final class PluginRuntime implements AutoCloseable {
         messages = 0;
         playerActions = 0;
         uiActions = 0;
-        return factory.call(action);
+        storageWrites = 0;
+        try {
+            return factory.call(cx -> {
+                T result = action.run(cx);
+                factory.check(cx);
+                return result;
+            });
+        } catch (StackOverflowError error) {
+            throw new ScriptLimitException("Plugin stack limit exceeded");
+        }
+    }
+
+    private void consumeStorageWrite() {
+        if (++storageWrites > 8) throw new ScriptLimitException("Too many storage writes");
+        storageBudget.take();
     }
 
     @Override
@@ -600,16 +809,19 @@ public final class PluginRuntime implements AutoCloseable {
             settings.clear();
             scope = null;
             parseJson = null;
-            stringifyJson = null;
             renderContext = null;
             screens.clear();
             buttons.clear();
+            transformStack.clear();
             host.releasePlayer();
         }
     }
 
     public static String string(Object[] arguments, int index) {
         if (index >= arguments.length) throw new IllegalArgumentException("Missing argument");
+        if (arguments[index] instanceof CharSequence text && text.length() > 8192) {
+            throw new IllegalArgumentException("Text exceeds limit");
+        }
         String value = Context.toString(arguments[index]);
         if (value.length() > 8192) throw new IllegalArgumentException("Text exceeds limit");
         return value;
@@ -721,6 +933,7 @@ public final class PluginRuntime implements AutoCloseable {
             cx.setLanguageVersion(Context.VERSION_ES6);
             cx.setOptimizationLevel(-1);
             cx.setInstructionObserverThreshold(1000);
+            cx.setMaximumInterpreterStackDepth(128);
             cx.setClassShutter(name -> false);
             return cx;
         }
@@ -729,15 +942,43 @@ public final class PluginRuntime implements AutoCloseable {
         protected void observeInstructionCount(Context cx, int count) {
             BudgetContext budget = (BudgetContext) cx;
             budget.instructions += count;
-            if (budget.instructions > budget.instructionLimit || System.nanoTime() > budget.deadline) {
+            check(cx);
+        }
+
+        private void check(Context cx) {
+            BudgetContext budget = (BudgetContext) cx;
+            if (budget.instructions > budget.instructionLimit || System.nanoTime() - budget.deadline >= 0) {
                 throw new ScriptLimitException();
             }
+        }
+    }
+
+    private static final class RateBudget {
+        private final int limit;
+        private long window = System.nanoTime();
+        private int used;
+
+        private RateBudget(int limit) {
+            this.limit = limit;
+        }
+
+        private void take() {
+            long now = System.nanoTime();
+            if (now - window >= 1_000_000_000L) {
+                window = now;
+                used = 0;
+            }
+            if (++used > limit) throw new ScriptLimitException("Plugin rate limit exceeded");
         }
     }
 
     public static final class ScriptLimitException extends Error {
         public ScriptLimitException() {
             super("Plugin execution budget exceeded");
+        }
+
+        public ScriptLimitException(String message) {
+            super(message);
         }
     }
 }

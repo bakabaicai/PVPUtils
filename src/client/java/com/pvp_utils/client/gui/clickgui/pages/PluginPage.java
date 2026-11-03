@@ -43,6 +43,16 @@ public final class PluginPage extends BasePage {
             if (!plugin.error().isBlank()) {
                 module.addSub(UiText.t("错误", "Error"), plugin.error(), null);
             }
+            if (plugin.auditing()) {
+                module.addSub(UiText.t("正在安全审计", "Security audit in progress"),
+                        UiText.t("审计完成前不会执行插件。", "The plugin will not execute until the audit finishes."), null);
+            } else if (plugin.pendingApproval()) {
+                module.addSub(UiText.t("等待安全审批", "Awaiting security approval"),
+                        UiText.t("插件保持禁用，直到你在弹窗中批准。", "The plugin stays disabled until you approve the dialog."), null);
+            }
+            for (String finding : plugin.findings()) {
+                module.addSub(UiText.t("安全审计", "Security audit"), finding, null);
+            }
             for (var setting : manager.settings(plugin.id())) {
                 var widget = switch (setting.type()) {
                     case "bool" -> new SettingToggle(() -> (Boolean) setting.value(), value -> saveSetting(setting, value));

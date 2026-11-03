@@ -30,12 +30,11 @@ public final class PluginCommand implements DotCommand {
                 }
             }
             case "check" -> {
-                List<String> results = manager.check();
-                if (results.isEmpty()) {
-                    ChatUtils.send("No plugins found");
-                } else {
-                    results.forEach(ChatUtils::send);
-                }
+                boolean started = manager.checkAsync(results -> {
+                    if (results.isEmpty()) ChatUtils.send("No plugins found");
+                    else results.forEach(ChatUtils::send);
+                });
+                ChatUtils.send(started ? "Plugin security audit started" : "Plugin security audit is busy");
             }
             case "refresh" -> {
                 manager.refresh();
@@ -53,7 +52,8 @@ public final class PluginCommand implements DotCommand {
             default -> {
                 for (var plugin : manager.plugins()) {
                     ChatUtils.send(plugin.id() + " " + plugin.version() + " "
-                            + (plugin.enabled() ? "ON" : "OFF") + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
+                            + (plugin.auditing() ? "AUDITING" : plugin.pendingApproval() ? "REVIEW" : plugin.enabled() ? "ON" : "OFF")
+                            + (plugin.error().isBlank() ? "" : " | " + plugin.error()));
                 }
                 ChatUtils.send(".plugins <check|screen|refresh|folder|enable|disable|reload>");
             }
