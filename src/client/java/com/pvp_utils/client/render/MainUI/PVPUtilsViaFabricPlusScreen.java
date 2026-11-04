@@ -10,12 +10,19 @@ import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.skija.Paint;
+import io.github.humbleui.skija.PaintMode;
+import io.github.humbleui.skija.PaintStrokeCap;
+import io.github.humbleui.skija.PaintStrokeJoin;
+import io.github.humbleui.skija.Path;
+import io.github.humbleui.skija.PathBuilder;
 import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
@@ -23,31 +30,33 @@ import net.minecraft.sounds.SoundEvents;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.function.Predicate;
 
 public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long OPEN_MS = 440L;
+    private static final int PAGE_SIZE = 16;
     private final Screen parent;
     private final String shaderPath;
     private final Runnable embeddedBack;
-    private final List<ViaFabricPlusBridge.ProtocolGroup> groups = new ArrayList<>();
-    private final List<Image> images = new ArrayList<>();
+    private final List<ViaFabricPlusBridge.ProtocolEntry> protocols = new ArrayList<>();
+    private final Map<String, Image> images = new HashMap<>();
     private final List<Float> hoverAnimations = new ArrayList<>();
     private long openStartMs;
     private long closeStartMs;
     private boolean closing;
     private boolean closeDispatched;
-    private float scroll;
-    private float targetScroll;
-    private float detailScroll;
-    private float targetDetailScroll;
-    private int selectedGroup = -1;
+    private int page;
+    private int previousPage = -1;
+    private int pageDirection = 1;
+    private long pageStartNanos;
     private boolean pendingFrame;
     private boolean embedded;
     private int pendingMouseX;
     private int pendingMouseY;
-    private int pressedGroup = -1;
-    private long pressedGroupAt;
+    private int pressedProtocol = -1;
+    private long pressedProtocolAt;
     private String cachedTargetVersion = "";
     private long nextTargetRefreshAt;
 
@@ -73,19 +82,21 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         closeStartMs = 0L;
         closing = false;
         closeDispatched = false;
-        groups.clear();
-        groups.addAll(ViaFabricPlusBridge.protocolGroups());
-        if (selectedGroup >= groups.size()) selectedGroup = -1;
+        closeImages();
+        protocols.clear();
+        protocols.addAll(ViaFabricPlusBridge.protocols());
         hoverAnimations.clear();
-        for (int i = 0; i < groups.size(); i++) hoverAnimations.add(0f);
-        reloadImages();
-        clampScroll();
-    }
-
-    @Override
-    public void added() {
-        if (images.size() != groups.size()) reloadImages();
-        super.added();
+        for (int i = 0; i < protocols.size(); i++) hoverAnimations.add(0f);
+        cachedTargetVersion = ViaFabricPlusBridge.targetVersionName();
+        nextTargetRefreshAt = System.currentTimeMillis() + 250L;
+        page = 0;
+        for (int i = 0; i < protocols.size(); i++) {
+            if (protocols.get(i).name().equals(cachedTargetVersion)) {
+                page = i / PAGE_SIZE;
+                break;
+            }
+        }
+        previousPage = -1;
     }
 
     @Override
@@ -97,10 +108,9 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float scale = layoutScale();
         pendingMouseX = MainUiScale.pageX(mouseX, width, scale, layoutCenterX());
         pendingMouseY = MainUiScale.pageY(mouseY, height, scale, layoutCenterY());
-        scroll += (targetScroll - scroll) * 0.18f;
-        detailScroll += (targetDetailScroll - detailScroll) * 0.18f;
+        if (previousPage >= 0 && pageElapsedMs() >= 250f) previousPage = -1;
         for (int i = 0; i < hoverAnimations.size(); i++) {
-            boolean hovered = isGroupHovered(i);
+            boolean hovered = isProtocolHovered(i);
             float current = hoverAnimations.get(i);
             float target = hovered ? 1f : 0f;
             hoverAnimations.set(i, current + (target - current) * 0.22f);
@@ -118,8 +128,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
 
     @Override
     protected void repositionElements() {
-        if (images.size() != groups.size()) reloadImages();
-        clampScroll();
+        previousPage = -1;
     }
 
     @Override
@@ -212,34 +221,29 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         String current = currentTargetVersion();
         SkijaUi.text(canvas, current.isBlank() ? "Protocol" : "Current: " + current, cardX + cardW - 190f, (cardY + 34f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
 
-        int columns = 5;
-        float gapX = 10f;
-        float gapY = 12f;
-        float calculatedItemW = (cardW - 44f - gapX * (columns - 1)) / columns;
-        float itemW = Math.min(132f, calculatedItemW);
-        float gridX = cardX + (cardW - (itemW * columns + gapX * (columns - 1))) * 0.5f;
-        float detailY = cardY + 62f;
-        float detailH = selectedGroup >= 0 ? 106f : 0f;
-        float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
-        float itemH = 72f;
-        float viewH = cardY + cardH - 56f - gridY;
-        canvas.save();
-        canvas.clipRect(Rect.makeXYWH(cardX + 14f, gridY, cardW - 28f, viewH));
-        for (int i = 0; i < groups.size(); i++) {
-            int column = i % columns;
-            int row = i / columns;
-            float x = gridX + column * (itemW + gapX);
-            float y = gridY + row * (itemH + gapY) - scroll;
-            if (y + itemH < gridY || y > gridY + viewH) continue;
-            drawGroup(canvas, i, groups.get(i), images.get(i), x, y, itemW, itemH, alpha, current, i == selectedGroup,
-            pendingMouseX >= x && pendingMouseX <= x + itemW && pendingMouseY >= y && pendingMouseY <= y + itemH);
+        int save = canvas.save();
+        try {
+            canvas.translate(0f, (1f - visibility) * 20f);
+            canvas.clipRect(gridBounds());
+            if (previousPage >= 0) {
+                float elapsed = pageElapsedMs();
+                float outgoing = MainUIFlipAnimation.ease(elapsed / 140f);
+                float incoming = MainUIFlipAnimation.ease((elapsed - 70f) / 180f);
+                if (outgoing < 1f) drawGrid(canvas, previousPage, -pageDirection * 20f * outgoing, alpha * (1f - outgoing), current);
+                if (incoming > 0f) drawGrid(canvas, page, pageDirection * 20f * (1f - incoming), alpha * incoming, current);
+            } else {
+                drawGrid(canvas, page, 0f, alpha, current);
+            }
+        } finally {
+            canvas.restoreToCount(save);
         }
-        canvas.restore();
-
-        if (selectedGroup >= 0 && selectedGroup < groups.size()) {
-            drawProtocolDetails(canvas, groups.get(selectedGroup), current, cardX + 22f, detailY,
-            cardW - 44f, detailH, alpha);
-        }
+        float pagerY = cardY + cardH - 78f;
+        float centerX = cardX + cardW * 0.5f;
+        drawPageButton(canvas, centerX - 66f, pagerY, -1, alpha, page > 0);
+        String count = (page + 1) + " / " + pageCount();
+        SkijaUi.text(canvas, count, centerX - SkijaUi.textWidth(count, 11f) * 0.5f, pagerY, 26f,
+                (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
+        drawPageButton(canvas, centerX + 34f, pagerY, 1, alpha, page + 1 < pageCount());
 
         float bottomY = cardY + cardH - 42f;
         float backW = bottomButtonW();
@@ -254,11 +258,26 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         drawBottomButton(canvas, reportX, bottomY, reportW, "Report", alpha, inside(pendingMouseX, pendingMouseY, reportX, bottomY, reportW, 26f));
     }
 
-    private void drawGroup(Canvas canvas, int index, ViaFabricPlusBridge.ProtocolGroup group, Image image, float x, float y, float w, float h,
-    int alpha, String current, boolean selected, boolean hovered) {
+    private void drawGrid(Canvas canvas, int gridPage, float offset, float alpha, String current) {
+        int save = canvas.save();
+        try {
+            canvas.translate(offset, 0f);
+            for (int i = gridPage * PAGE_SIZE; i < Math.min(protocols.size(), (gridPage + 1) * PAGE_SIZE); i++) {
+                Rect bounds = versionBounds(i % PAGE_SIZE);
+                ViaFabricPlusBridge.ProtocolEntry protocol = protocols.get(i);
+                drawVersion(canvas, i, protocol, imageFor(protocol.name()), bounds.getLeft(), bounds.getTop(),
+                        bounds.getWidth(), bounds.getHeight(), Math.round(alpha), current, protocol.name().equals(current));
+            }
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    private void drawVersion(Canvas canvas, int index, ViaFabricPlusBridge.ProtocolEntry protocol, Image image, float x, float y, float w, float h,
+    int alpha, String current, boolean selected) {
         float hover = index < hoverAnimations.size() ? hoverAnimations.get(index) : 0f;
-        float pressed = index == pressedGroup
-        ? Math.max(0f, 1f - (System.currentTimeMillis() - pressedGroupAt) / 180f)
+        float pressed = index == pressedProtocol
+        ? Math.max(0f, 1f - (System.currentTimeMillis() - pressedProtocolAt) / 180f)
         : 0f;
         float state = Math.max(hover, pressed);
         float shade = selected ? 0.34f : 0.14f + state * 0.14f;
@@ -283,49 +302,14 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
                 }
             }
         }
-        boolean containsCurrent = group.entries().stream().anyMatch(entry -> entry.name().equals(current));
+        boolean containsCurrent = protocol.name().equals(current);
         int titleColor = containsCurrent ? 0x75F28A : 0xFFFFFF;
-        String groupLabel = fit(group.name(), w - 18f, 18f);
-        float tw = SkijaUi.textWidth(groupLabel, 18f);
-        SkijaUi.text(canvas, groupLabel, x + (w - tw) * 0.5f, (y + 42f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), (alpha << 24) | titleColor, 18f);
-    }
-
-    private void drawProtocolDetails(Canvas canvas, ViaFabricPlusBridge.ProtocolGroup group, String current, float x, float y, float w, float h, int alpha) {
-        try (Paint panel = new Paint()) {
-            panel.setAntiAlias(true);
-            panel.setColor((Math.round(alpha * 0.16f) << 24) | 0xFFFFFF);
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 14f), panel);
-        }
-        String detailLabel = fit(group.name() + " versions", w - 28f, 11f);
-        SkijaUi.text(canvas, detailLabel, x + 14f, (y + 20f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
-        List<ViaFabricPlusBridge.ProtocolEntry> entries = group.entries();
-        float buttonW = Math.max(72f, Math.min(118f, (w - 28f) / Math.min(7f, Math.max(1, entries.size())) - 6f));
-        float buttonX = x + 14f;
-        float buttonY = y + 52f - detailScroll;
-        float contentBottom = y + h - 8f;
-        canvas.save();
-        canvas.clipRRect(RRect.makeXYWH(x + 1f, y + 34f, w - 2f, h - 35f, 10f), true);
-        for (ViaFabricPlusBridge.ProtocolEntry entry : entries) {
-            if (buttonX + buttonW > x + w - 10f) {
-                buttonX = x + 14f;
-                buttonY += 24f;
-            }
-            if (buttonY + 6f >= y + 34f && buttonY - 14f <= contentBottom) {
-                boolean selected = entry.name().equals(current);
-                boolean hovered = inside(pendingMouseX, pendingMouseY, buttonX, buttonY - 14f, buttonW, 20f);
-                try (Paint bg = new Paint()) {
-                    bg.setAntiAlias(true);
-                    bg.setColor((Math.round(alpha * (selected ? 0.34f : hovered ? 0.25f : 0.12f)) << 24)
-                    | (selected ? 0x73BDEB : 0xFFFFFF));
-                    canvas.drawRRect(RRect.makeXYWH(buttonX, buttonY - 14f, buttonW, 20f, 8f), bg);
-                }
-                String label = fit(entry.name(), buttonW - 8f, 10f);
-                float tw = SkijaUi.textWidth(label, 10f);
-                SkijaUi.text(canvas, label, buttonX + (buttonW - tw) * 0.5f, (buttonY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), (alpha << 24) | 0xFFFFFF, 10f);
-            }
-            buttonX += buttonW + 6f;
-        }
-        canvas.restore();
+        float textWidth = w - 20f;
+        float size = 18f;
+        while (size > 11f && SkijaUi.textWidth(protocol.name(), size) > textWidth) size -= 1f;
+        String label = fit(protocol.name(), textWidth, size);
+        float tw = SkijaUi.textWidth(label, size);
+        SkijaUi.text(canvas, label, x + (w - tw) * 0.5f, y, h, (alpha << 24) | titleColor, size);
     }
 
     private String fit(String value, float maxWidth, float size) {
@@ -347,16 +331,41 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         SkijaUi.text(canvas, text, x + (w - tw) * 0.5f, (y + 17f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (alpha << 24) | 0xFFFFFF, 11f);
     }
 
-    private Image loadImage(String name) {
-        try {
-            InputStream stream = getClass().getResourceAsStream("/via/" + name + ".png");
-            if (stream == null) return null;
-            try (stream) {
-                return Image.makeFromEncoded(stream.readAllBytes());
+    private void drawPageButton(Canvas canvas, float x, float y, int direction, int alpha, boolean enabled) {
+        boolean hovered = enabled && inside(pendingMouseX, pendingMouseY, x, y, 32f, 26f);
+        try (Paint background = new Paint(); Paint arrow = new Paint(); PathBuilder builder = new PathBuilder()) {
+            background.setAntiAlias(true);
+            background.setColor((Math.round(alpha * (enabled ? hovered ? 0.28f : 0.15f : 0.05f)) << 24) | 0x73BDEB);
+            canvas.drawRRect(RRect.makeXYWH(x, y, 32f, 26f, 10f), background);
+            arrow.setAntiAlias(true);
+            arrow.setColor((Math.round(alpha * (enabled ? 0.9f : 0.25f)) << 24) | 0xFFFFFF);
+            arrow.setMode(PaintMode.STROKE);
+            arrow.setStrokeWidth(1.8f);
+            arrow.setStrokeCap(PaintStrokeCap.ROUND);
+            arrow.setStrokeJoin(PaintStrokeJoin.ROUND);
+            float centerX = x + 16f;
+            float centerY = y + 13f;
+            builder.moveTo(centerX - direction * 2.5f, centerY - 4.5f);
+            builder.lineTo(centerX + direction * 2.5f, centerY);
+            builder.lineTo(centerX - direction * 2.5f, centerY + 4.5f);
+            try (Path path = builder.detach()) {
+                canvas.drawPath(path, arrow);
             }
-        } catch (Throwable ignored) {
-            return null;
         }
+    }
+
+    private Image imageFor(String name) {
+        String resource = ViaProtocolArt.resource(name);
+        if (resource == null) return null;
+        if (!images.containsKey(resource)) {
+            Image image = null;
+            try (InputStream stream = getClass().getResourceAsStream(resource)) {
+                if (stream != null) image = Image.makeFromEncoded(stream.readAllBytes());
+            } catch (Exception ignored) {
+            }
+            images.put(resource, image);
+        }
+        return images.get(resource);
     }
 
     private void drawAspectCover(Canvas canvas, Image image, Paint paint, float x, float y, float w, float h,
@@ -389,51 +398,15 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         return (r << 16) | (g << 8) | b;
     }
 
-    private boolean isGroupHovered(int index) {
-        if (index < 0 || index >= groups.size()) return false;
-        float cardW = cardW();
-        float cardH = cardH();
-        float cardX = cardX();
-        float cardY = cardY();
-        float detailY = cardY + 62f;
-        float detailH = selectedGroup >= 0 ? 106f : 0f;
-        float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
-        int columns = 5;
-        float gapX = 10f;
-        float itemW = Math.min(132f, (cardW - 44f - gapX * (columns - 1)) / columns);
-        float gridX = cardX + (cardW - (itemW * columns + gapX * (columns - 1))) * 0.5f;
-        float itemH = 72f;
-        int column = index % columns;
-        int row = index / columns;
-        float x = gridX + column * (itemW + gapX);
-        float y = gridY + row * (itemH + 12f) - scroll;
-        float viewH = cardY + cardH - 56f - gridY;
-        return y + itemH >= gridY && y <= gridY + viewH
-        && inside(pendingMouseX, pendingMouseY, cardX + 14f, gridY, cardW - 28f, viewH)
-        && inside(pendingMouseX, pendingMouseY, x, y, itemW, itemH);
+    private boolean isProtocolHovered(int index) {
+        if (index / PAGE_SIZE != page || !gridBounds().contains(pendingMouseX, pendingMouseY)) return false;
+        float incoming = previousPage < 0 ? 1f : MainUIFlipAnimation.ease((pageElapsedMs() - 70f) / 180f);
+        float offset = pageDirection * 20f * (1f - incoming);
+        return incoming > 0f && versionBounds(index % PAGE_SIZE).contains(pendingMouseX - offset, pendingMouseY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (closing || closeDispatched) return true;
-        float scale = layoutScale();
-        float pageX = MainUiScale.pageX((int) mouseX, width, scale, layoutCenterX());
-        float pageY = MainUiScale.pageY((int) mouseY, height, scale, layoutCenterY());
-        float cardW = cardW();
-        float cardH = cardH();
-        float cardX = cardX();
-        float cardY = cardY();
-        float detailY = cardY + 62f;
-        float detailH = selectedGroup >= 0 ? 106f : 0f;
-        if (selectedGroup >= 0
-        && inside(pageX, pageY, cardX + 23f, detailY + 35f, cardW - 46f, detailH - 36f)) {
-            targetDetailScroll = Math.max(0f, Math.min(maxDetailScroll(), targetDetailScroll - (float) verticalAmount * 24f));
-            return true;
-        }
-        float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
-        if (!inside(pageX, pageY, cardX + 14f, gridY, cardW - 28f, cardY + cardH - 56f - gridY)) return false;
-        targetScroll -= (float) verticalAmount * 64f;
-        targetScroll = Math.max(0f, Math.min(maxScroll(), targetScroll));
         return true;
     }
 
@@ -474,63 +447,68 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
             openOverlay(ViaFabricPlusBridge::openReportIssues);
             return true;
         }
-        float detailY = cardY + 62f;
-        float detailH = selectedGroup >= 0 ? 106f : 0f;
-        float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
-        int columns = 5;
-        float gapX = 10f;
-        float gapY = 12f;
-        float calculatedItemW = (cardW - 44f - gapX * (columns - 1)) / columns;
-        float itemW = Math.min(132f, calculatedItemW);
-        float gridX = cardX + (cardW - (itemW * columns + gapX * (columns - 1))) * 0.5f;
-        float itemH = 72f;
-        if (selectedGroup >= 0 && selectedGroup < groups.size()) {
-            float detailX = cardX + 22f;
-            float detailW = cardW - 44f;
-            List<ViaFabricPlusBridge.ProtocolEntry> entries = groups.get(selectedGroup).entries();
-            float buttonW = Math.max(72f, Math.min(118f, (detailW - 28f) / Math.min(7f, Math.max(1, entries.size())) - 6f));
-            float buttonX = detailX + 14f;
-            float buttonY = detailY + 52f - detailScroll;
-            for (ViaFabricPlusBridge.ProtocolEntry entry : entries) {
-                if (buttonX + buttonW > detailX + detailW - 10f) {
-                    buttonX = detailX + 14f;
-                    buttonY += 24f;
-                }
-                if (inside(pageX, pageY, detailX + 1f, detailY + 34f, detailW - 2f, detailH - 35f)
-                && buttonY + 6f >= detailY + 34f
-                && buttonY - 14f <= detailY + detailH - 8f
-                && inside(pageX, pageY, buttonX, buttonY - 14f, buttonW, 20f)) {
-                    ViaFabricPlusBridge.setTargetVersion(entry);
-                    cachedTargetVersion = entry.name();
+        float pagerY = cardY + cardH - 78f;
+        float centerX = cardX + cardW * 0.5f;
+        if (inside(pageX, pageY, centerX - 66f, pagerY, 32f, 26f)) return turnPage(-1);
+        if (inside(pageX, pageY, centerX + 34f, pagerY, 32f, 26f)) return turnPage(1);
+        if (!gridBounds().contains((float) pageX, (float) pageY)) return true;
+        float incoming = previousPage < 0 ? 1f : MainUIFlipAnimation.ease((pageElapsedMs() - 70f) / 180f);
+        if (incoming <= 0f) return true;
+        pageX -= pageDirection * 20f * (1f - incoming);
+        for (int index = page * PAGE_SIZE; index < Math.min(protocols.size(), (page + 1) * PAGE_SIZE); index++) {
+            if (versionBounds(index % PAGE_SIZE).contains((float) pageX, (float) pageY)) {
+                ViaFabricPlusBridge.ProtocolEntry protocol = protocols.get(index);
+                if (ViaFabricPlusBridge.setTargetVersion(protocol)) {
+                    cachedTargetVersion = protocol.name();
                     nextTargetRefreshAt = System.currentTimeMillis() + 250L;
+                    pressedProtocol = index;
+                    pressedProtocolAt = System.currentTimeMillis();
                     playClick();
-                    return true;
                 }
-                buttonX += buttonW + 6f;
-            }
-            if (inside(pageX, pageY, detailX, detailY, detailW, detailH)) {
-                return true;
-            }
-        }
-        float viewH = cardY + cardH - 56f - gridY;
-        if (!inside(pageX, pageY, cardX + 14f, gridY, cardW - 28f, viewH)) return true;
-        for (int i = 0; i < groups.size(); i++) {
-            int column = i % columns;
-            int row = i / columns;
-            float x = gridX + column * (itemW + gapX);
-            float y = gridY + row * (itemH + gapY) - scroll;
-            if (inside(pageX, pageY, x, y, itemW, itemH)) {
-                selectedGroup = i;
-                pressedGroup = i;
-                pressedGroupAt = System.currentTimeMillis();
-                detailScroll = 0f;
-                targetDetailScroll = 0f;
-                clampScroll();
-                playClick();
                 return true;
             }
         }
         return true;
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (closing || closeDispatched) return true;
+        if (event.key() == GLFW.GLFW_KEY_LEFT) return turnPage(-1);
+        if (event.key() == GLFW.GLFW_KEY_RIGHT) return turnPage(1);
+        return super.keyPressed(event);
+    }
+
+    private boolean turnPage(int delta) {
+        int next = Math.max(0, Math.min(pageCount() - 1, page + delta));
+        if (next != page) {
+            previousPage = page;
+            page = next;
+            pageDirection = delta;
+            pageStartNanos = System.nanoTime();
+            playClick();
+        }
+        return true;
+    }
+
+    private int pageCount() {
+        return Math.max(1, (protocols.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+    }
+
+    private float pageElapsedMs() {
+        return (System.nanoTime() - pageStartNanos) / 1_000_000f;
+    }
+
+    private Rect gridBounds() {
+        return Rect.makeXYWH(cardX() + 22f, cardY() + 62f, cardW() - 44f, cardH() - 154f);
+    }
+
+    private Rect versionBounds(int slot) {
+        Rect grid = gridBounds();
+        float itemW = (grid.getWidth() - 48f) / 4f;
+        float itemH = (grid.getHeight() - 42f) / 4f;
+        return Rect.makeXYWH(grid.getLeft() + slot % 4 * (itemW + 16f),
+                grid.getTop() + slot / 4 * (itemH + 14f), itemW, itemH);
     }
 
     private void openOverlay(Predicate<Screen> opener) {
@@ -566,48 +544,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
     }
 
     private void closeImages() {
-        for (Image image : images) if (image != null) image.close();
+        for (Image image : images.values()) if (image != null) image.close();
         images.clear();
-    }
-
-    private void reloadImages() {
-        closeImages();
-        for (ViaFabricPlusBridge.ProtocolGroup group : groups) {
-            images.add(loadImage(group.name()));
-        }
-    }
-
-    private void clampScroll() {
-        float max = maxScroll();
-        scroll = Math.max(0f, Math.min(max, scroll));
-        targetScroll = Math.max(0f, Math.min(max, targetScroll));
-        float detailMax = maxDetailScroll();
-        detailScroll = Math.max(0f, Math.min(detailMax, detailScroll));
-        targetDetailScroll = Math.max(0f, Math.min(detailMax, targetDetailScroll));
-    }
-
-    private float maxScroll() {
-        float viewH = cardH() - 118f - (selectedGroup >= 0 ? 116f : 0f);
-        float contentH = Math.max(0f, (float) Math.ceil(groups.size() / 5f) * 84f - 12f);
-        return Math.max(0f, contentH - viewH);
-    }
-
-    private float maxDetailScroll() {
-        if (selectedGroup < 0 || selectedGroup >= groups.size()) return 0f;
-        List<ViaFabricPlusBridge.ProtocolEntry> entries = groups.get(selectedGroup).entries();
-        if (entries.isEmpty()) return 0f;
-        float detailW = cardW() - 44f;
-        float buttonW = Math.max(72f, Math.min(118f, (detailW - 28f) / Math.min(7f, entries.size()) - 6f));
-        float buttonX = 14f;
-        int rows = 1;
-        for (int i = 0; i < entries.size(); i++) {
-            if (buttonX + buttonW > detailW - 10f) {
-                buttonX = 14f;
-                rows++;
-            }
-            buttonX += buttonW + 6f;
-        }
-        return Math.max(0f, 58f + (rows - 1) * 24f - 98f);
     }
 
     private float closeProgress() {
@@ -629,7 +567,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
     }
 
     private float cardH() {
-        return Math.max(370f, Math.min(layoutHeight() - 100f, layoutHeight() * 0.78f));
+        return Math.max(370f, Math.min(540f, Math.min(layoutHeight() - 100f, layoutHeight() * 0.78f)));
     }
 
     private float cardX() {

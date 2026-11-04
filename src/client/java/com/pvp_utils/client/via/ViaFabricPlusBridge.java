@@ -59,8 +59,8 @@ public final class ViaFabricPlusBridge {
         }
     }
 
-    public static List<ProtocolGroup> protocolGroups() {
-        Map<String, List<ProtocolEntry>> grouped = new LinkedHashMap<>();
+    public static List<ProtocolEntry> protocols() {
+        List<ProtocolEntry> protocols = new ArrayList<>();
         try {
             Class<?> protocolClass = Class.forName("com.viaversion.viaversion.api.protocol.version.ProtocolVersion");
             Method reversed = protocolClass.getMethod("getReversedProtocols");
@@ -68,11 +68,18 @@ public final class ViaFabricPlusBridge {
             if (value instanceof Iterable<?> iterable) {
                 for (Object protocol : iterable) {
                     String name = String.valueOf(protocol.getClass().getMethod("getName").invoke(protocol));
-                    String major = majorName(name);
-                    grouped.computeIfAbsent(major, ignored -> new ArrayList<>()).add(new ProtocolEntry(name, protocol));
+                    protocols.add(new ProtocolEntry(name, protocol));
                 }
             }
         } catch (Throwable ignored) {
+        }
+        return List.copyOf(protocols);
+    }
+
+    public static List<ProtocolGroup> protocolGroups() {
+        Map<String, List<ProtocolEntry>> grouped = new LinkedHashMap<>();
+        for (ProtocolEntry protocol : protocols()) {
+            grouped.computeIfAbsent(majorName(protocol.name()), ignored -> new ArrayList<>()).add(protocol);
         }
         return grouped.entrySet().stream()
                 .map(entry -> {
