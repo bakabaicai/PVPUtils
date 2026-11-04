@@ -8,6 +8,7 @@ import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.gui.MultiplayerCompatibilityScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
@@ -104,6 +105,11 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
         pingServers();
     }
 
+    @Override
+    protected void repositionElements() {
+        clampScroll();
+    }
+
     private void pingServers() {
         pinger.removeAll();
         if (pingExecutor == null || pingExecutor.isShutdown()) {
@@ -183,26 +189,60 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             return;
         }
         try {
-            float layoutScale = layoutScale();
-            float x = cardX();
-            float y = cardY();
-            float w = cardW();
-            float h = cardH();
-            if (!closingToMain) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale)), MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
-                SkijaUi.rounded(canvas, MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale), 0x12000000);;
-            }
-            canvas.save();
-            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
-            draw(canvas);
-            canvas.restore();
+            drawPage(canvas, false);
         } finally {
             pendingFrame = false;
         }
     }
 
-    private void draw(Canvas canvas) {
-        float contentAlpha = closingToMain ? 1f - ease(closeProgress()) : ease(openProgress());
+    public void renderTransition(Matrix33 cardTransform, RRect cardBounds, float chromeAlpha) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+            pendingFrame = false;
+            return;
+        }
+        try {
+            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+                    chromeAlpha, target -> drawPage(target, true)));
+        } finally {
+            pendingFrame = false;
+        }
+    }
+
+    public void finishTransition() {
+        openStartMs = System.currentTimeMillis() - 440L;
+    }
+
+    public RRect transitionBounds() {
+        float scale = layoutScale();
+        return RRect.makeXYWH(
+                MainUiScale.pageScreenX(cardX(), width, scale, layoutCenterX()),
+                MainUiScale.pageScreenY(cardY(), height, scale, layoutCenterY()),
+                MainUiScale.pageScreenSize(cardW(), scale),
+                MainUiScale.pageScreenSize(cardH(), scale),
+                MainUiScale.pageScreenSize(20f, scale));
+    }
+
+    private void drawPage(Canvas canvas, boolean transitioning) {
+        float layoutScale = layoutScale();
+        float x = cardX();
+        float y = cardY();
+        float w = cardW();
+        float h = cardH();
+        if (!closingToMain) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale)), MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
+            SkijaUi.rounded(canvas, MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale), 0x12000000);;
+        }
+        canvas.save();
+        try {
+            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
+            draw(canvas, transitioning);
+        } finally {
+            canvas.restore();
+        }
+    }
+
+    private void draw(Canvas canvas, boolean transitioning) {
+        float contentAlpha = transitioning ? 1f : closingToMain ? 1f - ease(closeProgress()) : ease(openProgress());
         float x = cardX();
         float y = cardY();
         float w = cardW();
@@ -417,7 +457,12 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
     }
 
     private void startClose() {
-        if (closingToMain) return;
+        if (closingToMain || backDispatched) return;
+        if (embeddedBack != null && minecraft != null && minecraft.screen != this) {
+            backDispatched = true;
+            embeddedBack.run();
+            return;
+        }
         closingToMain = true;
         closeStartMs = System.currentTimeMillis();
     }

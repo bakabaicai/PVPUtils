@@ -7,6 +7,7 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
@@ -60,6 +61,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
     private long contentReadyMs = 0L;
     private float contentAlpha;
     private boolean backDispatched;
+    private boolean entryTransitionFinished;
 
     public PVPUtilsSingleplayerScreen(Screen parent, String shaderPath) {
         this(parent, shaderPath, null);
@@ -81,6 +83,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
         closeStartMs = 0L;
         closingToMain = false;
         backDispatched = false;
+        entryTransitionFinished = false;
         contentAlpha = 0f;
         rebuildButtons();
         loadWorlds();
@@ -154,8 +157,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
     }
 
     @Override
-    public void resize(int width, int height) {
-        super.resize(width, height);
+    protected void repositionElements() {
         updateButtonBounds();
         clampScroll();
     }
@@ -205,21 +207,57 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
             return;
         }
         try {
-            float layoutScale = layoutScale();
-            if (!closingToMain) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale)), MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), Math.max(0f, Math.min(2f, blurStrength())) * 10.5f);
-                SkijaUi.rounded(canvas, MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale), 0x12000000);;
-            }
-            canvas.save();
-            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
-            draw(canvas);
-            canvas.restore();
+            drawPage(canvas, false);
         } finally {
             pendingFrame = false;
         }
     }
 
-    private void draw(Canvas canvas) {
+    public void renderTransition(Matrix33 cardTransform, RRect cardBounds, float chromeAlpha) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+            pendingFrame = false;
+            return;
+        }
+        try {
+            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+                    chromeAlpha, target -> drawPage(target, true)));
+        } finally {
+            pendingFrame = false;
+        }
+    }
+
+    public void finishTransition() {
+        openStartMs = System.currentTimeMillis() - OPEN_MS;
+        contentAlpha = 1f;
+        entryTransitionFinished = true;
+    }
+
+    public RRect transitionBounds() {
+        float scale = layoutScale();
+        return RRect.makeXYWH(
+                MainUiScale.pageScreenX(cardX(), width, scale, layoutCenterX()),
+                MainUiScale.pageScreenY(cardY(), height, scale, layoutCenterY()),
+                MainUiScale.pageScreenSize(cardW(), scale),
+                MainUiScale.pageScreenSize(cardH(), scale),
+                MainUiScale.pageScreenSize(18f, scale));
+    }
+
+    private void drawPage(Canvas canvas, boolean transitioning) {
+        float layoutScale = layoutScale();
+        if (!closingToMain) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale)), MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), Math.max(0f, Math.min(2f, blurStrength())) * 10.5f);
+            SkijaUi.rounded(canvas, MainUiScale.pageScreenX(cardX(), width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(cardY(), height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(cardW(), layoutScale), MainUiScale.pageScreenSize(cardH(), layoutScale), MainUiScale.pageScreenSize(18f, layoutScale), 0x12000000);;
+        }
+        canvas.save();
+        try {
+            MainUiScale.applyPage(canvas, width, height, layoutScale, layoutCenterX(), layoutCenterY());
+            draw(canvas, transitioning);
+        } finally {
+            canvas.restore();
+        }
+    }
+
+    private void draw(Canvas canvas, boolean transitioning) {
         float open = ease(openProgress());
         float close = ease(closeProgress());
         float t = 1f;
@@ -243,9 +281,11 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
             stroke.setColor(0x22FFFFFF);
             drawBookPageCard(canvas, cx, y + 0.5f, drawW - 1f, drawH - 1f, angle, stroke);
         }
-        float contentTarget = closingToMain ? 0f : (!loading ? 1f : 0f);
-        contentAlpha += (contentTarget - contentAlpha) * 0.16f;
-        float contentFade = ease(contentAlpha);
+        if (!transitioning) {
+            float contentTarget = closingToMain ? 0f : (!loading || entryTransitionFinished ? 1f : 0f);
+            contentAlpha += (contentTarget - contentAlpha) * 0.16f;
+        }
+        float contentFade = transitioning ? 1f : ease(contentAlpha);
         int alpha = Math.round(255f * contentFade);
         float titleSize = 30f;
         String title = "Single player";
@@ -450,7 +490,12 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
     }
 
     private void startClose() {
-        if (closingToMain) return;
+        if (closingToMain || backDispatched) return;
+        if (embeddedBack != null && minecraft != null && minecraft.screen != this) {
+            backDispatched = true;
+            embeddedBack.run();
+            return;
+        }
         closingToMain = true;
         closeStartMs = System.currentTimeMillis();
     }

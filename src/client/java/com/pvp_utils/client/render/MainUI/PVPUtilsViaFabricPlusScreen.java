@@ -8,6 +8,7 @@ import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.Rect;
@@ -22,6 +23,7 @@ import net.minecraft.sounds.SoundEvents;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
     private static final long OPEN_MS = 440L;
@@ -73,26 +75,36 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         closeDispatched = false;
         groups.clear();
         groups.addAll(ViaFabricPlusBridge.protocolGroups());
+        if (selectedGroup >= groups.size()) selectedGroup = -1;
         hoverAnimations.clear();
         for (int i = 0; i < groups.size(); i++) hoverAnimations.add(0f);
-        images.clear();
-        for (ViaFabricPlusBridge.ProtocolGroup group : groups) {
-            images.add(loadImage(group.name()));
-        }
+        reloadImages();
+        clampScroll();
+    }
+
+    @Override
+    public void added() {
+        if (images.size() != groups.size()) reloadImages();
+        super.added();
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        if (minecraft != null && minecraft.screen == this) {
+            MainUISharedBackground.setActiveShader(shaderPath);
+            MainUISharedBackground.render(graphics, mouseX, mouseY);
+        }
+        float scale = layoutScale();
+        pendingMouseX = MainUiScale.pageX(mouseX, width, scale, layoutCenterX());
+        pendingMouseY = MainUiScale.pageY(mouseY, height, scale, layoutCenterY());
         scroll += (targetScroll - scroll) * 0.18f;
         detailScroll += (targetDetailScroll - detailScroll) * 0.18f;
         for (int i = 0; i < hoverAnimations.size(); i++) {
-            boolean hovered = pendingMouseX >= 0 && pendingMouseY >= 0 && isGroupHovered(i);
+            boolean hovered = isGroupHovered(i);
             float current = hoverAnimations.get(i);
             float target = hovered ? 1f : 0f;
             hoverAnimations.set(i, current + (target - current) * 0.22f);
         }
-        pendingMouseX = MainUiScale.pageX(mouseX, this.width);
-        pendingMouseY = MainUiScale.pageY(mouseY, this.height);
         pendingFrame = true;
         if (closing && closeProgress() >= 1f && !closeDispatched) {
             closeDispatched = true;
@@ -106,6 +118,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
 
     @Override
     protected void repositionElements() {
+        if (images.size() != groups.size()) reloadImages();
+        clampScroll();
     }
 
     @Override
@@ -119,23 +133,68 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
             return;
         }
         try {
-            draw(canvas);
+            drawPage(canvas, false);
         } finally {
             pendingFrame = false;
         }
     }
 
-    private void draw(Canvas canvas) {
+    public void renderTransition(Matrix33 cardTransform, RRect cardBounds, float chromeAlpha) {
+        if (!pendingFrame || minecraft == null || (!embedded && minecraft.screen != this)) {
+            pendingFrame = false;
+            return;
+        }
+        try {
+            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+                    chromeAlpha, target -> drawPage(target, true)));
+        } finally {
+            pendingFrame = false;
+        }
+    }
+
+    public void finishTransition() {
+        openStartMs = System.currentTimeMillis() - OPEN_MS;
+    }
+
+    public RRect transitionBounds() {
+        float scale = layoutScale();
+        return RRect.makeXYWH(
+                MainUiScale.pageScreenX(cardX(), width, scale, layoutCenterX()),
+                MainUiScale.pageScreenY(cardY(), height, scale, layoutCenterY()),
+                cardW() * scale, cardH() * scale, 20f * scale);
+    }
+
+    private float visibility(boolean transitioning) {
         float open = embedded ? 1f : ease(Math.min(1f, (System.currentTimeMillis() - openStartMs) / (float) OPEN_MS));
         float close = closing ? 1f - ease(closeProgress()) : 1f;
-        float visibility = Math.min(open, close);
+        return transitioning ? 1f : Math.min(open, close);
+    }
+
+    private void drawPage(Canvas canvas, boolean transitioning) {
+        float visibility = visibility(transitioning);
+        float scale = layoutScale();
+        float x = MainUiScale.pageScreenX(cardX(), width, scale, layoutCenterX());
+        float y = MainUiScale.pageScreenY(cardY() + (1f - visibility) * 20f, height, scale, layoutCenterY());
+        float w = cardW() * scale;
+        float h = cardH() * scale;
+        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, w, h, 20f * scale),
+                x, y, w, h, 1.08f * 10.5f);
+        int save = canvas.save();
+        try {
+            MainUiScale.applyPage(canvas, width, height, scale, layoutCenterX(), layoutCenterY());
+            draw(canvas, visibility);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    private void draw(Canvas canvas, float visibility) {
         float cardW = cardW();
         float cardH = cardH();
         float cardX = cardX();
         float cardY = cardY() + (1f - visibility) * 20f;
         int alpha = Math.round(255f * visibility);
 
-        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(cardX, cardY, cardW, cardH, 20f), cardX, cardY, cardW, cardH, Math.max(0f, Math.min(2f, 1.08f)) * 10.5f);
         SkijaUi.rounded(canvas, cardX, cardY, cardW, cardH, 20f, 0x1A101010);;
         try (Paint bg = new Paint(); Paint stroke = new Paint()) {
             bg.setAntiAlias(true);
@@ -163,7 +222,6 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float detailH = selectedGroup >= 0 ? 106f : 0f;
         float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
         float itemH = 72f;
-        float contentH = Math.max(0f, (float) Math.ceil(groups.size() / (float) columns) * (itemH + gapY) - gapY);
         float viewH = cardY + cardH - 56f - gridY;
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(cardX + 14f, gridY, cardW - 28f, viewH));
@@ -351,13 +409,16 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float y = gridY + row * (itemH + 12f) - scroll;
         float viewH = cardY + cardH - 56f - gridY;
         return y + itemH >= gridY && y <= gridY + viewH
+        && inside(pendingMouseX, pendingMouseY, cardX + 14f, gridY, cardW - 28f, viewH)
         && inside(pendingMouseX, pendingMouseY, x, y, itemW, itemH);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        float pageX = MainUiScale.pageX((int) mouseX, this.width);
-        float pageY = MainUiScale.pageY((int) mouseY, this.height);
+        if (closing || closeDispatched) return true;
+        float scale = layoutScale();
+        float pageX = MainUiScale.pageX((int) mouseX, width, scale, layoutCenterX());
+        float pageY = MainUiScale.pageY((int) mouseY, height, scale, layoutCenterY());
         float cardW = cardW();
         float cardH = cardH();
         float cardX = cardX();
@@ -366,27 +427,22 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float detailH = selectedGroup >= 0 ? 106f : 0f;
         if (selectedGroup >= 0
         && inside(pageX, pageY, cardX + 23f, detailY + 35f, cardW - 46f, detailH - 36f)) {
-            List<ViaFabricPlusBridge.ProtocolEntry> entries = groups.get(selectedGroup).entries();
-            float buttonW = Math.max(72f, Math.min(118f, (cardW - 72f) / Math.min(7f, Math.max(1, entries.size())) - 6f));
-            int columns = Math.max(1, (int) Math.floor((cardW - 44f - 28f) / (buttonW + 6f)));
-            int rows = (int) Math.ceil(entries.size() / (double) columns);
-            float max = Math.max(0f, rows * 24f - (detailH - 52f));
-            targetDetailScroll = Math.max(0f, Math.min(max, targetDetailScroll - (float) verticalAmount * 24f));
+            targetDetailScroll = Math.max(0f, Math.min(maxDetailScroll(), targetDetailScroll - (float) verticalAmount * 24f));
             return true;
         }
+        float gridY = detailY + detailH + (selectedGroup >= 0 ? 10f : 0f);
+        if (!inside(pageX, pageY, cardX + 14f, gridY, cardW - 28f, cardY + cardH - 56f - gridY)) return false;
         targetScroll -= (float) verticalAmount * 64f;
-        float viewH = cardH - 118f - (selectedGroup >= 0 ? 106f : 0f);
-        float rows = (float) Math.ceil(groups.size() / 5f);
-        float max = Math.max(0f, rows * 84f - viewH);
-        targetScroll = Math.max(0f, Math.min(max, targetScroll));
+        targetScroll = Math.max(0f, Math.min(maxScroll(), targetScroll));
         return true;
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        if (event.button() != 0) return true;
-        float pageX = MainUiScale.pageX((int) event.x(), this.width);
-        float pageY = MainUiScale.pageY((int) event.y(), this.height);
+        if (event.button() != 0 || closing || closeDispatched) return true;
+        event = MainUiScale.pageEvent(event, width, height, layoutScale(), layoutCenterX(), layoutCenterY());
+        double pageX = event.x();
+        double pageY = event.y();
         float cardW = cardW();
         float cardH = cardH();
         float cardX = cardX();
@@ -405,17 +461,17 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         }
         if (inside(pageX, pageY, settingsX, bottomY, backW, 26f)) {
             playClick();
-            ViaFabricPlusBridge.openSettings(this);
+            openOverlay(ViaFabricPlusBridge::openSettings);
             return true;
         }
         if (inside(pageX, pageY, serversX, bottomY, backW, 26f)) {
             playClick();
-            ViaFabricPlusBridge.openServerList(this);
+            openOverlay(ViaFabricPlusBridge::openServerList);
             return true;
         }
         if (inside(pageX, pageY, reportX, bottomY, reportW, 26f)) {
             playClick();
-            ViaFabricPlusBridge.openReportIssues(this);
+            openOverlay(ViaFabricPlusBridge::openReportIssues);
             return true;
         }
         float detailY = cardY + 62f;
@@ -440,7 +496,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
                     buttonX = detailX + 14f;
                     buttonY += 24f;
                 }
-                if (buttonY + 6f >= detailY + 34f
+                if (inside(pageX, pageY, detailX + 1f, detailY + 34f, detailW - 2f, detailH - 35f)
+                && buttonY + 6f >= detailY + 34f
                 && buttonY - 14f <= detailY + detailH - 8f
                 && inside(pageX, pageY, buttonX, buttonY - 14f, buttonW, 20f)) {
                     ViaFabricPlusBridge.setTargetVersion(entry);
@@ -455,6 +512,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
                 return true;
             }
         }
+        float viewH = cardY + cardH - 56f - gridY;
+        if (!inside(pageX, pageY, cardX + 14f, gridY, cardW - 28f, viewH)) return true;
         for (int i = 0; i < groups.size(); i++) {
             int column = i % columns;
             int row = i / columns;
@@ -466,11 +525,21 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
                 pressedGroupAt = System.currentTimeMillis();
                 detailScroll = 0f;
                 targetDetailScroll = 0f;
+                clampScroll();
                 playClick();
                 return true;
             }
         }
         return true;
+    }
+
+    private void openOverlay(Predicate<Screen> opener) {
+        if (embedded && parent instanceof PVPUtilsMainUI mainUI) {
+            mainUI.preserveEmbeddedPagesForOverlay();
+            if (!opener.test(parent)) mainUI.cancelEmbeddedPagePreservation();
+        } else {
+            opener.test(this);
+        }
     }
 
     private void playClick() {
@@ -479,7 +548,12 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
 
     @Override
     public void onClose() {
-        if (closing) return;
+        if (closing || closeDispatched) return;
+        if (embeddedBack != null && minecraft != null && minecraft.screen != this) {
+            closeDispatched = true;
+            embeddedBack.run();
+            return;
+        }
         closing = true;
         closeStartMs = System.currentTimeMillis();
     }
@@ -487,10 +561,53 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
     @Override
     public void removed() {
         pendingFrame = false;
+        closeImages();
+        super.removed();
+    }
+
+    private void closeImages() {
         for (Image image : images) if (image != null) image.close();
         images.clear();
+    }
 
-        super.removed();
+    private void reloadImages() {
+        closeImages();
+        for (ViaFabricPlusBridge.ProtocolGroup group : groups) {
+            images.add(loadImage(group.name()));
+        }
+    }
+
+    private void clampScroll() {
+        float max = maxScroll();
+        scroll = Math.max(0f, Math.min(max, scroll));
+        targetScroll = Math.max(0f, Math.min(max, targetScroll));
+        float detailMax = maxDetailScroll();
+        detailScroll = Math.max(0f, Math.min(detailMax, detailScroll));
+        targetDetailScroll = Math.max(0f, Math.min(detailMax, targetDetailScroll));
+    }
+
+    private float maxScroll() {
+        float viewH = cardH() - 118f - (selectedGroup >= 0 ? 116f : 0f);
+        float contentH = Math.max(0f, (float) Math.ceil(groups.size() / 5f) * 84f - 12f);
+        return Math.max(0f, contentH - viewH);
+    }
+
+    private float maxDetailScroll() {
+        if (selectedGroup < 0 || selectedGroup >= groups.size()) return 0f;
+        List<ViaFabricPlusBridge.ProtocolEntry> entries = groups.get(selectedGroup).entries();
+        if (entries.isEmpty()) return 0f;
+        float detailW = cardW() - 44f;
+        float buttonW = Math.max(72f, Math.min(118f, (detailW - 28f) / Math.min(7f, entries.size()) - 6f));
+        float buttonX = 14f;
+        int rows = 1;
+        for (int i = 0; i < entries.size(); i++) {
+            if (buttonX + buttonW > detailW - 10f) {
+                buttonX = 14f;
+                rows++;
+            }
+            buttonX += buttonW + 6f;
+        }
+        return Math.max(0f, 58f + (rows - 1) * 24f - 98f);
     }
 
     private float closeProgress() {
@@ -508,19 +625,39 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
     }
 
     private float cardW() {
-        return Math.max(620f, Math.min(900f, width * 0.84f));
+        return Math.max(620f, Math.min(900f, layoutWidth() * 0.84f));
     }
 
     private float cardH() {
-        return Math.max(370f, Math.min(height - 100f, height * 0.78f));
+        return Math.max(370f, Math.min(layoutHeight() - 100f, layoutHeight() * 0.78f));
     }
 
     private float cardX() {
-        return (width - cardW()) * 0.5f;
+        return (layoutWidth() - cardW()) * 0.5f;
     }
 
     private float cardY() {
         return 76f;
+    }
+
+    private int layoutWidth() {
+        return MainUiScale.pageWidth();
+    }
+
+    private int layoutHeight() {
+        return MainUiScale.pageHeight();
+    }
+
+    private float layoutScale() {
+        return MainUiScale.pageScale(cardX(), cardY(), cardX() + cardW(), cardY() + cardH());
+    }
+
+    private float layoutCenterX() {
+        return cardX() + cardW() * 0.5f;
+    }
+
+    private float layoutCenterY() {
+        return cardY() + cardH() * 0.5f;
     }
 
     private float bottomButtonW() {

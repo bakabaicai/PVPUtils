@@ -1,6 +1,7 @@
 package com.pvp_utils.client.render.MainUI;
 
 import io.github.humbleui.types.RRect;
+import io.github.humbleui.types.Rect;
 
 import com.pvp_utils.client.render.skia.SkijaUi;
 
@@ -181,23 +182,27 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
+        if (returnTransition && returnTransitionProgress() >= 1f) {
+            returnTransition = false;
+            returnTransitionStartMs = 0L;
+            disposeEmbeddedPages();
+        }
+        updateSingleplayerTransition();
+        if (!isFlipping() && renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
         float layoutScale = mainLayoutScale();
         updateSettingsPanel(
         MainUiScale.topRightX(mouseX, this.width, this.height, layoutScale),
         MainUiScale.topRightY(mouseY, this.width, this.height, layoutScale)
         );
-        if (returnTransition && returnTransitionProgress() >= 1f) {
-            returnTransition = false;
-            returnTransitionStartMs = 0L;
-        }
-        updateSingleplayerTransition();
         updateButtonPositions();
-        if (renderEmbeddedPage(graphics, mouseX, mouseY, delta)) return;
-        renderMainBackground(graphics, mouseX, mouseY);
+        if (!singleplayerTransitioning || !renderEmbeddedPage(graphics, mouseX, mouseY, delta)) {
+            renderMainBackground(graphics, mouseX, mouseY);
+        }
         float entryAlpha = entryAlpha();
-        for (int i = 0; i < buttons.size(); i++) {
-            buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
+        if (!isFlipping()) {
+            for (int i = 0; i < buttons.size(); i++) {
+                buttons.get(i).render(graphics, mouseX, mouseY, i == pressedIndex, entryAlpha);
+            }
         }
         pendingGpuAlpha = entryAlpha;
         pendingGpuUi = true;
@@ -211,12 +216,14 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     @Override
     public void tick() {
         super.tick();
+        if (returnTransition) return;
         if (embeddedMultiplayer != null) embeddedMultiplayer.tick();
         if (embeddedAltManager != null) embeddedAltManager.tick();
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (isFlipping()) return true;
         if (embeddedAltManager != null) return embeddedAltManager.keyPressed(event);
         if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.keyPressed(event);
         return super.keyPressed(event);
@@ -224,6 +231,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public boolean charTyped(CharacterEvent event) {
+        if (isFlipping()) return true;
         if (embeddedAltManager != null) return embeddedAltManager.charTyped(event);
         if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.charTyped(event);
         return super.charTyped(event);
@@ -231,13 +239,11 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
+        if (isFlipping()) return true;
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseClicked(event, consumed);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseClicked(event, consumed);
         if (embeddedAltManager != null) return embeddedAltManager.mouseClicked(event, consumed);
         if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.mouseClicked(event, consumed);
-        if (returnTransition || singleplayerTransitioning) {
-            return true;
-        }
         float layoutScale = mainLayoutScale();
         float settingsMouseX = MainUiScale.topRightX((int) event.x(), this.width, this.height, layoutScale);
         float settingsMouseY = MainUiScale.topRightY((int) event.y(), this.width, this.height, layoutScale);
@@ -342,6 +348,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (isFlipping()) return true;
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseReleased(event);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseReleased(event);
         if (embeddedAltManager != null) return embeddedAltManager.mouseReleased(event);
@@ -369,8 +376,8 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     private void updateButtonPositions() {
         if (buttons.isEmpty()) return;
-        float cardW = animatedMenuCardWidth();
-        float cardY = animatedMenuCardY();
+        float cardW = compactCardWidth();
+        float cardY = compactCardY();
         float buttonH = compactButtonHeight();
         float gap = compactButtonGap();
         float scale = mainLayoutScale();
@@ -386,23 +393,6 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         float titleX = (this.width - titleW) * 0.5f;
         float titleY = compactCardY() - titleH - 32f * scale;
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
-    }
-
-    private float animatedMenuCardWidth() {
-        if (!singleplayerTransitioning && !returnTransition) return compactCardWidth();
-        float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
-        : easeOutCubic(singleplayerTransitionProgress());
-        float targetW = openingViaFabricPlus
-        ? Math.max(620f, Math.min(900f, this.width * 0.84f))
-        : Math.max(320f, Math.min(500f, this.width * 0.52f));
-        return compactCardWidth() + (targetW - compactCardWidth()) * progress;
-    }
-
-    private float animatedMenuCardY() {
-        if (!singleplayerTransitioning && !returnTransition) return compactCardY();
-        float progress = returnTransition ? 1f - easeOutCubic(returnTransitionProgress())
-        : easeOutCubic(singleplayerTransitionProgress());
-        return compactCardY() + (76f - compactCardY()) * progress;
     }
 
     private float titleSize() {
@@ -443,6 +433,13 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public void renderSkija(Canvas canvas) {
+        if (isFlipping()) {
+            if (pendingGpuUi && this.minecraft != null && this.minecraft.screen == this) {
+                renderGpuUi(pendingGpuAlpha);
+            }
+            pendingGpuUi = false;
+            return;
+        }
         if (embeddedSingleplayer != null) {
             embeddedSingleplayer.renderSkija(canvas);
             return;
@@ -469,64 +466,95 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     private void renderGpuUi(float alpha) {
         SkijaRenderer.draw(c -> {
-            if (pendingGpuAlpha > 0.001f && !singleplayerTransitioning && !returnTransition) {
-                renderMainCardBlur(c);
+            if (isFlipping()) {
+                renderFlip(c, alpha);
+                return;
             }
-            renderCompactMenuCard(c, alpha);
-            float singleT = singleplayerTransitionProgress();
-            float returnT = returnTransitionProgress();
-            float controlsFade;
-            float titleFade;
-            float titleMove;
-            if (returnTransition) {
-                titleFade = easeOutCubic(returnT);
-                controlsFade = easeOutCubic(Math.max(0f, (returnT - 0.48f) / 0.52f));
-                titleMove = (1f - titleFade) * 34f;
-            } else {
-                controlsFade = singleplayerTransitioning ? 1f - easeOutCubic(Math.min(1f, singleT * 1.55f)) : 1f;
-                titleFade = controlsFade;
-                titleMove = easeOutCubic(singleT) * 34f;
-            }
-            int titleAlpha = Math.round(255f * Math.max(0f, Math.min(1f, alpha * titleFade)));
-            SkijaUi.text(c, "PVPUtils", titleHitBox.x, (titleHitBox.y + titleHitBox.h * 0.82f + titleMove) + SkijaUi.textMetrics(titleSize()).getAscent(), SkijaUi.textMetrics(titleSize()).getDescent() - SkijaUi.textMetrics(titleSize()).getAscent(), (titleAlpha << 24) | 0xFFFFFF, titleSize());
-            if (controlsFade > 0.08f) {
-                c.save();
-                MainUiScale.applyTopRight(c, this.width, this.height, mainLayoutScale());
-                renderSettingsPlaceholder(c);
-                renderSettingsPanel(c);
-                c.restore();
-            }
-            if (controlsFade > 0.001f && alpha > 0.001f) {
-                for (MenuButton button : buttons) {
-                    button.renderText(c, alpha * controlsFade);
-                }
-            }
-            if (controlsFade > 0.08f) {
-                c.save();
-                MainUiScale.applyBottomLeft(c, this.width, this.height, mainLayoutScale());
-                renderVersionText(c);
-                c.restore();
-            }
+            renderMainChrome(c, alpha, 1f);
+            renderMainMenu(c, alpha);
         });
     }
 
-    private void renderMainCardBlur(Canvas canvas) {
+    private void renderFlip(Canvas canvas, float alpha) {
         float progress = returnTransition ? returnTransitionProgress() : singleplayerTransitionProgress();
-        TransitionCard target = transitionTarget();
-        float t = returnTransition
-        ? 1f - easeOutCubic(progress)
-        : easeOutCubic(progress);
-        float cardW = compactCardWidth() + (target.width - compactCardWidth()) * t;
-        float cardH = compactCardHeight() + (target.height - compactCardHeight()) * t;
-        float cardY = compactCardY() + (target.y - compactCardY()) * t;
-        float angle = (returnTransition || singleplayerTransitioning)
-        ? easeInOutCubic(progress) * (float) Math.PI
-        : 0f;
-        float visibleW = cardW * Math.max(0.065f, Math.abs((float) Math.cos(angle)));
-        float x = (this.width - visibleW) * 0.5f;
-        float strength = Math.max(0.65f, Math.min(1.25f, 0.65f + Math.max(visibleW, cardH) / 520f * 0.25f));
-        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, cardY, visibleW, cardH, 18f * mainLayoutScale()), x, cardY, visibleW, cardH, Math.max(0f, Math.min(2f, strength)) * 10.5f);
-        SkijaUi.rounded(canvas, x, cardY, visibleW, cardH, 18f * mainLayoutScale(), 0x12000000);;
+        float eased = MainUIFlipAnimation.ease(progress);
+        float expansion = returnTransition ? 1f - eased : eased;
+        RRect menu = mainMenuBounds();
+        RRect target = transitionTarget();
+        Rect bounds = MainUIFlipAnimation.interpolate(menu, target, expansion);
+        float angle = -(float) Math.PI * expansion;
+        float distance = Math.max(menu.getWidth(), target.getWidth()) * 3.5f;
+        if (!returnTransition && eased >= 0.5f) {
+            Matrix33 transform = MainUIFlipAnimation.project(target, bounds, angle + (float) Math.PI, distance);
+            float chromeAlpha = MainUIFlipAnimation.chromeAlpha(progress, false);
+            if (embeddedSingleplayer != null) {
+                embeddedSingleplayer.renderTransition(transform, target, chromeAlpha);
+            } else if (embeddedMultiplayer != null) {
+                embeddedMultiplayer.renderTransition(transform, target, chromeAlpha);
+            } else if (embeddedAltManager != null) {
+                embeddedAltManager.renderTransition(transform, target, chromeAlpha);
+            } else if (embeddedViaFabricPlus != null) {
+                embeddedViaFabricPlus.renderTransition(transform, target, chromeAlpha);
+            }
+            return;
+        }
+        float chromeAlpha = returnTransition
+                ? MainUIFlipAnimation.chromeAlpha(progress, true)
+                : 1f - MainUIFlipAnimation.ease(progress / 0.16f);
+        renderMainChrome(canvas, alpha, chromeAlpha);
+        int save = canvas.save();
+        try {
+            canvas.concat(MainUIFlipAnimation.project(menu, bounds, angle, distance));
+            renderMainMenu(canvas, alpha);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    private void renderMainChrome(Canvas canvas, float alpha, float visibility) {
+        if (alpha * visibility <= 0.001f) return;
+        try (Paint opacity = new Paint().setAlphaf(Math.max(0f, Math.min(1f, alpha * visibility)))) {
+            int save = alpha * visibility >= 0.999f ? canvas.save() : canvas.saveLayer(null, opacity);
+            try {
+                float titleMove = (1f - visibility) * 34f * mainLayoutScale();
+                SkijaUi.text(canvas, "PVPUtils", titleHitBox.x, (titleHitBox.y + titleHitBox.h * 0.82f + titleMove) + SkijaUi.textMetrics(titleSize()).getAscent(), SkijaUi.textMetrics(titleSize()).getDescent() - SkijaUi.textMetrics(titleSize()).getAscent(), 0xFFFFFFFF, titleSize());
+                int corner = canvas.save();
+                try {
+                    MainUiScale.applyTopRight(canvas, this.width, this.height, mainLayoutScale());
+                    renderSettingsPlaceholder(canvas);
+                    renderSettingsPanel(canvas);
+                } finally {
+                    canvas.restoreToCount(corner);
+                }
+                MainUiScale.applyBottomLeft(canvas, this.width, this.height, mainLayoutScale());
+                renderVersionText(canvas);
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+
+    private void renderMainMenu(Canvas canvas, float alpha) {
+        if (alpha <= 0.001f) return;
+        renderMainCardBlur(canvas);
+        renderCompactMenuCard(canvas, alpha);
+        for (MenuButton button : buttons) {
+            button.renderText(canvas, alpha);
+        }
+    }
+
+    private RRect mainMenuBounds() {
+        return RRect.makeXYWH((this.width - compactCardWidth()) * 0.5f, compactCardY(),
+                compactCardWidth(), compactCardHeight(), 18f * mainLayoutScale());
+    }
+
+    private void renderMainCardBlur(Canvas canvas) {
+        RRect bounds = mainMenuBounds();
+        float strength = Math.max(0.65f, Math.min(1.25f, 0.65f + Math.max(bounds.getWidth(), bounds.getHeight()) / 520f * 0.25f));
+        SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), strength * 10.5f);
+        try (Paint overlay = new Paint().setColor(0x12000000)) {
+            canvas.drawRRect(bounds, overlay);
+        }
     }
 
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -713,6 +741,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public void onClose() {
+        if (isFlipping()) return;
         if (embeddedSingleplayer != null) {
             embeddedSingleplayer.onClose();
             return;
@@ -764,12 +793,10 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private boolean openMultiplayerPage;
     private boolean openingAltManager;
     private boolean openingViaFabricPlus;
-    private boolean returningMultiplayer;
-    private boolean returningFixedPage;
     private boolean preserveEmbeddedPages;
     private long singleplayerTransitionStartMs;
-    private static final long SINGLEPLAYER_TRANSITION_MS = 520L;
-    private static final long RETURN_TRANSITION_MS = 440L;
+    private static final long SINGLEPLAYER_TRANSITION_MS = MainUIFlipAnimation.DURATION_MS;
+    private static final long RETURN_TRANSITION_MS = MainUIFlipAnimation.DURATION_MS;
 
     private void startSingleplayerTransition() {
         if (singleplayerTransitioning || returnTransition) return;
@@ -777,12 +804,11 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
         openingAltManager = false;
         openingViaFabricPlus = false;
-        returningMultiplayer = false;
-        returningFixedPage = false;
+        prepareEmbeddedPage();
+        singleplayerTransitionStartMs = animationNowNanos();
     }
 
     private void startMultiplayerTransition() {
@@ -791,12 +817,11 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = true;
         openingAltManager = false;
         openingViaFabricPlus = false;
-        returningMultiplayer = false;
-        returningFixedPage = false;
+        prepareEmbeddedPage();
+        singleplayerTransitionStartMs = animationNowNanos();
     }
 
     private void startAltManagerTransition() {
@@ -805,12 +830,11 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
         openingAltManager = true;
         openingViaFabricPlus = false;
-        returningMultiplayer = false;
-        returningFixedPage = false;
+        prepareEmbeddedPage();
+        singleplayerTransitionStartMs = animationNowNanos();
     }
 
     private void startViaFabricPlusTransition() {
@@ -819,18 +843,24 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         titlePressed = false;
         settingsOpen = false;
         singleplayerTransitioning = true;
-        singleplayerTransitionStartMs = animationNowNanos();
         openingMultiplayer = false;
         openingAltManager = false;
         openingViaFabricPlus = true;
-        returningMultiplayer = false;
-        returningFixedPage = false;
+        prepareEmbeddedPage();
+        singleplayerTransitionStartMs = animationNowNanos();
     }
 
     private void updateSingleplayerTransition() {
         if (!singleplayerTransitioning) return;
         if (animationNowNanos() - singleplayerTransitionStartMs < SINGLEPLAYER_TRANSITION_MS * 1_000_000L) return;
         singleplayerTransitioning = false;
+        if (embeddedSingleplayer != null) embeddedSingleplayer.finishTransition();
+        if (embeddedMultiplayer != null) embeddedMultiplayer.finishTransition();
+        if (embeddedAltManager != null) embeddedAltManager.finishTransition();
+        if (embeddedViaFabricPlus != null) embeddedViaFabricPlus.finishTransition();
+    }
+
+    private void prepareEmbeddedPage() {
         if (this.minecraft != null) {
             String path = shader == null ? null : shader.fragmentPath();
             if (openingViaFabricPlus) {
@@ -857,6 +887,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (isFlipping()) return true;
         if (embeddedSingleplayer != null) {
             return embeddedSingleplayer.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
         }
@@ -873,33 +904,33 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     private boolean renderEmbeddedPage(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        int pageMouseX = isFlipping() ? -1_000_000 : mouseX;
+        int pageMouseY = isFlipping() ? -1_000_000 : mouseY;
         if (embeddedSingleplayer != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedSingleplayer.render(graphics, mouseX, mouseY, delta);
+            embeddedSingleplayer.render(graphics, pageMouseX, pageMouseY, delta);
             return true;
         }
         if (embeddedMultiplayer != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedMultiplayer.render(graphics, mouseX, mouseY, delta);
+            embeddedMultiplayer.render(graphics, pageMouseX, pageMouseY, delta);
             return true;
         }
         if (embeddedAltManager != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedAltManager.render(graphics, mouseX, mouseY, delta);
+            embeddedAltManager.render(graphics, pageMouseX, pageMouseY, delta);
             return true;
         }
         if (embeddedViaFabricPlus != null) {
             renderMainBackground(graphics, mouseX, mouseY);
-            embeddedViaFabricPlus.render(graphics, mouseX, mouseY, delta);
+            embeddedViaFabricPlus.render(graphics, pageMouseX, pageMouseY, delta);
             return true;
         }
         return false;
     }
 
     private void beginEmbeddedReturn() {
-        returningMultiplayer = embeddedMultiplayer != null;
-        returningFixedPage = embeddedSingleplayer != null || embeddedMultiplayer != null;
-        disposeEmbeddedPages();
+        if (isFlipping()) return;
         returnTransition = true;
         returnTransitionStartMs = animationNowNanos();
         singleplayerTransitioning = false;
@@ -910,8 +941,16 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         pendingGpuUi = true;
     }
 
+    private boolean isFlipping() {
+        return returnTransition || singleplayerTransitioning;
+    }
+
     void preserveEmbeddedPagesForOverlay() {
         preserveEmbeddedPages = true;
+    }
+
+    void cancelEmbeddedPagePreservation() {
+        preserveEmbeddedPages = false;
     }
 
     private void disposeEmbeddedPages() {
@@ -1190,92 +1229,36 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     private void renderCompactMenuCard(Canvas canvas, float alpha) {
         int a = Math.round(255f * Math.max(0f, Math.min(1f, alpha)));
-        float t = returnTransition
-        ? 1f - easeOutCubic(returnTransitionProgress())
-        : easeOutCubic(singleplayerTransitionProgress());
-        float baseW = compactCardWidth();
-        float baseH = compactCardHeight();
-        TransitionCard target = transitionTarget();
-        float cardW = baseW + (target.width - baseW) * t;
-        float cardH = baseH + (target.height - baseH) * t;
-        float cardCx = this.width * 0.5f;
-        float cardY = compactCardY() + (target.y - compactCardY()) * t;
-        float transitionProgress = returnTransition
-        ? returnTransitionProgress()
-        : singleplayerTransitionProgress();
-        float angle = returnTransition
-        ? easeInOutCubic(transitionProgress) * (float) Math.PI
-        : singleplayerTransitioning ? easeInOutCubic(transitionProgress) * (float) Math.PI : 0f;
+        RRect bounds = mainMenuBounds();
         try (Paint bg = new Paint(); Paint stroke = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor((Math.round(a * (0x32 / 255f)) << 24) | 0x101010);
-            drawBookPageCard(canvas, cardCx, cardY, cardW, cardH, angle, bg);
+            canvas.drawRRect(bounds, bg);
             stroke.setAntiAlias(true);
             stroke.setMode(PaintMode.STROKE);
             stroke.setStrokeWidth(1f);
             stroke.setColor((Math.round(a * 0.14f) << 24) | 0xFFFFFF);
-            drawBookPageCard(canvas, cardCx, cardY + 0.5f, cardW - 1f, cardH - 1f, angle, stroke);
+            canvas.drawRRect(RRect.makeXYWH(bounds.getLeft() + 0.5f, bounds.getTop() + 0.5f,
+                    bounds.getWidth() - 1f, bounds.getHeight() - 1f, 18f * mainLayoutScale()), stroke);
         }
     }
 
-    private TransitionCard transitionTarget() {
-        if (openingViaFabricPlus) {
-            return new TransitionCard(
-            Math.max(620f, Math.min(900f, this.width * 0.84f)),
-            Math.max(370f, Math.min(this.height - 100f, this.height * 0.78f)),
-            76f
-            );
-        }
-        boolean multiplayer = openingMultiplayer || (returnTransition && returningMultiplayer);
-        boolean fixedPage = (!returnTransition && !openingAltManager) || (returnTransition && returningFixedPage);
-        int layoutWidth = fixedPage ? MainUiScale.pageWidth() : this.width;
-        int layoutHeight = fixedPage ? MainUiScale.pageHeight() : this.height;
+    private RRect transitionTarget() {
+        if (embeddedSingleplayer != null) return embeddedSingleplayer.transitionBounds();
+        if (embeddedMultiplayer != null) return embeddedMultiplayer.transitionBounds();
+        if (embeddedAltManager != null) return embeddedAltManager.transitionBounds();
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.transitionBounds();
+        int layoutWidth = MainUiScale.pageWidth();
+        int layoutHeight = MainUiScale.pageHeight();
         float rawWidth = Math.max(320f, Math.min(500f, layoutWidth * 0.52f));
-        float rawHeight = multiplayer
-        ? Math.max(280f, Math.min(layoutHeight - 150f, layoutHeight * 0.70f))
-        : Math.max(260f, Math.min(layoutHeight - 154f, layoutHeight * 0.72f));
-        float rawY = multiplayer ? 72f : 76f;
-        if (fixedPage) {
-            float rawX = (layoutWidth - rawWidth) * 0.5f;
-            float minY = multiplayer ? 20f : 18f;
-            float maxY = rawY + rawHeight + (multiplayer ? 44f : 76f);
-            float scale = MainUiScale.pageScale(
-            rawX,
-            minY,
-            rawX + rawWidth,
-            maxY
-            );
-            float centerY = (minY + maxY) * 0.5f;
-            return new TransitionCard(
-            rawWidth * scale,
-            rawHeight * scale,
-            this.height * 0.5f + (rawY - centerY) * scale
-            );
-        }
-        return new TransitionCard(
-        rawWidth,
-        rawHeight,
-        rawY
-        );
-    }
-
-    private record TransitionCard(float width, float height, float y) {
-    }
-
-    private void drawBookPageCard(Canvas canvas, float cx, float y, float w, float h, float angle, Paint paint) {
-        float sin = (float) Math.sin(angle);
-        float cos = (float) Math.cos(angle);
-        if (Math.abs(sin) < 0.03f && cos > 0.99f) {
-            canvas.drawRRect(RRect.makeXYWH(cx - w * 0.5f, y, w, h, 18f * mainLayoutScale()), paint);
-            return;
-        }
-        float scaleX = Math.copySign(Math.max(0.065f, Math.abs(cos)), cos);
-        canvas.save();
-        canvas.translate(cx, y + h * 0.5f);
-        canvas.skew(sin * 0.10f, 0f);
-        canvas.scale(scaleX, 1f);
-        canvas.drawRRect(RRect.makeXYWH(-w * 0.5f, -h * 0.5f, w, h, 18f * mainLayoutScale()), paint);
-        canvas.restore();
+        float rawHeight = Math.max(260f, Math.min(layoutHeight - 154f, layoutHeight * 0.72f));
+        float rawX = (layoutWidth - rawWidth) * 0.5f;
+        float maxY = 76f + rawHeight + 76f;
+        float scale = MainUiScale.pageScale(rawX, 18f, rawX + rawWidth, maxY);
+        return RRect.makeXYWH(
+                (width - rawWidth * scale) * 0.5f,
+                height * 0.5f + (76f - (18f + maxY) * 0.5f) * scale,
+                rawWidth * scale, rawHeight * scale, 18f * scale);
     }
 
     private void drawVersionText(Canvas canvas, float x, float y, float size, int baseColor) {
@@ -1487,17 +1470,6 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private float easeOutCubic(float value) {
         float t = 1f - Math.max(0f, Math.min(1f, value));
         return 1f - t * t * t;
-    }
-
-    private float easeInOutCubic(float value) {
-        float t = Math.max(0f, Math.min(1f, value));
-        return t < 0.5f
-        ? 4f * t * t * t
-        : cubicInverted(2f - 2f * t);
-    }
-
-    private float cubicInverted(float value) {
-        return 1f - value * value * value * 0.5f;
     }
 
     private void destroyBackgroundTexture() {

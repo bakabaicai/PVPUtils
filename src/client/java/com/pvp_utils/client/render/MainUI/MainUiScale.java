@@ -82,7 +82,8 @@ public final class MainUiScale {
     }
 
     public static MouseButtonEvent pageEvent(MouseButtonEvent event, int guiWidth, int guiHeight, float scale, float centerX, float centerY) {
-        return new MouseButtonEvent(pageX((int) event.x(), guiWidth, scale, centerX), pageY((int) event.y(), guiHeight, scale, centerY), event.buttonInfo());
+        return new MouseButtonEvent(centerX + (event.x() - guiWidth * 0.5) / scale,
+                centerY + (event.y() - guiHeight * 0.5) / scale, event.buttonInfo());
     }
 
     public static float pageScreenX(float x, int guiWidth) {

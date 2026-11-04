@@ -5,10 +5,12 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
+import com.pvp_utils.client.render.MainUI.MainUIFlipAnimation;
 import com.pvp_utils.client.render.MainUI.MainUiScale;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.SamplingMode;
@@ -135,8 +137,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     @Override
-    public void resize(int width, int height) {
-        super.resize(width, height);
+    protected void repositionElements() {
         clampScroll();
     }
 
@@ -145,12 +146,13 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         if (embeddedBack == null && minecraft.screen == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
         }
-        this.mouseX = mouseX;
-        this.mouseY = mouseY;
         scroll += (targetScroll - scroll) * 0.20f;
         offlineDialogProgress = animate(offlineDialogProgress, offlineOpen ? 1f : 0f);
         microsoftDialogProgress = animate(microsoftDialogProgress, microsoftWaiting ? 1f : 0f);
         deleteDialogProgress = animate(deleteDialogProgress, deleteConfirmOpen ? 1f : 0f);
+        float inputScale = inputScale();
+        this.mouseX = MainUiScale.pageX(mouseX, width, inputScale, layoutCenterX());
+        this.mouseY = MainUiScale.pageY(mouseY, height, inputScale, layoutCenterY());
         if (!deleteConfirmOpen && deleteDialogProgress < .01f) deleteTarget = null;
         pendingFrame = true;
         if (closingToMain && closeProgress() >= 1f && minecraft != null && !backDispatched) {
@@ -174,18 +176,59 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             return;
         }
         try {
-            if (!closingToMain) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(cardX(), cardY(), cardW(), cardH(), 20f), cardX(), cardY(), cardW(), cardH(), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
-                SkijaUi.rounded(canvas, cardX(), cardY(), cardW(), cardH(), 20f, 0x12000000);;
-            }
-            draw(canvas);
+            drawPage(canvas, false);
         } finally {
             pendingFrame = false;
         }
     }
 
-    private void draw(Canvas canvas) {
-        float contentAlpha = closingToMain ? 1f - ease(closeProgress()) : ease(openProgress());
+    public void renderTransition(Matrix33 cardTransform, RRect cardBounds, float chromeAlpha) {
+        if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
+            pendingFrame = false;
+            return;
+        }
+        try {
+            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+                    chromeAlpha, target -> drawPage(target, true)));
+        } finally {
+            pendingFrame = false;
+        }
+    }
+
+    public void finishTransition() {
+        openStartMs = System.currentTimeMillis() - OPEN_MS;
+    }
+
+    public RRect transitionBounds() {
+        float scale = layoutScale();
+        return RRect.makeXYWH(
+                MainUiScale.pageScreenX(cardX(), width, scale, layoutCenterX()),
+                MainUiScale.pageScreenY(cardY(), height, scale, layoutCenterY()),
+                MainUiScale.pageScreenSize(cardW(), scale),
+                MainUiScale.pageScreenSize(cardH(), scale),
+                MainUiScale.pageScreenSize(20f, scale));
+    }
+
+    private void drawPage(Canvas canvas, boolean transitioning) {
+        if (!closingToMain) {
+            RRect bounds = transitionBounds();
+            SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
+                    bounds.getWidth(), bounds.getHeight(), 0.95f * 10.5f);
+            SkijaUi.rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(),
+                    20f * layoutScale(), 0x12000000);
+        }
+        int save = canvas.save();
+        try {
+            MainUiScale.applyPage(canvas, width, height, layoutScale(), layoutCenterX(), layoutCenterY());
+            draw(canvas, transitioning);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+        drawDialogs(canvas);
+    }
+
+    private void draw(Canvas canvas, boolean transitioning) {
+        float contentAlpha = transitioning ? 1f : closingToMain ? 1f - ease(closeProgress()) : ease(openProgress());
         int alpha = Math.round(255f * contentAlpha);
         float x = cardX();
         float y = cardY();
@@ -193,7 +236,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float h = cardH();
         drawMainCard(canvas, x, y, w, h);
         String title = "Alt Manager";
-        float pageW = MainUiScale.pageWidth();
+        float pageW = layoutWidth();
         SkijaUi.text(canvas, title, pageW * .5f - SkijaUi.textWidth(title, 30f) * .5f, (titleY()) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawAccounts(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
         if (!status.isBlank()) {
@@ -209,15 +252,19 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Add", alpha);
         drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Offline", alpha);
         drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
+    }
+
+    private void drawDialogs(Canvas canvas) {
         float modalProgress = Math.max(offlineDialogProgress, Math.max(microsoftDialogProgress, deleteDialogProgress));
         if (modalProgress > .01f) {
             int tintAlpha = Math.round(0x26 * ease(modalProgress));
-            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(0f, 0f, pageW, MainUiScale.pageHeight(), 0f), 0f, 0f, pageW, MainUiScale.pageHeight(), Math.max(0f, Math.min(2f, 0.45f + 0.50f * ease(modalProgress))) * 10.5f);
-            SkijaUi.rounded(canvas, 0f, 0f, pageW, MainUiScale.pageHeight(), 0f, tintAlpha << 24);;
+            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(0f, 0f, width, height, 0f),
+                    0f, 0f, width, height, (0.45f + 0.50f * ease(modalProgress)) * 10.5f);
+            SkijaUi.rounded(canvas, 0f, 0f, width, height, 0f, tintAlpha << 24);
         }
-        if (offlineDialogProgress > .01f) drawAnimatedDialog(canvas, offlineDialogProgress, () -> drawOfflineDialog(canvas));
-        if (microsoftDialogProgress > .01f) drawAnimatedDialog(canvas, microsoftDialogProgress, () -> drawMicrosoftDialog(canvas));
-        if (deleteDialogProgress > .01f) drawAnimatedDialog(canvas, deleteDialogProgress, () -> drawDeleteDialog(canvas));
+        if (offlineDialogProgress > .01f) drawAnimatedDialog(canvas, offlineDialogProgress, 190f, () -> drawOfflineDialog(canvas));
+        if (microsoftDialogProgress > .01f) drawAnimatedDialog(canvas, microsoftDialogProgress, 166f, () -> drawMicrosoftDialog(canvas));
+        if (deleteDialogProgress > .01f) drawAnimatedDialog(canvas, deleteDialogProgress, 166f, () -> drawDeleteDialog(canvas));
     }
 
     private void drawMainCard(Canvas canvas, float x, float y, float w, float h) {
@@ -289,12 +336,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void drawOfflineDialog(Canvas canvas) {
-        float w = Math.min(380f, MainUiScale.pageWidth() - 40f);
+        float w = dialogWidth();
         float h = 190f;
-        float x = (MainUiScale.pageWidth() - w) * .5f;
-        float y = (MainUiScale.pageHeight() - h) * .5f;
+        float x = layoutCenterX() - w * .5f;
+        float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Add Offline", MainUiScale.pageWidth() * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        drawCentered(canvas, "Add Offline", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
         SkijaUi.text(canvas, "Username", x + 24f, (y + 72f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
         drawInput(canvas, x + 24f, y + 84f, w - 48f, 34f);
         float buttonW = (w - 56f) * .5f;
@@ -303,26 +350,26 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void drawDeleteDialog(Canvas canvas) {
-        float w = Math.min(380f, MainUiScale.pageWidth() - 40f);
+        float w = dialogWidth();
         float h = 166f;
-        float x = (MainUiScale.pageWidth() - w) * .5f;
-        float y = (MainUiScale.pageHeight() - h) * .5f;
+        float x = layoutCenterX() - w * .5f;
+        float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Delete Account", MainUiScale.pageWidth() * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        drawCentered(canvas, "Delete Account", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
         String accountName = deleteTarget == null ? "this account" : deleteTarget.name();
-        drawCentered(canvas, "Delete " + accountName + "?", MainUiScale.pageWidth() * .5f, y + 82f, 13f, 0xCFFFFFFF);
+        drawCentered(canvas, "Delete " + accountName + "?", layoutCenterX(), y + 82f, 13f, 0xCFFFFFFF);
         float buttonW = (w - 56f) * .5f;
         drawButton(canvas, x + 24f, y + 112f, buttonW, 30f, "Delete", 255);
         drawButton(canvas, x + 32f + buttonW, y + 112f, buttonW, 30f, "Cancel", 255);
     }
 
     private void drawMicrosoftDialog(Canvas canvas) {
-        float w = Math.min(380f, MainUiScale.pageWidth() - 40f);
+        float w = dialogWidth();
         float h = 166f;
-        float x = (MainUiScale.pageWidth() - w) * .5f;
-        float y = (MainUiScale.pageHeight() - h) * .5f;
+        float x = layoutCenterX() - w * .5f;
+        float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Microsoft Login", MainUiScale.pageWidth() * .5f, y + 38f, 18f, 0xFFFFFFFF);
+        drawCentered(canvas, "Microsoft Login", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
         if (microsoftSuccessAt > 0L) {
             SkijaUi.icon(canvas, "\uE876", x + 24f, (y + 83f) + SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFF62E58B, 24f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         } else {
@@ -339,20 +386,24 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void drawDialogCard(Canvas canvas, float x, float y, float w, float h) {
-        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, w, h, 20f), x, y, w, h, Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
-        SkijaUi.rounded(canvas, x, y, w, h, 20f, 0x12000000);;
+        SkijaUi.rounded(canvas, x, y, w, h, 20f, 0x12000000);
         drawMainCard(canvas, x, y, w, h);
     }
 
-    private void drawAnimatedDialog(Canvas canvas, float progress, Runnable renderer) {
+    private void drawAnimatedDialog(Canvas canvas, float progress, float dialogHeight, Runnable renderer) {
         float eased = ease(progress);
-        float scale = .90f + .10f * eased;
-        canvas.saveLayerAlpha(Rect.makeXYWH(0f, 0f, width, height), Math.round(255f * eased));
-        canvas.translate(width * .5f, height * .5f);
-        canvas.scale(scale, scale);
-        canvas.translate(-width * .5f, -height * .5f);
-        renderer.run();
-        canvas.restore();
+        float scale = layoutScale() * (.90f + .10f * eased);
+        int save = canvas.saveLayerAlpha(Rect.makeXYWH(0f, 0f, width, height), Math.round(255f * eased));
+        try {
+            RRect bounds = RRect.makeXYWH((width - dialogWidth() * scale) * .5f,
+                    (height - dialogHeight * scale) * .5f, dialogWidth() * scale, dialogHeight * scale, 20f * scale);
+            SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
+                    bounds.getWidth(), bounds.getHeight(), 0.95f * 10.5f);
+            MainUiScale.applyPage(canvas, width, height, scale, layoutCenterX(), layoutCenterY());
+            renderer.run();
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     private void drawInput(Canvas canvas, float x, float y, float w, float h) {
@@ -418,13 +469,14 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
         if (event.button() != 0 || closingToMain) return true;
+        event = MainUiScale.pageEvent(event, width, height, inputScale(), layoutCenterX(), layoutCenterY());
         float mx = (float) event.x();
         float my = (float) event.y();
         if (deleteConfirmOpen) {
-            float w = Math.min(380f, width - 40f);
+            float w = dialogWidth();
             float h = 166f;
-            float x = (width - w) * .5f;
-            float y = (height - h) * .5f;
+            float x = layoutCenterX() - w * .5f;
+            float y = layoutCenterY() - h * .5f;
             float buttonW = (w - 56f) * .5f;
             if (inside(mx, my, x + 24f, y + 112f, buttonW, 30f)) {
                 playClick();
@@ -445,10 +497,10 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             return true;
         }
         if (microsoftWaiting) {
-            float w = Math.min(380f, width - 40f);
+            float w = dialogWidth();
             float h = 166f;
-            float x = (width - w) * .5f;
-            float y = (height - h) * .5f;
+            float x = layoutCenterX() - w * .5f;
+            float y = layoutCenterY() - h * .5f;
             float buttonW = (w - 56f) * .5f;
             if (inside(mx, my, x + 24f, y + 124f, buttonW, 26f)) {
                 playClick();
@@ -526,10 +578,10 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void handleOfflineDialogClick(float mx, float my) {
-        float w = Math.min(380f, MainUiScale.pageWidth() - 40f);
+        float w = dialogWidth();
         float h = 190f;
-        float x = (MainUiScale.pageWidth() - w) * .5f;
-        float y = (MainUiScale.pageHeight() - h) * .5f;
+        float x = layoutCenterX() - w * .5f;
+        float y = layoutCenterY() - h * .5f;
         float buttonW = (w - 56f) * .5f;
         if (inside(mx, my, x + 24f, y + 136f, buttonW, 30f)) {
             playClick();
@@ -599,7 +651,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (offlineOpen || microsoftWaiting) return true;
+        if (offlineOpen || microsoftWaiting || deleteConfirmOpen) return true;
         targetScroll -= (float) verticalAmount * 48f;
         clampScroll();
         return true;
@@ -686,7 +738,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void startClose() {
-        if (closingToMain) return;
+        if (closingToMain || backDispatched) return;
+        if (embeddedBack != null && minecraft != null && minecraft.screen != this) {
+            backDispatched = true;
+            embeddedBack.run();
+            return;
+        }
         closingToMain = true;
         closeStartMs = System.currentTimeMillis();
     }
@@ -869,15 +926,15 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private float cardW() {
-        return Math.max(320f, Math.min(500f, width * .52f));
+        return Math.max(320f, Math.min(500f, layoutWidth() * .52f));
     }
 
     private float cardH() {
-        return Math.max(260f, Math.min(height - 154f, height * .72f));
+        return Math.max(260f, Math.min(layoutHeight() - 154f, layoutHeight() * .72f));
     }
 
     private float cardX() {
-        return (width - cardW()) * .5f;
+        return (layoutWidth() - cardW()) * .5f;
     }
 
     private float cardY() {
@@ -886,5 +943,36 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
 
     private float titleY() {
         return Math.min(50f, cardY() + 12f);
+    }
+
+    private int layoutWidth() {
+        return MainUiScale.pageWidth();
+    }
+
+    private int layoutHeight() {
+        return MainUiScale.pageHeight();
+    }
+
+    private float layoutScale() {
+        return MainUiScale.pageScale(cardX(), 20f, cardX() + cardW(), cardY() + cardH() + 44f);
+    }
+
+    private float layoutCenterX() {
+        return layoutWidth() * .5f;
+    }
+
+    private float layoutCenterY() {
+        return (20f + cardY() + cardH() + 44f) * .5f;
+    }
+
+    private float dialogWidth() {
+        return Math.min(380f, cardW());
+    }
+
+    private float inputScale() {
+        float progress = offlineOpen ? offlineDialogProgress
+                : microsoftWaiting ? microsoftDialogProgress
+                : deleteConfirmOpen ? deleteDialogProgress : 1f;
+        return layoutScale() * (.90f + .10f * ease(progress));
     }
 }

@@ -107,28 +107,32 @@ public final class ViaFabricPlusBridge {
         }
     }
 
-    public static void openSettings(Screen parent) {
+    public static boolean openSettings(Screen parent) {
         try {
             Object impl = implementation();
             impl.getClass().getMethod("openSettingsScreen", Screen.class).invoke(impl, parent);
+            return true;
         } catch (Throwable ignored) {
+            return false;
         }
     }
 
-    public static void openServerList(Screen parent) {
-        openStaticScreen("com.viaversion.viafabricplus.screen.impl.ServerListScreen", parent);
+    public static boolean openServerList(Screen parent) {
+        return openStaticScreen("com.viaversion.viafabricplus.screen.impl.ServerListScreen", parent);
     }
 
-    public static void openReportIssues(Screen parent) {
-        openStaticScreen("com.viaversion.viafabricplus.screen.impl.ReportIssuesScreen", parent);
+    public static boolean openReportIssues(Screen parent) {
+        return openStaticScreen("com.viaversion.viafabricplus.screen.impl.ReportIssuesScreen", parent);
     }
 
-    private static void openStaticScreen(String className, Screen parent) {
+    private static boolean openStaticScreen(String className, Screen parent) {
         try {
             Class<?> type = Class.forName(className);
             Object instance = type.getField("INSTANCE").get(null);
             type.getMethod("open", Screen.class).invoke(instance, parent);
+            return true;
         } catch (Throwable ignored) {
+            return false;
         }
     }
 
