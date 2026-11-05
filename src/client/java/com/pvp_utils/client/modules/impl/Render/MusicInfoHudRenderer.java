@@ -31,11 +31,7 @@ public class MusicInfoHudRenderer {
     private static final int NEW_COVER_SIZE = 48;
     private static final int ACCENT = 0xFFE5484D;
 
-    private final Paint bgPaint = new Paint().setAntiAlias(true);
-    private final Paint coverBackPaint = new Paint().setAntiAlias(true);
     private final Paint coverImagePaint = new Paint().setAntiAlias(true);
-    private final Paint trackPaint = new Paint().setAntiAlias(true);
-    private final Paint fillPaint = new Paint().setAntiAlias(true);
 
     private boolean pendingFrame;
 
@@ -89,11 +85,12 @@ public class MusicInfoHudRenderer {
             return;
         }
         boolean glassy = Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR || Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS;
-        renderCardFrameEnd(client, player, song, glassy, Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
+        renderCard(canvas, client, player, song, glassy, Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
     }
 
-    private void renderCardFrameEnd(Minecraft client, MusicPlaybackService player, Song song, boolean blurMode, boolean liquid) {
-        SkijaRenderer.draw(canvas -> {
+    private void renderCard(Canvas canvas, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode, boolean liquid) {
+        int save = canvas.save();
+        try {
             int screenW = client.getWindow().getGuiScaledWidth();
             int screenH = client.getWindow().getGuiScaledHeight();
             float userScale = getScale();
@@ -102,41 +99,37 @@ public class MusicInfoHudRenderer {
             float scaledW = CARD_W * userScale;
             float scaledH = CARD_H * userScale;
 
-            boolean blurred = false;
             if (liquid) {
-                blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
+                LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
                 LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 2);
             } else if (blurMode) {
-                SkijaRenderer.draw(blurCanvas -> {
-                    SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(x, y, scaledW, scaledH, RADIUS * userScale), x, y, scaledW, scaledH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-                    SkijaUi.rounded(blurCanvas, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor());
-                });
-                blurred = true;
+                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, scaledW, scaledH, RADIUS * userScale), x, y, scaledW, scaledH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+                SkijaUi.rounded(canvas, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor());
             }
-            canvas.save();
             canvas.translate(x, y);
             canvas.scale(userScale, userScale);
 
             if (!blurMode) {
-                bgPaint.setColor(cardColor());
-                canvas.drawRRect(RRect.makeXYWH(0f, 0f, CARD_W, CARD_H, RADIUS), bgPaint);
+                SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, cardColor());
             }
-            coverBackPaint.setColor(coverBackplateColor(blurMode));
-            canvas.drawRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), coverBackPaint);
+            SkijaUi.rounded(canvas, 10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f, coverBackplateColor(blurMode));
 
             Image cover = NeteaseMusicCovers.skiaImage(song.image());
             if (cover != null) {
-                canvas.save();
-                if (Config.musicInfoHudCoverRounded) {
-                    canvas.clipRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), true);
-                } else {
-                    canvas.clipRect(io.github.humbleui.types.Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE));
+                int coverSave = canvas.save();
+                try {
+                    if (Config.musicInfoHudCoverRounded) {
+                        canvas.clipRRect(RRect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f), true);
+                    } else {
+                        canvas.clipRect(Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE));
+                    }
+                    canvas.drawImageRect(cover,
+                    Rect.makeXYWH(0f, 0f, cover.getWidth(), cover.getHeight()),
+                    Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE),
+                    SamplingMode.LINEAR, coverImagePaint, true);
+                } finally {
+                    canvas.restoreToCount(coverSave);
                 }
-                canvas.drawImageRect(cover,
-                Rect.makeXYWH(0f, 0f, cover.getWidth(), cover.getHeight()),
-                Rect.makeXYWH(10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE),
-                SamplingMode.LINEAR, coverImagePaint, true);
-                canvas.restore();
             } else {
                 SkijaUi.text(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, (10f + NEW_COVER_SIZE / 2f + 4f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0x66FFFFFF, 12f);
             }
@@ -151,16 +144,15 @@ public class MusicInfoHudRenderer {
             float barY = 51f;
             float barW = 112f;
             float barH = 5f;
-            trackPaint.setColor(trackColor(blurMode));
-            canvas.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), trackPaint);
-            fillPaint.setColor(ACCENT);
-            canvas.drawRRect(RRect.makeXYWH(barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f), fillPaint);
+            SkijaUi.rounded(canvas, barX, barY, barW, barH, barH * 0.5f, trackColor(blurMode));
+            SkijaUi.rounded(canvas, barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f, ACCENT);
             SkijaUi.text(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
             String mode = player.playbackMode().label();
             SkijaUi.text(canvas, mode, CARD_W - 14f - SkijaUi.textWidth(mode, 9f), (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
 
-            canvas.restore();
-        });
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     private void renderLite(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song) {

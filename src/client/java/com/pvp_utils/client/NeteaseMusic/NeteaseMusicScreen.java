@@ -259,7 +259,6 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
     }
 
     private void renderSidebar(Canvas canvas) {
-        rounded(canvas, 0, 0, sideW, panelH, 0, BG);
         drawInput(canvas, search, 8, 8, sideW - 16f, 18f, tr("搜索音乐", "Search music"));
         bold(canvas, "PVPUtils", 12, 37, 11f, TEXT);
         text(canvas, "MUSIC", 12, 51, 5.5f, MUTED);
@@ -498,7 +497,6 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
         float y = contentH;
         float h = panelH - y;
         float w = panelW - sideW;
-        rounded(canvas, sideW, y, w, h, 0, BG);
         Song song = player.currentSong();
         float size = Math.min(42f, h - 10f);
         cover(canvas, song == null ? null : NeteaseMusicCovers.skiaImage(song.image()), sideW + 5, y + 5, size, 2, 255);

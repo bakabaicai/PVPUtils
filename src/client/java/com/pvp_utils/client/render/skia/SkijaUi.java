@@ -17,6 +17,8 @@ import io.github.humbleui.skija.FilterTileMode;
 import io.github.humbleui.skija.ImageFilter;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
+import io.github.humbleui.skija.PaintStrokeCap;
+import io.github.humbleui.skija.PaintStrokeJoin;
 import io.github.humbleui.skija.Shader;
 import io.github.humbleui.skija.TextBlob;
 import io.github.humbleui.skija.TextBlobBuilder;
@@ -133,12 +135,17 @@ public final class SkijaUi {
 
     public static void line(Canvas canvas, float x1, float y1, float x2, float y2,
     float thickness, int color) {
+        line(canvas, x1, y1, x2, y2, thickness, color, PaintStrokeCap.BUTT);
+    }
+
+    public static void line(Canvas canvas, float x1, float y1, float x2, float y2,
+    float thickness, int color, PaintStrokeCap cap) {
         try {
             SHAPE_PAINT.setAntiAlias(true).setMode(PaintMode.STROKE)
-            .setStrokeWidth(Math.max(0.1F, thickness)).setColor(color);
+            .setStrokeWidth(Math.max(0.1F, thickness)).setStrokeCap(cap).setColor(color);
             canvas.drawLine(x1, y1, x2, y2, SHAPE_PAINT);
         } finally {
-            SHAPE_PAINT.setMode(PaintMode.FILL).setStrokeWidth(1.0F);
+            SHAPE_PAINT.setMode(PaintMode.FILL).setStrokeWidth(1.0F).setStrokeCap(PaintStrokeCap.BUTT);
         }
     }
 
@@ -160,6 +167,18 @@ public final class SkijaUi {
     public static void fillPath(Canvas canvas, io.github.humbleui.skija.Path path, int color) {
         SHAPE_PAINT.setAntiAlias(true).setColor(color);
         canvas.drawPath(path, SHAPE_PAINT);
+    }
+
+    public static void strokePath(Canvas canvas, io.github.humbleui.skija.Path path,
+    float thickness, int color, PaintStrokeCap cap, PaintStrokeJoin join) {
+        try {
+            SHAPE_PAINT.setAntiAlias(true).setMode(PaintMode.STROKE)
+            .setStrokeWidth(Math.max(0.1F, thickness)).setStrokeCap(cap).setStrokeJoin(join).setColor(color);
+            canvas.drawPath(path, SHAPE_PAINT);
+        } finally {
+            SHAPE_PAINT.setMode(PaintMode.FILL).setStrokeWidth(1.0F)
+            .setStrokeCap(PaintStrokeCap.BUTT).setStrokeJoin(PaintStrokeJoin.MITER);
+        }
     }
 
     public static void dropShadowPath(Canvas canvas, io.github.humbleui.skija.Path path,

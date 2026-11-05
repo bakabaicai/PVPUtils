@@ -94,13 +94,17 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | `gradient(Canvas, x, y, width, height, startColor, endColor, boolean vertical, radius)` | 水平或垂直渐变 |
 | `gradientDiagonal(Canvas, x, y, width, height, startColor, endColor, radius)` | 对角渐变 |
 | `line(Canvas, x1, y1, x2, y2, thickness, color)` | 线段 |
+| `line(Canvas, x1, y1, x2, y2, thickness, color, PaintStrokeCap cap)` | 指定端点形状的线段；原重载使用 BUTT |
 | `outline(Canvas, x, y, width, height, radius, thickness, color)` | 矩形或圆角矩形描边 |
 | `fillPath(Canvas, io.github.humbleui.skija.Path, color)` | 路径填充 |
+| `strokePath(Canvas, io.github.humbleui.skija.Path, thickness, color, PaintStrokeCap cap, PaintStrokeJoin join)` | 指定端点和连接形状的路径描边 |
 | `dropShadowPath(Canvas, io.github.humbleui.skija.Path, blur, color)` | 路径阴影 |
 | `dropShadowRounded(Canvas, x, y, width, height, radius, offsetY, blur, color)` | 圆角矩形阴影 |
 | `glowLayer(Canvas, x, y, width, height, blur, int strength, Runnable drawing)` | 局部滤镜图层；`strength` 被限制为 1–10 |
 
 `glowLayer` 中的回调用于生成发光层；需要清晰前景时另行绘制前景。阴影、发光和渐变接口不意味着最终像素结果已缓存。
+
+线段与路径描边复用共享 Paint，线宽至少为 0.1，调用结束后恢复填充模式、默认线宽、端点与连接状态。音乐 UI 的圆角、线段及图标路径通过这些接口绘制，不单独创建基础图形 Paint。
 
 ### 3.3 文字与图标：SkijaUi
 

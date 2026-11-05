@@ -94,13 +94,17 @@ The tables use compact call notation, not copyable Java declarations. `Canvas` d
 | `gradient(Canvas, x, y, width, height, startColor, endColor, boolean vertical, radius)` | Horizontal or vertical gradient |
 | `gradientDiagonal(Canvas, x, y, width, height, startColor, endColor, radius)` | Diagonal gradient |
 | `line(Canvas, x1, y1, x2, y2, thickness, color)` | Line segment |
+| `line(Canvas, x1, y1, x2, y2, thickness, color, PaintStrokeCap cap)` | Line with an explicit cap; the original overload uses BUTT |
 | `outline(Canvas, x, y, width, height, radius, thickness, color)` | Rectangle or rounded-rectangle stroke |
 | `fillPath(Canvas, io.github.humbleui.skija.Path, color)` | Path fill |
+| `strokePath(Canvas, io.github.humbleui.skija.Path, thickness, color, PaintStrokeCap cap, PaintStrokeJoin join)` | Path stroke with explicit cap and join styles |
 | `dropShadowPath(Canvas, io.github.humbleui.skija.Path, blur, color)` | Path shadow |
 | `dropShadowRounded(Canvas, x, y, width, height, radius, offsetY, blur, color)` | Rounded-rectangle shadow |
 | `glowLayer(Canvas, x, y, width, height, blur, int strength, Runnable drawing)` | Local filtered layer; `strength` is clamped to 1–10 |
 
 The callback in `glowLayer` produces the glow layer. Draw the sharp foreground separately when required. Shadow, glow, and gradient interfaces do not imply that their final pixels are cached.
+
+Lines and path strokes reuse the shared Paint, with a minimum width of 0.1. They restore fill mode, default width, cap, and join state after drawing. Music UI rounded rectangles, lines, and icon paths use these interfaces without allocating separate basic-shape Paint objects.
 
 ### 3.3 Text and icons: SkijaUi
 

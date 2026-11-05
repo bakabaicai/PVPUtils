@@ -4,7 +4,6 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
-import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.PaintStrokeCap;
 import io.github.humbleui.skija.PaintStrokeJoin;
 import io.github.humbleui.skija.Path;
@@ -34,11 +33,11 @@ public final class MusicUi {
     }
 
     public static void text(Canvas canvas, String value, float x, float y, float size, int color) {
-        drawText(canvas, value, x, y, size, color, false);
+        SkijaUi.textAtTop(canvas, value, x, y, color, textSize(size), false);
     }
 
     public static void bold(Canvas canvas, String value, float x, float y, float size, int color) {
-        drawText(canvas, value, x, y, size, color, true);
+        SkijaUi.textAtTop(canvas, value, x, y, color, textSize(size), true);
     }
 
     public static float width(String value, float size) {
@@ -72,30 +71,24 @@ public final class MusicUi {
 
     public static void rounded(Canvas canvas, float x, float y, float width, float height, float radius, int color) {
         if (width <= 0f || height <= 0f || color >>> 24 == 0) return;
-        try (Paint paint = new Paint().setAntiAlias(true).setColor(color)) {
-            canvas.drawRRect(RRect.makeXYWH(x, y, width, height,
-                    Math.max(0f, Math.min(radius, Math.min(width, height) * 0.5f))), paint);
-        }
+        SkijaUi.rounded(canvas, x, y, width, height,
+                Math.max(0f, Math.min(radius, Math.min(width, height) * 0.5f)), color);
     }
 
     public static void line(Canvas canvas, float x1, float y1, float x2, float y2, float width, int color) {
         if (width <= 0f || color >>> 24 == 0) return;
-        try (Paint paint = new Paint().setAntiAlias(true).setColor(color)
-                .setMode(PaintMode.STROKE).setStrokeWidth(width).setStrokeCap(PaintStrokeCap.ROUND)) {
-            canvas.drawLine(x1, y1, x2, y2, paint);
-        }
+        SkijaUi.line(canvas, x1, y1, x2, y2, width, color, PaintStrokeCap.ROUND);
     }
 
     public static void icon(Canvas canvas, String name, float x, float y, float size, int color) {
         if (name == null || size <= 0f || color >>> 24 == 0) return;
         Path path = iconPath(name);
         int save = canvas.save();
-        try (Paint paint = new Paint().setAntiAlias(true).setColor(color)
-                .setMode(FILLED_ICONS.contains(name) ? PaintMode.FILL : PaintMode.STROKE)
-                .setStrokeWidth(1.8f).setStrokeCap(PaintStrokeCap.ROUND).setStrokeJoin(PaintStrokeJoin.ROUND)) {
+        try {
             canvas.translate(x, y);
             canvas.scale(size / 24f, size / 24f);
-            canvas.drawPath(path, paint);
+            if (FILLED_ICONS.contains(name)) SkijaUi.fillPath(canvas, path, color);
+            else SkijaUi.strokePath(canvas, path, 1.8f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
         } finally {
             canvas.restoreToCount(save);
         }
@@ -130,10 +123,6 @@ public final class MusicUi {
     public static synchronized void close() {
         ICONS.values().forEach(Path::close);
         ICONS.clear();
-    }
-
-    private static void drawText(Canvas canvas, String value, float x, float y, float size, int color, boolean heavy) {
-        SkijaUi.textAtTop(canvas, value, x, y, color, textSize(size), heavy);
     }
 
     private static float textSize(float size) {
