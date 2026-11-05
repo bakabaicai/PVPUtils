@@ -14,6 +14,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class LyricsDisplayRenderer {
     private static final LyricsDisplayRenderer INSTANCE = new LyricsDisplayRenderer();
@@ -23,6 +25,9 @@ public class LyricsDisplayRenderer {
     private static final float BILINGUAL_LINE_SPACING = 54f;
     private static final float CURRENT_SIZE = 21f;
     private static final float SIDE_SIZE = 15f;
+    private static final int MAX_PREPARED_LINES = 256;
+    private final Map<TextKey, SkijaUi.PreparedText> preparedLines = new LinkedHashMap<>(32, 0.75f, true);
+    private long cachedFontRevision = -1L;
 
     private float visualIndex = 0f;
     private float displayAlpha = 1f;
@@ -52,10 +57,12 @@ public class LyricsDisplayRenderer {
         }
         List<LyricLine> lyrics = lyricsOrFallback(player);
         if (lyrics.isEmpty()) {
+            clearState();
             return;
         }
 
         if (player.currentSong() != null && player.currentSong().id() != lastSongId) {
+            clearPreparedLines();
             lastSongId = player.currentSong().id();
             visualIndex = Math.max(0, LyricLineProcessor.currentIndex(lyrics, player.positionMs()));
             displayAlpha = 1f;
@@ -114,6 +121,11 @@ public class LyricsDisplayRenderer {
     }
 
     private void drawLyrics(Canvas canvas, List<LyricLine> lyrics, long positionMs, float globalAlpha) {
+        long fontRevision = SkijaUi.textFontRevision();
+        if (cachedFontRevision != fontRevision) {
+            clearPreparedLines();
+            cachedFontRevision = fontRevision;
+        }
         int currentIndex = Math.max(0, LyricLineProcessor.currentIndex(lyrics, positionMs));
         float centerX = BASE_W * 0.5f;
         float centerY = BASE_H * 0.5f + 7f;
@@ -190,10 +202,20 @@ public class LyricsDisplayRenderer {
     }
 
     private void drawCenteredText(Canvas canvas, String text, float centerX, float baselineY, float size, int argb) {
-        text = trimToWidth(text, BASE_W - 32f, size);
-        float w = SkijaUi.textWidth(text, size);
-        float x = centerX - w * 0.5f;
-        SkijaUi.text(canvas, text, x, (baselineY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), argb, size);
+        int sizeSteps = Math.round(size * 4f);
+        TextKey key = new TextKey(text, sizeSteps);
+        SkijaUi.PreparedText prepared = preparedLines.get(key);
+        if (prepared == null) {
+            float fontSize = sizeSteps * 0.25f;
+            prepared = SkijaUi.prepareText(trimToWidth(text, BASE_W - 32f, fontSize), fontSize, false);
+            preparedLines.put(key, prepared);
+            if (preparedLines.size() > MAX_PREPARED_LINES) {
+                var oldest = preparedLines.entrySet().iterator();
+                oldest.next().getValue().close();
+                oldest.remove();
+            }
+        }
+        prepared.draw(canvas, centerX - prepared.width() * 0.5f, baselineY, argb);
     }
 
     private String displayText(String text) {
@@ -206,10 +228,15 @@ public class LyricsDisplayRenderer {
     private String trimToWidth(String text, float maxWidth, float size) {
         if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "...";
-        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
-            text = text.substring(0, text.length() - 1);
+        int[] points = text.codePoints().toArray();
+        int low = 0;
+        int high = points.length;
+        while (low < high) {
+            int middle = (low + high + 1) / 2;
+            if (SkijaUi.textWidth(new String(points, 0, middle) + ellipsis, size) <= maxWidth) low = middle;
+            else high = middle - 1;
         }
-        return text + ellipsis;
+        return new String(points, 0, low) + ellipsis;
     }
 
     private List<LyricLine> lyricsOrFallback(MusicPlaybackService player) {
@@ -231,6 +258,7 @@ public class LyricsDisplayRenderer {
     }
 
     private void clearState() {
+        clearPreparedLines();
         visualIndex = 0f;
         displayAlpha = 1f;
         lastFrameMs = 0L;
@@ -238,6 +266,15 @@ public class LyricsDisplayRenderer {
         pausedSinceMs = 0L;
         lastObservedPositionMs = -1L;
         lastPositionChangeMs = 0L;
+    }
+
+    private void clearPreparedLines() {
+        preparedLines.values().forEach(SkijaUi.PreparedText::close);
+        preparedLines.clear();
+        cachedFontRevision = -1L;
+    }
+
+    private record TextKey(String text, int sizeSteps) {
     }
 
     private boolean shouldSkipScreen(Minecraft client) {

@@ -8,7 +8,6 @@ public final class NeteaseMusicManager {
     }
 
     public static void open() {
-        NeteaseMusicApi.restoreSession();
         Minecraft client = Minecraft.getInstance();
         Screen parent = client.screen;
         client.setScreen(new NeteaseMusicScreen(parent));

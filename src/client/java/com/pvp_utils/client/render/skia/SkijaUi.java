@@ -18,6 +18,8 @@ import io.github.humbleui.skija.ImageFilter;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
 import io.github.humbleui.skija.Shader;
+import io.github.humbleui.skija.TextBlob;
+import io.github.humbleui.skija.TextBlobBuilder;
 import io.github.humbleui.skija.Typeface;
 import io.github.humbleui.types.Rect;
 
@@ -65,6 +67,7 @@ public final class SkijaUi {
     private static final ThreadLocal<String> FONT_OVERRIDE = new ThreadLocal<>();
     private static String activeFont = CLIENT_FONT;
     private static boolean importedFontsLoaded;
+    private static long textFontRevision;
 
     private SkijaUi() {
     }
@@ -236,6 +239,41 @@ public final class SkijaUi {
         drawText(canvas, text, x, top, height, color, true, size);
     }
 
+    public static void textAtTop(Canvas canvas, String text, float x, float top, int color, float size, boolean bold) {
+        if (text == null || text.isEmpty() || color >>> 24 == 0) return;
+        String fontName = effectiveFontName();
+        FontMetrics metrics = font(bold, size, fontName).getMetrics();
+        drawTextWithFallback(canvas, text, x, top, metrics.getDescent() - metrics.getAscent(),
+                color, size, fontName, bold);
+    }
+
+    public static PreparedText prepareText(String text, float size, boolean bold) {
+        Font primary = font(bold, size, effectiveFontName());
+        Font fallback = fallbackFont(size);
+        FontMetrics metrics = primary.getMetrics();
+        float height = metrics.getDescent() - metrics.getAscent();
+        String safeText = text == null ? "" : text;
+        List<TextRun> runs = needsFallback(safeText, primary, fallback)
+                ? fallbackRuns(safeText, primary, fallback) : List.of(new TextRun(safeText, primary));
+        float width = 0f;
+        try (TextBlobBuilder builder = new TextBlobBuilder()) {
+            for (TextRun run : runs) {
+                if (run.text().isEmpty()) continue;
+                FontMetrics runMetrics = run.font().getMetrics();
+                float baseline = (height - runMetrics.getDescent() + runMetrics.getAscent()) * 0.5f
+                        - runMetrics.getAscent() + metrics.getAscent();
+                builder.appendRun(run.font(), run.text(), width, baseline);
+                width += run.font().measureTextWidth(run.text());
+            }
+            return new PreparedText(builder.build(), width, metrics.getAscent());
+        }
+    }
+
+    public static synchronized long textFontRevision() {
+        ensureImportedFontsLoaded();
+        return textFontRevision;
+    }
+
     public static void textShadow(Canvas canvas, String text, float x, float top, float height, int color) {
         textShadow(canvas, text, x, top, height, color, FONT_SIZE);
     }
@@ -349,6 +387,7 @@ public final class SkijaUi {
         String resolved = resolveFontName(fontName);
         if (!activeFont.equals(resolved)) {
             activeFont = resolved;
+            textFontRevision++;
         }
     }
 
@@ -397,6 +436,7 @@ public final class SkijaUi {
     }
 
     public static synchronized void reloadImportedFonts() {
+        textFontRevision++;
         retireTextFontResources();
         RETIRED_IMPORTED_TYPEFACES.addAll(IMPORTED_TYPEFACES.values());
         IMPORTED_TYPEFACES.clear();
@@ -707,5 +747,37 @@ public final class SkijaUi {
     }
 
     private record TextRun(String text, Font font) {
+    }
+
+    public static final class PreparedText implements AutoCloseable {
+        private TextBlob blob;
+        private final float width;
+        private final float ascent;
+
+        private PreparedText(TextBlob blob, float width, float ascent) {
+            this.blob = blob;
+            this.width = width;
+            this.ascent = ascent;
+        }
+
+        public float width() {
+            return width;
+        }
+
+        public void draw(Canvas canvas, float x, float baseline, int color) {
+            if (blob == null || color >>> 24 == 0) return;
+            TEXT_PAINT.setColor(color);
+            canvas.drawTextBlob(blob, x, baseline, TEXT_PAINT);
+        }
+
+        public void drawTop(Canvas canvas, float x, float top, int color) {
+            draw(canvas, x, top - ascent, color);
+        }
+
+        @Override
+        public void close() {
+            if (blob != null) blob.close();
+            blob = null;
+        }
     }
 }

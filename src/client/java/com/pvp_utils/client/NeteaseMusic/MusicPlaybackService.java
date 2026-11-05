@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -38,6 +39,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     private final StreamPlayer player = new StreamPlayer();
     private final List<Song> playlist = Collections.synchronizedList(new ArrayList<>());
     private final List<LyricLine> lyrics = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicLong playbackRevision = new AtomicLong();
     private volatile Song currentSong;
     private volatile File currentFile;
     private volatile boolean playing;
@@ -65,17 +67,78 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         }
     }
 
+    public List<Song> getQueue() {
+        synchronized (playlist) {
+            return List.copyOf(playlist);
+        }
+    }
+
+    public void addToQueue(Song song, boolean playNext) {
+        if (song == null) return;
+        synchronized (playlist) {
+            int index = playNext && !playlist.isEmpty()
+                    ? Math.min(playlist.size(), currentIndex + 1) : playlist.size();
+            playlist.add(index, song);
+        }
+    }
+
+    public void playQueueIndex(int index) {
+        Song song;
+        synchronized (playlist) {
+            if (index < 0 || index >= playlist.size()) return;
+            currentIndex = index;
+            song = playlist.get(index);
+        }
+        playSong(song);
+    }
+
+    public void removeQueueIndex(int index) {
+        Song replacement = null;
+        boolean empty;
+        synchronized (playlist) {
+            if (index < 0 || index >= playlist.size()) return;
+            Song removed = playlist.remove(index);
+            boolean removedCurrent = index == currentIndex && removed.equals(currentSong);
+            empty = playlist.isEmpty();
+            if (index < currentIndex) currentIndex--;
+            currentIndex = Math.max(0, Math.min(currentIndex, playlist.size() - 1));
+            if (removedCurrent && !empty) replacement = playlist.get(currentIndex);
+        }
+        if (empty) {
+            clearQueue();
+        } else if (replacement != null) {
+            playSong(replacement);
+        }
+    }
+
+    public void clearQueue() {
+        synchronized (playlist) {
+            playlist.clear();
+            currentIndex = 0;
+        }
+        stop();
+        currentSong = null;
+        currentFile = null;
+        totalDurationMs = 0L;
+        synchronized (lyrics) {
+            lyrics.clear();
+        }
+    }
+
     public void playSong(Song song) {
         if (song == null) {
             return;
         }
         synchronized (playlist) {
-            int index = playlist.indexOf(song);
+            int index = currentIndex >= 0 && currentIndex < playlist.size() && playlist.get(currentIndex).equals(song)
+                    ? currentIndex : playlist.indexOf(song);
             if (index >= 0) {
                 currentIndex = index;
             }
         }
+        long revision = playbackRevision.incrementAndGet();
         currentSong = song;
+        currentFile = null;
         basePositionMs = 0L;
         playStartedAtMs = 0L;
         progressOffsetMs = 0L;
@@ -88,7 +151,9 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         }
         executor.execute(() -> {
             try {
+                if (revision != playbackRevision.get()) return;
                 SongFile songFile = NeteaseMusicApi.getSongFile(song.id());
+                if (revision != playbackRevision.get()) return;
                 if (!songFile.isPlayable()) {
                     status = "Song is unavailable";
                     return;
@@ -98,6 +163,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                     status = "Downloading " + song.name();
                     Files.write(cachedFile, NeteaseMusicApi.getBytes(songFile.url()));
                 }
+                if (revision != playbackRevision.get()) return;
                 touchCacheFile(cachedFile);
                 trimSongCache(cachedFile);
                 List<LyricLine> loadedLyrics;
@@ -107,6 +173,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                     loadedLyrics = List.of();
                     PVPUtils.LOGGER.error("[LyricsDisplay] Failed to load lyrics id={} reason={}", song.id(), cleanMessage(exception), exception);
                 }
+                if (revision != playbackRevision.get()) return;
                 synchronized (lyrics) {
                     lyrics.clear();
                     lyrics.addAll(loadedLyrics);
@@ -114,6 +181,10 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 currentFile = cachedFile.toFile();
                 player.stop();
                 player.open(currentFile);
+                if (revision != playbackRevision.get()) {
+                    player.stop();
+                    return;
+                }
                 applyVolumeToPlayer();
                 basePositionMs = 0L;
                 progressOffsetMs = 0L;
@@ -123,12 +194,13 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 player.play();
                 applyVolumeToPlayer();
             } catch (Exception exception) {
+                if (revision != playbackRevision.get()) return;
                 status = "Load failed: " + cleanMessage(exception);
                 playing = false;
                 PVPUtils.LOGGER.error("[NeteaseMusic] Failed to play song id={} name={} file={} reason={}",
                         song.id(), song.name(), currentFile, cleanMessage(exception), exception);
             } finally {
-                changingSong = false;
+                if (revision == playbackRevision.get()) changingSong = false;
             }
         });
     }
@@ -138,6 +210,8 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             status = "No song selected";
             return;
         }
+        if (changingSong) return;
+        long revision = playbackRevision.get();
         if (playing) {
             basePositionMs = positionMs();
             playStartedAtMs = 0L;
@@ -145,6 +219,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             status = "Paused";
             executor.execute(() -> {
                 try {
+                    if (revision != playbackRevision.get()) return;
                     player.pause();
                 } catch (Exception ignored) {
                 }
@@ -156,6 +231,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         status = "Playing";
         executor.execute(() -> {
             try {
+                if (revision != playbackRevision.get()) return;
                 player.resume();
                 applyVolumeToPlayer();
             } catch (Exception ignored) {
@@ -164,12 +240,29 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     public void stop() {
+        long revision = playbackRevision.incrementAndGet();
         playing = false;
+        changingSong = false;
         basePositionMs = 0L;
         playStartedAtMs = 0L;
         progressOffsetMs = 0L;
         status = "Stopped";
-        executor.execute(player::stop);
+        executor.execute(() -> {
+            if (revision != playbackRevision.get()) return;
+            player.stop();
+            playing = false;
+            basePositionMs = 0L;
+            playStartedAtMs = 0L;
+            progressOffsetMs = 0L;
+            status = "Stopped";
+            if (currentSong == null) {
+                currentFile = null;
+                totalDurationMs = 0L;
+                synchronized (lyrics) {
+                    lyrics.clear();
+                }
+            }
+        });
     }
 
     public void playNext() {
@@ -281,7 +374,10 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         progressOffsetMs = targetMs;
         playStartedAtMs = playing ? System.currentTimeMillis() : 0L;
         long seekTargetMs = targetMs;
-        executor.execute(() -> trySeek(seekTargetMs));
+        long revision = playbackRevision.get();
+        executor.execute(() -> {
+            if (revision == playbackRevision.get()) trySeek(seekTargetMs);
+        });
     }
 
     public String status() {
@@ -340,13 +436,15 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     private void restartCurrentSong() {
-        if (currentFile == null) {
+        File replayFile = currentFile;
+        if (replayFile == null) {
             Song song = currentSong;
             if (song != null) {
                 playSong(song);
             }
             return;
         }
+        long revision = playbackRevision.incrementAndGet();
         changingSong = true;
         basePositionMs = 0L;
         progressOffsetMs = 0L;
@@ -355,16 +453,22 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         status = "Playing";
         executor.execute(() -> {
             try {
+                if (revision != playbackRevision.get()) return;
                 player.stop();
-                player.open(currentFile);
+                player.open(replayFile);
+                if (revision != playbackRevision.get()) {
+                    player.stop();
+                    return;
+                }
                 applyVolumeToPlayer();
                 player.play();
                 applyVolumeToPlayer();
             } catch (Exception exception) {
+                if (revision != playbackRevision.get()) return;
                 status = "Replay failed: " + cleanMessage(exception);
                 playing = false;
             } finally {
-                changingSong = false;
+                if (revision == playbackRevision.get()) changingSong = false;
             }
         });
     }

@@ -1,1536 +1,884 @@
 package com.pvp_utils.client.NeteaseMusic;
 
-import io.github.humbleui.types.RRect;
-
-import com.pvp_utils.client.render.skia.SkijaUi;
-
-import com.mojang.blaze3d.platform.InputConstants;
 import com.pvp_utils.Config;
-import com.pvp_utils.client.NeteaseMusic.LyricLine;
-import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.SkijaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.types.Rect;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_END;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_HOME;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
+import static com.pvp_utils.client.NeteaseMusic.MusicUi.*;
 
-public class NeteaseMusicScreen extends Screen implements SkijaScreen {
-    private final Screen parent;
-    private static final long ENTER_DURATION_MS = 320L;
-    private static final long EXIT_DURATION_MS = 260L;
-    private static final long PAGE_TRANSITION_MS = 420L;
-    private static final long NOW_PLAYING_TRANSITION_MS = 460L;
-    private static final int SIDEBAR_WIDTH = 170;
-    private static final int PLAYER_HEIGHT = 78;
-    private static final int GRID_GAP = 34;
-    private static final int GRID_TEXT_HEIGHT = 54;
-    private static final float BASE_UI_W = 740f;
-    private static final float BASE_UI_H = 500f;
-    private static final float SCREEN_MARGIN = 24f;
-    private static final ExecutorService IO = Executors.newCachedThreadPool(runnable -> {
-        Thread thread = new Thread(runnable, "PVPUtils-NeteaseMusicUi");
+public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
+    private static final ExecutorService IO = Executors.newFixedThreadPool(3, task -> {
+        Thread thread = new Thread(task, "PVPUtils-MusicUI");
         thread.setDaemon(true);
         return thread;
     });
-
-    private final Paint uiPaint = new Paint().setAntiAlias(true);
+    private final Screen parent;
+    private final MusicPlaybackService player = MusicPlaybackService.INSTANCE;
+    private final List<Playlist> library = new ArrayList<>();
+    private final List<Playlist> recommendations = new ArrayList<>();
     private final List<Song> songs = new ArrayList<>();
-    private final List<Song> fullPlaylistSongs = new ArrayList<>();
-    private final List<Playlist> playlists = new ArrayList<>();
-    private final List<Playlist> recommendedPlaylists = new ArrayList<>();
-    private final List<Song> transitionSongs = new ArrayList<>();
-    private final List<Playlist> transitionRecommendedPlaylists = new ArrayList<>();
-    private final Map<String, Float> sidebarSelectAnimations = new HashMap<>();
-    private final Map<String, Float> coverHoverAnimations = new HashMap<>();
-    private final Map<String, Float> playerButtonPressAnimations = new HashMap<>();
-    private long openStartedAt;
-    private long closeStartedAt;
+    private final List<HitTarget> targets = new ArrayList<>();
+    private final List<MenuItem> contextItems = new ArrayList<>();
+    private final MusicTextInput search = new MusicTextInput();
+    private final MusicTextInput filter = new MusicTextInput();
+    private final MusicSettingsView settings = new MusicSettingsView();
+    private MusicTextInput focused;
+    private MusicLyricsView lyrics;
+    private Page page = Page.HOME;
+    private Playlist playlist;
+    private String heading = "";
+    private String status = "";
+    private String qrStatus = "";
+    private String toast = "";
+    private String lastPlaybackStatus = "";
+    private long toastUntil;
+    private long openedAt;
+    private long closedAt;
+    private long pageStartedAt;
+    private long lyricsStartedAt;
+    private long lyricsClosedAt;
     private boolean closing;
+    private volatile boolean attached;
+    private boolean initialized;
+    private boolean reloadOnReturn;
+    private boolean restoring;
     private boolean loading;
-    private boolean draggingProgress;
-    private boolean draggingVolume;
-    private boolean draggingListSlider;
-    private boolean nowPlayingOpen;
-    private boolean nowPlayingClosing;
-    private long nowPlayingTransitionStartedAt;
-    private float nowPlayingLyricVisualIndex;
-    private long nowPlayingLyricSongId = Long.MIN_VALUE;
-    private boolean nowPlayingBackHovered;
-    private PlayerButton pressedPlayerButton = PlayerButton.NONE;
-    private SliderTarget draggingSliderTarget = SliderTarget.NONE;
-    private Focus focus = Focus.NONE;
-    private Focus draggingTextSelection = Focus.NONE;
-    private String query = "";
-    private String playlistSearchQuery = "";
-    private int queryCursor;
-    private int querySelection = -1;
-    private int playlistSearchCursor;
-    private int playlistSearchSelection = -1;
-    private String statusText = "Waiting for login";
-    private int firstSongIndex;
-    private int firstPlaylistIndex;
-    private float visualFirstSongIndex;
-    private float visualFirstPlaylistIndex;
-    private int selectedPlaylistIndex = -1;
-    private Playlist currentPlaylist;
-    private ViewMode viewMode = ViewMode.HOME;
-    private long pageTransitionStartedAt;
-    private ViewMode transitionViewMode = ViewMode.HOME;
-    private Playlist transitionCurrentPlaylist;
-    private int transitionFirstSongIndex;
-    private int transitionFirstPlaylistIndex;
-    private float transitionVisualFirstSongIndex;
-    private float transitionVisualFirstPlaylistIndex;
-    private boolean renderingTransitionSnapshot;
-    private float pendingProgress = -1.0F;
-    private float pendingVolume = -1.0F;
-    private float lastNonZeroVolume = 1.0F;
-    private NeteaseMusicApi.QrLogin qrLogin;
-    private boolean qrPolling;
-    private int qrSerial;
-    private int searchInputX;
-    private int searchInputY = 14;
-    private int searchInputW = SIDEBAR_WIDTH - 24;
-    private int searchInputH = 22;
-    private int playlistSearchInputX;
-    private int playlistSearchInputY;
-    private int playlistSearchInputW;
-    private int playlistSearchInputH;
-    private int lastGridSliderX;
-    private int lastGridSliderY;
-    private int lastGridSliderH;
-    private int lastGridSliderColumns;
-    private int lastGridSliderVisibleCards;
-    private int playlistLoadSerial;
-    private boolean playlistPageLoading;
-    private boolean playlistHasMore;
-    private float activeUiScale = 1.0F;
-    private float activeUiOffsetX = 0.0F;
-    private float activeUiOffsetY = 0.0F;
+    private boolean loadingMore;
+    private boolean hasMore;
+    private boolean tiles;
+    private boolean accountOpen;
+    private boolean loginOpen;
+    private boolean qrBusy;
     private boolean pendingFrame;
-    private int pendingMouseX;
-    private int pendingMouseY;
-    private int lastLayoutMouseX;
-    private int lastLayoutMouseY;
-    private boolean userDetailOpen;
+    private boolean draggingInput;
+    private int requestSerial;
+    private int accountSerial;
+    private volatile int qrSerial;
+    private NeteaseMusicApi.QrLogin qr;
+    private int qrCode;
+    private float scroll;
+    private float scrollTarget;
+    private float sidebarScroll;
+    private float sidebarTarget;
+    private float maxScroll;
+    private float maxSidebarScroll;
+    private float frameMouseX;
+    private float frameMouseY;
+    private float mouseX;
+    private float mouseY;
+    private float panelW;
+    private float panelH;
+    private float sideW;
+    private float contentH;
+    private float scale;
+    private float offsetX;
+    private float offsetY;
+    private float contextX;
+    private float contextY;
+    private float pendingSeek = -1f;
+    private float previousVolume = 1f;
+    private Drag dragging = Drag.NONE;
+    private Rect seekBounds = Rect.makeXYWH(0, 0, 1, 1);
+    private Rect volumeBounds = Rect.makeXYWH(0, 0, 1, 1);
+    private Rect listBounds = Rect.makeXYWH(0, 0, 1, 1);
+    private boolean recordingTargets = true;
 
     public NeteaseMusicScreen(Screen parent) {
-        super(Component.literal("Netease Music"));
+        super(Component.literal("PVPUtils Music"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        if (openStartedAt == 0L) {
-            openStartedAt = System.currentTimeMillis();
-            MusicPlaybackService.INSTANCE.setVolume(Config.neteaseMusicVolume, false);
-            NeteaseMusicApi.restoreSession();
-            if (NeteaseMusicApi.isLoggedIn()) {
-                loadRecommendedPlaylists();
-                loadUserPlaylists();
-            } else {
-                statusText = Config.isChinese ? "请先登录网易云音乐" : "Please login to Netease Music";
+        attached = true;
+        closing = false;
+        openedAt = System.nanoTime();
+        if (initialized) return;
+        initialized = true;
+        player.setVolume(Config.neteaseMusicVolume, false);
+        restoreLogin();
+    }
+
+    private void restoreLogin() {
+        restoring = true;
+        int serial = ++accountSerial;
+        CompletableFuture.supplyAsync(NeteaseMusicApi::restoreSession, IO).whenComplete((loggedIn, error) ->
+                minecraft.execute(() -> {
+                    if (!attached || closing || serial != accountSerial) return;
+                    restoring = false;
+                    if (Boolean.TRUE.equals(loggedIn)) refreshLibrary();
+                    else openLogin();
+                }));
+    }
+
+    @Override
+    public void added() {
+        attached = true;
+        closing = false;
+        openedAt = System.nanoTime();
+        if (initialized) {
+            if (restoring) restoreLogin();
+            else if (loginOpen && !NeteaseMusicApi.isLoggedIn()) {
+                qrBusy = false;
                 startQrLogin();
+            } else if (reloadOnReturn) {
+                switch (page) {
+                    case HOME -> refreshLibrary();
+                    case SEARCH -> runSearch();
+                    case DAILY -> loadDaily();
+                    case PLAYLIST -> {
+                        if (playlist != null) loadPlaylist(playlist);
+                    }
+                    default -> { }
+                }
             }
         }
+        reloadOnReturn = false;
+        super.added();
+    }
+
+    @Override
+    protected void repositionElements() {
+        targets.clear();
+        contextItems.clear();
+        releaseDrag();
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        pendingMouseX = mouseX;
-        pendingMouseY = mouseY;
+        if (closing && elapsed(closedAt) >= 220f) {
+            minecraft.setScreen(parent);
+            return;
+        }
+        frameMouseX = mouseX;
+        frameMouseY = mouseY;
+        String playbackStatus = player.status();
+        if (!playbackStatus.equals(lastPlaybackStatus)) {
+            lastPlaybackStatus = playbackStatus;
+            if (playbackStatus.startsWith("Load failed") || playbackStatus.startsWith("Replay failed")
+                    || playbackStatus.equals("Song is unavailable")) notify(playbackStatus);
+        }
         pendingFrame = true;
-    }
-
-    @Override
-    public void renderSkija(Canvas canvas) {
-        if (!pendingFrame || Minecraft.getInstance().screen != this) {
-            pendingFrame = false;
-            return;
-        }
-        int mouseX = pendingMouseX;
-        int mouseY = pendingMouseY;
-        AnimationState animation = animationState();
-        if (closing && animation.done()) {
-            Minecraft.getInstance().setScreen(parent);
-            return;
-        }
-
-        int actualW = width;
-        int actualH = height;
-        int alpha = Math.round(255.0F * animation.alpha());
-        float uiScale = getUiScale(actualW, actualH);
-        int layoutW = layoutWidth(actualW, uiScale);
-        int layoutH = layoutHeight(actualH, uiScale);
-        float uiOffsetX = uiOffsetX(actualW, layoutW, uiScale);
-        float uiOffsetY = uiOffsetY(actualH, layoutH, uiScale);
-        activeUiScale = uiScale;
-        activeUiOffsetX = uiOffsetX;
-        activeUiOffsetY = uiOffsetY;
-        int layoutMouseX = Math.round(toLayoutX(mouseX, uiScale, uiOffsetX));
-        int layoutMouseY = Math.round(toLayoutY(mouseY, uiScale, uiOffsetY));
-        lastLayoutMouseX = layoutMouseX;
-        lastLayoutMouseY = layoutMouseY;
-        updateScrollAnimation();
-        ContentTransition transition = contentTransition();
-        width = layoutW;
-        height = layoutH;
-        try {
-            renderBackdropSkia(canvas, actualW, actualH, alpha);
-            canvas.save();
-            applyUiScale(canvas, uiScale, uiOffsetX, uiOffsetY);
-            renderUiBackgroundSkia(canvas, alpha);
-            renderSidebarSkia(canvas, layoutMouseX, layoutMouseY, alpha);
-            canvas.save();
-            applyContentScale(canvas, transition.scale());
-            int contentAlpha = Math.round(alpha * transition.alpha());
-            if (transition.oldPage()) {
-                withTransitionSnapshot(() -> renderContentSkia(canvas, layoutMouseX, layoutMouseY, contentAlpha));
-                withTransitionSnapshot(() -> renderCurrentSkiaText(canvas, contentAlpha));
-            } else {
-                renderContentSkia(canvas, layoutMouseX, layoutMouseY, contentAlpha);
-                renderCurrentSkiaText(canvas, contentAlpha);
-            }
-            canvas.restore();
-            renderPlayerSkia(canvas, layoutMouseX, layoutMouseY, alpha);
-            renderPlayerSkiaText(canvas, alpha);
-            renderSidebarSkiaText(canvas, alpha, mouseSafeViewMode());
-            renderUserDetailSkia(canvas, layoutMouseX, layoutMouseY, alpha);
-            renderPoweredBy(canvas, alpha);
-            renderCloseButtonSkia(canvas, layoutMouseX, layoutMouseY, alpha);
-            if (nowPlayingOpen || nowPlayingClosing) {
-                renderNowPlayingOverlaySkia(canvas, layoutMouseX, layoutMouseY, alpha);
-                renderNowPlayingTextSkia(canvas, alpha);
-            }
-            if (!NeteaseMusicApi.isLoggedIn()) {
-                renderLoginGateSkia(canvas, layoutMouseX, layoutMouseY, alpha);
-            }
-            canvas.restore();
-        } finally {
-            width = actualW;
-            height = actualH;
-            activeUiScale = 1.0F;
-            activeUiOffsetX = 0.0F;
-            activeUiOffsetY = 0.0F;
-            pendingFrame = false;
-        }
-    }
-
-    @Override
-    protected void renderBlurredBackground(GuiGraphics graphics) {
-    }
-
-    @Override
-    protected void renderMenuBackground(GuiGraphics graphics) {
     }
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
     }
 
-    private void renderBackdropSkia(Canvas canvas, int w, int h, int alpha) {
-        fill(canvas, 0, 0, w, h, withAlpha(0x111315, Math.round(alpha * 0.68F)));
-        fill(canvas, 0, 0, w, h, withAlpha(0x07120E, Math.round(alpha * 0.25F)));
-    }
-
-    private void renderUiBackgroundSkia(Canvas canvas, int alpha) {
-        fill(canvas, 0, 0, SIDEBAR_WIDTH, height, withAlpha(0x1E1D17, Math.round(alpha * 0.64F)));
-        fill(canvas, 0, height - PLAYER_HEIGHT, width, height, withAlpha(0x111315, Math.round(alpha * 0.78F)));
-    }
-
-    private void renderSidebarSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        searchInputX = 12;
-        searchInputY = 14;
-        searchInputW = SIDEBAR_WIDTH - 24;
-        searchInputH = 22;
-        drawInputSkia(canvas, searchInputX, searchInputY, searchInputW, searchInputH, mouseX, mouseY, query,
-        Config.isChinese ? "\u641c\u7d22..." : "Search...", Focus.SEARCH, alpha);
-        drawSidebarItemSkia(canvas, 14, 74, SIDEBAR_WIDTH - 28, "Home", viewMode == ViewMode.HOME, mouseX, mouseY, alpha, "home");
-        if (NeteaseMusicApi.isLoggedIn()) {
-            int y = 136;
-            for (int i = 0; i < Math.min(12, playlists.size()); i++) {
-                Playlist playlist = playlists.get(i);
-                drawSidebarItemSkia(canvas, 24, y, SIDEBAR_WIDTH - 36, trim(playlist.name(), 17), selectedPlaylistIndex == i, mouseX, mouseY, alpha, "playlist:" + playlist.id());
-                y += 28;
+    @Override
+    public void renderSkija(Canvas canvas) {
+        if (!pendingFrame || !attached || minecraft.screen != this) return;
+        pendingFrame = false;
+        updateLayout();
+        float visibility = closing ? 1f - ease(elapsed(closedAt) / 220f) : ease(elapsed(openedAt) / 280f);
+        float lyricsVisibility = lyrics == null ? 0f : lyricsClosedAt == 0
+                ? ease(elapsed(lyricsStartedAt) / 360f) : 1f - ease(elapsed(lyricsClosedAt) / 250f);
+        scale *= 0.9f + visibility * 0.1f;
+        offsetX = width * 0.5f - panelW * scale * 0.5f;
+        offsetY = height * 0.5f - panelH * scale * 0.5f;
+        mouseX = (frameMouseX - offsetX) / scale;
+        mouseY = (frameMouseY - offsetY) / scale;
+        targets.clear();
+        rounded(canvas, 0, 0, width, height, 0, alpha(0xFF000000, visibility * 0.62f));
+        int save = canvas.save();
+        try (Paint opacity = visibility < 1f ? new Paint().setAlphaf(visibility) : null) {
+            canvas.translate(offsetX, offsetY);
+            canvas.scale(scale, scale);
+            if (opacity != null) canvas.saveLayer(null, opacity);
+            canvas.clipRect(Rect.makeXYWH(0, 0, panelW, panelH));
+            recordingTargets = !loginOpen && !accountOpen && contextItems.isEmpty() && lyrics == null && !restoring;
+            if (lyricsVisibility < 1f) {
+                rounded(canvas, 0, 0, panelW, panelH, 0, BG);
+                renderSidebar(canvas);
+                rounded(canvas, sideW, 0, panelW - sideW, contentH, 0, SIDEBAR);
+                float reveal = ease(elapsed(pageStartedAt) / 300f);
+                int contentSave = canvas.save();
+                try (Paint contentOpacity = reveal < 1f ? new Paint().setAlphaf(reveal) : null) {
+                    canvas.clipRect(Rect.makeXYWH(sideW, 0, panelW - sideW, contentH));
+                    if (contentOpacity != null) canvas.saveLayer(null, contentOpacity);
+                    float zoom = 1f + (1f - reveal) * 0.045f;
+                    canvas.translate(sideW + (panelW - sideW) * 0.5f, contentH * 0.5f);
+                    canvas.scale(zoom, zoom);
+                    canvas.translate(-sideW - (panelW - sideW) * 0.5f, -contentH * 0.5f);
+                    boolean wasRecording = recordingTargets;
+                    recordingTargets &= elapsed(pageStartedAt) >= 300f;
+                    renderContent(canvas);
+                    recordingTargets = wasRecording;
+                } finally {
+                    canvas.restoreToCount(contentSave);
+                }
+                renderControls(canvas);
+                line(canvas, sideW, 0, sideW, panelH, 0.5f, 0x10FFFFFF);
+                line(canvas, sideW, contentH, panelW, contentH, 0.5f, 0x10FFFFFF);
             }
+            recordingTargets = true;
+            if (lyrics != null) renderLyrics(canvas, lyricsVisibility);
+            if (!contextItems.isEmpty()) renderContext(canvas);
+            if (accountOpen) renderAccount(canvas);
+            if (loginOpen || restoring) renderLogin(canvas);
+            if (System.nanoTime() < toastUntil) {
+                float w = Math.min(panelW - 32f, width(toast, 8f) + 24f);
+                rounded(canvas, (panelW - w) * 0.5f, panelH - 28f, w, 20f, 5f, 0xF024262C);
+                text(canvas, fit(toast, w - 20f, 8f), (panelW - w) * 0.5f + 12f, panelH - 22f, 8f, TEXT);
+            }
+        } finally {
+            canvas.restoreToCount(save);
+            recordingTargets = true;
         }
-        int avatarY = height - PLAYER_HEIGHT - 34;
-        fill(canvas, 0, height - PLAYER_HEIGHT - 50, SIDEBAR_WIDTH, height - PLAYER_HEIGHT, withAlpha(0x0D1412, Math.round(alpha * 0.55F)));
+    }
+
+    private void updateLayout() {
+        float nativeScale = 2f / Math.max(1f, minecraft.getWindow().getGuiScale());
+        scale = Math.max(0.05f, Math.min(nativeScale, Math.min(width / 672f, height / 392f)));
+        panelW = width / scale - 32f;
+        panelH = height / scale - 32f;
+        sideW = Math.max(104f, panelW * 0.15f);
+        contentH = panelH - Math.max(40f, panelH * 0.07f);
+        scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget));
+        sidebarTarget = Math.max(0, Math.min(maxSidebarScroll, sidebarTarget));
+        scroll += (scrollTarget - scroll) * 0.25f;
+        sidebarScroll += (sidebarTarget - sidebarScroll) * 0.25f;
+    }
+
+    private void renderSidebar(Canvas canvas) {
+        rounded(canvas, 0, 0, sideW, panelH, 0, BG);
+        drawInput(canvas, search, 8, 8, sideW - 16f, 18f, tr("搜索音乐", "Search music"));
+        bold(canvas, "PVPUtils", 12, 37, 11f, TEXT);
+        text(canvas, "MUSIC", 12, 51, 5.5f, MUTED);
+        nav(canvas, "home", tr("主页", "Home"), 66, page == Page.HOME, () -> showPage(Page.HOME));
+        nav(canvas, "music", tr("每日推荐", "Daily mix"), 88, page == Page.DAILY, this::loadDaily);
+        nav(canvas, "settings", tr("设置", "Settings"), 110, page == Page.SETTINGS, () -> showPage(Page.SETTINGS));
+        text(canvas, tr("资料库", "LIBRARY"), 12, 145, 6.5f, MUTED);
+        float top = 160f;
+        float bottom = panelH - 43f;
+        maxSidebarScroll = Math.max(0, library.size() * 22f - (bottom - top));
+        int save = canvas.save();
+        try {
+            canvas.clipRect(Rect.makeLTRB(4, top, sideW - 4f, bottom));
+            if (library.isEmpty()) text(canvas, fit(tr("你的歌单会显示在这里", "Your playlists appear here"), sideW - 24, 6.5f), 12, top + 10, 6.5f, MUTED);
+            for (int i = 0; i < library.size(); i++) {
+                Playlist entry = library.get(i);
+                float y = top + i * 22f - sidebarScroll;
+                if (y + 22f < top || y > bottom) continue;
+                boolean active = page == Page.PLAYLIST && playlist != null && playlist.id() == entry.id();
+                if (active || hit(5, y, sideW - 10f, 21)) rounded(canvas, 5, y, sideW - 10f, 21f, 3.5f, active ? 0xFF303137 : PANEL);
+                if (i == 0) icon(canvas, "heart", 12, y + 5f, 11, active ? TEXT : ACCENT);
+                else cover(canvas, NeteaseMusicCovers.skiaImage(entry.coverUrl()), 10, y + 2.5f, 16, 2, 255);
+                text(canvas, fit(entry.name(), sideW - 40, 7.5f), 32, y + 6.5f, 7.5f, active ? TEXT : 0xFFC0C2C8);
+                target(5, Math.max(top, y), sideW - 10, Math.min(bottom, y + 21) - Math.max(top, y), () -> loadPlaylist(entry));
+            }
+        } finally {
+            canvas.restoreToCount(save);
+        }
         NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
-        if (session != null && !session.avatarUrl().isBlank()) {
-            renderCoverSkia(canvas, session.avatarUrl(), 14, avatarY, 18, alpha, 9f);
+        float userY = panelH - 31f;
+        if (hit(6, userY - 4, sideW - 12, 29)) rounded(canvas, 6, userY - 4, sideW - 12, 29, 4, PANEL);
+        cover(canvas, session == null ? null : NeteaseMusicCovers.skiaImage(session.avatarUrl()), 12, userY, 20, 10, 255);
+        String name = session == null ? tr("登录网易云音乐", "Sign in") : session.nickname().isBlank() ? "PVPUtils" : session.nickname();
+        text(canvas, fit(name, sideW - 49, 7.5f), 39, userY + 2, 7.5f, TEXT);
+        text(canvas, fit(session == null ? "NETEASE CLOUD MUSIC" : "UID " + session.uid(), sideW - 49, 5.5f), 39, userY + 12, 5.5f, MUTED);
+        target(6, userY - 4, sideW - 12, 29, () -> {
+            if (NeteaseMusicApi.isLoggedIn()) accountOpen = true;
+            else openLogin();
+        });
+    }
+
+    private void nav(Canvas canvas, String glyph, String label, float y, boolean selected, Runnable action) {
+        if (selected || hit(5, y, sideW - 10, 21)) rounded(canvas, 5, y, sideW - 10, 21, 3.5f, selected ? PANEL : 0xFF1C1E23);
+        icon(canvas, glyph, 12, y + 5f, 11, selected ? ACCENT : 0xFFC0C2C8);
+        text(canvas, label, 32, y + 6.5f, 8, selected ? TEXT : 0xFFC0C2C8);
+        target(5, y, sideW - 10, 21, action);
+    }
+
+    private void renderContent(Canvas canvas) {
+        switch (page) {
+            case HOME -> renderHome(canvas);
+            case SETTINGS -> {
+                maxScroll = 0;
+                int save = canvas.save();
+                try {
+                    canvas.translate(sideW, 0);
+                    settings.render(canvas, panelW - sideW, contentH, mouseX - sideW, mouseY, 1f);
+                } finally {
+                    canvas.restoreToCount(save);
+                }
+            }
+            default -> renderSongs(canvas);
+        }
+        iconButton(canvas, "close", panelW - 25, 8, 18, this::onClose);
+    }
+
+    private void renderHome(Canvas canvas) {
+        float x = sideW + 12f;
+        bold(canvas, tr("欢迎回来", "Welcome back"), x, 13, 12.5f, TEXT);
+        text(canvas, tr("为你推荐的歌单", "Recommended playlists"), x, 34, 7.5f, TEXT);
+        iconButton(canvas, "refresh", panelW - 50, 8, 18, this::refreshLibrary);
+        float top = 54f;
+        float usableW = panelW - sideW - 24f;
+        int columns = Math.max(1, (int) ((usableW + 12f) / 117f));
+        float cellW = (usableW - (columns - 1) * 12f) / columns;
+        float coverSize = Math.min(100f, cellW - 5f);
+        float rowH = coverSize + 35f;
+        int rows = (recommendations.size() + columns - 1) / columns;
+        maxScroll = Math.max(0, rows * rowH - (contentH - top - 12f));
+        listBounds = Rect.makeXYWH(x, top, usableW, contentH - top - 8);
+        int save = canvas.save();
+        try {
+            canvas.clipRect(listBounds);
+            for (int i = 0; i < recommendations.size(); i++) {
+                Playlist entry = recommendations.get(i);
+                float cx = x + (i % columns) * (cellW + 12f);
+                float cy = top + (i / columns) * rowH - scroll;
+                if (cy + rowH < top || cy > contentH) continue;
+                float reveal = ease((elapsed(pageStartedAt) - Math.min(i, 10) * 35f) / 450f);
+                float shift = 14f * (1f - reveal);
+                boolean hovered = hit(cx, cy, cellW, rowH - 5);
+                float grow = hovered ? 3f : 0f;
+                cover(canvas, NeteaseMusicCovers.skiaImage(entry.coverUrl()), cx - grow * 0.5f, cy + shift - grow * 0.5f, coverSize + grow, 4, Math.round(255 * reveal));
+                if (hovered) {
+                    rounded(canvas, cx + coverSize - 25, cy + coverSize - 25, 20, 20, 10, 0xEED60017);
+                    icon(canvas, "play", cx + coverSize - 20, cy + coverSize - 20, 10, TEXT);
+                }
+                text(canvas, fit(entry.name(), cellW - 5f, 7.5f), cx, cy + coverSize + 5 + shift, 7.5f, alpha(TEXT, reveal));
+                text(canvas, formatCount(entry.playCount()) + tr(" 次播放", " plays"), cx, cy + coverSize + 16 + shift, 6.5f, alpha(MUTED, reveal));
+                target(cx, Math.max(top, cy), cellW, Math.min(contentH - 8f, cy + rowH - 5f) - Math.max(top, cy), () -> loadPlaylist(entry));
+            }
+            if (recommendations.isEmpty()) empty(canvas, x, top, usableW, contentH - top, "library",
+                    loading ? tr("正在加载推荐歌单", "Loading your recommendations") : tr("音乐，从这里开始", "Your music starts here"),
+                    status.isBlank() ? tr("登录后查看为你推荐的音乐", "Sign in to discover your music") : status);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+        drawScrollbar(canvas);
+    }
+
+    private List<Song> visibleSongs() {
+        List<Song> source = page == Page.QUEUE ? player.getQueue() : songs;
+        String query = filter.value().toLowerCase(Locale.ROOT).trim();
+        if (query.isBlank()) return List.copyOf(source);
+        return source.stream().filter(song -> (song.name() + " " + song.displayArtist()).toLowerCase(Locale.ROOT).contains(query)).toList();
+    }
+
+    private void renderSongs(Canvas canvas) {
+        float x = sideW + 24f;
+        float top;
+        List<Song> visible = visibleSongs();
+        if (page == Page.PLAYLIST && playlist != null) {
+            float coverSize = Math.min(128f, contentH * 0.31f);
+            cover(canvas, NeteaseMusicCovers.skiaImage(playlist.coverUrl()), x, 24, coverSize, 4, 255);
+            float textX = x + coverSize + 20f;
+            text(canvas, tr("歌单", "PLAYLIST"), textX, 27, 6.5f, MUTED);
+            bold(canvas, fit(playlist.name(), panelW - textX - 24f, 16), textX, 42, 16, TEXT);
+            text(canvas, fit(playlist.creator(), panelW - textX - 24f, 8), textX, 69, 8, TEXT);
+            text(canvas, playlist.trackCount() + tr(" 首歌曲 · ", " songs · ") + formatCount(playlist.playCount()) + tr(" 次播放", " plays"), textX, 84, 7, MUTED);
+            button(canvas, textX, 103, 74, 21, "play", tr("播放歌单", "Play playlist"), true, () -> playAll(false));
+            button(canvas, textX + 82, 103, 65, 21, "shuffle", tr("随机播放", "Shuffle"), false, () -> playAll(true));
+            top = coverSize + 49f;
         } else {
-            rounded(canvas, 14, avatarY, 18, 18, 9f, withAlpha(0xDDEBFF, alpha));
+            String title = page == Page.QUEUE ? tr("播放队列", "Play queue") : page == Page.DAILY ? tr("每日推荐", "Daily mix") : tr("搜索结果", "Search results");
+            bold(canvas, title, x, 20, 17, TEXT);
+            text(canvas, page == Page.SEARCH ? "“" + fit(heading, panelW - x - 35, 8) + "”" : tr("让喜欢的音乐继续播放", "Keep your music playing"), x, 48, 8, MUTED);
+            button(canvas, x, 69, 72, 21, "play", tr("播放全部", "Play all"), true, () -> playAll(false));
+            if (page == Page.QUEUE) button(canvas, x + 80, 69, 72, 21, "close", tr("清空队列", "Clear queue"), false, player::clearQueue);
+            top = 111f;
         }
+        text(canvas, visible.size() + tr(" 首歌曲", " songs") + (hasMore && page != Page.QUEUE ? "+" : ""), x, top + 6, 7.5f, MUTED);
+        drawInput(canvas, filter, panelW - 176f, top, 118, 19, tr("筛选此列表", "Filter this list"));
+        iconButton(canvas, tiles ? "queue" : "library", panelW - 48, top, 19, () -> {
+            tiles = !tiles;
+            scroll = scrollTarget = 0;
+        });
+        top += 29f;
+        listBounds = Rect.makeXYWH(sideW + 18f, top, panelW - sideW - 36f, Math.max(1, contentH - top - 12f));
+        if (tiles) renderSongTiles(canvas, visible);
+        else renderSongRows(canvas, visible);
+        if (loading || visible.isEmpty()) empty(canvas, listBounds.getLeft(), top, listBounds.getWidth(), listBounds.getHeight(), "music",
+                loading ? tr("正在加载音乐", "Loading music") : tr("没有找到歌曲", "No songs found"),
+                loading ? tr("请稍候", "Please wait") : status.isBlank() ? tr("试试其他关键词", "Try another search") : status);
+        drawScrollbar(canvas);
     }
 
-    private void drawSidebarItemSkia(Canvas canvas, int x, int y, int w, String text, boolean selected, int mouseX, int mouseY, int alpha, String key) {
-        boolean hovered = hit(x - 6, y - 6, w, 22, mouseX, mouseY);
-        float target = selected ? 1.0F : hovered ? 0.45F : 0.0F;
-        float current = approach(sidebarSelectAnimations.getOrDefault(key, 0.0F), target, 0.18F);
-        if (current < 0.01F) sidebarSelectAnimations.remove(key); else sidebarSelectAnimations.put(key, current);
-        if (current > 0.01F) {
-            rounded(canvas, x - 6, y - 6, w + 6, 22, 6f, withAlpha(selected ? 0x30342D : 0x242830, Math.round(alpha * 0.58F * current)));
-        }
-        if (selected) fill(canvas, x - 6, y - 2, x - 3, y + 12, withAlpha(0xE60012, Math.round(alpha * current)));
-    }
-
-    private void renderContentSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        if (viewMode == ViewMode.HOME) renderHomeSkia(canvas, mouseX, mouseY, alpha);
-        else if (viewMode == ViewMode.PLAYLIST) renderPlaylistDetailSkia(canvas, mouseX, mouseY, alpha);
-        else renderSongGridSkia(canvas, mouseX, mouseY, alpha);
-    }
-
-    private void renderHomeSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        int gridX = SIDEBAR_WIDTH + 22;
-        int gridY = 82;
-        int availableW = Math.max(1, width - gridX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int rowH = cardW + GRID_TEXT_HEIGHT;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
-        if (recommendedPlaylists.isEmpty()) return;
-        GridScroll scroll = gridScroll(visualFirstPlaylistIndex, columns, rowH, maxPlaylistGridStart(columns, visibleRows * columns));
-        int visibleCards = (visibleRows + 1) * columns;
-        preloadPlaylistCovers(scroll.base(), visibleCards + columns * 2);
-        int clipBottom = height - PLAYER_HEIGHT - 16;
-        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) return;
+    private void renderSongRows(Canvas canvas, List<Song> visible) {
+        float top = listBounds.getTop();
+        float bottom = listBounds.getBottom();
+        float x = listBounds.getLeft();
+        float w = listBounds.getWidth();
+        maxScroll = Math.max(0, visible.size() * 32f + (hasMore ? 30f : 0) - listBounds.getHeight());
+        int save = canvas.save();
         try {
-            for (int slot = 0; slot < visibleCards; slot++) {
-                int index = scroll.base() + slot;
-                if (index >= recommendedPlaylists.size()) break;
-                int x = gridX + (slot % columns) * (cardW + GRID_GAP);
-                int y = Math.round(gridY + (slot / columns) * rowH - scroll.offset());
-                if (y > clipBottom || y + cardW + 30 < gridY) continue;
-                Playlist playlist = recommendedPlaylists.get(index);
-                boolean hovered = hit(x, y, cardW, cardW + 30, mouseX, mouseY);
-                if (hovered) rounded(canvas, x - 5, y - 5, cardW + 10, cardW + 38, 16f, withAlpha(0x252A31, Math.round(alpha * 0.70F)));
-                renderRoundedCoverSkia(canvas, playlist.coverUrl(), x, y, cardW, alpha, 15f, hoverProgress("playlist:" + playlist.id(), hovered));
+            canvas.clipRect(listBounds);
+            Song playing = player.currentSong();
+            for (int i = 0; i < visible.size(); i++) {
+                Song song = visible.get(i);
+                float y = top + i * 32f - scroll;
+                if (y + 30 < top || y > bottom) continue;
+                int queueIndex = page == Page.QUEUE ? queueIndexAt(visible, i) : -1;
+                boolean selected = playing != null && playing.id() == song.id()
+                        && (page != Page.QUEUE || queueIndex == player.currentIndex());
+                boolean hovered = hit(x, y, w, 30);
+                rounded(canvas, x, y, w, 30, 3, selected ? 0xE6D60017 : hovered ? PANEL : i % 2 == 0 ? 0xFF191B20 : 0xFF141519);
+                if (selected || hovered) icon(canvas, selected && player.isPlaying() ? "pause" : "play", x + 6, y + 10, 10, TEXT);
+                else text(canvas, String.valueOf(i + 1), x + 7, y + 11, 7, MUTED);
+                cover(canvas, NeteaseMusicCovers.skiaImage(song.image()), x + 26, y + 3, 24, 2, 255);
+                text(canvas, fit(song.name(), w - 143f, 8), x + 58, y + 5, 8, TEXT);
+                text(canvas, fit(song.displayArtist(), w - 143f, 6.5f), x + 58, y + 17, 6.5f, selected ? 0xDDFFFFFF : MUTED);
+                text(canvas, MusicPlaybackService.formatTime(song.durationMs()), x + w - 58, y + 11, 7, selected ? TEXT : MUTED);
+                int index = i;
+                float rowTop = Math.max(top, y);
+                float rowHeight = Math.min(bottom, y + 30) - rowTop;
+                target(x, rowTop, w - 26, rowHeight, () -> playVisible(visible, index));
+                target(x, rowTop, w, rowHeight, 1, () -> openSongMenu(song, queueIndex));
+                if (hovered && y >= top && y + 30 <= bottom) iconButton(canvas, "more", x + w - 24, y + 5, 20, () -> openSongMenu(song, queueIndex));
             }
-        } finally { canvas.restore(); }
-        renderPlaylistGridSliderSkia(canvas, gridX + availableW + 8, gridY, visibleRows * rowH - 12, columns, visibleRows * columns, mouseX, mouseY, alpha);
+            loadMoreButton(canvas, x, top + visible.size() * 32f - scroll, w);
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
-    private void renderSongGridSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        int gridX = SIDEBAR_WIDTH + 22;
-        int gridY = 72;
-        int availableW = Math.max(1, width - gridX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int rowH = cardW + GRID_TEXT_HEIGHT;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
-        if (songs.isEmpty()) return;
-        GridScroll scroll = gridScroll(visualFirstSongIndex, columns, rowH, maxGridStart(columns, visibleRows * columns));
-        int visibleCards = (visibleRows + 1) * columns;
-        preloadSongCovers(scroll.base(), visibleCards + columns * 2);
-        int clipBottom = height - PLAYER_HEIGHT - 16;
-        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) return;
+    private void renderSongTiles(Canvas canvas, List<Song> visible) {
+        int columns = Math.max(1, (int) ((listBounds.getWidth() + 12f) / 117f));
+        float cell = (listBounds.getWidth() - (columns - 1) * 12f) / columns;
+        float size = Math.min(100f, cell);
+        float rowH = size + 34f;
+        int rows = (visible.size() + columns - 1) / columns;
+        maxScroll = Math.max(0, rows * rowH + (hasMore ? 30 : 0) - listBounds.getHeight());
+        int save = canvas.save();
         try {
-            for (int slot = 0; slot < visibleCards; slot++) {
-                int index = scroll.base() + slot;
-                if (index >= songs.size()) break;
-                int x = gridX + (slot % columns) * (cardW + GRID_GAP);
-                int y = Math.round(gridY + (slot / columns) * rowH - scroll.offset());
-                if (y > clipBottom || y + cardW + 30 < gridY) continue;
-                Song song = songs.get(index);
-                boolean current = song.equals(MusicPlaybackService.INSTANCE.currentSong());
-                boolean hovered = hit(x, y, cardW, cardW + 30, mouseX, mouseY);
-                if (current || hovered) rounded(canvas, x - 5, y - 5, cardW + 10, cardW + 38, 16f, withAlpha(current ? 0x1D355E : 0x252A31, Math.round(alpha * 0.70F)));
-                renderRoundedCoverSkia(canvas, song.image(), x, y, cardW, alpha, 15f, hoverProgress("song:" + song.id(), hovered));
+            canvas.clipRect(listBounds);
+            for (int i = 0; i < visible.size(); i++) {
+                Song song = visible.get(i);
+                float x = listBounds.getLeft() + i % columns * (cell + 12f);
+                float y = listBounds.getTop() + i / columns * rowH - scroll;
+                if (y + rowH < listBounds.getTop() || y > listBounds.getBottom()) continue;
+                cover(canvas, NeteaseMusicCovers.skiaImage(song.image()), x, y, size, 4, 255);
+                Song playing = player.currentSong();
+                int queueIndex = page == Page.QUEUE ? queueIndexAt(visible, i) : -1;
+                boolean selected = playing != null && playing.id() == song.id()
+                        && (page != Page.QUEUE || queueIndex == player.currentIndex());
+                text(canvas, fit(song.name(), cell, 7.5f), x, y + size + 5, 7.5f, selected ? ACCENT : TEXT);
+                text(canvas, fit(song.displayArtist(), cell, 6.5f), x, y + size + 17, 6.5f, MUTED);
+                int index = i;
+                float top = Math.max(listBounds.getTop(), y);
+                float h = Math.min(listBounds.getBottom(), y + rowH - 3) - top;
+                target(x, top, cell, h, () -> playVisible(visible, index));
+                target(x, top, cell, h, 1, () -> openSongMenu(song, queueIndex));
             }
-        } finally { canvas.restore(); }
-        renderGridSliderSkia(canvas, gridX + availableW + 8, gridY, visibleRows * rowH - 12, columns, visibleRows * columns, mouseX, mouseY, alpha);
-    }
-
-    private void renderPlaylistDetailSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        float appear = contentAppearProgress();
-        int localAlpha = Math.round(alpha * appear);
-        int contentX = SIDEBAR_WIDTH + 28;
-        int contentY = 24 + Math.round((1.0F - appear) * 18.0F);
-        int cover = playlistCoverSize();
-        Playlist playlist = currentPlaylist;
-        if (playlist != null) {
-            rounded(canvas, contentX - 10, contentY - 10, cover + 20, cover + 20, 16f, withAlpha(0x000000, Math.round(localAlpha * 0.22F)));
-            renderCoverSkia(canvas, playlist.coverUrl(), contentX, contentY, cover, localAlpha, 12f);
-            int infoX = contentX + cover + 24;
-            int buttonY = contentY + cover - 46;
-            drawRedButtonSkia(canvas, infoX, buttonY, 86, 26, mouseX, mouseY, localAlpha);
-            drawRedButtonSkia(canvas, infoX + 102, buttonY, 112, 26, mouseX, mouseY, localAlpha);
-            playlistSearchInputX = infoX + 232;
-            playlistSearchInputY = buttonY + 1;
-            playlistSearchInputW = Math.max(128, Math.min(220, width - playlistSearchInputX - 28));
-            playlistSearchInputH = 24;
-            drawInputSkia(canvas, playlistSearchInputX, playlistSearchInputY, playlistSearchInputW, playlistSearchInputH, mouseX, mouseY, playlistSearchQuery, Config.isChinese ? "\u641c\u7d22\u6b4c\u66f2..." : "Filter songs...", Focus.PLAYLIST_SEARCH, localAlpha);
-        }
-        int listY = contentY + cover + 48;
-        int listW = width - contentX - 26;
-        int rowH = 42;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - listY - 10) / rowH);
-        float listVisual = Math.max(0.0F, Math.min(Math.max(0, songs.size() - visibleRows), visualFirstSongIndex));
-        int base = (int) Math.floor(listVisual);
-        float offset = (listVisual - base) * rowH;
-        preloadSongCovers(base, visibleRows + 8);
-        int clipBottom = height - PLAYER_HEIGHT - 8;
-        if (!safeClipRect(canvas, contentX, listY, contentX + listW, clipBottom)) return;
-        try {
-            for (int row = 0; row < visibleRows + 2; row++) {
-                int index = base + row;
-                if (index >= songs.size()) break;
-                float rowProgress = clamp((appear * 1.18F) - row * 0.025F);
-                int y = Math.round(listY + row * rowH - offset + (1.0F - rowProgress) * 10.0F);
-                if (y > clipBottom || y + rowH < listY) continue;
-                Song song = songs.get(index);
-                boolean current = song.equals(MusicPlaybackService.INSTANCE.currentSong());
-                boolean hovered = hit(contentX, y, listW, rowH - 5, mouseX, mouseY);
-                rounded(canvas, contentX, y, listW, rowH - 5, 7f, withAlpha(current ? 0x263754 : 0x2A2A2A, Math.round(localAlpha * rowProgress * (current ? 0.46F : hovered ? 0.36F : 0.22F))));
-                renderCoverSkia(canvas, song.image(), contentX + 58, y + 6, 30, Math.round(localAlpha * rowProgress), 5f);
-            }
-        } finally { canvas.restore(); }
-    }
-
-    private void renderPlayerSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        int y = height - PLAYER_HEIGHT;
-        Song current = player.currentSong();
-        if (current != null) renderCoverSkia(canvas, current.image(), SIDEBAR_WIDTH + 44, y + 14, 48, alpha, 8f);
-        int controlX = playerControlStartX();
-        int controlY = y + 17;
-        renderVolumeSliderSkia(canvas, controlX + 232, controlY + 13, volumeSliderWidth(controlX), mouseX, mouseY, alpha);
-        int centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2;
-        renderProgressSkia(canvas, centerX - 160, y + 58, 320, alpha);
-    }
-
-    private void renderVolumeSliderSkia(Canvas canvas, int x, int y, int w, int mouseX, int mouseY, int alpha) {
-        float volume = draggingVolume && pendingVolume >= 0.0F ? pendingVolume : MusicPlaybackService.INSTANCE.volume();
-        boolean hovered = hit(x - 4, y - 7, w + 8, 18, mouseX, mouseY);
-        rounded(canvas, x, y, w, 3, 1.5f, withAlpha(0xFFFFFF, Math.round(alpha * 0.22F)));
-        rounded(canvas, x, y, Math.round(w * clamp(volume)), 3, 1.5f, withAlpha(0xFFFFFF, alpha));
-        int knobX = x + Math.round(w * clamp(volume));
-        rounded(canvas, knobX - 2, y - 3, 4, 9, 2f, withAlpha(hovered || draggingVolume ? 0xFFFFFF : 0xAEB6C4, alpha));
-    }
-
-    private void renderProgressSkia(Canvas canvas, int x, int y, int w, int alpha) {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        long total = player.totalDurationMs();
-        float progress = draggingProgress && pendingProgress >= 0.0F ? pendingProgress : total <= 0L ? 0.0F : clamp(player.positionMs() / (float) total);
-        rounded(canvas, x, y, w, 3, 1.5f, withAlpha(0xFFFFFF, Math.round(alpha * 0.35F)));
-        rounded(canvas, x, y, Math.round(w * progress), 3, 1.5f, withAlpha(0xFFFFFF, alpha));
-    }
-
-    private void renderNowPlayingOverlaySkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        Song current = player.currentSong();
-        if (current == null) { nowPlayingOpen = false; nowPlayingClosing = false; return; }
-        float progress = nowPlayingProgress();
-        if (progress <= 0.0F && nowPlayingClosing) { nowPlayingClosing = false; nowPlayingOpen = false; return; }
-        float eased = easeOutCubic(progress);
-        int overlayAlpha = Math.round(alpha * eased);
-        fill(canvas, 0, 0, width, height, withAlpha(0x05070A, Math.round(overlayAlpha * 0.92F)));
-        fill(canvas, 0, 0, width, height, withAlpha(0x111315, Math.round(overlayAlpha * 0.55F)));
-        int[] target = nowPlayingCoverRect();
-        int coverX = Math.round(lerp(SIDEBAR_WIDTH + 44, target[0], eased));
-        int coverY = Math.round(lerp(height - PLAYER_HEIGHT + 14, target[1], eased));
-        int coverSize = Math.round(lerp(48, target[2], eased));
-        rounded(canvas, coverX - 18, coverY - 18, coverSize + 36, coverSize + 36, 24f, withAlpha(0x57C7FF, Math.round(overlayAlpha * 0.18F)));
-        renderCoverSkia(canvas, current.image(), coverX, coverY, coverSize, overlayAlpha, 18f);
-        nowPlayingBackHovered = hit(26, 22, 38, 32, mouseX, mouseY);
-        float total = player.totalDurationMs();
-        float value = draggingProgress && pendingProgress >= 0.0F ? pendingProgress : total <= 0 ? 0F : clamp(player.positionMs() / total);
-        rounded(canvas, target[0], target[1] + target[2] + 88, target[2], 5, 2.5f, withAlpha(0xFFFFFF, Math.round(overlayAlpha * 0.24F)));
-        rounded(canvas, target[0], target[1] + target[2] + 88, Math.round(target[2] * value), 5, 2.5f, withAlpha(0xFFFFFF, overlayAlpha));
-    }
-
-    private void renderNowPlayingTextSkia(Canvas canvas, int alpha) {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        Song current = player.currentSong();
-        if (current == null) return;
-        float eased = easeOutCubic(nowPlayingProgress());
-        int localAlpha = Math.round(alpha * eased);
-        int[] cover = nowPlayingCoverRect();
-        int textAlpha = Math.round(localAlpha * clamp((eased - 0.32F) / 0.68F));
-        SkijaUi.icon(canvas, "\uE5C4", 35f, (46f) + SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(nowPlayingBackHovered ? 0xFFFFFF : 0xD8DEE8, textAlpha), 25f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.text(canvas, trimToWidth(current.name(), cover[2] - 6f), cover[0], (cover[1] + cover[2] + 38f) + SkijaUi.textMetrics(24f).getAscent(), SkijaUi.textMetrics(24f).getDescent() - SkijaUi.textMetrics(24f).getAscent(), withAlpha(0xFFFFFF, textAlpha), 24f);
-        SkijaUi.text(canvas, trimToWidth(current.displayArtist(), cover[2] - 6f), cover[0], (cover[1] + cover[2] + 64f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xB8C0D4, textAlpha), 14f);
-        long total = player.totalDurationMs();
-        long position = draggingProgress && total > 0L && pendingProgress >= 0.0F ? Math.round(total * pendingProgress) : player.positionMs();
-        SkijaUi.text(canvas, MusicPlaybackService.formatTime(position), cover[0], (cover[1] + cover[2] + 105f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, textAlpha), 11f);
-        String right = MusicPlaybackService.formatTime(total);
-        SkijaUi.text(canvas, right, cover[0] + cover[2] - SkijaUi.textWidth(right, 11f), (cover[1] + cover[2] + 105f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, textAlpha), 11f);
-        renderNowPlayingLyrics(canvas, player, textAlpha);
-    }
-
-    private void renderLoginGateSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        fill(canvas, 0, 0, width, height, withAlpha(0x000000, Math.round(alpha * 0.62F)));
-        int w = 320;
-        int h = 210;
-        int x = (width - w) / 2;
-        int y = (height - h) / 2;
-        rounded(canvas, x - 8, y - 8, w + 16, h + 16, 12f, withAlpha(0x000000, Math.round(alpha * 0.35F)));
-        rounded(canvas, x, y, w, h, 10f, withAlpha(0x14181F, alpha));
-        fill(canvas, x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
-        drawSkiaCentered(canvas, "Netease Music Login", x + w / 2f, y + 28f, 14f, withAlpha(0xFFFFFF, alpha));
-        int qrX = x + 42;
-        int qrY = y + 52;
-        rounded(canvas, qrX, qrY, 96, 96, 4f, withAlpha(0xFFFFFF, alpha));
-        if (qrLogin != null && !qrLogin.qrImage().isBlank()) renderCoverSkia(canvas, qrLogin.qrImage(), qrX + 4, qrY + 4, 88, alpha, 0f);
-        else drawSkiaCentered(canvas, "QR", qrX + 48f, qrY + 54f, 14f, withAlpha(0x111111, alpha));
-        SkijaUi.text(canvas, Config.isChinese ? "\u4f7f\u7528\u7f51\u6613\u4e91\u97f3\u4e50\u626b\u7801" : "Scan with Netease app", qrX + 116f, (qrY + 24f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
-        drawButtonSkia(canvas, qrX + 116, qrY + 42, 110, 24, mouseX, mouseY, qrButtonText(), alpha);
-        drawSkiaCentered(canvas, trim(statusText, 48), x + w / 2f, y + h - 18f, 11f, withAlpha(loading ? 0xE6C45B : 0x8F98AA, alpha));
-    }
-
-    private void renderGridSliderSkia(Canvas canvas, int x, int y, int h, int columns, int visibleCards, int mouseX, int mouseY, int alpha) {
-        int maxStart = maxGridStart(columns, visibleCards);
-        if (maxStart <= 0) return;
-        lastGridSliderX = x; lastGridSliderY = y; lastGridSliderH = h; lastGridSliderColumns = columns; lastGridSliderVisibleCards = visibleCards;
-        int knobH = Math.max(28, Math.round(h * (visibleCards / (float) songs.size())));
-        int knobY = y + Math.round((h - knobH) * (visualFirstSongIndex / (float) maxStart));
-        boolean hovered = hit(x - 4, y, 10, h, mouseX, mouseY);
-        rounded(canvas, x, y, 3, h, 1.5f, withAlpha(0xFFFFFF, Math.round(alpha * 0.16F)));
-        rounded(canvas, x - 1, knobY, 5, knobH, 2.5f, withAlpha(hovered || draggingSliderTarget == SliderTarget.SONG_GRID ? 0xFFFFFF : 0x8F98AA, alpha));
-    }
-
-    private void renderPlaylistGridSliderSkia(Canvas canvas, int x, int y, int h, int columns, int visibleCards, int mouseX, int mouseY, int alpha) {
-        int maxStart = maxPlaylistGridStart(columns, visibleCards);
-        if (maxStart <= 0) return;
-        lastGridSliderX = x; lastGridSliderY = y; lastGridSliderH = h; lastGridSliderColumns = columns; lastGridSliderVisibleCards = visibleCards;
-        int knobH = Math.max(28, Math.round(h * (visibleCards / (float) recommendedPlaylists.size())));
-        int knobY = y + Math.round((h - knobH) * (visualFirstPlaylistIndex / (float) maxStart));
-        boolean hovered = hit(x - 4, y, 10, h, mouseX, mouseY);
-        rounded(canvas, x, y, 3, h, 1.5f, withAlpha(0xFFFFFF, Math.round(alpha * 0.16F)));
-        rounded(canvas, x - 1, knobY, 5, knobH, 2.5f, withAlpha(hovered || draggingSliderTarget == SliderTarget.PLAYLIST_GRID ? 0xFFFFFF : 0x8F98AA, alpha));
-    }
-
-    private void renderCloseButtonSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        int x = width - 40, y = 8;
-        boolean hovered = hit(x, y, 30, 30, mouseX, mouseY);
-        drawSkiaCentered(canvas, "\uE5CD", x + 15f, y + 22f, 21f, withAlpha(hovered ? 0xFF646B : 0xFFFFFF, alpha), SkijaUi.IconSet.MATERIAL_SYMBOLS);
-    }
-
-    private void drawInputSkia(Canvas canvas, int x, int y, int w, int h, int mouseX, int mouseY, String value, String placeholder, Focus field, int alpha) {
-        boolean focused = focus == field;
-        boolean hovered = hit(x, y, w, h, mouseX, mouseY);
-        rounded(canvas, x, y, w, h, 6f, withAlpha(focused || hovered ? 0x2B313C : 0x20242A, alpha));
-        int cursor = cursor(field);
-        int selection = selectionAnchor(field);
-        int start = Math.min(selection < 0 ? cursor : selection, cursor);
-        int end = Math.max(selection < 0 ? cursor : selection, cursor);
-        if (focused && start != end) {
-            float sx = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(start, value.length())), 12f);
-            float ex = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(end, value.length())), 12f);
-            fill(canvas, sx, y + 3, ex, y + h - 3, withAlpha(0x57C7FF, Math.round(alpha * 0.42F)));
-        }
-        if (value.isBlank() && !focused) SkijaUi.text(canvas, trimToWidth(placeholder, w - 16f), x + 8f, (y + h * 0.65f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x7E8799, alpha), 12f);
-        else SkijaUi.text(canvas, trimToWidth(value, w - 16f), x + 8f, (y + h * 0.65f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
-        if (focused && System.currentTimeMillis() / 500L % 2L == 0L) {
-            float caretX = x + 8f + SkijaUi.textWidth(value.substring(0, Math.min(cursor, value.length())), 12f);
-            fill(canvas, caretX, y + 4, caretX + 1, y + h - 4, withAlpha(0xFFFFFF, alpha));
+            loadMoreButton(canvas, listBounds.getLeft(), listBounds.getTop() + rows * rowH - scroll, listBounds.getWidth());
+        } finally {
+            canvas.restoreToCount(save);
         }
     }
 
-    private void drawButtonSkia(Canvas canvas, int x, int y, int w, int h, int mouseX, int mouseY, String text, int alpha) {
-        rounded(canvas, x, y, w, h, 6f, withAlpha(hit(x, y, w, h, mouseX, mouseY) ? 0x3A4558 : 0x262D3A, alpha));
-        drawSkiaCentered(canvas, text, x + w * 0.5f, y + h * 0.65f, 12f, withAlpha(0xFFFFFF, alpha));
+    private void loadMoreButton(Canvas canvas, float x, float y, float w) {
+        if (!hasMore || page == Page.QUEUE || !filter.value().isBlank()) return;
+        if (y < listBounds.getTop() || y + 22 > listBounds.getBottom()) return;
+        button(canvas, x + (w - 110) * 0.5f, y + 2, 110, 21, "refresh", loadingMore ? tr("加载中…", "Loading…") : tr("加载更多歌曲", "Load more songs"), false, this::loadMore);
     }
 
-    private void drawRedButtonSkia(Canvas canvas, int x, int y, int w, int h, int mouseX, int mouseY, int alpha) {
-        rounded(canvas, x, y, w, h, 7f, withAlpha(hit(x, y, w, h, mouseX, mouseY) ? 0xF0192D : 0xD80E22, alpha));
+    private void renderControls(Canvas canvas) {
+        float y = contentH;
+        float h = panelH - y;
+        float w = panelW - sideW;
+        rounded(canvas, sideW, y, w, h, 0, BG);
+        Song song = player.currentSong();
+        float size = Math.min(42f, h - 10f);
+        cover(canvas, song == null ? null : NeteaseMusicCovers.skiaImage(song.image()), sideW + 5, y + 5, size, 2, 255);
+        target(sideW + 5, y + 5, size, size, this::openLyrics);
+        float infoW = Math.max(50, w * 0.25f - size - 17);
+        text(canvas, fit(song == null ? tr("还没有播放音乐", "Nothing playing") : song.name(), infoW, 7.5f), sideW + size + 12, y + h * 0.5f - 10, 7.5f, TEXT);
+        String subtitle = song == null ? "PVPUtils Music" : player.status().startsWith("Loading ")
+                ? tr("正在加载…", "Loading…") : player.status().startsWith("Downloading ")
+                ? tr("正在下载…", "Downloading…") : song.displayArtist();
+        text(canvas, fit(subtitle, infoW, 6.5f), sideW + size + 12, y + h * 0.5f + 2, 6.5f, MUTED);
+        float center = sideW + w * 0.53f;
+        float controlsY = y + h * 0.5f - 19f;
+        iconButton(canvas, modeIcon(), center - 60, controlsY + 1, 18, player::cyclePlaybackMode);
+        iconButton(canvas, "previous", center - 34, controlsY, 20, player::playPrevious);
+        iconButton(canvas, player.isPlaying() ? "pause" : "play", center - 10, controlsY - 1, 22, player::toggle);
+        iconButton(canvas, "next", center + 16, controlsY, 20, player::playNext);
+        seekBounds = Rect.makeXYWH(center - 67.5f, y + h * 0.5f + 9, 135f, 3f);
+        float progress = pendingSeek >= 0 ? pendingSeek : playbackProgress();
+        slider(canvas, seekBounds, progress, false);
+        long duration = player.totalDurationMs();
+        text(canvas, MusicPlaybackService.formatTime((long) (duration * progress)), seekBounds.getLeft() - 30, seekBounds.getTop() - 2, 6, MUTED);
+        text(canvas, "-" + MusicPlaybackService.formatTime(Math.max(0, duration - (long) (duration * progress))), seekBounds.getRight() + 5, seekBounds.getTop() - 2, 6, MUTED);
+        target(seekBounds.getLeft(), seekBounds.getTop() - 5, seekBounds.getWidth(), 13, () -> {
+            dragging = Drag.SEEK;
+            updateDrag(mouseX, mouseY);
+        });
+        iconButton(canvas, "queue", panelW - 25, y + (h - 20) * 0.5f, 20, () -> showPage(Page.QUEUE));
+        float volumeW = Math.min(62, w * 0.115f);
+        volumeBounds = Rect.makeXYWH(panelW - 39 - volumeW, y + h * 0.5f, volumeW, 3);
+        iconButton(canvas, player.volume() <= 0.001f ? "mute" : "volume", volumeBounds.getLeft() - 23, y + (h - 18) * 0.5f, 18, this::toggleMute);
+        slider(canvas, volumeBounds, player.volume(), true);
+        target(volumeBounds.getLeft(), volumeBounds.getTop() - 6, volumeW, 15, () -> {
+            dragging = Drag.VOLUME;
+            updateDrag(mouseX, mouseY);
+        });
     }
 
-    private void renderCoverSkia(Canvas canvas, String url, float x, float y, float size, int alpha, float radius) {
-        rounded(canvas, x, y, size, size, Math.max(0f, radius), withAlpha(0x273244, alpha));
-        Image image = NeteaseMusicCovers.skiaImage(url);
-        if (image == null) {
-            drawSkiaCentered(canvas, "Music", x + size * 0.5f, y + size * 0.56f, Math.max(9f, size * 0.16f), withAlpha(0x57C7FF, alpha));
-            return;
+    private void drawScrollbar(Canvas canvas) {
+        if (maxScroll <= 0) return;
+        float h = listBounds.getHeight();
+        float thumbH = Math.max(24f, h * h / (h + maxScroll));
+        float y = listBounds.getTop() + (h - thumbH) * scroll / maxScroll;
+        rounded(canvas, panelW - 8, listBounds.getTop(), 3, h, 1.5f, 0x0AFFFFFF);
+        rounded(canvas, panelW - 8, y, 3, thumbH, 1.5f, hit(panelW - 12, y, 10, thumbH) ? 0xAA8A8D94 : 0x668A8D94);
+        target(panelW - 12, listBounds.getTop(), 10, h, () -> {
+            dragging = Drag.SCROLL;
+            updateDrag(mouseX, mouseY);
+        });
+    }
+
+    private void renderLyrics(Canvas canvas, float visibility) {
+        int save = canvas.save();
+        try (Paint opacity = visibility < 1f ? new Paint().setAlphaf(visibility) : null) {
+            if (opacity != null) canvas.saveLayer(null, opacity);
+            float zoom = 1.1f - visibility * 0.1f;
+            canvas.translate(panelW * 0.5f, panelH * 0.5f);
+            canvas.scale(zoom, zoom);
+            canvas.translate(-panelW * 0.5f, -panelH * 0.5f);
+            lyrics.render(canvas, panelW, panelH, mouseX, mouseY, 1f);
+        } finally {
+            canvas.restoreToCount(save);
         }
-        canvas.save();
-        if (radius > 0f) canvas.clipRRect(RRect.makeXYWH(x, y, size, size, radius));
-        uiPaint.setColor(withAlpha(0xFFFFFF, alpha));
-        canvas.drawImageRect(image, Rect.makeXYWH(0, 0, image.getWidth(), image.getHeight()), Rect.makeXYWH(x, y, size, size), uiPaint, true);
-        canvas.restore();
+        if (lyrics.wantsClose() && lyricsClosedAt == 0) closeLyrics();
+        if (lyricsClosedAt != 0 && visibility <= 0.001f) {
+            lyrics.close();
+            lyrics = null;
+            lyricsClosedAt = 0;
+        }
     }
 
-    private void renderRoundedCoverSkia(Canvas canvas, String url, float x, float y, float size, int alpha, float radius, float hover) {
-        float scale = lerp(1f, 1.055f, hover);
-        canvas.save();
-        canvas.translate(x + size * 0.5f, y + size * 0.5f);
-        canvas.scale(scale, scale);
-        canvas.translate(-(x + size * 0.5f), -(y + size * 0.5f));
-        renderCoverSkia(canvas, url, x, y, size, alpha, radius);
-        canvas.restore();
+    private void renderLogin(Canvas canvas) {
+        targets.clear();
+        rounded(canvas, 0, 0, panelW, panelH, 0, 0xAA000000);
+        float w = Math.min(340, panelW - 36);
+        float h = Math.min(304, panelH - 24);
+        float x = (panelW - w) * 0.5f;
+        float y = (panelH - h) * 0.5f;
+        rounded(canvas, x, y, w, h, 6, SIDEBAR);
+        if (!restoring) iconButton(canvas, "close", x + w - 27, y + 8, 18, this::closeLogin);
+        bold(canvas, "PVPUtils Music", x + 22, y + 20, 15, TEXT);
+        text(canvas, tr("打开网易云音乐 App，扫码登录", "Scan with the NetEase Cloud Music app"), x + 22, y + 47, 8, MUTED);
+        float qrSize = Math.min(156, h - 132);
+        float qrX = x + (w - qrSize) * 0.5f;
+        float qrY = y + 73;
+        rounded(canvas, qrX - 8, qrY - 8, qrSize + 16, qrSize + 16, 6, 0xFFF7F7F8);
+        Image image = qr == null ? null : NeteaseMusicCovers.skiaImage(qr.qrImage());
+        if (image != null) cover(canvas, image, qrX, qrY, qrSize, 0, 255);
+        else icon(canvas, restoring || qrBusy ? "refresh" : "music", qrX + qrSize * 0.35f, qrY + qrSize * 0.35f, qrSize * 0.3f, 0xFF8A8D94);
+        String message = fit(restoring ? tr("正在恢复登录", "Restoring your session") : qrStatus, w - 40, 8);
+        text(canvas, message, x + (w - width(message, 8)) * 0.5f, qrY + qrSize + 19, 8, qrCode == 802 ? ACCENT : TEXT);
+        button(canvas, x + (w - 108) * 0.5f, y + h - 34, 108, 21, "refresh",
+                qrBusy ? tr("等待扫码确认", "Waiting for confirmation") : tr("刷新二维码", "Refresh QR code"), false, () -> {
+            if (!restoring && !qrBusy) startQrLogin();
+        });
     }
 
-    private void fill(Canvas canvas, float left, float top, float right, float bottom, int color) {
-        if (right <= left || bottom <= top) return;
-        uiPaint.setColor(color);
-        canvas.drawRect(Rect.makeLTRB(left, top, right, bottom), uiPaint);
+    private void renderAccount(Canvas canvas) {
+        targets.clear();
+        rounded(canvas, 0, 0, panelW, panelH, 0, 0x70000000);
+        float w = 240;
+        float h = 154;
+        float x = (panelW - w) * 0.5f;
+        float y = (panelH - h) * 0.5f;
+        rounded(canvas, x, y, w, h, 6, SIDEBAR);
+        NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
+        cover(canvas, session == null ? null : NeteaseMusicCovers.skiaImage(session.avatarUrl()), x + 18, y + 20, 40, 20, 255);
+        bold(canvas, fit(session == null ? "PVPUtils" : session.nickname(), 151, 11), x + 69, y + 26, 11, TEXT);
+        text(canvas, session == null ? "" : "UID " + session.uid(), x + 69, y + 44, 7, MUTED);
+        text(canvas, tr("网易云音乐账号", "NetEase Cloud Music account"), x + 18, y + 78, 8, MUTED);
+        button(canvas, x + 18, y + 113, w - 36, 23, "logout", tr("退出登录", "Sign out"), true, this::logout);
+        iconButton(canvas, "close", x + w - 26, y + 7, 18, () -> accountOpen = false);
     }
 
-    private void rounded(Canvas canvas, float x, float y, float w, float h, float radius, int color) {
-        if (w <= 0f || h <= 0f) return;
-        uiPaint.setColor(color);
-        canvas.drawRRect(RRect.makeXYWH(x, y, w, h, Math.min(radius, Math.min(w, h) * 0.5f)), uiPaint);
+    private void renderContext(Canvas canvas) {
+        targets.clear();
+        float w = 144;
+        float h = contextItems.size() * 22f + 8f;
+        contextX = Math.max(4, Math.min(panelW - w - 4, contextX));
+        contextY = Math.max(4, Math.min(panelH - h - 4, contextY));
+        rounded(canvas, contextX, contextY, w, h, 4, 0xFF202126);
+        for (int i = 0; i < contextItems.size(); i++) {
+            MenuItem item = contextItems.get(i);
+            float y = contextY + 4 + i * 22;
+            if (hit(contextX + 4, y, w - 8, 22)) rounded(canvas, contextX + 4, y, w - 8, 22, 3, 0xFF373940);
+            icon(canvas, item.icon(), contextX + 10, y + 6, 10, TEXT);
+            text(canvas, item.label(), contextX + 29, y + 7, 7.5f, TEXT);
+            target(contextX + 4, y, w - 8, 22, () -> {
+                contextItems.clear();
+                item.action().run();
+            });
+        }
     }
 
-    private float getUiScale(int w, int h) {
-        float scaleX = Math.max(0.1f, (w - SCREEN_MARGIN) / BASE_UI_W);
-        float scaleY = Math.max(0.1f, (h - SCREEN_MARGIN) / BASE_UI_H);
-        return Math.min(1f, Math.min(scaleX, scaleY));
-    }
-
-    private void useVirtualLayout(int actualW, int actualH, float scale) {
-        width = layoutWidth(actualW, scale);
-        height = layoutHeight(actualH, scale);
-    }
-
-    private int layoutWidth(int actualW, float scale) {
-        return Math.max((int) BASE_UI_W, Math.max(actualW, (int) Math.ceil(actualW / Math.max(0.001f, scale))));
-    }
-
-    private int layoutHeight(int actualH, float scale) {
-        return Math.max((int) BASE_UI_H, Math.max(actualH, (int) Math.ceil(actualH / Math.max(0.001f, scale))));
-    }
-
-    private float uiOffsetX(int actualW, int layoutW, float scale) {
-        return 0f;
-    }
-
-    private float uiOffsetY(int actualH, int layoutH, float scale) {
-        return 0f;
-    }
-
-    private void applyUiScale(Canvas canvas, float scale, float offsetX, float offsetY) {
-        canvas.translate(offsetX, offsetY);
-        canvas.scale(scale, scale);
-    }
-
-    private float toLayoutX(double x, float scale, float offsetX) {
-        return ((float) x - offsetX) / scale;
-    }
-
-    private float toLayoutY(double y, float scale, float offsetY) {
-        return ((float) y - offsetY) / scale;
-    }
-
-    private void renderNowPlayingLyrics(Canvas canvas, MusicPlaybackService player, int alpha) {
-        List<LyricLine> lyrics = player.lyricsSnapshot();
-        if (lyrics.isEmpty()) {
-            Song current = player.currentSong();
-            if (current == null) {
+    private void openSongMenu(Song song, int queueIndex) {
+        focused = null;
+        contextX = mouseX;
+        contextY = mouseY;
+        contextItems.clear();
+        contextItems.add(new MenuItem("play", tr("播放", "Play"), () -> {
+            if (queueIndex >= 0) {
+                if (queueEntryMatches(queueIndex, song)) player.playQueueIndex(queueIndex);
                 return;
             }
-            lyrics = List.of(new LyricLine(current.name(), 0L), new LyricLine(current.displayArtist(), 60_000L));
-        }
-        int currentIndex = Math.max(0, LyricLineProcessor.currentIndex(lyrics, player.positionMs()));
-        Song current = player.currentSong();
-        long songId = current == null ? Long.MIN_VALUE : current.id();
-        if (songId != nowPlayingLyricSongId) {
-            nowPlayingLyricSongId = songId;
-            nowPlayingLyricVisualIndex = currentIndex;
-        } else {
-            nowPlayingLyricVisualIndex = approach(nowPlayingLyricVisualIndex, currentIndex, 0.14F);
-        }
-        float lyricsX = Math.max(width * 0.48F, SIDEBAR_WIDTH + 360F);
-        float lyricsW = Math.max(220F, width - lyricsX - 72F);
-        float centerY = height * 0.44F;
-        int from = Math.max(0, currentIndex - 3);
-        int to = Math.min(lyrics.size() - 1, currentIndex + 5);
-        if (!safeClipRect(canvas, lyricsX - 8f, 72f, width - 34f, height - PLAYER_HEIGHT - 20f)) {
-            return;
-        }
-        try {
-            for (int i = from; i <= to; i++) {
-                LyricLine line = lyrics.get(i);
-                float delta = i - nowPlayingLyricVisualIndex;
-                float distance = Math.abs(delta);
-                float focus = clamp(1.0F - distance / 4.0F);
-                int lineAlpha = Math.round(alpha * (0.28F + focus * 0.72F));
-                float size = 17F + focus * 11F;
-                float y = centerY + delta * 68F;
-                String text = lyricText(line);
-                SkijaUi.text(canvas, trimToWidth(text, lyricsW), lyricsX, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(focus > 0.72F ? 0xFFFFFF : 0xAEB6C4, lineAlpha), size);
-                String translation = line.translation() == null ? "" : line.translation().trim();
-                if (!translation.isBlank()) {
-                    SkijaUi.text(canvas, trimToWidth(translation, lyricsW), lyricsX, (y + size + 11F) + SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getAscent(), SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getDescent() - SkijaUi.textMetrics(Math.max(12F, size * 0.52F)).getAscent(), withAlpha(0x8F98AA, Math.round(lineAlpha * 0.84F)), Math.max(12F, size * 0.52F));
-                }
-            }
-        } finally {
-            canvas.restore();
-        }
+            List<Song> visible = visibleSongs();
+            int index = visible.indexOf(song);
+            if (index >= 0) playVisible(visible, index);
+            else player.playSong(song);
+        }));
+        contextItems.add(new MenuItem("next", tr("下一首播放", "Play next"), () -> {
+            player.addToQueue(song, true);
+            notify(tr("已添加为下一首", "Added to play next"));
+        }));
+        contextItems.add(new MenuItem("add", tr("添加到播放队列", "Add to queue"), () -> {
+            player.addToQueue(song, false);
+            notify(tr("已添加到播放队列", "Added to queue"));
+        }));
+        contextItems.add(new MenuItem("music", tr("复制歌曲 ID", "Copy song ID"), () -> {
+            minecraft.keyboardHandler.setClipboard(Long.toString(song.id()));
+            notify(tr("已复制歌曲 ID", "Song ID copied"));
+        }));
+        if (page == Page.QUEUE) contextItems.add(new MenuItem("close", tr("从队列移除", "Remove from queue"), () -> {
+            if (queueEntryMatches(queueIndex, song)) player.removeQueueIndex(queueIndex);
+        }));
     }
 
-    private int playerControlStartX() {
-        int centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2;
-        return Math.max(SIDEBAR_WIDTH + 250, centerX - 190);
+    private void empty(Canvas canvas, float x, float y, float w, float h, String glyph, String title, String description) {
+        float center = x + w * 0.5f;
+        float cy = y + Math.max(20, h * 0.36f);
+        icon(canvas, glyph, center - 17, cy - 30, 34, 0xFF494D56);
+        String label = fit(title, Math.max(10, w - 24), 10);
+        text(canvas, label, center - width(label, 10) * 0.5f, cy + 18, 10, TEXT);
+        String line = fit(description, Math.max(10, w - 28), 7.5f);
+        text(canvas, line, center - width(line, 7.5f) * 0.5f, cy + 37, 7.5f, MUTED);
     }
 
-    private int volumeSliderWidth(int controlX) {
-        return Math.max(90, Math.min(150, width - controlX - 250));
+    private void button(Canvas canvas, float x, float y, float w, float h, String glyph, String label, boolean accent, Runnable action) {
+        rounded(canvas, x, y, w, h, 3.5f, accent ? hit(x, y, w, h) ? 0xFFF01A34 : ACCENT : hit(x, y, w, h) ? 0xFF34363E : PANEL);
+        float textW = width(label, 7.5f);
+        float contentW = textW + (glyph.isBlank() ? 0 : 16);
+        float start = x + (w - contentW) * 0.5f;
+        if (!glyph.isBlank()) icon(canvas, glyph, start, y + (h - 10) * 0.5f, 10, TEXT);
+        text(canvas, label, start + (glyph.isBlank() ? 0 : 16), y + (h - 8f) * 0.5f, 7.5f, TEXT);
+        target(x, y, w, h, action);
     }
 
-    private void openNowPlaying() {
-        if (MusicPlaybackService.INSTANCE.currentSong() == null) {
-            return;
-        }
-        userDetailOpen = false;
-        nowPlayingOpen = true;
-        nowPlayingClosing = false;
-        nowPlayingTransitionStartedAt = System.currentTimeMillis();
+    private void iconButton(Canvas canvas, String glyph, float x, float y, float size, Runnable action) {
+        if (hit(x, y, size, size)) rounded(canvas, x, y, size, size, 4, 0x20FFFFFF);
+        icon(canvas, glyph, x + 4, y + 4, size - 8, TEXT);
+        target(x, y, size, size, action);
     }
 
-    private void closeNowPlaying() {
-        if (!nowPlayingOpen || nowPlayingClosing) {
-            return;
-        }
-        nowPlayingClosing = true;
-        nowPlayingTransitionStartedAt = System.currentTimeMillis();
+    private void slider(Canvas canvas, Rect bounds, float value, boolean knob) {
+        rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), 1.5f, 0x40FFFFFF);
+        rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth() * clamp(value), bounds.getHeight(), 1.5f, TEXT);
+        if (knob || hit(bounds.getLeft(), bounds.getTop() - 5, bounds.getWidth(), 13)) rounded(canvas,
+                bounds.getLeft() + bounds.getWidth() * clamp(value) - 3, bounds.getTop() - 1.5f, 6, 6, 3, TEXT);
     }
 
-    private float nowPlayingProgress() {
-        float progress = clamp((System.currentTimeMillis() - nowPlayingTransitionStartedAt) / (float) NOW_PLAYING_TRANSITION_MS);
-        return nowPlayingClosing ? 1.0F - progress : progress;
+    private void drawInput(Canvas canvas, MusicTextInput input, float x, float y, float w, float h, String placeholder) {
+        input.draw(canvas, x, y, w, h, focused == input, placeholder);
+        target(x, y, w, h, () -> {
+            focused = input;
+            input.click(mouseX, false);
+            draggingInput = true;
+        });
     }
 
-    private int[] nowPlayingCoverRect() {
-        int size = Math.max(190, Math.min(300, Math.round(Math.min(width, height) * 0.38F)));
-        int x = Math.max(56, Math.round(width * 0.22F - size * 0.5F));
-        int y = Math.max(72, Math.round(height * 0.42F - size * 0.5F));
-        return new int[]{x, y, size};
+    private void target(float x, float y, float w, float h, Runnable action) {
+        target(x, y, w, h, 0, action);
     }
 
-    private String volumeIcon() {
-        float volume = draggingVolume && pendingVolume >= 0.0F ? pendingVolume : MusicPlaybackService.INSTANCE.volume();
-        return volume <= 0.001F ? "\uE710" : "\uE98E";
+    private void target(float x, float y, float w, float h, int button, Runnable action) {
+        if (recordingTargets && w > 0 && h > 0) targets.add(new HitTarget(Rect.makeXYWH(x, y, w, h), button, action));
     }
 
-    private void toggleMute() {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        float current = player.volume();
-        if (current > 0.001F) {
-            lastNonZeroVolume = current;
-            pendingVolume = -1.0F;
-            player.setVolume(0.0F, true);
-            return;
-        }
-        float restored = lastNonZeroVolume > 0.001F ? lastNonZeroVolume : 1.0F;
-        pendingVolume = -1.0F;
-        player.setVolume(restored, true);
-    }
-
-    private String lyricText(LyricLine line) {
-        if (line == null || line.text() == null || line.text().isBlank()) {
-            return Config.isChinese ? "纯音乐，请欣赏" : "Instrumental";
-        }
-        return line.text().trim();
-    }
-
-    private void renderPoweredBy(Canvas canvas, int alpha) {
-        String text = "Powered by GPT-5.6 Sol, Claude Opus 4.8 & Claude Fable 5.";
-        float size = 9.0F;
-        float textWidth = SkijaUi.textWidth(text, size);
-        SkijaUi.text(canvas, text, width - textWidth - 10f, (height - 8f) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(0x8A8F98, Math.round(alpha * 0.42F)), size);
-    }
-
-    private ViewMode mouseSafeViewMode() {
-        return viewMode;
-    }
-
-    private void renderSidebarSkiaText(Canvas canvas, int alpha, ViewMode mode) {
-        SkijaUi.text(canvas, "PVPUtils Music", 14f, (66f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xBFC2C7, alpha), 14f);
-        float homeX = 14f;
-        SkijaUi.icon(canvas, "\uE88A", homeX, (84f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.text(canvas, "Home", homeX + 18f, (84f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(mode == ViewMode.HOME ? 0xFFFFFF : 0xAEB3BD, alpha), 12f);
-        SkijaUi.text(canvas, Config.isChinese ? "我的歌单" : "My Playlists", 14f, (126f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x7C8088, alpha), 11f);
-        if (!NeteaseMusicApi.isLoggedIn()) {
-            SkijaUi.text(canvas, Config.isChinese ? "登录后显示歌单" : "Login required", 24f, (146f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
-        } else if (playlists.isEmpty()) {
-            SkijaUi.text(canvas, loading ? "Loading..." : "Empty", 24f, (146f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
-        } else {
-            int y = 146;
-            for (int i = 0; i < Math.min(12, playlists.size()); i++) {
-                Playlist playlist = playlists.get(i);
-                String key = "playlist:" + playlist.id();
-                boolean selected = selectedPlaylistIndex == i;
-                float itemX = 24f;
-                String icon = isLikedPlaylist(playlist) ? "\uE87D" : "\uE9B9";
-                SkijaUi.icon(canvas, icon, itemX, (y) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-                SkijaUi.text(canvas, trimToWidth(playlist.name(), 118f), itemX + 18f, (y) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(selected ? 0xFFFFFF : 0xAEB3BD, alpha), 12f);
-                y += 28;
-            }
-        }
-        NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
-        String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
-        SkijaUi.text(canvas, trimToWidth(name, 112f), 40f, (height - PLAYER_HEIGHT - 20f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xFFFFFF, alpha), 12f);
-        boolean avatarHovered = hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, lastLayoutMouseX, lastLayoutMouseY);
-        if (avatarHovered || userDetailOpen) {
-            rounded(canvas, 8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, 8f, withAlpha(0xFFFFFF, Math.round(alpha * (userDetailOpen ? 0.10F : 0.06F))));
-        }
-    }
-
-    private int userDetailPopupX() {
-        return 8;
-    }
-
-    private int userDetailPopupY() {
-        return height - PLAYER_HEIGHT - 50 - 146 - 8;
-    }
-
-    private static final int USER_DETAIL_POPUP_W = 210;
-    private static final int USER_DETAIL_POPUP_H = 146;
-
-    private void renderUserDetailSkia(Canvas canvas, int mouseX, int mouseY, int alpha) {
-        if (!userDetailOpen || !NeteaseMusicApi.isLoggedIn()) return;
-        if (nowPlayingOpen || nowPlayingClosing) return;
-        NeteaseMusicApi.LoginSession session = NeteaseMusicApi.currentSession();
-        int x = userDetailPopupX();
-        int y = userDetailPopupY();
-        int w = USER_DETAIL_POPUP_W;
-        int h = USER_DETAIL_POPUP_H;
-        rounded(canvas, x - 4, y - 4, w + 8, h + 8, 14f, withAlpha(0x000000, Math.round(alpha * 0.40F)));
-        rounded(canvas, x, y, w, h, 10f, withAlpha(0x14181F, alpha));
-        fill(canvas, x, y, x + w, y + 2, withAlpha(0xD63B35, alpha));
-        float avatarSize = 44f;
-        float avatarX = x + 14;
-        float avatarY = y + 16;
-        if (session != null && !session.avatarUrl().isBlank()) {
-            renderCoverSkia(canvas, session.avatarUrl(), avatarX, avatarY, avatarSize, alpha, avatarSize / 2f);
-        } else {
-            rounded(canvas, avatarX, avatarY, avatarSize, avatarSize, avatarSize / 2f, withAlpha(0xDDEBFF, alpha));
-        }
-        String name = session == null ? (Config.isChinese ? "未登录" : "Not logged in") : session.nickname();
-        SkijaUi.text(canvas, trimToWidth(name, 130f), x + 68, (y + 32) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xFFFFFF, alpha), 14f);
-        String subtitle = session == null ? "" : "UID " + session.uid();
-        if (!subtitle.isEmpty()) {
-            SkijaUi.text(canvas, subtitle, x + 68, (y + 52) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8F98AA, alpha), 11f);
-        }
-        SkijaUi.text(canvas, Config.isChinese ? "网易云音乐账号" : "Netease Music Account", x + 14, (y + 78) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x7C8088, alpha), 11f);
-        int btnX = x + 14;
-        int btnY = y + h - 44;
-        int btnW = w - 28;
-        int btnH = 28;
-        drawRedButtonSkia(canvas, btnX, btnY, btnW, btnH, mouseX, mouseY, alpha);
-        drawSkiaCentered(canvas, Config.isChinese ? "退出登录" : "Log out", btnX + btnW * 0.5f, btnY + btnH * 0.65f, 12f, withAlpha(0xFFFFFF, alpha));
-    }
-
-    private boolean handleUserDetailClick(double mouseX, double mouseY) {
-        if (!userDetailOpen) return false;
-        int x = userDetailPopupX();
-        int y = userDetailPopupY();
-        int w = USER_DETAIL_POPUP_W;
-        int h = USER_DETAIL_POPUP_H;
-        int btnX = x + 14;
-        int btnY = y + h - 44;
-        int btnW = w - 28;
-        int btnH = 28;
-        if (hit(btnX, btnY, btnW, btnH, mouseX, mouseY)) {
-            performLogout();
-            return true;
-        }
-        if (!hit(x, y, w, h, mouseX, mouseY)) {
-            userDetailOpen = false;
-            return true;
-        }
-        return true;
-    }
-
-    private void performLogout() {
-        userDetailOpen = false;
-        NeteaseMusicApi.logout();
-        playlists.clear();
-        recommendedPlaylists.clear();
-        songs.clear();
-        fullPlaylistSongs.clear();
-        selectedPlaylistIndex = -1;
-        currentPlaylist = null;
-        viewMode = ViewMode.HOME;
-        firstPlaylistIndex = 0;
-        visualFirstPlaylistIndex = 0.0F;
-        firstSongIndex = 0;
-        visualFirstSongIndex = 0.0F;
-        statusText = Config.isChinese ? "已退出登录" : "Logged out";
-        cancelQrLogin();
-        qrLogin = null;
-        qrPolling = false;
-        startQrLogin();
-    }
-
-    private void renderCurrentSkiaText(Canvas canvas, int alpha) {
-        if (viewMode == ViewMode.HOME) {
-            renderHomeSkiaText(canvas, alpha);
-        } else if (viewMode == ViewMode.SEARCH) {
-            renderSearchSkiaText(canvas, alpha);
-        } else if (viewMode == ViewMode.PLAYLIST) {
-            renderPlaylistSkiaText(canvas, alpha);
-        }
-    }
-
-    private void applyContentScale(Canvas canvas, float scale) {
-        if (Math.abs(scale - 1.0F) < 0.001F) {
-            return;
-        }
-        float centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2.0F;
-        float centerY = (height - PLAYER_HEIGHT) / 2.0F;
-        canvas.translate(centerX, centerY);
-        canvas.scale(scale, scale);
-        canvas.translate(-centerX, -centerY);
-    }
-
-    private void renderHomeSkiaText(Canvas canvas, int alpha) {
-        int contentX = SIDEBAR_WIDTH + 22;
-        int contentY = 24;
-        int gridX = contentX;
-        int gridY = contentY + 58;
-        int availableW = Math.max(1, width - gridX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int cover = cardW;
-        int rowH = cover + GRID_TEXT_HEIGHT;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
-
-        SkijaUi.text(canvas, Config.isChinese ? "欢迎来到 PVPUtils Music!" : "Welcome to PVPUtils Music!", contentX, (contentY + 18f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), withAlpha(0xF3F5F8, alpha), 22f);
-        SkijaUi.text(canvas, Config.isChinese ? "网易云推荐歌单" : "Netease Recommended Playlists", contentX, (contentY + 43f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x858B96, alpha), 13f);
-        if (!statusText.isBlank()) {
-            SkijaUi.text(canvas, trim(statusText, 48), contentX + 260f, (contentY + 43f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x9AA2AF, Math.round(alpha * 0.9F)), 12f);
-        }
-
-        if (recommendedPlaylists.isEmpty()) {
-            String text = loading ? (Config.isChinese ? "加载中..." : "Loading...") : (NeteaseMusicApi.isLoggedIn() ? "No playlists" : "Login required");
-            drawSkiaCentered(canvas, text, gridX + availableW / 2f, gridY + 84f, 15f, withAlpha(0xB8C0D4, alpha));
-            return;
-        }
-
-        GridScroll scroll = gridScroll(visualFirstPlaylistIndex, columns, rowH, maxPlaylistGridStart(columns, visibleRows * columns));
-        int visualBase = scroll.base();
-        float rowOffset = scroll.offset();
-        int visibleCards = (visibleRows + 1) * columns;
-        int clipBottom = height - PLAYER_HEIGHT - 16;
-        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) {
-            return;
-        }
-        try {
-            for (int slot = 0; slot < visibleCards; slot++) {
-                int index = visualBase + slot;
-                if (index >= recommendedPlaylists.size()) {
-                    break;
-                }
-                Playlist playlist = recommendedPlaylists.get(index);
-                int col = slot % columns;
-                int row = slot / columns;
-                int x = gridX + col * (cardW + GRID_GAP);
-                int y = Math.round(gridY + row * rowH - rowOffset);
-                if (y > height - PLAYER_HEIGHT || y + cover + 30 < gridY) {
-                    continue;
-                }
-                SkijaUi.text(canvas, trim(playlist.name(), Math.max(9, cardW / 8)), x, (y + cover + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xF1F3F6, alpha), 12f);
-                SkijaUi.text(canvas, formatPlayCount(playlist.playCount()), x, (y + cover + 34f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8C929D, alpha), 10f);
-            }
-        } finally {
-            canvas.restore();
-        }
-    }
-
-    private void renderSearchSkiaText(Canvas canvas, int alpha) {
-        int contentX = SIDEBAR_WIDTH + 22;
-        int contentY = 24;
-        int gridX = contentX;
-        int gridY = contentY + 48;
-        int availableW = Math.max(1, width - gridX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int cover = cardW;
-        int rowH = cover + GRID_TEXT_HEIGHT;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH);
-
-        SkijaUi.text(canvas, Config.isChinese ? "搜索结果" : "Search Results", contentX, (contentY + 22f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), withAlpha(0xF3F5F8, alpha), 22f);
-        SkijaUi.text(canvas, query.isBlank() ? (Config.isChinese ? "输入关键词搜索音乐" : "Type keywords to search music") : query, contentX, (contentY + 43f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x858B96, alpha), 13f);
-
-        if (songs.isEmpty()) {
-            drawSkiaCentered(canvas, loading ? "Loading..." : "No songs", gridX + availableW / 2f, gridY + 84f, 15f, withAlpha(0xB8C0D4, alpha));
-            return;
-        }
-
-        GridScroll scroll = gridScroll(visualFirstSongIndex, columns, rowH, maxGridStart(columns, visibleRows * columns));
-        int visualBase = scroll.base();
-        float rowOffset = scroll.offset();
-        int visibleCards = (visibleRows + 1) * columns;
-        int clipBottom = height - PLAYER_HEIGHT - 16;
-        if (!safeClipRect(canvas, gridX - 8, gridY, gridX + availableW + 8, clipBottom)) {
-            return;
-        }
-        try {
-            for (int slot = 0; slot < visibleCards; slot++) {
-                int index = visualBase + slot;
-                if (index >= songs.size()) {
-                    break;
-                }
-                Song song = songs.get(index);
-                int col = slot % columns;
-                int row = slot / columns;
-                int x = gridX + col * (cardW + GRID_GAP);
-                int y = Math.round(gridY + row * rowH - rowOffset);
-                if (y > height - PLAYER_HEIGHT || y + cover + 30 < gridY) {
-                    continue;
-                }
-                SkijaUi.text(canvas, trim(song.name(), Math.max(9, cardW / 8)), x, (y + cover + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0xF1F3F6, alpha), 12f);
-                SkijaUi.text(canvas, trim(song.displayArtist(), Math.max(10, cardW / 7)), x, (y + cover + 34f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8C929D, alpha), 10f);
-            }
-        } finally {
-            canvas.restore();
-        }
-    }
-
-    private void renderPlaylistSkiaText(Canvas canvas, int alpha) {
-        float appear = contentAppearProgress();
-        int localAlpha = Math.round(alpha * appear);
-        int slide = Math.round((1.0F - appear) * 18.0F);
-        int contentX = SIDEBAR_WIDTH + 28;
-        int contentY = 24 + slide;
-        int cover = playlistCoverSize();
-        int listY = contentY + cover + 48;
-        int rowH = 42;
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - listY - 10) / rowH);
-        float listVisual = Math.max(0.0F, Math.min(Math.max(0, songs.size() - visibleRows), visualFirstSongIndex));
-        int visualBase = (int) Math.floor(listVisual);
-        float rowOffset = (listVisual - visualBase) * rowH;
-        Playlist playlist = currentPlaylist;
-        int infoX = contentX + cover + 24;
-        if (playlist != null) {
-            String count = (playlist.trackCount() > 0 ? playlist.trackCount() : songs.size()) + (Config.isChinese ? "首歌曲" : " songs");
-            SkijaUi.text(canvas, trim(playlist.name(), 38), infoX, (contentY + 40f) + SkijaUi.textMetrics(26f).getAscent(), SkijaUi.textMetrics(26f).getDescent() - SkijaUi.textMetrics(26f).getAscent(), withAlpha(0xF0F0F0, localAlpha), 26f);
-            SkijaUi.text(canvas, count + " · " + estimatePlaylistDuration(), infoX, (contentY + 64f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x777A80, localAlpha), 12f);
-            SkijaUi.icon(canvas, "\uE853", infoX, (contentY + 93f) + SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xE8E8E8, localAlpha), 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            SkijaUi.text(canvas, playlist.creator().isBlank() ? "Netease Music" : playlist.creator(), infoX + 24f, (contentY + 92f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0xE8E8E8, localAlpha), 13f);
-            int buttonY = contentY + cover - 46;
-            drawSkiaButtonLabel(canvas, "\uE037", Config.isChinese ? "播放歌单" : "Play", infoX, buttonY, 86, localAlpha);
-            drawSkiaButtonLabel(canvas, "\uE043", Config.isChinese ? "乱序播放歌单" : "Shuffle", infoX + 102, buttonY, 112, localAlpha);
-        }
-        int clipBottom = height - PLAYER_HEIGHT - 8;
-        if (!safeClipRect(canvas, contentX, listY, width - 26, clipBottom)) {
-            return;
-        }
-        try {
-            for (int row = 0; row < visibleRows + 2; row++) {
-                int index = visualBase + row;
-                if (index >= songs.size()) {
-                    break;
-                }
-                float rowProgress = clamp((appear * 1.18F) - row * 0.025F);
-                int y = Math.round(listY + row * rowH - rowOffset + Math.round((1.0F - rowProgress) * 10.0F));
-                if (y > clipBottom || y + rowH < listY) {
-                    continue;
-                }
-                int rowAlpha = Math.round(localAlpha * rowProgress);
-                Song song = songs.get(index);
-                SkijaUi.text(canvas, String.valueOf(index + 1), contentX + 24f, (y + 28f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0x878A90, rowAlpha), 13f);
-                SkijaUi.text(canvas, trim(song.name(), 56), contentX + 98f, (y + 19f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF1F1F1, rowAlpha), 14f);
-                SkijaUi.text(canvas, trim(song.displayArtist() + " - " + song.name(), 72), contentX + 98f, (y + 36f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x777A80, rowAlpha), 12f);
-                SkijaUi.text(canvas, MusicPlaybackService.formatTime(song.durationMs()), width - 74f, (y + 27f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(0x858992, rowAlpha), 12f);
-            }
-        } finally {
-            canvas.restore();
-        }
-    }
-
-    private boolean safeClipRect(Canvas canvas, float left, float top, float right, float bottom) {
-        if (right <= left || bottom <= top) {
-            return false;
-        }
-        canvas.save();
-        canvas.clipRect(Rect.makeLTRB(left, top, right, bottom));
-        return true;
-    }
-
-    private void renderPlayerSkiaText(Canvas canvas, int alpha) {
-        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-        Song current = player.currentSong();
-        int y = height - PLAYER_HEIGHT;
-        if (current != null) {
-            SkijaUi.text(canvas, trim(current.name(), 34), SIDEBAR_WIDTH + 104f, (y + 31f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF4F6FA, alpha), 14f);
-            SkijaUi.text(canvas, trim(current.displayArtist(), 38), SIDEBAR_WIDTH + 104f, (y + 49f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8B929F, alpha), 11f);
-        } else {
-            SkijaUi.text(canvas, Config.isChinese ? "未在播放" : "Not Playing", SIDEBAR_WIDTH + 44f, (y + 34f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), withAlpha(0xF4F6FA, alpha), 14f);
-            SkijaUi.text(canvas, Config.isChinese ? "无" : "None", SIDEBAR_WIDTH + 44f, (y + 52f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0x8B929F, alpha), 11f);
-        }
-        int centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2;
-        int progressX = centerX - 160;
-        int progressY = y + 58;
-        long total = player.totalDurationMs();
-        String left = MusicPlaybackService.formatTime(draggingProgress && total > 0L ? Math.round(total * pendingProgress) : player.positionMs());
-        String right = MusicPlaybackService.formatTime(total);
-        SkijaUi.text(canvas, left, progressX - 42f, (progressY + 5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8F98AA, alpha), 10f);
-        SkijaUi.text(canvas, right, progressX + 328f, (progressY + 5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0x8F98AA, alpha), 10f);
-        int controlX = playerControlStartX();
-        float iconY = y + 38f;
-        drawPlayerIcon(canvas, PlayerButton.MODE, playbackModeIcon(player.playbackMode()), controlX + 14f, iconY, 18f, alpha);
-        drawPlayerIcon(canvas, PlayerButton.STOP, "\uE047", controlX + 52f, iconY, 18f, alpha);
-        drawPlayerIcon(canvas, PlayerButton.PREVIOUS, "\uE045", controlX + 90f, iconY, 18f, alpha);
-        drawPlayerIcon(canvas, PlayerButton.PLAY_PAUSE, player.isPlaying() ? "\uE034" : "\uE037", controlX + 130f, iconY, 21f, alpha);
-        drawPlayerIcon(canvas, PlayerButton.NEXT, "\uE044", controlX + 170f, iconY, 18f, alpha);
-        drawPlayerIcon(canvas, PlayerButton.VOLUME, volumeIcon(), controlX + 214f, iconY, 18f, alpha);
-    }
-
-    private void drawPlayerIcon(Canvas canvas, PlayerButton button, String icon, float centerX, float baselineY, float size, int alpha) {
-        float press = playerButtonPressProgress(button);
-        float scale = 1.0F - 0.14F * press;
-        canvas.save();
-        canvas.translate(centerX, baselineY - size * 0.36F);
-        canvas.scale(scale, scale);
-        canvas.translate(-centerX, -(baselineY - size * 0.36F));
-        drawSkiaCentered(canvas, icon, centerX, baselineY, size, withAlpha(0xFFFFFF, alpha), SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        canvas.restore();
-    }
-
-    private void drawSkiaButtonLabel(Canvas canvas, String icon, String text, float x, float y, float w, int alpha) {
-        float textW = SkijaUi.textWidth(text, 13f);
-        float iconW = SkijaUi.iconWidth(icon, 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float start = x + (w - iconW - 5f - textW) / 2f;
-        SkijaUi.icon(canvas, icon, start, (y + 21f) + SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(15f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xFFFFFF, alpha), 15f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.text(canvas, text, start + iconW + 5f, (y + 18f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), withAlpha(0xFFFFFF, alpha), 13f);
-    }
-
-    private static boolean isLikedPlaylist(Playlist playlist) {
-        String name = playlist == null ? "" : playlist.name().toLowerCase();
-        return name.contains("喜欢") || name.contains("liked") || name.contains("favorite");
-    }
-
-    private static String playbackModeIcon(MusicPlaybackService.PlaybackMode mode) {
-        return switch (mode) {
-            case LOOP -> "\uE040";
-            case RANDOM -> "\uE043";
-            case LIST -> "\uE8EF";
-        };
-    }
-
-    private void drawSkiaCentered(Canvas canvas, String text, float centerX, float baselineY, float size, int argb) {
-        SkijaUi.text(canvas, text, centerX - SkijaUi.textWidth(text, size) / 2.0F, (baselineY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), argb, size);
-    }
-
-    private void drawSkiaCentered(Canvas canvas, String text, float centerX, float baselineY, float size, int argb, SkijaUi.IconSet fontName) {
-        SkijaUi.icon(canvas, text, centerX - SkijaUi.iconWidth(text, size, fontName) / 2.0F, (baselineY) + SkijaUi.iconMetrics(size, fontName).getAscent(), SkijaUi.iconMetrics(size, fontName).getDescent() - SkijaUi.iconMetrics(size, fontName).getAscent(), argb, size, fontName);
+    private boolean hit(float x, float y, float w, float h) {
+        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean consumed) {
-        if (closing) {
+        if (closing || scale <= 0) return true;
+        mouseX = (float) (event.x() - offsetX) / scale;
+        mouseY = (float) (event.y() - offsetY) / scale;
+        if (lyrics != null && !loginOpen && !accountOpen) {
+            if (lyricsClosedAt == 0 && elapsed(lyricsStartedAt) >= 360) lyrics.mouseClicked(mouseX, mouseY, event.button());
             return true;
         }
-        if (event.button() != 0) {
-            return super.mouseClicked(event, consumed);
+        if (!loginOpen && !accountOpen && !restoring && contextItems.isEmpty()
+                && mouseX >= sideW && mouseY < contentH && elapsed(pageStartedAt) < 300f) return true;
+        for (int i = targets.size() - 1; i >= 0; i--) {
+            HitTarget target = targets.get(i);
+            if (target.button() == event.button() && target.bounds().contains(mouseX, mouseY)) {
+                MusicTextInput before = focused;
+                draggingInput = false;
+                target.action().run();
+                if (!draggingInput && focused == before) focused = null;
+                targets.clear();
+                return true;
+            }
         }
-        int actualW = width;
-        int actualH = height;
-        float uiScale = getUiScale(actualW, actualH);
-        double mouseX = toLayoutX(event.x(), uiScale, uiOffsetX(actualW, layoutWidth(actualW, uiScale), uiScale));
-        double mouseY = toLayoutY(event.y(), uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
-        useVirtualLayout(actualW, actualH, uiScale);
-        try {
-            if (hit(width - 40, 8, 30, 30, mouseX, mouseY)) {
-                onClose();
-                return true;
-            }
-
-            if (!NeteaseMusicApi.isLoggedIn()) {
-                return handleLoginClick(mouseX, mouseY);
-            }
-
-            if (nowPlayingOpen || nowPlayingClosing) {
-                if (hit(26, 22, 38, 32, mouseX, mouseY)) {
-                    closeNowPlaying();
-                    return true;
-                }
-                int[] target = nowPlayingCoverRect();
-                int progressX = target[0];
-                int progressY = target[1] + target[2] + 88;
-                if (hit(progressX, progressY - 8, target[2], 22, mouseX, mouseY)) {
-                    draggingProgress = true;
-                    previewSeekFromMouse(mouseX);
-                    return true;
-                }
-                return true;
-            }
-
-            if (userDetailOpen) {
-                return handleUserDetailClick(mouseX, mouseY);
-            }
-
-            if (MusicPlaybackService.INSTANCE.currentSong() != null
-            && hit(SIDEBAR_WIDTH + 44, height - PLAYER_HEIGHT + 14, 48, 48, mouseX, mouseY)) {
-                openNowPlaying();
-                return true;
-            }
-
-            if (hit(12, 14, SIDEBAR_WIDTH - 24, 22, mouseX, mouseY)) {
-                focusAt(Focus.SEARCH, 12, mouseX);
-                return true;
-            }
-            if (hit(8, height - PLAYER_HEIGHT - 48, SIDEBAR_WIDTH - 16, 42, mouseX, mouseY)) {
-                userDetailOpen = true;
-                focus = Focus.NONE;
-
-                return true;
-            }
-            if (viewMode == ViewMode.PLAYLIST && hit(playlistSearchInputX, playlistSearchInputY, playlistSearchInputW, playlistSearchInputH, mouseX, mouseY)) {
-                focusAt(Focus.PLAYLIST_SEARCH, playlistSearchInputX, mouseX);
-                return true;
-            }
-            int progressX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2 - 160;
-            if (hit(progressX, height - PLAYER_HEIGHT + 50, 320, 16, mouseX, mouseY)) {
-                draggingProgress = true;
-                previewSeekFromMouse(mouseX);
-                return true;
-            }
-            int controlX = playerControlStartX();
-            int playerY = height - PLAYER_HEIGHT;
-            int volumeX = controlX + 232;
-            int volumeY = playerY + 30;
-            int volumeW = volumeSliderWidth(controlX);
-            if (hit(controlX + 202, playerY + 17, 24, 28, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.VOLUME);
-                toggleMute();
-                return true;
-            }
-            if (hit(volumeX - 4, volumeY - 7, volumeW + 8, 18, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.VOLUME);
-                draggingVolume = true;
-                updateVolumeFromMouse(mouseX);
-                return true;
-            }
-            if (NeteaseMusicApi.isLoggedIn() && hit(lastGridSliderX - 6, lastGridSliderY, 14, lastGridSliderH, mouseX, mouseY)) {
-                if (viewMode == ViewMode.HOME && !recommendedPlaylists.isEmpty()) {
-                    draggingListSlider = true;
-                    draggingSliderTarget = SliderTarget.PLAYLIST_GRID;
-                    updateDraggedGridSlider(mouseY);
-                    return true;
-                }
-                if (viewMode == ViewMode.SEARCH && !songs.isEmpty()) {
-                    draggingListSlider = true;
-                    draggingSliderTarget = SliderTarget.SONG_GRID;
-                    updateDraggedGridSlider(mouseY);
-                    return true;
-                }
-            }
-
-            if (hit(8, 68, SIDEBAR_WIDTH - 28, 28, mouseX, mouseY)) {
-                switchView(ViewMode.HOME);
-                selectedPlaylistIndex = -1;
-                currentPlaylist = null;
-                if (recommendedPlaylists.isEmpty()) {
-                    loadRecommendedPlaylists();
-                }
-                return true;
-            }
-            int playlistY = 130;
-            for (int i = 0; i < Math.min(12, playlists.size()); i++) {
-                if (hit(18, playlistY + i * 28, SIDEBAR_WIDTH - 36, 24, mouseX, mouseY)) {
-                    selectedPlaylistIndex = i;
-                    loadPlaylist(playlists.get(i));
-                    return true;
-                }
-            }
-
-            MusicPlaybackService player = MusicPlaybackService.INSTANCE;
-            int buttonY = playerY + 17;
-            if (hit(controlX, buttonY, 28, 28, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.MODE);
-                player.cyclePlaybackMode();
-                return true;
-            }
-            if (hit(controlX + 38, buttonY, 28, 28, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.STOP);
-                player.stop();
-                return true;
-            }
-            if (hit(controlX + 76, buttonY, 28, 28, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.PREVIOUS);
-                player.playPrevious();
-                ensureIndexVisible(player.currentIndex());
-                return true;
-            }
-            if (hit(controlX + 114, buttonY - 1, 32, 30, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.PLAY_PAUSE);
-                player.toggle();
-                return true;
-            }
-            if (hit(controlX + 156, buttonY, 28, 28, mouseX, mouseY)) {
-                pressPlayerButton(PlayerButton.NEXT);
-                player.playNext();
-                ensureIndexVisible(player.currentIndex());
-                return true;
-            }
-
-            if (viewMode == ViewMode.HOME) {
-                int playlistIndex = playlistIndexAt(mouseX, mouseY);
-                if (playlistIndex >= 0 && playlistIndex < recommendedPlaylists.size()) {
-                    selectedPlaylistIndex = -1;
-                    loadPlaylist(recommendedPlaylists.get(playlistIndex));
-                    return true;
-                }
-            }
-            int playlistButtonY = 24 + playlistCoverSize() - 46;
-            int playlistInfoX = SIDEBAR_WIDTH + 28 + playlistCoverSize() + 24;
-            if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX, playlistButtonY, 86, 26, mouseX, mouseY) && !songs.isEmpty()) {
-                player.setPlaylist(songs, 0);
-                player.playSong(songs.getFirst());
-                return true;
-            }
-            if (viewMode == ViewMode.PLAYLIST && hit(playlistInfoX + 102, playlistButtonY, 112, 26, mouseX, mouseY) && !songs.isEmpty()) {
-                int randomIndex = (int) (Math.random() * songs.size());
-                player.setPlaylist(songs, randomIndex);
-                player.playSong(songs.get(randomIndex));
-                return true;
-            }
-            int clickedIndex = songIndexAt(mouseX, mouseY);
-            if (clickedIndex >= 0 && clickedIndex < songs.size()) {
-                player.setPlaylist(songs, clickedIndex);
-                player.playSong(songs.get(clickedIndex));
-                return true;
-            }
-            focus = Focus.NONE;
-            return super.mouseClicked(event, consumed);
-        } finally {
-            width = actualW;
-            height = actualH;
-        }
-    }
-
-    private boolean handleLoginClick(double mouseX, double mouseY) {
-        int w = 320;
-        int h = 210;
-        int x = (width - w) / 2;
-        int y = (height - h) / 2;
-        int qrX = x + 42;
-        int qrY = y + 52;
-        if (hit(qrX + 116, qrY + 42, 110, 24, mouseX, mouseY)) {
-            startQrLogin();
+        if (!contextItems.isEmpty()) {
+            contextItems.clear();
             return true;
         }
-        focus = Focus.NONE;
+        if (loginOpen || accountOpen || restoring) return true;
+        focused = null;
+        if (page == Page.SETTINGS && mouseX >= sideW && mouseY < contentH) {
+            settings.mouseClicked(mouseX - sideW, mouseY, event.button());
+        }
         return true;
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int actualW = width;
-        int actualH = height;
-        float uiScale = getUiScale(actualW, actualH);
-        mouseX = toLayoutX(mouseX, uiScale, uiOffsetX(actualW, layoutWidth(actualW, uiScale), uiScale));
-        mouseY = toLayoutY(mouseY, uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
-        useVirtualLayout(actualW, actualH, uiScale);
-        try {
-            if (NeteaseMusicApi.isLoggedIn() && viewMode == ViewMode.HOME && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !recommendedPlaylists.isEmpty()) {
-                firstPlaylistIndex = Math.max(0, Math.min(maxPlaylistGridStart(), firstPlaylistIndex - (int) Math.signum(scrollY) * playlistGridColumns()));
-                return true;
-            }
-            if (NeteaseMusicApi.isLoggedIn() && hit(SIDEBAR_WIDTH, 0, width - SIDEBAR_WIDTH, height - PLAYER_HEIGHT, mouseX, mouseY) && !songs.isEmpty()) {
-                if (viewMode == ViewMode.PLAYLIST) {
-                    int maxStart = Math.max(0, songs.size() - playlistVisibleRows());
-                    firstSongIndex = Math.max(0, Math.min(maxStart, firstSongIndex - (int) Math.signum(scrollY) * 3));
-                    if (scrollY < 0.0D && firstSongIndex >= Math.max(0, maxStart - 1)) {
-                        loadNextPlaylistPage();
-                    }
-                } else if (viewMode == ViewMode.SEARCH) {
-                    firstSongIndex = Math.max(0, Math.min(maxGridStart(), firstSongIndex - (int) Math.signum(scrollY) * gridColumns()));
-                }
-                return true;
-            }
-            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        } finally {
-            width = actualW;
-            height = actualH;
-        }
-    }
-
-    @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
-        if (event.button() == 0 && draggingTextSelection != Focus.NONE) {
-            draggingTextSelection = Focus.NONE;
-            pressedPlayerButton = PlayerButton.NONE;
-            return true;
-        }
-        if (event.button() == 0 && draggingProgress) {
-            commitSeek();
-            draggingProgress = false;
-            pendingProgress = -1.0F;
-            pressedPlayerButton = PlayerButton.NONE;
-            return true;
-        }
-        if (event.button() == 0 && draggingVolume) {
-            draggingVolume = false;
-            if (pendingVolume >= 0.0F) {
-                MusicPlaybackService.INSTANCE.setVolume(pendingVolume, true);
-            }
-            pendingVolume = -1.0F;
-            pressedPlayerButton = PlayerButton.NONE;
-            return true;
-        }
-        if (event.button() == 0 && draggingListSlider) {
-            draggingListSlider = false;
-            draggingSliderTarget = SliderTarget.NONE;
-            pressedPlayerButton = PlayerButton.NONE;
-            return true;
-        }
-        if (event.button() == 0) {
-            pressedPlayerButton = PlayerButton.NONE;
-        }
-        return super.mouseReleased(event);
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-        int actualW = width;
-        int actualH = height;
-        float uiScale = getUiScale(actualW, actualH);
-        double mouseX = toLayoutX(event.x(), uiScale, uiOffsetX(actualW, layoutWidth(actualW, uiScale), uiScale));
-        double mouseY = toLayoutY(event.y(), uiScale, uiOffsetY(actualH, layoutHeight(actualH, uiScale), uiScale));
-        useVirtualLayout(actualW, actualH, uiScale);
-        try {
-            if (event.button() == 0 && draggingTextSelection != Focus.NONE) {
-                setCursor(draggingTextSelection, cursorFromMouse(draggingTextSelection, inputX(draggingTextSelection), mouseX));
-                return true;
-            }
-            if (event.button() == 0 && draggingProgress) {
-                previewSeekFromMouse(mouseX);
-                return true;
-            }
-            if (event.button() == 0 && draggingVolume) {
-                updateVolumeFromMouse(mouseX);
-                return true;
-            }
-            if (event.button() == 0 && draggingListSlider) {
-                updateDraggedGridSlider(mouseY);
-                return true;
-            }
-            return super.mouseDragged(event, dragX, dragY);
-        } finally {
-            width = actualW;
-            height = actualH;
-        }
-    }
-
-    @Override
-    public boolean keyPressed(KeyEvent event) {
-        if (focus == Focus.NONE) {
-            if (event.key() == GLFW_KEY_ESCAPE) {
-                if (userDetailOpen) {
-                    userDetailOpen = false;
-
-                    return true;
-                }
-                if (nowPlayingOpen && !nowPlayingClosing) {
-                    closeNowPlaying();
-                    return true;
-                }
-                onClose();
-                return true;
-            }
-            return super.keyPressed(event);
-        }
-        boolean ctrlDown = isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL);
-        boolean shiftDown = isKeyDown(GLFW_KEY_LEFT_SHIFT) || isKeyDown(GLFW_KEY_RIGHT_SHIFT);
-        if (ctrlDown && event.key() == GLFW_KEY_A) {
-            selectAll();
-            return true;
-        }
-        switch (event.key()) {
-            case GLFW_KEY_BACKSPACE -> {
-                deletePrevious();
-                return true;
-            }
-            case GLFW_KEY_DELETE -> {
-                deleteNext();
-                return true;
-            }
-            case GLFW_KEY_LEFT -> {
-                moveCursor(-1, shiftDown);
-                return true;
-            }
-            case GLFW_KEY_RIGHT -> {
-                moveCursor(1, shiftDown);
-                return true;
-            }
-            case GLFW_KEY_HOME -> {
-                moveCursorTo(0, shiftDown);
-                return true;
-            }
-            case GLFW_KEY_END -> {
-                moveCursorTo(focusedText().length(), shiftDown);
-                return true;
-            }
-            case GLFW_KEY_ENTER, GLFW_KEY_KP_ENTER -> {
-                if (focus == Focus.SEARCH && NeteaseMusicApi.isLoggedIn()) {
-                    runSearchOrRefresh();
-                } else if (focus == Focus.PLAYLIST_SEARCH) {
-                    focus = Focus.NONE;
-                }
-                return true;
-            }
-            case GLFW_KEY_ESCAPE -> {
-                focus = Focus.NONE;
-                return true;
-            }
-            default -> {
-                return super.keyPressed(event);
-            }
-        }
-    }
-
-    @Override
-    public boolean charTyped(CharacterEvent event) {
-        if (focus == Focus.NONE) {
-            return super.charTyped(event);
-        }
-        String typed = event.codepointAsString();
-        if (typed == null || typed.isEmpty()) {
-            return true;
-        }
-        insertText(typed);
+        if (closing || scale <= 0) return true;
+        float x = (float) (event.x() - offsetX) / scale;
+        float y = (float) (event.y() - offsetY) / scale;
+        if (lyrics != null && !loginOpen && !accountOpen) {
+            if (lyricsClosedAt == 0) lyrics.mouseDragged(x, y);
+        } else if (draggingInput && focused != null) focused.drag(x);
+        else if (dragging != Drag.NONE) updateDrag(x, y);
+        else if (page == Page.SETTINGS && !loginOpen && !accountOpen) settings.mouseDragged(x - sideW, y);
         return true;
     }
 
     @Override
-    public void onClose() {
-        if (closing) {
-            return;
+    public boolean mouseReleased(MouseButtonEvent event) {
+        releaseDrag();
+        return true;
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        if (closing || loginOpen || accountOpen || restoring || scale <= 0 || !contextItems.isEmpty()) return true;
+        float localX = (float) (x - offsetX) / scale;
+        float localY = (float) (y - offsetY) / scale;
+        if (lyrics != null) {
+            if (lyricsClosedAt == 0) lyrics.mouseScrolled(localX, localY, (float) vertical);
+        } else if (localX < sideW) {
+            sidebarTarget = Math.max(0, Math.min(maxSidebarScroll, sidebarTarget - (float) vertical * 35f));
+        } else if (page == Page.SETTINGS) {
+            if (elapsed(pageStartedAt) >= 300f) settings.mouseScrolled(localX - sideW, localY, (float) vertical);
+        } else if (listBounds.contains(localX, localY)) {
+            scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget - (float) vertical * 44f));
+            if (hasMore && scrollTarget >= maxScroll - 60f && filter.value().isBlank()) loadMore();
         }
+        return true;
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (closing) return true;
+        if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+            if (!contextItems.isEmpty()) contextItems.clear();
+            else if (accountOpen) accountOpen = false;
+            else if (loginOpen) closeLogin();
+            else if (lyrics != null) closeLyrics();
+            else if (focused != null) focused = null;
+            else onClose();
+            return true;
+        }
+        if (loginOpen || accountOpen || restoring) return true;
+        if (event.hasControlDownWithQuirk() && event.key() == GLFW.GLFW_KEY_F && lyrics == null) {
+            focused = search;
+            return true;
+        }
+        if (focused != null && lyrics == null) {
+            if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) {
+                if (focused == search) runSearch();
+                else focused = null;
+                return true;
+            }
+            String before = filter.value();
+            focused.keyPressed(event.key(), event.hasControlDownWithQuirk(), event.hasShiftDown(),
+                    minecraft.keyboardHandler::getClipboard, minecraft.keyboardHandler::setClipboard);
+            if (!filter.value().equals(before)) scroll = scrollTarget = 0;
+            return true;
+        }
+        if (event.key() == GLFW.GLFW_KEY_SPACE) {
+            player.toggle();
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (focused == null || closing || loginOpen || accountOpen || lyrics != null) return false;
+        if (event.isAllowedChatCharacter()) {
+            focused.insert(event.codepointAsString());
+            if (focused == filter) scroll = scrollTarget = 0;
+        }
+        return true;
+    }
+
+    private void updateDrag(float x, float y) {
+        if (dragging == Drag.SEEK) pendingSeek = clamp((x - seekBounds.getLeft()) / seekBounds.getWidth());
+        if (dragging == Drag.VOLUME) player.setVolume(clamp((x - volumeBounds.getLeft()) / volumeBounds.getWidth()), false);
+        if (dragging == Drag.SCROLL) {
+            float thumbH = Math.max(24f, listBounds.getHeight() * listBounds.getHeight() / (listBounds.getHeight() + maxScroll));
+            scrollTarget = maxScroll * clamp((y - listBounds.getTop() - thumbH * 0.5f) / Math.max(1, listBounds.getHeight() - thumbH));
+            scroll = scrollTarget;
+        }
+    }
+
+    private void releaseDrag() {
+        if (dragging == Drag.SEEK && pendingSeek >= 0) player.seekToProgress(pendingSeek);
+        if (dragging == Drag.VOLUME) player.setVolume(player.volume(), true);
+        settings.mouseReleased();
+        if (lyrics != null) lyrics.mouseReleased();
+        pendingSeek = -1;
+        dragging = Drag.NONE;
+        draggingInput = false;
+    }
+
+    @Override
+    public void onClose() {
+        if (closing) return;
+        releaseDrag();
         closing = true;
-        closeStartedAt = System.currentTimeMillis();
+        closedAt = System.nanoTime();
+        qrSerial++;
+        requestSerial++;
+        NeteaseMusicApi.cancelPendingLogin();
     }
 
     @Override
     public void removed() {
-        uiPaint.close();
+        releaseDrag();
+        if (lyrics != null) lyrics.close();
+        attached = false;
+        reloadOnReturn = loading || loadingMore;
+        pendingFrame = false;
+        qrSerial++;
+        requestSerial++;
+        accountSerial++;
+        targets.clear();
+        contextItems.clear();
+        NeteaseMusicApi.cancelPendingLogin();
         super.removed();
     }
 
@@ -1539,984 +887,350 @@ public class NeteaseMusicScreen extends Screen implements SkijaScreen {
         return false;
     }
 
-    private void loadHome() {
-        loadRecommendedPlaylists();
+    private void showPage(Page next) {
+        releaseDrag();
+        page = next;
+        requestSerial++;
+        loading = false;
+        loadingMore = false;
+        hasMore = false;
+        scroll = scrollTarget = maxScroll = 0;
+        pageStartedAt = System.nanoTime();
+        focused = null;
+        filter.clear();
+        contextItems.clear();
+        targets.clear();
+        status = "";
     }
 
-    private void loadRecommendedPlaylists() {
-        if (loading || !NeteaseMusicApi.isLoggedIn()) {
+    private void refreshLibrary() {
+        if (!NeteaseMusicApi.isLoggedIn()) {
+            openLogin();
             return;
         }
-        loading = true;
-        switchView(ViewMode.HOME);
-        currentPlaylist = null;
-        selectedPlaylistIndex = -1;
-        statusText = "Loading recommended playlists...";
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.getRecommendedPlaylists();
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((loadedPlaylists, throwable) -> Minecraft.getInstance().execute(() -> {
-            loading = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
+        int serial = ++accountSerial;
+        if (page == Page.HOME) loading = true;
+        async(NeteaseMusicApi::getRecommendedPlaylists).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!attached || closing || serial != accountSerial) return;
+            if (page == Page.HOME) loading = false;
+            if (error != null) {
+                if (page == Page.HOME) status = message(error);
+                notify(message(error));
                 return;
             }
-            recommendedPlaylists.clear();
-            recommendedPlaylists.addAll(loadedPlaylists);
-            firstPlaylistIndex = 0;
-            visualFirstPlaylistIndex = 0.0F;
-            statusText = loadedPlaylists.size() + " playlists loaded";
+            recommendations.clear();
+            recommendations.addAll(result);
+        }));
+        async(NeteaseMusicApi::getUserPlaylists).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!attached || closing || serial != accountSerial) return;
+            if (error != null) {
+                notify(message(error));
+                return;
+            }
+            library.clear();
+            library.addAll(result);
         }));
     }
 
-    private void runSearchOrRefresh() {
-        if (loading || !NeteaseMusicApi.isLoggedIn()) {
-            return;
-        }
-        if (query.isBlank()) {
-            loadHome();
-            return;
-        }
-        loading = true;
-        statusText = "Searching " + query;
-        String search = query;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.search(search);
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((loadedSongs, throwable) -> Minecraft.getInstance().execute(() -> {
-            loading = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
-                return;
-            }
-            switchView(ViewMode.SEARCH);
-            songs.clear();
-            songs.addAll(loadedSongs);
-            firstSongIndex = 0;
-            visualFirstSongIndex = 0.0F;
-            selectedPlaylistIndex = -1;
-            currentPlaylist = null;
-            statusText = loadedSongs.size() + " results";
-        }));
-    }
-
-    private void loadUserPlaylists() {
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.getUserPlaylists();
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((loadedPlaylists, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (throwable != null) {
-                return;
-            }
-            playlists.clear();
-            playlists.addAll(loadedPlaylists);
-        }));
-    }
-
-    private void loadPlaylist(Playlist playlist) {
-        if (playlist == null) return;
-        loading = true;
-        int serial = ++playlistLoadSerial;
-        if (viewMode == ViewMode.PLAYLIST) {
-            beginContentTransition();
-        } else {
-            switchView(ViewMode.PLAYLIST);
-        }
-        currentPlaylist = playlist;
-        playlistSearchQuery = "";
-        playlistSearchCursor = 0;
-        playlistSearchSelection = -1;
-        playlistPageLoading = false;
-        playlistHasMore = false;
-        fullPlaylistSongs.clear();
+    private void runSearch() {
+        String query = search.value().trim();
+        if (query.isBlank()) return;
+        showPage(Page.SEARCH);
+        heading = query;
         songs.clear();
-        firstSongIndex = 0;
-        visualFirstSongIndex = 0.0F;
-        statusText = "Loading " + playlist.name();
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.getPlaylistDetail(playlist.id(), 80, 0);
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((loadedSongs, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != playlistLoadSerial) {
-                return;
-            }
+        loading = true;
+        int serial = requestSerial;
+        async(() -> NeteaseMusicApi.search(query, 30, 0)).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!currentRequest(serial)) return;
             loading = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
+            if (error != null) {
+                status = message(error);
                 return;
             }
-            fullPlaylistSongs.clear();
-            fullPlaylistSongs.addAll(loadedSongs);
-            playlistHasMore = loadedSongs.size() >= 80 && (playlist.trackCount() <= 0 || fullPlaylistSongs.size() < playlist.trackCount());
-            applyPlaylistFilter();
-            firstSongIndex = 0;
-            visualFirstSongIndex = 0.0F;
-            statusText = loadedSongs.size() + " songs";
+            songs.addAll(result);
+            hasMore = result.size() == 30;
         }));
     }
 
-    private void applyPlaylistFilter() {
-        if (viewMode != ViewMode.PLAYLIST && currentPlaylist == null) {
+    private void loadDaily() {
+        if (!NeteaseMusicApi.isLoggedIn()) {
+            openLogin();
             return;
         }
-        String filter = playlistSearchQuery == null ? "" : playlistSearchQuery.trim().toLowerCase();
+        showPage(Page.DAILY);
         songs.clear();
-        if (filter.isBlank()) {
-            songs.addAll(fullPlaylistSongs);
-        } else {
-            for (Song song : fullPlaylistSongs) {
-                if (song.name().toLowerCase().contains(filter)) {
-                    songs.add(song);
-                }
-            }
-        }
-        firstSongIndex = 0;
-        visualFirstSongIndex = 0.0F;
+        loading = true;
+        int serial = requestSerial;
+        async(NeteaseMusicApi::getDailyRecommendSongs).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!currentRequest(serial)) return;
+            loading = false;
+            if (error != null) status = message(error);
+            else songs.addAll(result);
+        }));
     }
 
-    private void loadNextPlaylistPage() {
-        if (playlistPageLoading || !playlistHasMore || currentPlaylist == null || !playlistSearchQuery.isBlank()) {
-            return;
-        }
-        playlistPageLoading = true;
-        int serial = playlistLoadSerial;
-        Playlist playlist = currentPlaylist;
-        int offset = fullPlaylistSongs.size();
-        statusText = "Loading more songs...";
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.getPlaylistDetail(playlist.id(), 80, offset);
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((loadedSongs, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != playlistLoadSerial || playlist != currentPlaylist) {
+    private void loadPlaylist(Playlist entry) {
+        showPage(Page.PLAYLIST);
+        playlist = entry;
+        songs.clear();
+        loading = true;
+        int serial = requestSerial;
+        async(() -> NeteaseMusicApi.getPlaylistDetail(entry.id(), 80, 0)).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!currentRequest(serial)) return;
+            loading = false;
+            if (error != null) {
+                status = message(error);
                 return;
             }
-            playlistPageLoading = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
-                return;
-            }
-            fullPlaylistSongs.addAll(loadedSongs);
-            songs.addAll(loadedSongs);
-            playlistHasMore = loadedSongs.size() >= 80 && (playlist.trackCount() <= 0 || fullPlaylistSongs.size() < playlist.trackCount());
-            statusText = fullPlaylistSongs.size() + " songs";
+            songs.addAll(result);
+            hasMore = result.size() == 80 && (entry.trackCount() <= 0 || songs.size() < entry.trackCount());
         }));
+    }
+
+    private void loadMore() {
+        if (loading || loadingMore || !hasMore || !filter.value().isBlank()) return;
+        if (page != Page.SEARCH && page != Page.PLAYLIST) return;
+        loadingMore = true;
+        int serial = requestSerial;
+        int offset = songs.size();
+        int limit = page == Page.PLAYLIST ? 80 : 30;
+        Playlist source = playlist;
+        String query = heading;
+        boolean playlistPage = page == Page.PLAYLIST;
+        async(() -> playlistPage ? NeteaseMusicApi.getPlaylistDetail(source.id(), limit, offset)
+                : NeteaseMusicApi.search(query, limit, offset)).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!currentRequest(serial)) return;
+            loadingMore = false;
+            if (error != null) {
+                notify(message(error));
+                return;
+            }
+            songs.addAll(result);
+            hasMore = result.size() == limit && (!playlistPage || source.trackCount() <= 0 || songs.size() < source.trackCount());
+        }));
+    }
+
+    private boolean currentRequest(int serial) {
+        return attached && !closing && serial == requestSerial;
+    }
+
+    private void openLogin() {
+        focused = null;
+        loginOpen = true;
+        accountOpen = false;
+        contextItems.clear();
+        if (!qrBusy && !restoring) startQrLogin();
+    }
+
+    private void closeLogin() {
+        loginOpen = false;
+        qrSerial++;
+        qrBusy = false;
+        NeteaseMusicApi.cancelPendingLogin();
     }
 
     private void startQrLogin() {
-        if (loading || qrPolling || NeteaseMusicApi.isLoggedIn()) return;
+        if (NeteaseMusicApi.isLoggedIn() || restoring) return;
+        NeteaseMusicApi.cancelPendingLogin();
         int serial = ++qrSerial;
-        qrLogin = null;
-        qrPolling = true;
-        statusText = "Creating QR...";
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return NeteaseMusicApi.createQrLogin();
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }, IO).whenComplete((login, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != qrSerial) return;
-            if (throwable != null) {
-                qrPolling = false;
-                statusText = cleanMessage(throwable);
+        qr = null;
+        qrBusy = true;
+        qrCode = 0;
+        qrStatus = tr("正在生成二维码", "Creating QR code");
+        async(NeteaseMusicApi::createQrLogin).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!attached || closing || serial != qrSerial) return;
+            if (error != null) {
+                qrBusy = false;
+                qrStatus = message(error);
                 return;
             }
-            qrLogin = login;
-            statusText = qrStatusText(801, "Waiting for scan");
-            pollQrLogin(serial, login.key());
+            qr = result;
+            qrStatus = tr("等待扫码", "Waiting for scan");
+            NeteaseMusicCovers.preload(qr.qrImage());
+            pollQr(serial, result.key());
         }));
     }
 
-    private void pollQrLogin(int serial, String key) {
+    private void pollQr(int serial, String key) {
         CompletableFuture.supplyAsync(() -> {
+            if (!attached || serial != qrSerial) return null;
             try {
-                while (serial == qrSerial && !NeteaseMusicApi.isLoggedIn()) {
-                    NeteaseMusicApi.QrLoginStatus status = NeteaseMusicApi.checkQrLogin(key);
-                    Minecraft.getInstance().execute(() -> {
-                        if (serial == qrSerial) {
-                            statusText = qrStatusText(status.code(), status.message());
-                        }
-                    });
-                    if (status.session() != null) {
-                        return status.session();
-                    }
-                    if (status.code() == 800) {
-                        throw new IllegalStateException(status.message());
-                    }
-                    Thread.sleep(2000L);
-                }
-                return null;
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
+                return NeteaseMusicApi.checkQrLogin(key);
+            } catch (Exception error) {
+                throw new java.util.concurrent.CompletionException(error);
             }
-        }, IO).whenComplete((session, throwable) -> Minecraft.getInstance().execute(() -> {
-            if (serial != qrSerial) return;
-            qrPolling = false;
-            if (throwable != null) {
-                statusText = cleanMessage(throwable);
+        }, CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS, IO)).whenComplete((result, error) -> minecraft.execute(() -> {
+            if (!attached || closing || serial != qrSerial || !loginOpen) return;
+            if (error != null || result == null) {
+                qrBusy = false;
+                qrStatus = error == null ? tr("登录已取消", "Login cancelled") : message(error);
                 return;
             }
-            if (session != null) {
-                focus = Focus.NONE;
-                statusText = "Logged in: " + session.nickname();
-                loadRecommendedPlaylists();
-                loadUserPlaylists();
-            }
+            qrCode = result.code();
+            qrStatus = switch (result.code()) {
+                case 800 -> tr("二维码已过期，请刷新", "QR expired. Refresh to continue");
+                case 801 -> tr("等待扫码", "Waiting for scan");
+                case 802 -> tr("已扫码，请在手机上确认", "Scanned. Confirm on your phone");
+                case 803 -> tr("登录成功", "Signed in");
+                default -> tr("登录暂不可用，请重试", "Login unavailable. Try again");
+            };
+            if (result.session() != null) {
+                closeLogin();
+                showPage(Page.HOME);
+                refreshLibrary();
+            } else if (result.code() == 800 || result.code() < 0) qrBusy = false;
+            else pollQr(serial, key);
         }));
     }
 
-    private void cancelQrLogin() {
-        qrSerial++;
-        qrLogin = null;
-        qrPolling = false;
+    private void logout() {
+        closeLogin();
+        accountOpen = false;
+        accountSerial++;
+        NeteaseMusicApi.logout();
+        library.clear();
+        recommendations.clear();
+        songs.clear();
+        playlist = null;
+        showPage(Page.HOME);
+        openLogin();
     }
 
-    private String qrButtonText() {
-        if (!qrPolling) {
-            return Config.isChinese ? "刷新二维码" : "Refresh QR";
-        }
-        if (statusText.contains("confirm") || statusText.contains("确认")) {
-            return Config.isChinese ? "等待确认" : "Confirm";
-        }
-        if (statusText.contains("scan") || statusText.contains("扫码")) {
-            return Config.isChinese ? "等待扫码" : "Scan";
-        }
-        if (statusText.contains("Creating") || statusText.contains("创建")) {
-            return Config.isChinese ? "生成中" : "Creating";
-        }
-        return Config.isChinese ? "连接中" : "Polling";
-    }
-
-    private String qrStatusText(int code, String fallback) {
-        if (!Config.isChinese) {
-            return fallback;
-        }
-        return switch (code) {
-            case 800 -> "二维码已过期";
-            case 801 -> "等待扫码";
-            case 802 -> "等待手机确认";
-            case 803 -> "登录成功";
-            default -> fallback;
-        };
-    }
-
-    private int songIndexAt(double mouseX, double mouseY) {
-        if (viewMode == ViewMode.PLAYLIST) {
-            int listX = SIDEBAR_WIDTH + 28;
-            int cover = playlistCoverSize();
-            int listY = 24 + cover + 48;
-            int listW = width - listX - 26;
-            int rowH = 42;
-            if (!hit(listX, listY, listW, playlistVisibleRows() * rowH, mouseX, mouseY)) {
-                return -1;
-            }
-            int visibleRows = playlistVisibleRows();
-            float listVisual = Math.max(0.0F, Math.min(Math.max(0, songs.size() - visibleRows), visualFirstSongIndex));
-            int visualBase = (int) Math.floor(listVisual);
-            float rowOffset = (listVisual - visualBase) * rowH;
-            float appear = contentAppearProgress();
-            for (int row = 0; row < visibleRows + 2; row++) {
-                int index = visualBase + row;
-                if (index >= songs.size()) {
-                    break;
-                }
-                float rowProgress = clamp((appear * 1.18F) - row * 0.025F);
-                int rowSlide = Math.round((1.0F - rowProgress) * 10.0F);
-                int y = Math.round(listY + row * rowH - rowOffset + rowSlide);
-                if (hit(listX, y, listW, rowH - 5, mouseX, mouseY)) {
-                    return index;
-                }
-            }
-            return -1;
-        }
-        int contentX = SIDEBAR_WIDTH + 22;
-        int gridY = viewMode == ViewMode.SEARCH ? 72 : 82;
-        int availableW = Math.max(1, width - contentX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int rowH = cardW + GRID_TEXT_HEIGHT;
-        if (mouseX < contentX || mouseY < gridY || mouseY > height - PLAYER_HEIGHT) {
-            return -1;
-        }
-        int col = (int) ((mouseX - contentX) / (cardW + GRID_GAP));
-        GridScroll scroll = gridScroll(visualFirstSongIndex, columns, rowH, maxGridStart(columns, Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH) * columns));
-        int row = (int) ((mouseY - gridY + scroll.offset()) / rowH);
-        int localX = (int) ((mouseX - contentX) - col * (cardW + GRID_GAP));
-        int localY = (int) ((mouseY - gridY + scroll.offset()) - row * rowH);
-        if (col < 0 || col >= columns || localX > cardW || localY > cardW + 30) {
-            return -1;
-        }
-        return scroll.base() + row * columns + col;
-    }
-
-    private int playlistIndexAt(double mouseX, double mouseY) {
-        int contentX = SIDEBAR_WIDTH + 22;
-        int gridY = 82;
-        int availableW = Math.max(1, width - contentX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int columns = Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-        int rowH = cardW + GRID_TEXT_HEIGHT;
-        if (mouseX < contentX || mouseY < gridY || mouseY > height - PLAYER_HEIGHT) {
-            return -1;
-        }
-        int col = (int) ((mouseX - contentX) / (cardW + GRID_GAP));
-        GridScroll scroll = gridScroll(visualFirstPlaylistIndex, columns, rowH, maxPlaylistGridStart(columns, Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / rowH) * columns));
-        int row = (int) ((mouseY - gridY + scroll.offset()) / rowH);
-        int localX = (int) ((mouseX - contentX) - col * (cardW + GRID_GAP));
-        int localY = (int) ((mouseY - gridY + scroll.offset()) - row * rowH);
-        if (col < 0 || col >= columns || localX > cardW || localY > cardW + 30) {
-            return -1;
-        }
-        return scroll.base() + row * columns + col;
-    }
-
-    private int playlistVisibleRows() {
-        int listY = 24 + playlistCoverSize() + 48;
-        return Math.max(1, (height - PLAYER_HEIGHT - listY - 10) / 42);
-    }
-
-    private int gridColumns() {
-        int contentX = SIDEBAR_WIDTH + 22;
-        int availableW = Math.max(1, width - contentX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        return Math.max(1, (availableW + GRID_GAP) / (cardW + GRID_GAP));
-    }
-
-    private int playlistGridColumns() {
-        return gridColumns();
-    }
-
-    private int maxGridStart() {
-        int columns = gridColumns();
-        int contentX = SIDEBAR_WIDTH + 22;
-        int gridY = viewMode == ViewMode.SEARCH ? 72 : 82;
-        int availableW = Math.max(1, width - contentX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / (cardW + GRID_TEXT_HEIGHT));
-        return maxGridStart(columns, visibleRows * columns);
-    }
-
-    private int maxGridStart(int columns, int visibleCards) {
-        int maxStart = Math.max(0, songs.size() - visibleCards);
-        return maxStart <= 0 ? 0 : (maxStart / Math.max(1, columns)) * Math.max(1, columns);
-    }
-
-    private int maxPlaylistGridStart() {
-        int columns = playlistGridColumns();
-        int contentX = SIDEBAR_WIDTH + 22;
-        int gridY = 82;
-        int availableW = Math.max(1, width - contentX - 24);
-        int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-        int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / (cardW + GRID_TEXT_HEIGHT));
-        return maxPlaylistGridStart(columns, visibleRows * columns);
-    }
-
-    private int maxPlaylistGridStart(int columns, int visibleCards) {
-        int maxStart = Math.max(0, recommendedPlaylists.size() - visibleCards);
-        return maxStart <= 0 ? 0 : (maxStart / Math.max(1, columns)) * Math.max(1, columns);
-    }
-
-    private void updateScrollAnimation() {
-        visualFirstPlaylistIndex = approach(visualFirstPlaylistIndex, firstPlaylistIndex, 0.12F);
-        visualFirstSongIndex = approach(visualFirstSongIndex, firstSongIndex, 0.12F);
-        if (Math.abs(visualFirstPlaylistIndex - firstPlaylistIndex) < 0.02F) {
-            visualFirstPlaylistIndex = firstPlaylistIndex;
-        }
-        if (Math.abs(visualFirstSongIndex - firstSongIndex) < 0.02F) {
-            visualFirstSongIndex = firstSongIndex;
-        }
-    }
-
-    private int scrollFadeAlpha(int alpha, int y, int top, int bottom) {
-        int fade = 28;
-        float topFade = clamp((y + fade - top) / (float) fade);
-        float bottomFade = clamp((bottom - y) / (float) fade);
-        return Math.round(alpha * Math.min(topFade, bottomFade));
-    }
-
-    private GridScroll gridScroll(float visualIndex, int columns, int rowH, int maxStart) {
-        int safeColumns = Math.max(1, columns);
-        float clampedIndex = Math.max(0.0F, Math.min(Math.max(0, maxStart), visualIndex));
-        int base = Math.min(Math.max(0, maxStart), (int) Math.floor(clampedIndex / safeColumns) * safeColumns);
-        float offset = ((clampedIndex - base) / safeColumns) * rowH;
-        return new GridScroll(base, offset);
-    }
-
-    private float hoverProgress(String key, boolean hovered) {
-        float current = coverHoverAnimations.getOrDefault(key, 0.0F);
-        current = approach(current, hovered ? 1.0F : 0.0F, 0.16F);
-        if (current < 0.01F && !hovered) {
-            coverHoverAnimations.remove(key);
-            return 0.0F;
-        }
-        coverHoverAnimations.put(key, current);
-        return current;
-    }
-
-    private void pressPlayerButton(PlayerButton button) {
-        pressedPlayerButton = button;
-        playerButtonPressAnimations.put(button.name(), 1.0F);
-    }
-
-    private float playerButtonPressProgress(PlayerButton button) {
-        float current = playerButtonPressAnimations.getOrDefault(button.name(), 0.0F);
-        current = approach(current, pressedPlayerButton == button ? 1.0F : 0.0F, pressedPlayerButton == button ? 0.45F : 0.22F);
-        if (current < 0.01F && pressedPlayerButton != button) {
-            playerButtonPressAnimations.remove(button.name());
-            return 0.0F;
-        }
-        playerButtonPressAnimations.put(button.name(), current);
-        return current;
-    }
-
-    private void updateDraggedGridSlider(double mouseY) {
-        int visibleCards = Math.max(1, lastGridSliderVisibleCards);
-        int columns = Math.max(1, lastGridSliderColumns);
-        if (draggingSliderTarget == SliderTarget.PLAYLIST_GRID) {
-            int maxStart = maxPlaylistGridStart(columns, visibleCards);
-            if (maxStart <= 0) return;
-            int knobH = Math.max(28, Math.round(lastGridSliderH * (visibleCards / (float) Math.max(1, recommendedPlaylists.size()))));
-            float ratio = clamp((float) ((mouseY - lastGridSliderY - knobH / 2.0F) / Math.max(1, lastGridSliderH - knobH)));
-            firstPlaylistIndex = snapGridStart(Math.round(maxStart * ratio), columns, maxStart);
+    private void playVisible(List<Song> visible, int index) {
+        if (index < 0 || index >= visible.size()) return;
+        Song selected = visible.get(index);
+        Song current = player.currentSong();
+        int queueIndex = page == Page.QUEUE ? queueIndexAt(visible, index) : -1;
+        if (current != null && current.id() == selected.id()
+                && (page != Page.QUEUE || queueIndex == player.currentIndex())) {
+            player.toggle();
             return;
         }
-        if (draggingSliderTarget == SliderTarget.SONG_GRID) {
-            int maxStart = maxGridStart(columns, visibleCards);
-            if (maxStart <= 0) return;
-            int knobH = Math.max(28, Math.round(lastGridSliderH * (visibleCards / (float) Math.max(1, songs.size()))));
-            float ratio = clamp((float) ((mouseY - lastGridSliderY - knobH / 2.0F) / Math.max(1, lastGridSliderH - knobH)));
-            firstSongIndex = snapGridStart(Math.round(maxStart * ratio), columns, maxStart);
-        }
-    }
-
-    private int snapGridStart(int value, int columns, int maxStart) {
-        int safeColumns = Math.max(1, columns);
-        int snapped = (Math.max(0, value) / safeColumns) * safeColumns;
-        return Math.max(0, Math.min(maxStart, snapped));
-    }
-
-    private void preloadPlaylistCovers(int start, int count) {
-        int from = Math.max(0, start - Math.max(0, count / 3));
-        int to = Math.min(recommendedPlaylists.size(), start + Math.max(0, count));
-        for (int i = from; i < to; i++) {
-            NeteaseMusicCovers.preload(recommendedPlaylists.get(i).coverUrl());
-        }
-    }
-
-    private void preloadSongCovers(int start, int count) {
-        int from = Math.max(0, start - Math.max(0, count / 3));
-        int to = Math.min(songs.size(), start + Math.max(0, count));
-        for (int i = from; i < to; i++) {
-            NeteaseMusicCovers.preload(songs.get(i).image());
-        }
-    }
-
-    private static float approach(float current, float target, float speed) {
-        return current + (target - current) * clamp(speed);
-    }
-
-    private float contentAppearProgress() {
-        return easeOutCubic((System.currentTimeMillis() - openStartedAt) / 420.0F);
-    }
-
-    private void switchView(ViewMode next) {
-        if (viewMode != next) {
-            beginContentTransition();
-        }
-        viewMode = next;
-    }
-
-    private void beginContentTransition() {
-        if (renderingTransitionSnapshot) {
-            return;
-        }
-        pageTransitionStartedAt = System.currentTimeMillis();
-        transitionViewMode = viewMode;
-        transitionCurrentPlaylist = currentPlaylist;
-        transitionFirstSongIndex = firstSongIndex;
-        transitionFirstPlaylistIndex = firstPlaylistIndex;
-        transitionVisualFirstSongIndex = visualFirstSongIndex;
-        transitionVisualFirstPlaylistIndex = visualFirstPlaylistIndex;
-        transitionSongs.clear();
-        transitionSongs.addAll(songs);
-        transitionRecommendedPlaylists.clear();
-        transitionRecommendedPlaylists.addAll(recommendedPlaylists);
-    }
-
-    private void withTransitionSnapshot(Runnable renderAction) {
-        if (renderingTransitionSnapshot) {
-            renderAction.run();
-            return;
-        }
-        ViewMode realViewMode = viewMode;
-        Playlist realCurrentPlaylist = currentPlaylist;
-        int realFirstSongIndex = firstSongIndex;
-        int realFirstPlaylistIndex = firstPlaylistIndex;
-        float realVisualFirstSongIndex = visualFirstSongIndex;
-        float realVisualFirstPlaylistIndex = visualFirstPlaylistIndex;
-        List<Song> realSongs = new ArrayList<>(songs);
-        List<Playlist> realRecommended = new ArrayList<>(recommendedPlaylists);
-        renderingTransitionSnapshot = true;
-        try {
-            viewMode = transitionViewMode;
-            currentPlaylist = transitionCurrentPlaylist;
-            firstSongIndex = transitionFirstSongIndex;
-            firstPlaylistIndex = transitionFirstPlaylistIndex;
-            visualFirstSongIndex = transitionVisualFirstSongIndex;
-            visualFirstPlaylistIndex = transitionVisualFirstPlaylistIndex;
-            songs.clear();
-            songs.addAll(transitionSongs);
-            recommendedPlaylists.clear();
-            recommendedPlaylists.addAll(transitionRecommendedPlaylists);
-            renderAction.run();
-        } finally {
-            songs.clear();
-            songs.addAll(realSongs);
-            recommendedPlaylists.clear();
-            recommendedPlaylists.addAll(realRecommended);
-            viewMode = realViewMode;
-            currentPlaylist = realCurrentPlaylist;
-            firstSongIndex = realFirstSongIndex;
-            firstPlaylistIndex = realFirstPlaylistIndex;
-            visualFirstSongIndex = realVisualFirstSongIndex;
-            visualFirstPlaylistIndex = realVisualFirstPlaylistIndex;
-            renderingTransitionSnapshot = false;
-        }
-    }
-
-    private ContentTransition contentTransition() {
-        if (pageTransitionStartedAt <= 0L) {
-            return new ContentTransition(1.0F, 1.0F, false);
-        }
-        float progress = (System.currentTimeMillis() - pageTransitionStartedAt) / (float) PAGE_TRANSITION_MS;
-        if (progress >= 1.0F) {
-            pageTransitionStartedAt = 0L;
-            return new ContentTransition(1.0F, 1.0F, false);
-        }
-        if (progress < 0.5F) {
-            float phase = easeInOutCubic(progress / 0.5F);
-            return new ContentTransition(lerp(1.0F, 0.5F, phase), lerp(1.0F, 0.94F, phase), true);
-        }
-        float phase = easeOutCubic((progress - 0.5F) / 0.5F);
-        return new ContentTransition(phase, lerp(1.08F, 1.0F, phase), false);
-    }
-
-    private int playlistCoverSize() {
-        return Math.min(205, Math.max(150, (height - PLAYER_HEIGHT) / 3));
-    }
-
-    private String estimatePlaylistDuration() {
-        long totalMs = 0L;
-        for (Song song : songs) {
-            totalMs += Math.max(0L, song.durationMs());
-        }
-        long totalSeconds = totalMs / 1000L;
-        long hours = totalSeconds / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-        long seconds = totalSeconds % 60L;
-        if (Config.isChinese) {
-            return hours > 0L ? hours + "时" + minutes + "分" + seconds + "秒" : minutes + "分" + seconds + "秒";
-        }
-        return hours > 0L ? hours + "h " + minutes + "m " + seconds + "s" : minutes + "m " + seconds + "s";
-    }
-
-    private void previewSeekFromMouse(double mouseX) {
-        int x;
-        int w;
-        if (nowPlayingOpen || nowPlayingClosing) {
-            int[] cover = nowPlayingCoverRect();
-            x = cover[0];
-            w = cover[2];
+        if (page == Page.QUEUE) {
+            if (queueIndex >= 0) player.playQueueIndex(queueIndex);
         } else {
-            int centerX = SIDEBAR_WIDTH + (width - SIDEBAR_WIDTH) / 2;
-            x = centerX - 160;
-            w = 320;
-        }
-        pendingProgress = clamp((float) ((mouseX - x) / w));
-    }
-
-    private void commitSeek() {
-        if (pendingProgress >= 0.0F) {
-            MusicPlaybackService.INSTANCE.seekToProgress(pendingProgress);
+            player.setPlaylist(visible, index);
+            player.playQueueIndex(index);
         }
     }
 
-    private void updateVolumeFromMouse(double mouseX) {
-        int controlX = playerControlStartX();
-        int x = controlX + 232;
-        int w = volumeSliderWidth(controlX);
-        pendingVolume = clamp((float) ((mouseX - x) / Math.max(1, w)));
-        if (pendingVolume > 0.001F) {
-            lastNonZeroVolume = pendingVolume;
-        }
-        MusicPlaybackService.INSTANCE.setVolume(pendingVolume, false);
-    }
-
-    private void ensureIndexVisible(int index) {
-        if (index < 0) {
-            return;
-        }
-        int columns = gridColumns();
-        int maxStart = maxGridStart();
-        if (index < firstSongIndex) {
-            firstSongIndex = Math.max(0, (index / columns) * columns);
-        } else {
-            int contentX = SIDEBAR_WIDTH + 22;
-            int gridY = 82;
-            int availableW = Math.max(1, width - contentX - 24);
-            int cardW = Math.max(92, Math.min(132, (availableW - 28) / Math.max(2, availableW / 170)));
-            int visibleRows = Math.max(1, (height - PLAYER_HEIGHT - gridY - 16) / (cardW + GRID_TEXT_HEIGHT));
-            int visibleCards = visibleRows * columns;
-            if (index >= firstSongIndex + visibleCards) {
-                firstSongIndex = Math.min(maxStart, Math.max(0, (index / columns - visibleRows + 1) * columns));
+    private int queueIndexAt(List<Song> visible, int index) {
+        List<Song> queue = player.getQueue();
+        int match = 0;
+        for (int i = 0; i < queue.size() && match <= index; i++) {
+            if (queue.get(i).equals(visible.get(match))) {
+                if (match == index) return i;
+                match++;
             }
         }
+        return -1;
     }
 
-    private String focusedText() {
-        return text(focus);
+    private boolean queueEntryMatches(int index, Song song) {
+        List<Song> queue = player.getQueue();
+        return index >= 0 && index < queue.size() && queue.get(index).equals(song);
     }
 
-    private String text(Focus field) {
-        return switch (field) {
-            case SEARCH -> query;
-            case PLAYLIST_SEARCH -> playlistSearchQuery;
-            case NONE -> "";
+    private void playAll(boolean shuffle) {
+        List<Song> visible = visibleSongs();
+        if (visible.isEmpty()) return;
+        if (shuffle) {
+            for (int i = 0; i < 3 && player.playbackMode() != MusicPlaybackService.PlaybackMode.RANDOM; i++) player.cyclePlaybackMode();
+        }
+        int index = shuffle ? java.util.concurrent.ThreadLocalRandom.current().nextInt(visible.size()) : 0;
+        player.setPlaylist(visible, index);
+        player.playQueueIndex(index);
+    }
+
+    private void openLyrics() {
+        if (player.currentSong() == null) return;
+        releaseDrag();
+        focused = null;
+        contextItems.clear();
+        if (lyrics != null) lyrics.close();
+        lyrics = new MusicLyricsView();
+        lyricsStartedAt = System.nanoTime();
+        lyricsClosedAt = 0;
+        targets.clear();
+    }
+
+    private void closeLyrics() {
+        if (lyrics == null || lyricsClosedAt != 0) return;
+        lyrics.mouseReleased();
+        lyricsClosedAt = System.nanoTime();
+    }
+
+    private float playbackProgress() {
+        long duration = player.totalDurationMs();
+        return duration <= 0 ? 0 : clamp(player.positionMs() / (float) duration);
+    }
+
+    private String modeIcon() {
+        return switch (player.playbackMode()) {
+            case LOOP -> "repeat_one";
+            case LIST -> "repeat";
+            case RANDOM -> "shuffle";
         };
     }
 
-    private void setText(Focus field, String value) {
-        switch (field) {
-            case SEARCH -> query = value;
-            case PLAYLIST_SEARCH -> {
-                playlistSearchQuery = value;
-                applyPlaylistFilter();
-            }
-            case NONE -> {
-            }
-        }
+    private void toggleMute() {
+        if (player.volume() > 0.001f) {
+            previousVolume = player.volume();
+            player.setVolume(0);
+        } else player.setVolume(Math.max(0.05f, previousVolume));
     }
 
-    private int cursor(Focus field) {
-        return switch (field) {
-            case SEARCH -> queryCursor;
-            case PLAYLIST_SEARCH -> playlistSearchCursor;
-            case NONE -> 0;
-        };
+    private void notify(String message) {
+        toast = message;
+        toastUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
     }
 
-    private void setCursor(Focus field, int value) {
-        int cursor = Math.max(0, Math.min(value, text(field).length()));
-        switch (field) {
-            case SEARCH -> queryCursor = cursor;
-            case PLAYLIST_SEARCH -> playlistSearchCursor = cursor;
-            case NONE -> {
-            }
-        }
+    private static String tr(String chinese, String english) {
+        return Config.isChinese ? chinese : english;
     }
 
-    private int selectionAnchor(Focus field) {
-        return switch (field) {
-            case SEARCH -> querySelection;
-            case PLAYLIST_SEARCH -> playlistSearchSelection;
-            case NONE -> -1;
-        };
+    private static String formatCount(long count) {
+        if (Config.isChinese && count >= 10000) return String.format(Locale.ROOT, "%.1f万", count / 10000f);
+        if (!Config.isChinese && count >= 1000) return String.format(Locale.ROOT, "%.1fk", count / 1000f);
+        return Long.toString(count);
     }
 
-    private void setSelectionAnchor(Focus field, int value) {
-        int anchor = value < 0 ? -1 : Math.max(0, Math.min(value, text(field).length()));
-        switch (field) {
-            case SEARCH -> querySelection = anchor;
-            case PLAYLIST_SEARCH -> playlistSearchSelection = anchor;
-            case NONE -> {
-            }
-        }
+    private static String message(Throwable error) {
+        Throwable cause = error;
+        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
+        String text = cause.getMessage();
+        return text == null || text.isBlank() ? tr("请求失败，请稍后重试", "Request failed. Please try again") : text;
     }
 
-    private void focusAt(Focus field, int inputX, double mouseX) {
-        focus = field;
-        setCursor(field, cursorFromMouse(field, inputX, mouseX));
-        setSelectionAnchor(field, -1);
-        draggingTextSelection = field;
+    private static float elapsed(long start) {
+        return start == 0 ? Float.MAX_VALUE : (System.nanoTime() - start) / 1_000_000f;
     }
 
-    private int inputX(Focus field) {
-        return switch (field) {
-            case SEARCH -> 12;
-            case PLAYLIST_SEARCH -> playlistSearchInputX;
-            case NONE -> 0;
-        };
-    }
-
-    private int cursorFromMouse(Focus field, int inputX, double mouseX) {
-        String value = text(field);
-        int relativeX = (int) Math.round(mouseX - inputX - 8);
-        if (relativeX <= 0 || value.isEmpty()) {
-            return 0;
-        }
-        int index = 0;
-        while (index < value.length()) {
-            int next = value.offsetByCodePoints(index, 1);
-            int currentWidth = font.width(value.substring(0, Math.min(index, value.length())));
-            int nextWidth = font.width(value.substring(0, Math.min(next, value.length())));
-            if (relativeX < (currentWidth + nextWidth) / 2) {
-                return index;
-            }
-            index = next;
-        }
-        return value.length();
-    }
-
-    private void insertText(String inserted) {
-        Focus field = focus;
-        int start = selectionStart(field);
-        int end = selectionEnd(field);
-        String value = text(field);
-        String next = value.substring(0, start) + inserted + value.substring(end);
-        setText(field, next);
-        setCursor(field, start + inserted.length());
-        setSelectionAnchor(field, -1);
-    }
-
-    private void deletePrevious() {
-        Focus field = focus;
-        if (deleteSelection(field)) {
-            return;
-        }
-        String value = text(field);
-        int cursor = cursor(field);
-        if (cursor <= 0) {
-            return;
-        }
-        int start = value.offsetByCodePoints(cursor, -1);
-        setText(field, value.substring(0, start) + value.substring(cursor));
-        setCursor(field, start);
-    }
-
-    private void deleteNext() {
-        Focus field = focus;
-        if (deleteSelection(field)) {
-            return;
-        }
-        String value = text(field);
-        int cursor = cursor(field);
-        if (cursor >= value.length()) {
-            return;
-        }
-        int end = value.offsetByCodePoints(cursor, 1);
-        setText(field, value.substring(0, cursor) + value.substring(end));
-        setCursor(field, cursor);
-    }
-
-    private boolean deleteSelection(Focus field) {
-        int start = selectionStart(field);
-        int end = selectionEnd(field);
-        if (start == end) {
-            setSelectionAnchor(field, -1);
-            return false;
-        }
-        String value = text(field);
-        setText(field, value.substring(0, start) + value.substring(end));
-        setCursor(field, start);
-        setSelectionAnchor(field, -1);
-        return true;
-    }
-
-    private int selectionStart(Focus field) {
-        int anchor = selectionAnchor(field);
-        int cursor = cursor(field);
-        return Math.min(anchor < 0 ? cursor : anchor, cursor);
-    }
-
-    private int selectionEnd(Focus field) {
-        int anchor = selectionAnchor(field);
-        int cursor = cursor(field);
-        return Math.max(anchor < 0 ? cursor : anchor, cursor);
-    }
-
-    private void moveCursor(int codePointDelta, boolean selecting) {
-        Focus field = focus;
-        String value = text(field);
-        int oldCursor = cursor(field);
-        int next = oldCursor;
-        if (codePointDelta < 0 && oldCursor > 0) {
-            next = value.offsetByCodePoints(oldCursor, -1);
-        } else if (codePointDelta > 0 && oldCursor < value.length()) {
-            next = value.offsetByCodePoints(oldCursor, 1);
-        }
-        moveCursorTo(next, selecting);
-    }
-
-    private void moveCursorTo(int next, boolean selecting) {
-        Focus field = focus;
-        if (selecting && selectionAnchor(field) < 0) {
-            setSelectionAnchor(field, cursor(field));
-        } else if (!selecting) {
-            setSelectionAnchor(field, -1);
-        }
-        setCursor(field, next);
-    }
-
-    private void selectAll() {
-        Focus field = focus;
-        setSelectionAnchor(field, 0);
-        setCursor(field, text(field).length());
-    }
-
-    private boolean isKeyDown(int key) {
-        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), key);
-    }
-
-    private static boolean hit(int x, int y, int w, int h, double mx, double my) {
-        return mx >= x && mx <= x + w && my >= y && my <= y + h;
-    }
-
-    private static String cleanMessage(Throwable throwable) {
-        Throwable cause = throwable;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        if (message != null && message.contains("Local Netease service is unavailable")) {
-            return Config.isChinese ? "网易云本地服务未启动" : "Netease local service is offline";
-        }
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
-    }
-
-    private static String trim(String text, int maxChars) {
-        if (text == null) {
-            return "";
-        }
-        if (text.length() <= maxChars) {
-            return text;
-        }
-        return text.substring(0, Math.max(0, maxChars - 3)) + "...";
-    }
-
-    private static String trimToWidth(String text, float maxWidth) {
-        if (text == null || text.isBlank()) {
-            return "";
-        }
-        if (SkijaUi.textWidth(text, 12f) <= maxWidth) {
-            return text;
-        }
-        String suffix = "...";
-        int end = text.length();
-        while (end > 0) {
-            String candidate = text.substring(0, end) + suffix;
-            if (SkijaUi.textWidth(candidate, 12f) <= maxWidth) {
-                return candidate;
-            }
-            end--;
-        }
-        return suffix;
-    }
-
-    private static String formatPlayCount(long count) {
-        if (count >= 100_000_000L) {
-            return String.format("%.1f亿", count / 100_000_000.0D);
-        }
-        if (count >= 10_000L) {
-            return String.format("%.1f万", count / 10_000.0D);
-        }
-        return String.valueOf(Math.max(0L, count));
-    }
-
-    private AnimationState animationState() {
-        long now = System.currentTimeMillis();
-        if (closing) {
-            float progress = clamp((now - closeStartedAt) / (float) EXIT_DURATION_MS);
-            float eased = easeInOutCubic(progress);
-            float scale = progress < 0.32F
-            ? lerp(1.0F, 1.025F, easeOutCubic(progress / 0.32F))
-            : lerp(1.025F, 0.98F, easeInCubic((progress - 0.32F) / 0.68F));
-            return new AnimationState(scale, 1.0F - eased, progress >= 1.0F);
-        }
-
-        float progress = clamp((now - openStartedAt) / (float) ENTER_DURATION_MS);
-        float scale = progress < 0.72F
-        ? lerp(0.98F, 1.015F, easeOutCubic(progress / 0.72F))
-        : lerp(1.015F, 1.0F, easeInOutCubic((progress - 0.72F) / 0.28F));
-        return new AnimationState(scale, easeOutCubic(progress), false);
-    }
-
-    private static int withAlpha(int rgb, int alpha) {
-        return (Math.max(0, Math.min(255, alpha)) << 24) | (rgb & 0x00FFFFFF);
+    private static float ease(float progress) {
+        float remaining = 1f - clamp(progress);
+        return 1f - remaining * remaining * remaining;
     }
 
     private static float clamp(float value) {
-        return Math.max(0.0F, Math.min(1.0F, value));
+        return Math.max(0, Math.min(1, value));
     }
 
-    private static float lerp(float from, float to, float progress) {
-        return from + (to - from) * clamp(progress);
+    private static <T> CompletableFuture<T> async(CheckedTask<T> task) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return task.get();
+            } catch (Exception error) {
+                throw new java.util.concurrent.CompletionException(error);
+            }
+        }, IO);
     }
 
-    private static float easeOutCubic(float value) {
-        value = clamp(value);
-        float inv = 1.0F - value;
-        return 1.0F - inv * inv * inv;
+    private interface CheckedTask<T> {
+        T get() throws Exception;
     }
 
-    private static float easeInCubic(float value) {
-        value = clamp(value);
-        return value * value * value;
-    }
-
-    private static float easeInOutCubic(float value) {
-        value = clamp(value);
-        return value < 0.5F ? 4.0F * value * value * value : 1.0F - (float) Math.pow(-2.0F * value + 2.0F, 3.0F) * 0.5F;
-    }
-
-    private enum Focus {
-        NONE,
-        SEARCH,
-        PLAYLIST_SEARCH
-    }
-
-    private enum ViewMode {
-        HOME,
-        PLAYLIST,
-        SEARCH
-    }
-
-    private enum SliderTarget {
-        NONE,
-        PLAYLIST_GRID,
-        SONG_GRID
-    }
-
-    private enum PlayerButton {
-        NONE,
-        MODE,
-        STOP,
-        PREVIOUS,
-        PLAY_PAUSE,
-        NEXT,
-        VOLUME
-    }
-
-    private record AnimationState(float scale, float alpha, boolean done) {
-    }
-
-    private record GridScroll(int base, float offset) {
-    }
-
-    private record ContentTransition(float alpha, float scale, boolean oldPage) {
-    }
+    private enum Page { HOME, SEARCH, PLAYLIST, DAILY, QUEUE, SETTINGS }
+    private enum Drag { NONE, SEEK, VOLUME, SCROLL }
+    private record HitTarget(Rect bounds, int button, Runnable action) { }
+    private record MenuItem(String icon, String label, Runnable action) { }
 }

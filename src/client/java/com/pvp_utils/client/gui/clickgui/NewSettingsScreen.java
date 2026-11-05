@@ -63,7 +63,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private float searchCursorTime = 0f;
     private long lastRenderMs = 0;
     private float animatedClickGuiScale = -1f;
-    private float lastDelta = 0f;
 
     private float contentScrollOffset = 0f;
     private float targetScrollOffset = 0f;
@@ -177,12 +176,23 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float fitY = Math.max(0.1f, (layoutHeight - SCREEN_MARGIN) / BASE_CARD_H);
         float fit = Math.min(1f, Math.min(fitX, fitY));
         float guiScale = minecraft == null ? 2f : Math.max(1f, (float) minecraft.getWindow().getGuiScale());
-        float[] scales = {0.75f, 1.0f, 1.25f};
-        float targetScale = scales[Math.max(0, Math.min(Config.clickGuiScale, scales.length - 1))];
+        float uiScale = animatedClickGuiScale < 0f ? configuredUiScale() : animatedClickGuiScale;
+        return fit * 2f / guiScale * uiScale;
+    }
+
+    private float configuredUiScale() {
+        return switch (Math.max(0, Math.min(Config.clickGuiScale, 2))) {
+            case 0 -> 0.75f;
+            case 1 -> 1f;
+            default -> 1.25f;
+        };
+    }
+
+    private void updateUiScale(float dt) {
+        float targetScale = configuredUiScale();
         if (animatedClickGuiScale < 0f) animatedClickGuiScale = targetScale;
-        animatedClickGuiScale += (targetScale - animatedClickGuiScale) * Math.min(1f, lastDelta * 12f);
+        animatedClickGuiScale += (targetScale - animatedClickGuiScale) * Math.min(1f, dt * 12f);
         if (Math.abs(animatedClickGuiScale - targetScale) < 0.001f) animatedClickGuiScale = targetScale;
-        return fit * 2f / guiScale * animatedClickGuiScale;
     }
 
     private float getVisualScale(int width, int height) {
@@ -212,7 +222,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             return;
         }
 
-        renderPanelBlur();
         try {
             drawSettings(canvas, this.width, this.height, pendingMouseX, pendingMouseY, pendingDelta);
         } finally {
@@ -220,18 +229,13 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
     }
 
-    private void renderPanelBlur() {
+    private void renderPanelBlur(Canvas canvas, RRect panel) {
         if (!Config.clickGuiPanelBlur || minecraft == null) return;
-        int layoutWidth = layoutWidth();
-        int layoutHeight = layoutHeight();
-        float[] l = layout(layoutWidth, layoutHeight);
-        float visualScale = getVisualScale(this.width, this.height);
-        float panelX = this.width * 0.5f + (l[0] - layoutWidth * 0.5f) * visualScale;
-        float panelY = this.height * 0.5f + (l[1] - layoutHeight * 0.5f) * visualScale;
-        SkijaRenderer.draw(blurCanvas -> {
-            SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(panelX, panelY, l[2] * visualScale, l[3] * visualScale, 16f * visualScale), panelX, panelY, l[2] * visualScale, l[3] * visualScale, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-            SkijaUi.rounded(blurCanvas, panelX, panelY, l[2] * visualScale, l[3] * visualScale, 16f * visualScale, Config.skiaBlurTintColor());
-        });
+        SkijaRenderer.drawBlurredBackdrop(canvas, panel, panel.getLeft(), panel.getTop(),
+                panel.getWidth(), panel.getHeight(), Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
+        try (Paint tint = new Paint().setAntiAlias(true).setColor(Config.skiaBlurTintColor())) {
+            canvas.drawRRect(panel, tint);
+        }
     }
 
     private float toLayoutX(double x, int width, float scale) {
@@ -368,7 +372,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         long now = System.currentTimeMillis();
         float dt = lastRenderMs == 0 ? 0.016f : Math.min((now - lastRenderMs) / 1000f, 0.033f);
         lastRenderMs = now;
-        lastDelta = dt;
 
         if (closing) {
             openProgress = clamp01(openProgress - dt / OPEN_DURATION);
@@ -379,6 +382,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         } else {
             openProgress = clamp01(openProgress + dt / OPEN_DURATION);
         }
+        updateUiScale(dt);
 
         float animT = easeOutCubic(openProgress);
 
@@ -445,6 +449,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float cx = width / 2f;
         float cy = height / 2f;
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
+
+        renderPanelBlur(canvas, RRect.makeXYWH(
+                cx + (cardX - layoutWidth * 0.5f) * visualScale,
+                cy + (cardY - layoutHeight * 0.5f) * visualScale,
+                cardW * visualScale, cardH * visualScale, cardRadius * visualScale));
 
         canvas.save();
         canvas.translate(cx, cy);

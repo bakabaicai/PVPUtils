@@ -32,19 +32,27 @@ public final class NeteaseMusicApi {
             .build();
 
     private static final MusicService musicService = new MusicService();
+    private static final Object SESSION_LOCK = new Object();
     private static volatile LoginSession loginSession;
-    private static volatile boolean profileRefreshInFlight;
-    private static volatile long profileRefreshLastAttempt;
+    private static boolean profileRefreshInFlight;
+    private static long profileRefreshLastAttempt;
+    private static long profileRefreshGeneration;
+    private static long sessionGeneration;
+    private static String pendingQrKey;
 
     private NeteaseMusicApi() {
     }
 
     public static List<Song> search(String query) throws IOException, InterruptedException {
+        return search(query, 30, 0);
+    }
+
+    public static List<Song> search(String query, int limit, int offset) throws IOException, InterruptedException {
         if (query == null || query.isBlank()) {
             return List.of();
         }
         try {
-            List<Track> tracks = musicService.getNetease().search(query, 30, 0);
+            List<Track> tracks = musicService.getNetease().search(query, Math.max(1, limit), Math.max(0, offset));
             List<Song> result = new ArrayList<>();
             for (Track track : tracks) {
                 result.add(trackToSong(track));
@@ -52,6 +60,19 @@ public final class NeteaseMusicApi {
             return result;
         } catch (Exception e) {
             throw new IOException("Search failed", e);
+        }
+    }
+
+    public static List<Song> getDailyRecommendSongs() throws IOException, InterruptedException {
+        if (!isLoggedIn()) return List.of();
+        try {
+            List<Song> result = new ArrayList<>();
+            for (Track track : musicService.getNetease().getDailyRecommendSongs()) {
+                result.add(trackToSong(track));
+            }
+            return result;
+        } catch (Exception exception) {
+            throw new IOException("Failed to get daily recommendations", exception);
         }
     }
 
@@ -108,13 +129,18 @@ public final class NeteaseMusicApi {
     }
 
     public static QrLogin createQrLogin() throws IOException, InterruptedException {
+        SessionRequest request = sessionRequest();
         try {
-            QrCode qr = musicService.getNetease().createQrCode();
+            QrCode qr = authClient(request.previous() == null ? "" : request.previous().cookie()).createQrCode();
             String qrUrl = qr.getQrContent();
             if (qrUrl == null || qrUrl.isBlank()) {
                 throw new IOException("QR content is empty");
             }
             String qrImage = generateQrDataUrl(qrUrl);
+            synchronized (SESSION_LOCK) {
+                if (!currentSessionRequest(request)) throw new IOException("QR login cancelled");
+                pendingQrKey = qr.getKey();
+            }
             return new QrLogin(qr.getKey(), qrUrl, qrImage);
         } catch (Exception e) {
             throw new IOException("Failed to create QR login", e);
@@ -147,18 +173,28 @@ public final class NeteaseMusicApi {
         if (key == null || key.isBlank()) {
             throw new IOException("QR key is empty");
         }
+        SessionRequest request;
+        synchronized (SESSION_LOCK) {
+            if (!key.equals(pendingQrKey)) return new QrLoginStatus(-1, "QR login cancelled", null);
+            request = new SessionRequest(sessionGeneration, loginSession);
+        }
         try {
+            top.fpsmaster.music.NeteaseMusicApi client = authClient(request.previous() == null ? "" : request.previous().cookie());
             QrCode qr = new QrCode(key, "https://music.163.com/login?codekey=" + key);
-            QrLoginState state = musicService.getNetease().checkQrCode(qr);
+            QrLoginState state = client.checkQrCode(qr);
             return switch (state) {
                 case CONFIRMED -> {
-                    String cookie = musicService.getNetease().getCookie();
+                    String cookie = client.getCookie();
                     LoginSession session = refreshSessionFromCookie(cookie);
                     if (session == null) {
                         session = new LoginSession(0, "", "", cookie);
                     }
-                    loginSession = session;
-                    saveSession(session);
+                    synchronized (SESSION_LOCK) {
+                        if (!key.equals(pendingQrKey) || !commitSession(request, session)) {
+                            yield new QrLoginStatus(-1, "QR login cancelled", null);
+                        }
+                        pendingQrKey = null;
+                    }
                     yield new QrLoginStatus(803, "QR login confirmed", session);
                 }
                 case SCANNED -> new QrLoginStatus(802, "Waiting for confirmation", null);
@@ -202,10 +238,13 @@ public final class NeteaseMusicApi {
 
     public static List<Song> getPlaylistDetail(long id, int limit, int offset) throws IOException, InterruptedException {
         try {
-            List<Track> tracks = musicService.getNetease().getPlaylistTracks(String.valueOf(id), Math.max(1, limit));
+            int start = Math.max(0, offset);
+            int count = Math.max(1, limit);
+            int requested = (int) Math.min(Integer.MAX_VALUE, (long) start + count);
+            List<Track> tracks = musicService.getNetease().getPlaylistTracks(String.valueOf(id), requested);
             List<Song> result = new ArrayList<>();
-            int end = Math.min(offset + limit, tracks.size());
-            for (int i = offset; i < end; i++) {
+            int end = Math.min(requested, tracks.size());
+            for (int i = start; i < end; i++) {
                 result.add(trackToSong(tracks.get(i)));
             }
             return result;
@@ -219,9 +258,8 @@ public final class NeteaseMusicApi {
     }
 
     public static boolean restoreSession() {
-        if (loginSession != null) {
-            return true;
-        }
+        SessionRequest request = sessionRequest();
+        if (request.previous() != null) return true;
         Path path = sessionPath();
         if (!Files.isRegularFile(path)) {
             return false;
@@ -233,14 +271,11 @@ public final class NeteaseMusicApi {
             if (cookie.isBlank()) {
                 return false;
             }
-            musicService.getNetease().setCookie(cookie);
             LoginSession session = refreshSessionFromCookie(cookie);
             if (session == null) {
                 return false;
             }
-            loginSession = session;
-            saveSession(session);
-            return true;
+            return commitSession(request, session);
         } catch (Exception ignored) {
             return false;
         }
@@ -254,12 +289,25 @@ public final class NeteaseMusicApi {
         return session;
     }
 
+    public static void cancelPendingLogin() {
+        synchronized (SESSION_LOCK) {
+            sessionGeneration++;
+            pendingQrKey = null;
+            profileRefreshInFlight = false;
+            profileRefreshLastAttempt = 0L;
+            applySessionCookie();
+        }
+    }
+
     public static void logout() {
-        loginSession = null;
-        musicService.getNetease().clearLogin();
-        try {
-            Files.deleteIfExists(sessionPath());
-        } catch (IOException ignored) {
+        synchronized (SESSION_LOCK) {
+            cancelPendingLogin();
+            loginSession = null;
+            applySessionCookie();
+            try {
+                Files.deleteIfExists(sessionPath());
+            } catch (IOException ignored) {
+            }
         }
     }
 
@@ -279,15 +327,15 @@ public final class NeteaseMusicApi {
 
     private static LoginSession refreshSessionFromCookie(String cookie) {
         try {
-            musicService.getNetease().setCookie(cookie);
-            Long uid = musicService.getNetease().getLoginUid();
+            top.fpsmaster.music.NeteaseMusicApi client = authClient(cookie);
+            Long uid = client.getLoginUid();
             if (uid == null || uid <= 0) {
                 return null;
             }
             String nickname = "";
             String avatarUrl = "";
             try {
-                UserProfile profile = musicService.getNetease().getUserProfile(uid);
+                UserProfile profile = client.getUserProfile(uid);
                 if (profile != null) {
                     nickname = profile.getNickname() != null ? profile.getNickname() : "";
                     avatarUrl = profile.getAvatarUrl() != null ? profile.getAvatarUrl() : "";
@@ -305,22 +353,63 @@ public final class NeteaseMusicApi {
 
     private static void requestSessionProfileRefresh(LoginSession session) {
         long now = System.currentTimeMillis();
-        if (profileRefreshInFlight || (now - profileRefreshLastAttempt) < 5000) {
-            return;
+        SessionRequest request;
+        synchronized (SESSION_LOCK) {
+            if (loginSession != session || profileRefreshInFlight || now - profileRefreshLastAttempt < 5000L) return;
+            request = new SessionRequest(sessionGeneration, session);
+            profileRefreshInFlight = true;
+            profileRefreshGeneration = request.generation();
+            profileRefreshLastAttempt = now;
         }
-        profileRefreshInFlight = true;
-        profileRefreshLastAttempt = now;
         CompletableFuture.runAsync(() -> {
             try {
                 LoginSession refreshed = refreshSessionFromCookie(session.cookie());
                 if (refreshed != null && refreshed.uid() > 0 && !refreshed.cookie().isBlank()) {
-                    loginSession = refreshed;
-                    saveSession(refreshed);
+                    commitSession(request, refreshed);
                 }
             } finally {
-                profileRefreshInFlight = false;
+                synchronized (SESSION_LOCK) {
+                    if (profileRefreshGeneration == request.generation()) profileRefreshInFlight = false;
+                }
             }
         });
+    }
+
+    private static top.fpsmaster.music.NeteaseMusicApi authClient(String cookie) {
+        top.fpsmaster.music.NeteaseMusicApi client = new top.fpsmaster.music.NeteaseMusicApi();
+        client.setCookie(cookie);
+        return client;
+    }
+
+    private static SessionRequest sessionRequest() {
+        synchronized (SESSION_LOCK) {
+            return new SessionRequest(sessionGeneration, loginSession);
+        }
+    }
+
+    private static boolean currentSessionRequest(SessionRequest request) {
+        return request.generation() == sessionGeneration && request.previous() == loginSession;
+    }
+
+    private static boolean commitSession(SessionRequest request, LoginSession session) {
+        synchronized (SESSION_LOCK) {
+            if (!currentSessionRequest(request)) {
+                applySessionCookie();
+                return false;
+            }
+            loginSession = session;
+            applySessionCookie();
+            saveSession(session);
+            return true;
+        }
+    }
+
+    private static void applySessionCookie() {
+        if (loginSession == null) musicService.getNetease().clearLogin();
+        else musicService.getNetease().setCookie(loginSession.cookie());
+    }
+
+    private record SessionRequest(long generation, LoginSession previous) {
     }
 
     private static void saveSession(LoginSession session) {

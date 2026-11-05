@@ -452,7 +452,7 @@ public class HudEditOverlay {
             if (Math.abs(distance) > 1.6f) continue;
             int lineIndex = Math.floorMod(virtualIndex, lines.length);
             float focus = Math.max(0f, 1f - Math.abs(distance));
-            float size = (15f + 6f * focus) * scale;
+            float size = Math.round((15f + 6f * focus) * scale * 4f) * 0.25f;
             String text = trimToWidth(lines[lineIndex], Math.max(24f, rect.w - 32f * scale), size);
             float textW = SkijaUi.textWidth(text, size);
             int alpha = Math.round((120f + 125f * focus) * progress);
