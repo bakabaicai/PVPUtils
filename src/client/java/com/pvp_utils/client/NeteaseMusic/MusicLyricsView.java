@@ -3,20 +3,33 @@ package com.pvp_utils.client.NeteaseMusic;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.skia.SkijaUi;
 import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.FilterBlurMode;
 import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.MaskFilter;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.Rect;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class MusicLyricsView implements AutoCloseable {
+    private static final long SCROLL_DURATION_NANOS = 650_000_000L;
+    private static final float CHAIN_STIFFNESS = 100f;
+    private static final float CHAIN_DAMPING = 12f;
+    private static final float CHAIN_COUPLING = 0.65f;
+    private static final float CHAIN_FALLOFF = 0.25f;
+    private static final float CHAIN_MIN_RESPONSE = 0.35f;
+    private static final float BLUR_PER_LINE = 0.04f;
     private final MusicPlaybackService player = MusicPlaybackService.INSTANCE;
     private MusicBlurredCover background = new MusicBlurredCover();
     private MusicBlurredCover previousBackground = new MusicBlurredCover();
     private final List<Row> rows = new ArrayList<>();
     private final List<HitRow> hitRows = new ArrayList<>();
+    private final Map<Integer, MaskFilter> blurMasks = new HashMap<>();
+    private final Paint lyricPaint = new Paint().setAntiAlias(true);
     private List<LyricLine> cachedLyrics = List.of();
     private float cachedWidth = -1f;
     private long cachedFontRevision = -1L;
@@ -35,6 +48,10 @@ public final class MusicLyricsView implements AutoCloseable {
     private float coverScale = 1f;
     private float scroll;
     private float scrollTarget;
+    private float scrollFrom;
+    private long scrollStartNanos;
+    private boolean scrollTweening;
+    private float manualBlur = 1f;
     private float manualTarget;
     private float pendingProgress;
     private float pendingVolume;
@@ -69,6 +86,9 @@ public final class MusicLyricsView implements AutoCloseable {
     public void close() {
         background.close();
         previousBackground.close();
+        blurMasks.values().forEach(MaskFilter::close);
+        blurMasks.clear();
+        lyricPaint.close();
         clearRows();
         hitRows.clear();
         cachedLyrics = List.of();
@@ -245,46 +265,181 @@ public final class MusicLyricsView implements AutoCloseable {
         int focusedIndex = Math.max(0, Math.min(rows.size() - 1, activeIndex));
         float anchor = Math.max(lyricsTop + 12f, height * 0.25f);
         float automaticTarget = rows.get(focusedIndex).top() - anchor;
-        scrollTarget = now < manualUntil ? manualTarget : automaticTarget;
-        if (!positioned || draggingProgress) {
-            scroll = scrollTarget;
+        boolean manual = now < manualUntil;
+        float target = manual ? manualTarget : automaticTarget;
+        float previousScroll = scroll;
+        boolean instant = !positioned || draggingProgress;
+        if (instant) {
+            scroll = target;
+            scrollTarget = target;
+            scrollTweening = false;
             positioned = true;
+        } else if (manual) {
+            scrollTarget = target;
+            scrollTweening = false;
+            scroll = approach(scroll, target, delta, 9f);
         } else {
-            scroll = approach(scroll, scrollTarget, delta, 9f);
+            if (scrollTarget != target || (!scrollTweening && Math.abs(scroll - target) > 0.1f)) {
+                scrollFrom = scroll;
+                scrollTarget = target;
+                scrollStartNanos = now;
+                scrollTweening = true;
+            }
+            if (scrollTweening) {
+                float progress = Math.min(1f, (now - scrollStartNanos) / (float) SCROLL_DURATION_NANOS);
+                scroll = scrollFrom + (scrollTarget - scrollFrom) * fastOutSlowIn(progress);
+                if (progress >= 1f) scrollTweening = false;
+            }
+        }
+        manualBlur = approach(manualBlur, manual ? 0f : 1f, delta, manual ? 14f : 8f);
+        updateRowSprings(scroll - previousScroll, delta, focusedIndex, !instant && !manual);
+        float blurUnit = lyricSize * BLUR_PER_LINE;
+        for (int i = 0; i < rows.size(); i++) {
+            Row row = rows.get(i);
+            float focusTarget = i == focusedIndex ? 1f : 0f;
+            if (row.focus < 0f) {
+                row.focus = focusTarget;
+                row.focusFrom = focusTarget;
+                row.focusTarget = focusTarget;
+                row.focusStart = now;
+            } else if (row.focusTarget != focusTarget) {
+                row.focusFrom = row.focus;
+                row.focusTarget = focusTarget;
+                row.focusStart = now;
+            }
+            float duration = row.focusTarget > 0.5f ? 0.6f : 0.3f;
+            float focusProgress = Math.min(1f, (now - row.focusStart) / (duration * 1_000_000_000f));
+            float eased = row.focusTarget > 0.5f ? linearOutSlowIn(focusProgress) : easeInOut(focusProgress);
+            row.focus = row.focusFrom + (row.focusTarget - row.focusFrom) * eased;
+            float distance = Math.abs(i - focusedIndex);
+            float blurTarget = Math.min(distance * blurUnit, lyricSize * 0.5f) * manualBlur;
+            if (row.blur < 0f) row.blur = blurTarget;
+            else row.blur = approach(row.blur, blurTarget, delta, 12.5f);
+            float alphaTarget = i == focusedIndex ? 1f : 0.4f;
+            if (row.alpha < 0f) row.alpha = alphaTarget;
+            else row.alpha = approach(row.alpha, alphaTarget, delta, 16f);
         }
         int save = canvas.save();
         try {
             canvas.clipRect(Rect.makeXYWH(lyricsX - 8f, lyricsTop, lyricsWidth + 16f, lyricsBottom - lyricsTop));
             for (int i = 0; i < rows.size(); i++) {
                 Row row = rows.get(i);
-                float y = row.top() - scroll;
+                float y = row.top() - scroll + row.springOffset;
                 if (y > lyricsBottom) break;
                 if (y + row.height() < lyricsTop) continue;
                 float visibleY = Math.max(lyricsTop, y);
                 float visibleBottom = Math.min(lyricsBottom, y + row.height());
                 hitRows.add(new HitRow(row.line(), visibleY, Math.max(0f, visibleBottom - visibleY)));
                 boolean hovered = inside(mouseX, mouseY, lyricsX - 6f, visibleY, lyricsWidth + 12f, visibleBottom - visibleY);
-                boolean active = i == activeIndex;
-                float distance = Math.abs(i - focusedIndex);
-                float focus = active ? 1f : hovered ? 0.8f : Math.max(0.2f, 0.46f - distance * 0.045f);
+                float rowAlpha = row.alpha;
+                if (hovered) rowAlpha = Math.max(rowAlpha, 0.8f);
                 if (hovered) MusicUi.rounded(canvas, lyricsX - 7f, y - 4f, lyricsWidth + 14f,
                         row.height() + 8f, 7f, MusicUi.alpha(0x13FFFFFF, alpha));
-                float lineY = y;
-                for (SkijaUi.PreparedText line : row.primary()) {
-                    float edge = edgeAlpha(lineY, lyricSize * 1.25f);
-                    line.drawTop(canvas, lyricsX, lineY, MusicUi.alpha(MusicUi.TEXT, alpha * focus * edge));
-                    lineY += lyricSize * 1.3f;
-                }
-                if (!row.translated().isEmpty()) lineY += 6f;
-                for (SkijaUi.PreparedText line : row.translated()) {
-                    float edge = edgeAlpha(lineY, translationSize * 1.25f);
-                    line.drawTop(canvas, lyricsX, lineY, MusicUi.alpha(MusicUi.TEXT, alpha * focus * edge * 0.66f));
-                    lineY += translationSize * 1.35f;
+                float scale = 0.98f + 0.02f * row.focus;
+                float sigma = row.blur;
+                int rowSave = canvas.save();
+                try {
+                    if (scale < 0.999f) {
+                        float centerY = y + row.height() * 0.5f;
+                        canvas.translate(lyricsX, centerY);
+                        canvas.scale(scale, scale);
+                        canvas.translate(-lyricsX, -centerY);
+                    }
+                    lyricPaint.setMaskFilter(sigma > 0.08f ? blurMask(sigma) : null);
+                    float lineY = y;
+                    for (SkijaUi.PreparedText line : row.primary()) {
+                        float edge = edgeAlpha(lineY, lyricSize * 1.25f);
+                        line.drawTop(canvas, lyricsX, lineY,
+                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge), lyricPaint);
+                        lineY += lyricSize * 1.3f;
+                    }
+                    if (!row.translated().isEmpty()) lineY += 6f;
+                    for (SkijaUi.PreparedText line : row.translated()) {
+                        float edge = edgeAlpha(lineY, translationSize * 1.25f);
+                        line.drawTop(canvas, lyricsX, lineY,
+                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge * 0.66f), lyricPaint);
+                        lineY += translationSize * 1.35f;
+                    }
+                } finally {
+                    canvas.restoreToCount(rowSave);
                 }
             }
         } finally {
             canvas.restoreToCount(save);
         }
+    }
+
+    private void updateRowSprings(float scrollDelta, float delta, int focusedIndex, boolean chain) {
+        if (!chain) {
+            for (Row row : rows) {
+                row.springOffset = 0f;
+                row.springVelocity = 0f;
+            }
+            return;
+        }
+        for (int i = focusedIndex + 1; i < rows.size(); i++) rows.get(i).springOffset += scrollDelta;
+        int steps = Math.max(1, (int) Math.ceil(delta / (1f / 240f)));
+        float step = delta / steps;
+        for (int s = 0; s < steps; s++) {
+            for (int i = rows.size() - 1; i >= 0; i--) {
+                Row row = rows.get(i);
+                int distance = Math.max(0, i - focusedIndex);
+                float response = Math.max(CHAIN_MIN_RESPONSE, Math.min(1f, 1f - distance * CHAIN_FALLOFF));
+                float stiffness = CHAIN_STIFFNESS * response;
+                float damping = CHAIN_DAMPING * (float) Math.pow(response, 0.3f);
+                float target = i > focusedIndex ? rows.get(i - 1).springOffset * CHAIN_COUPLING : 0f;
+                float acceleration = -stiffness * (row.springOffset - target) - damping * row.springVelocity;
+                row.springVelocity += acceleration * step;
+                row.springOffset += row.springVelocity * step;
+            }
+        }
+        float limit = Math.max(40f, (lyricsBottom - lyricsTop) * 1.5f);
+        for (Row row : rows) {
+            if (Math.abs(row.springOffset) > limit) {
+                row.springOffset = Math.signum(row.springOffset) * limit;
+                row.springVelocity = 0f;
+            }
+        }
+    }
+
+    private static float fastOutSlowIn(float t) {
+        return cubicBezier(t, 0.4f, 0f, 0.2f, 1f);
+    }
+
+    private static float linearOutSlowIn(float t) {
+        return cubicBezier(t, 0f, 0f, 0.2f, 1f);
+    }
+
+    private static float easeInOut(float t) {
+        return cubicBezier(t, 0.42f, 0f, 0.58f, 1f);
+    }
+
+    private static float cubicBezier(float t, float x1, float y1, float x2, float y2) {
+        float u = t;
+        for (int i = 0; i < 8; i++) {
+            float x = bezierCoordinate(u, x1, x2);
+            float slope = bezierSlope(u, x1, x2);
+            if (Math.abs(slope) < 1e-5f) break;
+            u -= (x - t) / slope;
+            if (u < 0f) u = 0f;
+            if (u > 1f) u = 1f;
+        }
+        return bezierCoordinate(u, y1, y2);
+    }
+
+    private static float bezierCoordinate(float u, float p1, float p2) {
+        float v = 1f - u;
+        return 3f * v * v * u * p1 + 3f * v * u * u * p2 + u * u * u;
+    }
+
+    private static float bezierSlope(float u, float p1, float p2) {
+        float v = 1f - u;
+        return 3f * v * v * p1 + 6f * v * u * (p2 - p1) + 3f * u * u * (1f - p2);
+    }
+
+    private MaskFilter blurMask(float sigma) {
+        int key = Math.max(1, Math.round(sigma * 8f));
+        return blurMasks.computeIfAbsent(key, value -> MaskFilter.makeBlur(FilterBlurMode.NORMAL, value / 8f));
     }
 
     private float edgeAlpha(float y, float lineHeight) {
@@ -484,8 +639,49 @@ public final class MusicLyricsView implements AutoCloseable {
         return x >= left && x <= left + w && y >= top && y <= top + h;
     }
 
-    private record Row(LyricLine line, List<SkijaUi.PreparedText> primary,
-                       List<SkijaUi.PreparedText> translated, float top, float height) {
+    private static final class Row {
+        private final LyricLine line;
+        private final List<SkijaUi.PreparedText> primary;
+        private final List<SkijaUi.PreparedText> translated;
+        private final float top;
+        private final float height;
+        private float focus = -1f;
+        private float focusFrom;
+        private float focusTarget;
+        private long focusStart;
+        private float blur = -1f;
+        private float alpha = -1f;
+        private float springOffset;
+        private float springVelocity;
+
+        private Row(LyricLine line, List<SkijaUi.PreparedText> primary,
+                    List<SkijaUi.PreparedText> translated, float top, float height) {
+            this.line = line;
+            this.primary = primary;
+            this.translated = translated;
+            this.top = top;
+            this.height = height;
+        }
+
+        private LyricLine line() {
+            return line;
+        }
+
+        private List<SkijaUi.PreparedText> primary() {
+            return primary;
+        }
+
+        private List<SkijaUi.PreparedText> translated() {
+            return translated;
+        }
+
+        private float top() {
+            return top;
+        }
+
+        private float height() {
+            return height;
+        }
     }
 
     private record HitRow(LyricLine line, float y, float height) {

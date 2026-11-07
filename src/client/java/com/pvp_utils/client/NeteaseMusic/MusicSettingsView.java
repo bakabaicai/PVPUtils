@@ -74,7 +74,8 @@ public final class MusicSettingsView {
             } else if (tab == 1) {
                 y = section(canvas, text("歌词显示", "Lyrics display"), y, alpha);
                 y = toggle(canvas, "lyrics", text("显示歌词", "In-game lyrics"), Config.lyricsDisplay, y, mouseX, mouseY, alpha);
-                toggle(canvas, "island", text("音乐上岛", "Music on Island"), Config.dynamicIslandLyrics, y, mouseX, mouseY, alpha);
+                y = toggle(canvas, "translation", text("显示翻译", "Show translation"), Config.lyricsDisplayTranslation, y, mouseX, mouseY, alpha);
+                toggle(canvas, "island", text("灵动岛歌词", "Dynamic Island lyrics"), Config.dynamicIslandLyrics, y, mouseX, mouseY, alpha);
             } else {
                 y = section(canvas, text("音乐信息", "Music information"), y, alpha);
                 y = slider(canvas, Slider.INFO_SCALE, text("缩放", "Scale"), y, mouseX, mouseY, alpha);

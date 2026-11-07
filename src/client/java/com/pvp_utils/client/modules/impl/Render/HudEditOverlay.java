@@ -429,49 +429,8 @@ public class HudEditOverlay {
     }
 
     private void drawLyricsPreview(Canvas canvas, RectState rect, float progress) {
-        float scale = Math.max(0.5f, Config.lyricsDisplayScale);
-        float centerX = rect.x + rect.w * 0.5f;
-        float centerY = rect.y + rect.h * 0.5f + 7f * scale;
-        String[] lines = Config.isChinese
-        ? new String[]{"第一行歌词", "第二行歌词", "第三行歌词"}
-        : new String[]{"First line of lyrics", "Second line of lyrics", "Third line of lyrics"};
-        long elapsed = Math.max(0L, System.currentTimeMillis() - animStartTime);
-        long cycle = elapsed / 2000L;
-        float cycleTime = elapsed % 2000L;
-        float slideProgress = Math.max(0f, Math.min(1f, (cycleTime - 1550f) / 450f));
-        slideProgress = slideProgress < 0.5f
-        ? 4f * slideProgress * slideProgress * slideProgress
-        : 1f - (float) Math.pow(-2f * slideProgress + 2f, 3f) * 0.5f;
-        float visualCenter = 1f + cycle + slideProgress;
-        int base = (int) Math.floor(visualCenter);
-        float spacing = 27f * scale;
-        canvas.save();
-        canvas.clipRRect(RRect.makeXYWH(rect.x, rect.y, rect.w, rect.h, 5f));
-        for (int virtualIndex = base - 2; virtualIndex <= base + 2; virtualIndex++) {
-            float distance = virtualIndex - visualCenter;
-            if (Math.abs(distance) > 1.6f) continue;
-            int lineIndex = Math.floorMod(virtualIndex, lines.length);
-            float focus = Math.max(0f, 1f - Math.abs(distance));
-            float size = Math.round((15f + 6f * focus) * scale * 4f) * 0.25f;
-            String text = trimToWidth(lines[lineIndex], Math.max(24f, rect.w - 32f * scale), size);
-            float textW = SkijaUi.textWidth(text, size);
-            int alpha = Math.round((120f + 125f * focus) * progress);
-            int color = focus > 0.7f ? 0xFFFFFF : 0xC8CDD8;
-            float x = centerX - textW * 0.5f;
-            float y = centerY + distance * spacing;
-            SkijaUi.text(canvas, text, x + 1.2f * scale, (y + 1.2f * scale) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), alpha << 24, size);
-            SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), (alpha << 24) | color, size);
-        }
-        canvas.restore();
-    }
-
-    private String trimToWidth(String text, float maxWidth, float size) {
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
-        String ellipsis = "...";
-        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
-            text = text.substring(0, text.length() - 1);
-        }
-        return text + ellipsis;
+        LyricsDisplayRenderer.getInstance().drawPreview(canvas, rect.x, rect.y,
+                Math.max(0.5f, Config.lyricsDisplayScale), progress);
     }
 
     private void drawOutline(Canvas canvas, float x, float y, float w, float h, String label, float hoverAlpha, float alpha) {

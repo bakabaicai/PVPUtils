@@ -58,10 +58,6 @@ public class ThemePage extends BasePage {
                         new SettingToggle(() -> Config.liquidGlassShadow, v -> { Config.liquidGlassShadow = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("GUI设置", "GUI Settings"), UiText.t("调整 ClickGUI 界面的显示与滚动行为", "Adjust ClickGUI display and scrolling behavior"), null)
-                .addSub(UiText.t("界面大小", "GUI Size"), UiText.t("调整 ClickGUI 面板的整体缩放", "Adjust the overall scale of the ClickGUI panel"),
-                        new SettingCycle(List.of("75%", "100%", "125%"),
-                                () -> Config.clickGuiScale,
-                                i -> { Config.clickGuiScale = i; Config.save(); }))
                 .addSub(UiText.t("滚动灵敏度", "Scroll Sensitivity"), UiText.t("调整 ClickGUI 滚轮滚动的速度", "Adjust the ClickGUI scroll wheel speed"),
                         new SettingSlider(0.2, 5.0, "%.1fx", () -> (double) Config.clickGuiScrollSpeed,
                                 v -> { Config.clickGuiScrollSpeed = v.floatValue(); Config.save(); })));
@@ -84,9 +80,13 @@ public class ThemePage extends BasePage {
                                 () -> Config.clockHudStyle.ordinal(),
                                 i -> { Config.clockHudStyle = Config.HudStyle.values()[Math.max(0, Math.min(3, i))]; Config.save(); }))
                 .addSub(UiText.t("计分板液态玻璃", "Scoreboard Liquid Glass"), UiText.t("切换更好的计分板液态玻璃背景", "Toggle the Better Scoreboard liquid glass background"),
-                        new SettingToggle(() -> Config.betterScoreboardLiquidGlass, v -> { Config.betterScoreboardLiquidGlass = v; Config.save(); }))
+                        new SettingCycle(List.of(UiText.t("关", "Off"), UiText.t("开", "On")),
+                                () -> Config.betterScoreboardLiquidGlass ? 1 : 0,
+                                i -> { Config.betterScoreboardLiquidGlass = i == 1; Config.save(); }))
                 .addSub(UiText.t("物品栏液态玻璃", "Item Selector Liquid Glass"), UiText.t("切换更好的物品栏液态玻璃背景", "Toggle the Better Item Selector liquid glass background"),
-                        new SettingToggle(() -> Config.betterItemSelectorLiquidGlass, v -> { Config.betterItemSelectorLiquidGlass = v; Config.save(); }))
+                        new SettingCycle(List.of(UiText.t("关", "Off"), UiText.t("开", "On")),
+                                () -> Config.betterItemSelectorLiquidGlass ? 1 : 0,
+                                i -> { Config.betterItemSelectorLiquidGlass = i == 1; Config.save(); }))
                 .addSub(UiText.t("按键显示", "Keystrokes"), UiText.t("选择按键显示样式", "Choose the Keystrokes style"),
                         new SettingCycle(List.of("New", "Blur", "Liquid", "Lite"),
                                 () -> switch (Config.keystrokesMode) {

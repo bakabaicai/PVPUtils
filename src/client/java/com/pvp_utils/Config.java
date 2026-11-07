@@ -55,7 +55,8 @@ public class Config {
     public static boolean targetHud = false;
     public static boolean diggingStatus = false;
     public static boolean betterPingDisplay = false;
-    public static boolean lyricsDisplay = false;
+    public static boolean lyricsDisplay = true;
+    public static boolean lyricsDisplayTranslation = true;
     public static boolean musicInfoHud = false;
     public static boolean musicInfoHudCoverRounded = true;
     public static boolean fallDamagePredict = false;
@@ -130,8 +131,11 @@ public class Config {
     public static float skiaBlurStrength = 1.0f;
     public static boolean clickGuiPanelBlur = false;
     public static String clickGuiTheme = "white";
-    public static int clickGuiScale = 1;
+    public static int clickGuiScale = 0;
     public static float clickGuiScrollSpeed = 1.0f;
+    public static float clickGuiCardW = 740f;
+    public static float clickGuiCardH = 500f;
+    public static float clickGuiFlyoutW = 288f;
     public static boolean timeChange = false;
     public static boolean weatherChange = false;
     public static boolean zoom = false;
@@ -369,6 +373,7 @@ public class Config {
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
     public enum MusicInfoHudMode { LITE, NEW, BLUR, LIQUID_GLASS }
+
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
@@ -874,7 +879,7 @@ public class Config {
             new ModuleRule("NameTags", "nameTag", "nameTag", "nameTagShowSelf"),
             new ModuleRule("DynamicMotionBlur", "dynamicMotionBlur", "dynamicMotionBlur", "motionBlurAlgorithm"),
             new ModuleRule("HUDTheme", "hud", "", "skiaBlurStrength"),
-            new ModuleRule("ClickGuiScale", "clickGui", "", "clickGuiScale", "clickGuiScrollSpeed"),
+            new ModuleRule("ClickGuiScale", "clickGui", "", "clickGuiScale", "clickGuiScrollSpeed", "clickGuiCardW", "clickGuiCardH", "clickGuiFlyoutW"),
             new ModuleRule("Notification", "notification", ""),
             new ModuleRule("LiquidGlass", "liquidGlass", "", "liquidGlassBlur", "liquidGlassRefractionHeight", "liquidGlassRefractionAmount", "liquidGlassIoR", "liquidGlassDepthEffect", "liquidGlassDispersion", "liquidGlassRenderPrecision", "liquidGlassHighlight", "liquidGlassHighlightFollowView", "liquidGlassShadow"),
     };

@@ -172,13 +172,6 @@ public final class PluginPage extends BasePage {
     }
 
     @Override
-    public boolean onScroll(float mx, float my, float contentX, float contentY, float contentW,
-                            float scrollOffset, float amount) {
-        return !modules.isEmpty() && my >= contentY + 40f
-                && super.onScroll(mx, my, contentX, contentY + 40f, contentW, scrollOffset, amount);
-    }
-
-    @Override
     public boolean hasAnimatingModules() {
         return openDirectory.isAnimating() || refresh.isAnimating() || super.hasAnimatingModules();
     }

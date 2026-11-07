@@ -117,10 +117,14 @@ public final class NeteaseMusicApi {
             for (top.fpsmaster.music.LyricLine line : lyric.getLines()) {
                 String text = line.getText() != null ? line.getText() : "";
                 String trans = line.getTranslation() != null ? line.getTranslation() : "";
-                if (isInstrumentalPlaceholder(text)) {
+                if (line.isMetadata() || isInstrumentalPlaceholder(text)) {
                     continue;
                 }
-                result.add(new LyricLine(text, trans, line.getStartMs()));
+                List<LyricWord> words = new ArrayList<>();
+                for (top.fpsmaster.music.LyricWord word : line.getWords()) {
+                    words.add(new LyricWord(word.getStartMs(), word.getDurationMs(), word.getText()));
+                }
+                result.add(new LyricLine(text, trans, line.getStartMs(), words));
             }
             return result;
         } catch (Exception e) {

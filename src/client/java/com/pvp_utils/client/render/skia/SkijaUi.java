@@ -74,6 +74,18 @@ public final class SkijaUi {
     private SkijaUi() {
     }
 
+    public static Typeface boldTypeface() {
+        return BOLD_TYPEFACE;
+    }
+
+    public static Typeface regularTypeface() {
+        return REGULAR_TYPEFACE;
+    }
+
+    public static Typeface fallbackTypeface() {
+        return TEXT_FALLBACK_TYPEFACE;
+    }
+
     public static void fill(Canvas canvas, float x, float y, float width, float height, int color) {
         SHAPE_PAINT.setAntiAlias(false).setColor(color);
         canvas.drawRect(Rect.makeXYWH(x, y, width, height), SHAPE_PAINT);
@@ -789,8 +801,18 @@ public final class SkijaUi {
             canvas.drawTextBlob(blob, x, baseline, TEXT_PAINT);
         }
 
+        public void draw(Canvas canvas, float x, float baseline, int color, Paint paint) {
+            if (blob == null || color >>> 24 == 0) return;
+            paint.setColor(color);
+            canvas.drawTextBlob(blob, x, baseline, paint);
+        }
+
         public void drawTop(Canvas canvas, float x, float top, int color) {
             draw(canvas, x, top - ascent, color);
+        }
+
+        public void drawTop(Canvas canvas, float x, float top, int color, Paint paint) {
+            draw(canvas, x, top - ascent, color, paint);
         }
 
         @Override
