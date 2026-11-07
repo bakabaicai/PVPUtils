@@ -10,6 +10,7 @@ import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Overlay;
 
 public final class SkijaFrameRenderer {
@@ -32,7 +33,9 @@ public final class SkijaFrameRenderer {
             return;
         }
         SkijaRenderer.renderOverlay(canvas -> {
-            if (client.level != null && !client.options.hideGui) {
+            if (client.level != null && !client.options.hideGui
+                    && (client.screen == null || client.screen instanceof ChatScreen
+                    || HudEditOverlay.getInstance().isActive())) {
                 SkijaRenderer.draw(PotionStatusRenderer.getInstance()::renderSkija);
                 SkijaRenderer.draw(KeystrokesRenderer.getInstance()::renderSkija);
                 SkijaRenderer.draw(DynamicIslandRenderer.getInstance()::renderSkija);

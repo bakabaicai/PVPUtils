@@ -12,15 +12,38 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 public final class MainUIBackgrounds {
     private static final Path EXTERNAL_PATH = FabricLoader.getInstance().getGameDir().resolve("PVPUtils/backgrounds");
     private static final String DEFAULT_IMAGE = "1.png";
     private static final String DEFAULT_VIDEO = "background.mp4";
+    private static CompletableFuture<Void> initialization;
 
     private MainUIBackgrounds() {}
 
     public static void init() {
+        initAsync().join();
+    }
+
+    public static synchronized CompletableFuture<Void> initAsync() {
+        if (initialization != null) return initialization;
+        CompletableFuture<Void> pending = new CompletableFuture<>();
+        initialization = pending;
+        Thread worker = new Thread(() -> {
+            try {
+                initializeResources();
+                pending.complete(null);
+            } catch (Throwable failure) {
+                pending.completeExceptionally(failure);
+            }
+        }, "pvp-utils-mainui-assets");
+        worker.setDaemon(true);
+        worker.start();
+        return pending;
+    }
+
+    private static void initializeResources() {
         try {
             Files.createDirectories(EXTERNAL_PATH);
             Path target = EXTERNAL_PATH.resolve(DEFAULT_IMAGE);
@@ -79,6 +102,10 @@ public final class MainUIBackgrounds {
         }
         if (files.isEmpty()) files.add(DEFAULT_VIDEO);
         return files;
+    }
+
+    public static CompletableFuture<List<String>> listMp4sAsync() {
+        return initAsync().thenApplyAsync(ignored -> listMp4s());
     }
 
     public static Path resolve(String name) {

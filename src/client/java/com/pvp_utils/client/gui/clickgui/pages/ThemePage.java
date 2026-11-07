@@ -118,6 +118,7 @@ public class ThemePage extends BasePage {
     @Override
     public void update(float dt) {
         super.update(dt);
+        customColors.update(dt);
         primaryColor.update(dt);
         secondaryColor.update(dt);
     }

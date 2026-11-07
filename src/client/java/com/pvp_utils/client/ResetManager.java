@@ -260,7 +260,8 @@ public class ResetManager {
         Config.clickGuiPanelBlur = false;
         Config.clickGuiScale = 1;
         Config.clickGuiScrollSpeed = 1.0f;
-        Config.mainUIBackgroundMode = Config.MainUIBackgroundMode.GLSL;
+        Config.mainUIBackgroundMode = Config.MainUIBackgroundMode.VIDEO;
+        Config.mainUICustomBackground = false;
         Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
         Config.mainUIGlslShader = "Galaxy.frag.glsl";
         Config.mainUIVideoBackground = "background.mp4";

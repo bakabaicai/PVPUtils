@@ -105,7 +105,7 @@ public final class PluginManager {
             PluginManifest manifest = entry.manifest;
             result.add(new PluginInfo(entry.id, manifest == null ? entry.id : manifest.name(),
                     manifest == null ? "" : manifest.version(), manifest == null ? "" : manifest.description(),
-                    manifest == null ? "" : manifest.author(), entry.runtime != null, entry.error,
+                    manifest == null ? "" : manifest.author(), entry.runtime != null, PluginFeedback.message(entry.error),
                     entry.auditing, approvals.pending(entry.id), findingDetails(entry.report)));
         }
         return List.copyOf(result);
@@ -285,7 +285,7 @@ public final class PluginManager {
 
     public List<String> check() {
         List<String> result = new ArrayList<>();
-        if (!PluginDirectory.ensureExists()) return List.of("插件目录创建失败");
+        if (!PluginDirectory.ensureExists()) return List.of(UiText.t("插件目录创建失败", "Failed to create the plugin directory"));
         try (var children = Files.list(PluginDirectory.path())) {
             for (Path directory : children.filter(Files::isDirectory)
                     .filter(path -> !path.getFileName().toString().startsWith(".")).sorted().limit(64).toList()) {
@@ -293,15 +293,16 @@ public final class PluginManager {
                 try {
                     PluginSource source = PluginSource.read(PluginDirectory.path(), directory);
                     PluginSecurityAudit.Report report = PluginSecurityAudit.audit(source.code(), source.manifest().entry().getFileName().toString());
-                    String status = report.failed() ? " BLOCKED" : report.requiresApproval() ? " REVIEW" : " OK";
+                    String status = report.failed() ? UiText.t(" 已阻止", " BLOCKED")
+                            : report.requiresApproval() ? UiText.t(" 待审批", " REVIEW") : UiText.t(" 通过", " OK");
                     result.add(source.manifest().id() + status + (report.findings().isEmpty() ? ""
                             : ": " + String.join("; ", findingDetails(report).stream().limit(4).toList())));
                 } catch (Exception e) {
-                    result.add(directory.getFileName() + " ERROR: " + message(e));
+                    result.add(directory.getFileName() + UiText.t(" 错误：", " ERROR: ") + PluginFeedback.message(message(e)));
                 }
             }
         } catch (Exception e) {
-            result.add("SCAN ERROR: " + message(e));
+            result.add(UiText.t("扫描失败：", "SCAN ERROR: ") + PluginFeedback.message(message(e)));
         }
         return List.copyOf(result);
     }
@@ -315,7 +316,7 @@ public final class PluginManager {
                 try {
                     result = check();
                 } catch (RuntimeException error) {
-                    result = List.of("SCAN ERROR: " + message(error));
+                    result = List.of(UiText.t("扫描失败：", "SCAN ERROR: ") + PluginFeedback.message(message(error)));
                 }
                 List<String> completed = result;
                 Minecraft.getInstance().schedule(() -> {

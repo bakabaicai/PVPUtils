@@ -1,9 +1,9 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
+import com.pvp_utils.client.render.skia.SkijaUi;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.Paint;
-import io.github.humbleui.types.RRect;
+import io.github.humbleui.skija.PaintStrokeCap;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -12,18 +12,17 @@ public class SettingToggle extends SettingWidget {
 
     private final Supplier<Boolean> getter;
     private final Consumer<Boolean> setter;
-    private float thumbOffset = -1f;
-    private float colorT = -1f;
-    private final Paint trackPaint = new Paint().setAntiAlias(true);
-    private final Paint thumbPaint = new Paint().setAntiAlias(true);
+    private final ToggleAnimation animation;
 
     public SettingToggle(Supplier<Boolean> getter, Consumer<Boolean> setter) {
         this.getter = getter;
         this.setter = setter;
+        animation = new ToggleAnimation(getter.get());
     }
 
     public void toggle() {
         setter.accept(!getter.get());
+        animation.click(getter.get());
     }
 
     public boolean isOn() {
@@ -34,33 +33,43 @@ public class SettingToggle extends SettingWidget {
     @Override public float getHeight() { return 24f; }
 
     @Override
+    public void update(float dt) {
+        animation.update(getter.get(), dt);
+    }
+
+    @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
-        boolean on = getter.get();
-
-        if (colorT < 0f) colorT = on ? 1f : 0f;
-        if (thumbOffset < 0f) thumbOffset = on ? 22f : 0f;
-
-        float targetColorT = on ? 1f : 0f;
-        colorT += (targetColorT - colorT) * 0.2f;
-
-        float targetOffset = on ? 22f : 0f;
-        thumbOffset += (targetOffset - thumbOffset) * 0.2f;
-
-        int trackColor = lerpColor(ClickGuiThemeColors.current().scrollbarTrack, ClickGuiThemeColors.current().accent, colorT);
-
-        trackPaint.setColor(withAlpha(trackColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
-        thumbPaint.setColor(withAlpha(0xFFFFFF, alpha));
-        canvas.drawRRect(RRect.makeXYWH(x, y, 44f, 24f, 12f), trackPaint);
-        canvas.drawRRect(RRect.makeXYWH(x + thumbOffset, y + 2f, 20f, 20f, 10f), thumbPaint);
+        float progress = animation.progress();
+        float press = animation.press();
+        ClickGuiThemeColors colors = ClickGuiThemeColors.current();
+        int trackColor = lerpColor(colors.scrollbarTrack, colors.accent, progress);
+        SkijaUi.rounded(canvas, x, y, 44f, 24f, 12f,
+                withAlpha(trackColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
+        float centerX = x + 12f + 20f * progress;
+        float centerY = y + 12f;
+        float thumbWidth = 20f - 1.6f * press;
+        float thumbHeight = 20f + 0.8f * press;
+        SkijaUi.rounded(canvas, centerX - thumbWidth * 0.5f, centerY - thumbHeight * 0.5f,
+                thumbWidth, thumbHeight, 10f, withAlpha(0xFFFFFF, alpha));
+        int symbolColor = withAlpha(lerpColor(colors.mutedText, colors.accent, progress), alpha);
+        int save = canvas.save();
+        try {
+            canvas.translate(centerX, centerY);
+            canvas.rotate(180f * progress);
+            SkijaUi.line(canvas, lerp(-3.4f, 4.2f, progress), lerp(-3.4f, 0f, progress),
+                    lerp(3.4f, 1.1f, progress), lerp(3.4f, -2.9f, progress),
+                    1.7f, symbolColor, PaintStrokeCap.ROUND);
+            SkijaUi.line(canvas, lerp(3.4f, 1.1f, progress), lerp(-3.4f, -2.9f, progress),
+                    lerp(-3.4f, -4.6f, progress), 3.4f,
+                    1.7f, symbolColor, PaintStrokeCap.ROUND);
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     @Override
     public boolean isAnimating() {
-        boolean on = getter.get();
-        if (colorT < 0f || thumbOffset < 0f) return false;
-        float targetColorT = on ? 1f : 0f;
-        float targetOffset = on ? 22f : 0f;
-        return Math.abs(colorT - targetColorT) > 0.01f || Math.abs(thumbOffset - targetOffset) > 0.01f;
+        return animation.isAnimating();
     }
 
     @Override
@@ -75,5 +84,9 @@ public class SettingToggle extends SettingWidget {
         int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
         int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
         return ((int)(ar+(br-ar)*t) << 16) | ((int)(ag+(bg-ag)*t) << 8) | (int)(ab+(bb-ab)*t);
+    }
+
+    private static float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
     }
 }

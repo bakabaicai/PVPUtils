@@ -266,7 +266,7 @@ public class PotionStatusRenderer {
             if (Config.potionStatusBackground && Config.potionStatusStyle != Config.HudStyle.LITE) {
                 float scale = userScale * easedBg;
                 HudPanel.draw(canvas, x, y, WIDTH * scale, baseH * scale, BG_RADIUS * scale,
-                        Config.potionAppearance, bgProgress);
+                        Config.potionAppearance, 0x66111827, bgProgress);
             }
             canvas.save();
             canvas.translate(x, y);
@@ -299,9 +299,7 @@ public class PotionStatusRenderer {
         float alpha = visual.rowAlpha;
         float drawX = PAD + (1f - slide) * -24f;
         float drawW = WIDTH - PAD * 2f;
-        int effectColor = Config.potionStatusStyle == Config.HudStyle.LITE
-                ? 0xFF000000 | (effect.getEffect().value().getColor() & 0xFFFFFF)
-                : Config.potionAppearance.accent();
+        int effectColor = 0xFF000000 | (effect.getEffect().value().getColor() & 0xFFFFFF);
         int darkColor = darken(effectColor, 0.28f);
         float fillRatio = Mth.clamp(visual.fillProgress, 0f, 1f);
         boolean showCountdown = Config.potionStatusCountdown;
@@ -321,10 +319,10 @@ public class PotionStatusRenderer {
         String name = truncate(Component.translatable(effect.getDescriptionId()).getString(), 70f, 10f);
         String amp = amplifier(effect.getAmplifier());
         if (showCountdown) {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(Config.potionAppearance.customText ? Config.potionAppearance.text() : 0xF6FFFFFF, alpha), 10f);
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
             drawDurationLine(canvas, visual, amp, drawX + ICON + 10f, rowY + 22f, withAlpha(0xCFFFFFFF, alpha));
         } else {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(Config.potionAppearance.customText ? Config.potionAppearance.text() : 0xF6FFFFFF, alpha), 10f);
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
         }
     }
 

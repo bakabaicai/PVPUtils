@@ -47,6 +47,8 @@ Regular 2D rendering shares one managed Skia context. World geometry uses Minecr
 
 The main-target pass uses an FBO wrapping the Minecraft main color texture. The overlay pass uses the default framebuffer, FBO 0. Pass setup checks dimensions, reuses or recreates the Surface, synchronizes GL state, and applies GUI coordinate scaling.
 
+The host controls regular HUD visibility and does not schedule that layer over foreground menus by default. Overlay content intended for menus must define its visibility conditions and layer. Check the current screen both when submitting and when drawing so that a screen change does not leave content covering the foreground.
+
 ### 2.2 Choosing an entry point
 
 | Scenario | Standard approach |

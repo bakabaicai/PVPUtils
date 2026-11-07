@@ -1,10 +1,12 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
 import com.pvp_utils.client.gui.clickgui.UiText;
+import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
@@ -22,7 +24,7 @@ import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
@@ -119,8 +121,10 @@ public final class DynamicIslandRenderer implements AutoCloseable {
             close();
             return;
         }
-        if (client.screen instanceof AbstractContainerScreen<?>) {
+        if (client.screen != null && !(client.screen instanceof ChatScreen)
+                && !HudEditOverlay.getInstance().isActive()) {
             lastFrameNs = 0L;
+            lastTabRequestTime = 0L;
             return;
         }
         long nowNs = System.nanoTime();
@@ -503,7 +507,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         float iconY = (layout.height - iconSize) * 0.5f - (frame.kind == Kind.ITEM || frame.kind == Kind.BLOCK ? 4f : 0f);
         String icon = switch (frame.kind) {
             case ITEM -> ICON_ITEM_USE;
-            case BLOCK -> Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
+            case BLOCK -> AntiCheat.isDetected() && Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
             case ALERT -> frame.alert.icon();
             default -> frame.notification.icon();
         };

@@ -1,7 +1,10 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
+import com.pvp_utils.client.gui.clickgui.widget.PageTransition;
 import com.pvp_utils.client.gui.clickgui.widget.SettingRowLayout;
+import com.pvp_utils.client.gui.clickgui.widget.ToggleAnimation;
 import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
@@ -9,6 +12,7 @@ import io.github.humbleui.types.Rect;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class MusicSettingsView {
     private static final float INSET = 24f;
@@ -19,6 +23,13 @@ public final class MusicSettingsView {
     private static final Song PREVIEW_SONG_ZH = new Song(null, "PVPUtils Music", "正在播放", -1L, 240_000L);
     private static final Song PREVIEW_SONG_EN = new Song(null, "PVPUtils Music", "Now playing", -1L, 240_000L);
     private final List<Control> controls = new ArrayList<>();
+    private final PageTransition<Integer> pageTransition = new PageTransition<>(0);
+    private final Map<String, ToggleAnimation> toggleAnimations = Map.of(
+            "info", new ToggleAnimation(Config.musicInfoHud),
+            "rounded", new ToggleAnimation(Config.musicInfoHudCoverRounded),
+            "lyrics", new ToggleAnimation(Config.lyricsDisplay),
+            "translation", new ToggleAnimation(Config.lyricsDisplayTranslation),
+            "island", new ToggleAnimation(Config.dynamicIslandLyrics));
     private int tab;
     private float width;
     private float height;
@@ -33,23 +44,32 @@ public final class MusicSettingsView {
     private double previewTimeMs;
 
     public void render(Canvas canvas, float w, float h, float mouseX, float mouseY, float alpha) {
+        long now = System.nanoTime();
+        float dt = lastPreviewNs == 0L ? 0f : Math.clamp((now - lastPreviewNs) / 1_000_000_000f, 0f, 0.1f);
+        lastPreviewNs = now;
+        previewTimeMs += dt * 1000d;
+        if (pageTransition.update(dt)) {
+            tab = pageTransition.displayed();
+            scroll = 0f;
+            if (tab != 2) lyricPreview = tab == 1;
+        }
+        for (var entry : toggleAnimations.entrySet()) {
+            entry.getValue().update(toggleValue(entry.getKey()), dt);
+        }
         width = w;
         height = h;
         float previewWidth = w >= 660f ? Math.min(300f, w - 460f) : 0f;
         contentWidth = Math.max(1f, w - INSET * 2f - (previewWidth > 0f ? previewWidth + 12f : 0f));
-        contentHeight = tab == 0 ? 146f : tab == 1 ? 70f : 198f;
+        contentHeight = tab == 0 ? 146f : tab == 1 ? 94f : 198f;
         scroll = Math.max(0f, Math.min(maxScroll(), scroll));
         controls.clear();
-        long now = System.nanoTime();
-        if (lastPreviewNs != 0L) previewTimeMs += Math.min(100d, Math.max(0d, (now - lastPreviewNs) / 1_000_000d));
-        lastPreviewNs = now;
         MusicUi.bold(canvas, text("设置", "Settings"), INSET, 18f, 17f, color(MusicUi.TEXT, alpha));
         String[] labels = {text("通用", "General"), text("歌词", "Lyrics"), text("布局", "Layout")};
         for (int i = 0; i < labels.length; i++) {
             float x = INSET + i * 84f;
             boolean hovered = hit(mouseX, mouseY, x, 52f, 78f, 24f);
             MusicUi.rounded(canvas, x, 52f, 78f, 24f, 5f,
-                    color(tab == i ? MusicUi.ACCENT : hovered ? 0xFF34363D : MusicUi.PANEL, alpha));
+                    color(pageTransition.target() == i ? MusicUi.ACCENT : hovered ? 0xFF34363D : MusicUi.PANEL, alpha));
             MusicUi.bold(canvas, labels[i], x + (78f - MusicUi.boldWidth(labels[i], 8f)) * 0.5f,
                     60f, 8f, color(MusicUi.TEXT, alpha));
         }
@@ -60,22 +80,38 @@ public final class MusicSettingsView {
         String reset = text("重置此页", "Reset page");
         MusicUi.bold(canvas, reset, resetX + (84f - MusicUi.boldWidth(reset, 8f)) * 0.5f,
                 60f, 8f, color(MusicUi.TEXT, alpha));
+        float pageAlpha = alpha * pageTransition.opacity();
+        if (pageAlpha <= 0f) return;
+        float offset = pageTransition.offsetX();
+        int pageSave = canvas.save();
+        try {
+            canvas.clipRect(Rect.makeXYWH(INSET, CONTENT_TOP, Math.max(1f, width - INSET * 2f),
+                    Math.max(1f, height - CONTENT_TOP - 24f)));
+            canvas.translate(offset, 0f);
+            renderPage(canvas, previewWidth, pageTransition.isInteractive() ? mouseX - offset : Float.NEGATIVE_INFINITY,
+                    mouseY, pageAlpha);
+        } finally {
+            canvas.restoreToCount(pageSave);
+        }
+    }
+
+    private void renderPage(Canvas canvas, float previewWidth, float mouseX, float mouseY, float alpha) {
         int save = canvas.save();
         try {
             canvas.clipRect(Rect.makeXYWH(INSET, CONTENT_TOP, contentWidth, Math.max(1f, height - CONTENT_TOP - 24f)));
             float y = CONTENT_TOP - scroll;
             if (tab == 0) {
                 y = section(canvas, text("音乐信息", "Music information"), y, alpha);
-                y = toggle(canvas, "info", text("显示音乐信息", "Show music information"), Config.musicInfoHud, y, mouseX, mouseY, alpha);
+                y = toggle(canvas, "info", text("显示音乐信息", "Show music information"), y, mouseX, mouseY, alpha);
                 y = mode(canvas, y, mouseX, mouseY, alpha);
-                y = toggle(canvas, "rounded", text("圆角封面", "Rounded cover"), Config.musicInfoHudCoverRounded, y, mouseX, mouseY, alpha);
+                y = toggle(canvas, "rounded", text("圆角封面", "Rounded cover"), y, mouseX, mouseY, alpha);
                 y = section(canvas, text("播放", "Playback"), y + 8f, alpha);
                 slider(canvas, Slider.VOLUME, text("音量", "Volume"), y, mouseX, mouseY, alpha);
             } else if (tab == 1) {
                 y = section(canvas, text("歌词显示", "Lyrics display"), y, alpha);
-                y = toggle(canvas, "lyrics", text("显示歌词", "In-game lyrics"), Config.lyricsDisplay, y, mouseX, mouseY, alpha);
-                y = toggle(canvas, "translation", text("显示翻译", "Show translation"), Config.lyricsDisplayTranslation, y, mouseX, mouseY, alpha);
-                toggle(canvas, "island", text("灵动岛歌词", "Dynamic Island lyrics"), Config.dynamicIslandLyrics, y, mouseX, mouseY, alpha);
+                y = toggle(canvas, "lyrics", text("显示歌词", "In-game lyrics"), y, mouseX, mouseY, alpha);
+                y = toggle(canvas, "translation", text("显示翻译", "Show translation"), y, mouseX, mouseY, alpha);
+                toggle(canvas, "island", text("灵动岛歌词", "Dynamic Island lyrics"), y, mouseX, mouseY, alpha);
             } else {
                 y = section(canvas, text("音乐信息", "Music information"), y, alpha);
                 y = slider(canvas, Slider.INFO_SCALE, text("缩放", "Scale"), y, mouseX, mouseY, alpha);
@@ -97,7 +133,7 @@ public final class MusicSettingsView {
             MusicUi.rounded(canvas, INSET + contentWidth - 3f, handleY, 3f, handleHeight, 1.5f,
                     color(MusicUi.MUTED, alpha * 0.65f));
         }
-        if (previewWidth > 0f) renderPreview(canvas, w - INSET - previewWidth, previewWidth, alpha);
+        if (previewWidth > 0f) renderPreview(canvas, width - INSET - previewWidth, previewWidth, alpha);
     }
 
     private float section(Canvas canvas, String title, float y, float alpha) {
@@ -124,13 +160,18 @@ public final class MusicSettingsView {
                 rowX + 12f, y + 7f, 8f, color(MusicUi.TEXT, alpha));
     }
 
-    private float toggle(Canvas canvas, String id, String title, boolean value, float y, float mouseX, float mouseY, float alpha) {
+    private float toggle(Canvas canvas, String id, String title, float y, float mouseX, float mouseY, float alpha) {
         row(canvas, title, y, 24f, mouseX, mouseY, alpha, "rounded".equals(id) ? 1 : 0);
         float x = INSET + contentWidth - 36f;
+        ToggleAnimation animation = toggleAnimations.get(id);
+        float progress = animation.progress();
+        float press = animation.press();
         MusicUi.rounded(canvas, x, y + 6f, 24f, 12f, 6f,
-                color(value ? MusicUi.ACCENT : 0xFF55575E, alpha));
-        MusicUi.rounded(canvas, x + (value ? 14f : 2f), y + 8f, 8f, 8f, 4f,
-                color(MusicUi.TEXT, alpha));
+                color(ThemeColors.mix(0xFF55575E, MusicUi.ACCENT, progress), alpha));
+        float thumbWidth = 8f - press;
+        float thumbHeight = 8f + press * 0.4f;
+        MusicUi.rounded(canvas, x + 6f + 12f * progress - thumbWidth * 0.5f,
+                y + 12f - thumbHeight * 0.5f, thumbWidth, thumbHeight, 4f, color(MusicUi.TEXT, alpha));
         controls.add(new Control(id, x - 4f, y, 32f, ROW_HEIGHT, null));
         return y + ROW_HEIGHT + 2f;
     }
@@ -240,19 +281,21 @@ public final class MusicSettingsView {
         if (button != 0) return false;
         for (int i = 0; i < 3; i++) {
             if (hit(x, y, INSET + i * 84f, 52f, 78f, 24f)) {
-                mouseReleased();
-                tab = i;
-                if (tab != 2) lyricPreview = tab == 1;
-                scroll = 0f;
-                controls.clear();
+                if (pageTransition.target() != i) {
+                    mouseReleased();
+                    pageTransition.request(i);
+                    controls.clear();
+                }
                 return true;
             }
         }
         if (hit(x, y, Math.max(INSET + 252f, width - INSET - 84f), 52f, 84f, 24f)) {
+            if (!pageTransition.isInteractive()) return true;
             mouseReleased();
             resetPage();
             return true;
         }
+        if (!pageTransition.isInteractive()) return true;
         if (y < CONTENT_TOP || y > height - 24f) return false;
         boolean layoutRow = tab == 2 && x >= INSET && x <= INSET + contentWidth;
         if (layoutRow) lyricPreview = y >= lyricsGroupY;
@@ -268,6 +311,7 @@ public final class MusicSettingsView {
                     case "info" -> Config.musicInfoHud = !Config.musicInfoHud;
                     case "rounded" -> Config.musicInfoHudCoverRounded = !Config.musicInfoHudCoverRounded;
                     case "lyrics" -> Config.lyricsDisplay = !Config.lyricsDisplay;
+                    case "translation" -> Config.lyricsDisplayTranslation = !Config.lyricsDisplayTranslation;
                     case "island" -> Config.dynamicIslandLyrics = !Config.dynamicIslandLyrics;
                     case "mode" -> {
                         Config.musicInfoHudMode = switch (Config.musicInfoHudMode) {
@@ -278,6 +322,8 @@ public final class MusicSettingsView {
                     default -> { return false; }
                 }
                 Config.save();
+                ToggleAnimation animation = toggleAnimations.get(control.id);
+                if (animation != null) animation.click(toggleValue(control.id));
             }
             return true;
         }
@@ -285,7 +331,7 @@ public final class MusicSettingsView {
     }
 
     public boolean mouseDragged(float x, float y) {
-        if (dragging == null) return false;
+        if (dragging == null || !pageTransition.isInteractive()) return false;
         float fraction = Math.max(0f, Math.min(1f, (x - dragging.x) / dragging.width));
         Slider slider = dragging.slider;
         float value = slider.min() + fraction * (slider.max() - slider.min());
@@ -302,6 +348,7 @@ public final class MusicSettingsView {
     }
 
     public boolean mouseScrolled(float x, float y, float amount) {
+        if (!pageTransition.isInteractive()) return false;
         if (!hit(x, y, INSET, CONTENT_TOP, contentWidth, Math.max(1f, height - CONTENT_TOP - 24f))) return false;
         scroll = Math.max(0f, Math.min(maxScroll(), scroll - amount * 28f));
         return true;
@@ -316,6 +363,7 @@ public final class MusicSettingsView {
             MusicPlaybackService.INSTANCE.setVolume(1f, false);
         } else if (tab == 1) {
             Config.lyricsDisplay = false;
+            Config.lyricsDisplayTranslation = true;
             Config.dynamicIslandLyrics = false;
         } else {
             Config.musicInfoHudScale = 1f;
@@ -336,6 +384,17 @@ public final class MusicSettingsView {
         return switch (Config.musicInfoHudMode) {
             case LITE -> "Lite";
             default -> "Blur";
+        };
+    }
+
+    private static boolean toggleValue(String id) {
+        return switch (id) {
+            case "info" -> Config.musicInfoHud;
+            case "rounded" -> Config.musicInfoHudCoverRounded;
+            case "lyrics" -> Config.lyricsDisplay;
+            case "translation" -> Config.lyricsDisplayTranslation;
+            case "island" -> Config.dynamicIslandLyrics;
+            default -> false;
         };
     }
 
