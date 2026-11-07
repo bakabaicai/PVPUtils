@@ -1,7 +1,7 @@
 # PVPUtils
 
 <p>
-  <a href="./README.zh-CN.md"><strong>简体中文</strong></a>
+  <a href="./README.md"><strong>English</strong></a>
 </p>
 
 ## 简介
