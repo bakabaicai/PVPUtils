@@ -39,7 +39,7 @@ public class SettingLink extends SettingWidget {
             cachedText = text;
             cachedTextWidth = SkijaUi.textWidth(text, 12f);
         }
-        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) / 2f, (y + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, alpha), 12f);
+        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) / 2f, y, getHeight(), withAlpha(tc.subModuleText, alpha), 12f);
     }
 
     @Override

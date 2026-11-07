@@ -270,8 +270,11 @@ public final class MusicSettingsView {
                     case "lyrics" -> Config.lyricsDisplay = !Config.lyricsDisplay;
                     case "island" -> Config.dynamicIslandLyrics = !Config.dynamicIslandLyrics;
                     case "mode" -> {
-                        Config.MusicInfoHudMode[] modes = Config.MusicInfoHudMode.values();
-                        Config.musicInfoHudMode = modes[(Config.musicInfoHudMode.ordinal() + 1) % modes.length];
+                        Config.musicInfoHudMode = switch (Config.musicInfoHudMode) {
+                            case LITE -> Config.MusicInfoHudMode.BLUR;
+                            case BLUR -> Config.MusicInfoHudMode.LIQUID_GLASS;
+                            default -> Config.MusicInfoHudMode.LITE;
+                        };
                     }
                     default -> { return false; }
                 }
@@ -332,10 +335,9 @@ public final class MusicSettingsView {
 
     private static String modeName() {
         return switch (Config.musicInfoHudMode) {
-            case LITE -> text("简洁", "Compact");
-            case NEW -> text("卡片", "Card");
-            case BLUR -> text("毛玻璃", "Blur");
-            case LIQUID_GLASS -> text("液态玻璃", "Liquid glass");
+            case LITE -> "Lite";
+            default -> "Blur";
+            case LIQUID_GLASS -> "Liquid";
         };
     }
 

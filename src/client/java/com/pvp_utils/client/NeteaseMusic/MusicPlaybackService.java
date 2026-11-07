@@ -40,6 +40,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     private final StreamPlayer player = new StreamPlayer();
     private final List<Song> playlist = Collections.synchronizedList(new ArrayList<>());
     private final List<LyricLine> lyrics = Collections.synchronizedList(new ArrayList<>());
+    private volatile List<LyricLine> lyricSnapshot = List.of();
     private final AtomicLong playbackRevision = new AtomicLong();
     private volatile Song currentSong;
     private volatile File currentFile;
@@ -125,6 +126,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         totalDurationMs = 0L;
         synchronized (lyrics) {
             lyrics.clear();
+            lyricSnapshot = List.of();
         }
     }
 
@@ -152,6 +154,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         status = "Loading " + song.name();
         synchronized (lyrics) {
             lyrics.clear();
+            lyricSnapshot = List.of();
         }
         executor.execute(() -> {
             try {
@@ -181,6 +184,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 synchronized (lyrics) {
                     lyrics.clear();
                     lyrics.addAll(loadedLyrics);
+                    lyricSnapshot = List.copyOf(loadedLyrics);
                 }
                 currentFile = cachedFile.toFile();
                 player.stop();
@@ -266,6 +270,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
                 totalDurationMs = 0L;
                 synchronized (lyrics) {
                     lyrics.clear();
+                    lyricSnapshot = List.of();
                 }
             }
         });
@@ -403,9 +408,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     public List<LyricLine> lyricsSnapshot() {
-        synchronized (lyrics) {
-            return List.copyOf(lyrics);
-        }
+        return lyricSnapshot;
     }
 
     private static String cleanMessage(Exception exception) {

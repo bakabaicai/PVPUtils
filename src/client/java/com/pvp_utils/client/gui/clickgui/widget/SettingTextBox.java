@@ -76,7 +76,7 @@ public class SettingTextBox extends SettingWidget {
                 canvas.drawRect(Rect.makeXYWH(selectionX, y + 4f, selectionW, 16f), selectionPaint);
             }
         }
-        SkijaUi.text(canvas, display, textX - (empty ? 0f : textOffset), (y + 15.5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
+        SkijaUi.text(canvas, display, textX - (empty ? 0f : textOffset), y, getHeight(), withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
         if (active) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(cursorTime * 6f));
             float cursorX = textX + Math.min(textW - 1f, Math.max(0f, cursorTextW - textOffset));

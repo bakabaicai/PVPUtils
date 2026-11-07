@@ -5,6 +5,8 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
+import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
@@ -99,19 +101,11 @@ public class MusicInfoHudRenderer {
             float scaledW = CARD_W * userScale;
             float scaledH = CARD_H * userScale;
 
-            if (liquid) {
-                LiquidGlassRenderer.getInstance().renderPanel(client, x, y, scaledW, scaledH, RADIUS * userScale,
-                LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 2);
-            } else if (blurMode) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, scaledW, scaledH, RADIUS * userScale), x, y, scaledW, scaledH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-                SkijaUi.rounded(canvas, x, y, scaledW, scaledH, RADIUS * userScale, Config.skiaBlurTintColor());
-            }
+            HudPanel.draw(canvas, x, y, scaledW, scaledH, RADIUS * userScale,
+                    Config.musicInfoAppearance, liquid, 1f);
             canvas.translate(x, y);
             canvas.scale(userScale, userScale);
 
-            if (!blurMode) {
-                SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, cardColor());
-            }
             drawCardContent(canvas, song, player.positionMs(), player.totalDurationMs(), player.playbackMode().label(), blurMode);
 
         } finally {
@@ -130,7 +124,7 @@ public class MusicInfoHudRenderer {
                 boolean blurMode = Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR
                         || Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS;
                 int background = Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS
-                        ? LiquidGlassRenderer.panelTint() : blurMode ? Config.skiaBlurTintColor() : cardColor();
+                        ? Config.musicInfoAppearance.background() : Config.musicInfoAppearance.background();
                 SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, background);
                 drawCardContent(canvas, song, positionMs, totalMs, playbackMode, blurMode);
             }
@@ -173,7 +167,7 @@ public class MusicInfoHudRenderer {
         float barW = 112f;
         float barH = 5f;
         SkijaUi.rounded(canvas, barX, barY, barW, barH, barH * 0.5f, trackColor(blurMode));
-        SkijaUi.rounded(canvas, barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f, ACCENT);
+        SkijaUi.rounded(canvas, barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f, Config.musicInfoAppearance.accent());
         SkijaUi.text(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
         String mode = playbackMode;
         SkijaUi.text(canvas, mode, CARD_W - 14f - SkijaUi.textWidth(mode, 9f), (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
@@ -186,6 +180,10 @@ public class MusicInfoHudRenderer {
         float y = getRenderY(screenH);
         float scale = getScale();
 
+        if (Config.musicInfoAppearance.shadow) {
+            SkijaRenderer.draw(c -> SoftShadow.drawRounded(c, x, y, LITE_W * scale, LITE_H * scale,
+                    0f, Config.musicInfoAppearance.shadowStrength, 0xB0000000));
+        }
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
@@ -198,9 +196,9 @@ public class MusicInfoHudRenderer {
     }
 
     private void drawLiteCard(LitePainter painter, Song song, long positionMs, long totalMs, String playbackMode) {
-        int bg = Config.hudTheme == Config.HudTheme.LIGHT ? 0xDDF8FAFC : 0xCC0C1018;
-        int primary = Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF111827 : 0xFFFFFFFF;
-        int secondary = Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA111827 : 0xCCFFFFFF;
+        int bg = Config.musicInfoAppearance.background();
+        int primary = Config.musicInfoAppearance.text();
+        int secondary = Config.musicInfoAppearance.secondaryText();
         int muted = Config.hudTheme == Config.HudTheme.LIGHT ? 0x885C5870 : 0x88FFFFFF;
         painter.fill(0, 0, Math.round(LITE_W), Math.round(LITE_H), bg);
         painter.cover(song, 8, 8, COVER_SIZE);
@@ -210,7 +208,7 @@ public class MusicInfoHudRenderer {
         long position = Math.max(0L, Math.min(positionMs, total));
         float progress = total <= 0L ? 0f : Mth.clamp(position / (float) total, 0f, 1f);
         painter.fill(56, 39, 178, 42, muted);
-        painter.fill(56, 39, 56 + Math.round(122 * progress), 42, ACCENT);
+        painter.fill(56, 39, 56 + Math.round(122 * progress), 42, Config.musicInfoAppearance.accent());
         String time = MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total);
         painter.text(time, 56, 46, muted);
         painter.text(playbackMode, Math.round(LITE_W) - 8 - Math.round(painter.width(playbackMode)), 46, muted);
@@ -277,11 +275,11 @@ public class MusicInfoHudRenderer {
     }
 
     private int primaryTextColor(boolean blurMode) {
-        return blurMode ? Config.hudPrimaryTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+        return Config.musicInfoAppearance.text();
     }
 
     private int mutedTextColor(boolean blurMode) {
-        return blurMode ? Config.hudMutedTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+        return Config.musicInfoAppearance.secondaryText();
     }
 
     private int trackColor(boolean blurMode) {

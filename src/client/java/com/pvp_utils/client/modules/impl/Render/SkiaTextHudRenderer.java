@@ -5,6 +5,9 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudAppearance;
+import com.pvp_utils.client.render.HudPanel;
+import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
@@ -28,10 +31,13 @@ public abstract class SkiaTextHudRenderer {
     private static final int LITE_OUTLINE_COLOR = 0x99FFFFFF;
     private static final int TEXT_COLOR = 0xFFF2F4F8;
 
-    private final Paint panelPaint = new Paint().setAntiAlias(true);
 
     private record Prepared(SkiaTextHudRenderer renderer, List<Line> lines, int width, int height,
     float scale, int x, int y, boolean blurred, boolean liquid) {}
+
+    protected abstract HudAppearance appearance();
+
+    protected int minimumWidth() { return 0; }
 
     protected abstract boolean enabled();
 
@@ -81,6 +87,10 @@ public abstract class SkiaTextHudRenderer {
         int x = renderX(client, width);
         int y = renderY(client, height);
 
+        if (this instanceof ClockHudRenderer && backgroundEnabled() && appearance().shadow) {
+            SkijaRenderer.draw(canvas -> SoftShadow.drawRounded(canvas, x, y, width * scale,
+                    height * scale, 0f, appearance().shadowStrength, 0xB0000000));
+        }
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
@@ -91,9 +101,10 @@ public abstract class SkiaTextHudRenderer {
             graphics.renderOutline(x, y, width, height, LITE_OUTLINE_COLOR);
         }
 
-        int textY = y + PADDING_Y + 1;
+        int textY = y + PADDING_Y + Math.round((LINE_HEIGHT - client.font.lineHeight) * 0.5f);
         for (Line line : lines) {
-            graphics.drawString(client.font, line.text(), x + PADDING_X, textY, line.color(), false);
+            graphics.drawString(client.font, line.text(), x + PADDING_X, textY,
+                    appearance().customText ? appearance().text() : line.color(), false);
             textY += Math.round(LINE_HEIGHT);
         }
         drawExtrasLite(graphics, x, textY, width);
@@ -141,57 +152,49 @@ public abstract class SkiaTextHudRenderer {
     private static Prepared renderBackground(Canvas canvas, Minecraft client, Prepared item) {
         SkiaTextHudRenderer renderer = item.renderer();
         if (!renderer.backgroundEnabled()) return item;
-        float radius = Math.min(8f, item.height() * 0.4f) * item.scale();
+        float radius = (renderer.style() == Config.HudStyle.MATERIAL ? 22f : PANEL_RADIUS) * item.scale();
         float w = item.width() * item.scale();
         float h = item.height() * item.scale();
-        if (renderer.style() == Config.HudStyle.LIQUID_GLASS) {
-            return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
-            item.x(), item.y(), false,
-            LiquidGlassRenderer.getInstance().renderPanel(client, item.x(), item.y(), w, h, radius,
-            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow,
-            Config.liquidGlassHighlight, 0f, 1));
-        }
-        if (renderer.style() == Config.HudStyle.BLUR) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(item.x(), item.y(), w, h, radius), item.x(), item.y(), w, h, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius, Config.skiaBlurTintColor());
-            return new Prepared(renderer, item.lines(), item.width(), item.height(), item.scale(),
-            item.x(), item.y(),
-            true,
-            false);
+        HudAppearance appearance = renderer.appearance();
+        if (renderer.style() == Config.HudStyle.MATERIAL) {
+            if (appearance.shadow) SoftShadow.drawRounded(canvas, item.x(), item.y(), w, h,
+                    radius, appearance.shadowStrength, 0xB0000000);
+            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius, appearance.background());
+            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius,
+                    HudPanel.opacity(appearance.accent(), 0.13f));
+        } else {
+            HudPanel.draw(canvas, item.x(), item.y(), w, h, radius, appearance,
+                    renderer.style() == Config.HudStyle.LIQUID_GLASS, 1f);
         }
         return item;
     }
 
     private void draw(Canvas canvas, Prepared item) {
+        int save = canvas.save();
         try {
-            canvas.save();
             canvas.translate(item.x, item.y);
             canvas.scale(item.scale, item.scale);
-
-            if (backgroundEnabled() && !item.liquid) {
-                ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-                panelPaint.setColor(style() == Config.HudStyle.BLUR && item.blurred
-                ? 0x40101420
-                : tc.dark ? 0xB0101420 : 0xD0101420);
-                canvas.drawRRect(RRect.makeXYWH(0.5f, 0.5f, item.width - 1f, item.height - 1f, PANEL_RADIUS), panelPaint);
-            }
-
-            float textY = PADDING_Y + (-SkijaUi.textMetrics(TEXT_SIZE).getAscent());
-            for (Line line : item.lines) {
-                SkijaUi.text(canvas, line.text(), PADDING_X, (textY) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), line.color(), TEXT_SIZE);
-                textY += LINE_HEIGHT;
-            }
-            drawExtras(canvas, item.width, textY);
+            drawContent(canvas, item.lines, item.width, item.height);
         } finally {
-            canvas.restore();
+            canvas.restoreToCount(save);
         }
+    }
+
+    protected void drawContent(Canvas canvas, List<Line> lines, float width, float height) {
+        float top = PADDING_Y;
+        for (Line line : lines) {
+            int color = appearance().customText ? appearance().text() : line.color();
+            SkijaUi.text(canvas, line.text(), PADDING_X, top, LINE_HEIGHT, color, TEXT_SIZE);
+            top += LINE_HEIGHT;
+        }
+        drawExtras(canvas, width, top);
     }
 
     public float getEditWidth() {
         List<Line> lines = lines();
         float width = style() == Config.HudStyle.LITE
-        ? liteWidth(Minecraft.getInstance(), lines)
-        : skiaWidth(lines);
+        ? litePanelWidth(Minecraft.getInstance(), lines)
+        : skiaPanelWidth(lines);
         return width * scale();
     }
 
@@ -202,8 +205,8 @@ public abstract class SkiaTextHudRenderer {
     public int getRenderX(int screenW) {
         List<Line> lines = lines();
         float width = style() == Config.HudStyle.LITE
-        ? liteWidth(Minecraft.getInstance(), lines)
-        : skiaWidth(lines);
+        ? litePanelWidth(Minecraft.getInstance(), lines)
+        : skiaPanelWidth(lines);
         return clamp((int) (screenW * 0.5f + configX()), 0, Math.max(0, screenW - Math.round(width * scale())));
     }
 
@@ -225,7 +228,7 @@ public abstract class SkiaTextHudRenderer {
     }
 
     private int skiaPanelWidth(List<Line> lines) {
-        return Math.round(skiaWidth(lines)) + PADDING_X * 2;
+        return Math.max(minimumWidth(), (int) Math.ceil(skiaWidth(lines)) + PADDING_X * 2);
     }
 
     private float skiaWidth(List<Line> lines) {
@@ -253,12 +256,12 @@ public abstract class SkiaTextHudRenderer {
 
     private int renderX(Minecraft client, int width) {
         int screenW = client.getWindow().getGuiScaledWidth();
-        return clamp((int) (screenW * 0.5f + configX()), 0, Math.max(0, screenW - width));
+        return clamp((int) (screenW * 0.5f + configX()), 0, Math.max(0, screenW - Math.round(width * scale())));
     }
 
     private int renderY(Minecraft client, int height) {
         int screenH = client.getWindow().getGuiScaledHeight();
-        return clamp((int) (screenH * 0.5f + configY()), 0, Math.max(0, screenH - height));
+        return clamp((int) (screenH * 0.5f + configY()), 0, Math.max(0, screenH - Math.round(height * scale())));
     }
 
     private static int clamp(int value, int min, int max) {

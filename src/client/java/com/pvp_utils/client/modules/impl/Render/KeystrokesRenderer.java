@@ -5,6 +5,9 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudAppearance;
+import com.pvp_utils.client.render.HudPanel;
+import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
@@ -21,12 +24,6 @@ public class KeystrokesRenderer {
     private static final KeystrokesRenderer INSTANCE = new KeystrokesRenderer();
     private static final int KEY_SIZE = 24;
     private static final int GAP = 3;
-    private static final int BG_COLOR = 0x7A0E1117;
-    private static final int BG_ACTIVE_COLOR = 0xDDF2F4F8;
-    private static final int GLOW_COLOR = 0x38FFFFFF;
-    private static final int TEXT_COLOR = 0xEFFFFFFF;
-    private static final int ACTIVE_TEXT_COLOR = 0xFF171724;
-    private static final int ACCENT_COLOR = 0xFFFFFFFF;
     private static final int LITE_BG_COLOR = 0x66000000;
     private static final int LITE_ACTIVE_COLOR = 0xCCFFFFFF;
     private static final int LITE_TEXT_COLOR = 0xFFFFFFFF;
@@ -43,9 +40,6 @@ public class KeystrokesRenderer {
     private final KeyVisual rightMouse = new KeyVisual();
     private final KeyVisual spaceKey = new KeyVisual();
     private final KeyVisual shiftKey = new KeyVisual();
-    private final Paint glowPaint = new Paint().setAntiAlias(true);
-    private final Paint bgPaint = new Paint().setAntiAlias(true);
-    private final Paint ripplePaint = new Paint().setAntiAlias(true);
 
     private long lastFrameMs = 0L;
     private boolean pendingFrame = false;
@@ -54,14 +48,16 @@ public class KeystrokesRenderer {
     private float pendingScale = 1f;
     private int pendingLeftCps = 0;
     private int pendingRightCps = 0;
-    private final float keyLabelW = SkijaUi.textWidth("W", 11f);
-    private final float aLabelW = SkijaUi.textWidth("A", 11f);
-    private final float sLabelW = SkijaUi.textWidth("S", 11f);
-    private final float dLabelW = SkijaUi.textWidth("D", 11f);
-    private final float spaceLabelW = SkijaUi.textWidth("SPACE", 11f);
-    private final float shiftLabelW = SkijaUi.textWidth("SHIFT", 11f);
-    private final float lmbLabelW = SkijaUi.textWidth("LMB", 8.5f);
-    private final float rmbLabelW = SkijaUi.textWidth("RMB", 8.5f);
+    private float keyLabelW;
+    private float aLabelW;
+    private float sLabelW;
+    private float dLabelW;
+    private float spaceLabelW;
+    private float shiftLabelW;
+    private float lmbLabelW;
+    private float rmbLabelW;
+
+    private long labelFontRevision = Long.MIN_VALUE;
 
     public static KeystrokesRenderer getInstance() {
         return INSTANCE;
@@ -161,7 +157,8 @@ public class KeystrokesRenderer {
             clearPendingFrame();
             return;
         }
-        renderGl(client, pendingX, pendingY, pendingScale, pendingLeftCps, pendingRightCps);
+        updateLabelMetrics();
+        renderGl(canvas, client, pendingX, pendingY, pendingScale, pendingLeftCps, pendingRightCps);
         clearPendingFrame();
     }
 
@@ -197,16 +194,10 @@ public class KeystrokesRenderer {
         graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
     }
 
-    private void renderGl(Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
-        SkijaRenderer.draw(canvas -> {
-            if (Config.keystrokesMode == Config.KeystrokesMode.BLUR) {
-                renderBlurKeyBackgrounds(canvas, x, y, scale);
-            } else if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
-                if (!renderLiquidKeyBackgrounds(client, x, y, scale)) {
-                    renderBlurKeyBackgrounds(canvas, x, y, scale);
-                }
-            }
-            canvas.save();
+    private void renderGl(Canvas canvas, Minecraft client, int x, int y, float scale, int leftCps, int rightCps) {
+        renderKeyBackgrounds(canvas, client, x, y, scale);
+        int save = canvas.save();
+        try {
             canvas.translate(x, y);
             canvas.scale(scale, scale);
             int mouseY = (KEY_SIZE + GAP) * 2;
@@ -232,94 +223,65 @@ public class KeystrokesRenderer {
             drawMouseLabel(canvas, "RMB", rmbLabelW, leftMouseW + GAP, mouseY, rightMouseW, rightMouse);
             drawKeyLabel(canvas, "SPACE", spaceLabelW, 0, bottomY, leftMouseW, KEY_SIZE, spaceKey);
             drawKeyLabel(canvas, "SHIFT", shiftLabelW, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, shiftKey);
-            canvas.restore();
-        });
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
-    private void renderBlurKeyBackgrounds(Canvas canvas, int x, int y, float scale) {
+    private void renderKeyBackgrounds(Canvas canvas, Minecraft client, int x, int y, float scale) {
         int mouseY = (KEY_SIZE + GAP) * 2;
         int leftMouseW = (TOTAL_W - GAP) / 2;
         int rightMouseW = TOTAL_W - GAP - leftMouseW;
         int bottomY = (KEY_SIZE + GAP) * 3;
-
         List<RRect> regions = List.of(
-        blurRegion(x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE),
-        blurRegion(x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-        blurRegion(x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-        blurRegion(x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
-        blurRegion(x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE),
-        blurRegion(x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE),
-        blurRegion(x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE),
-        blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE)
-        );
-        for (RRect region : regions) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, region, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-            SkijaUi.rounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), Math.min(7.0f, KEY_SIZE * 0.32f) * scale, Config.skiaBlurTintColor());
+                blurRegion(x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE),
+                blurRegion(x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE),
+                blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE));
+        HudAppearance appearance = Config.keystrokesAppearance;
+        float radius = 7f * scale;
+        if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
+            if (appearance.shadow) {
+                for (RRect region : regions) {
+                    SoftShadow.drawRounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(),
+                            radius, appearance.shadowStrength, 0xB0000000);
+                }
+            }
+            List<LiquidGlassRenderer.GlassShape> shapes = regions.stream().map(region -> LiquidGlassRenderer.GlassShape.rounded(
+                    region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance.background())).toList();
+            if (LiquidGlassRenderer.getInstance().renderShapes(client, shapes, appearance.glass)) return;
+            for (RRect region : regions) {
+                SkijaRenderer.drawBlurredBackdrop(canvas, region, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(),
+                        Math.clamp(Config.skiaBlurStrength, 0f, 2f) * 10.5f);
+                SkijaUi.rounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance.background());
+            }
+        } else {
+            for (RRect region : regions) {
+                HudPanel.draw(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance, false, 1f);
+            }
         }
     }
 
     private RRect blurRegion(int baseX, int baseY, float scale, float x, float y, float width, float height) {
-        return RRect.makeXYWH(baseX + x * scale, baseY + y * scale, width * scale, height * scale,
-        Math.min(7.0f, height * 0.32f) * scale);
+        return RRect.makeXYWH(baseX + x * scale, baseY + y * scale, width * scale, height * scale, 7f * scale);
     }
 
-    private boolean renderLiquidKeyBackgrounds(Minecraft client, int x, int y, float scale) {
-        int mouseY = (KEY_SIZE + GAP) * 2;
-        int leftMouseW = (TOTAL_W - GAP) / 2;
-        int rightMouseW = TOTAL_W - GAP - leftMouseW;
-        int bottomY = (KEY_SIZE + GAP) * 3;
-
-        LiquidGlassRenderer glass = LiquidGlassRenderer.getInstance();
-        int tint = LiquidGlassRenderer.panelTint();
-        boolean highlight = Config.liquidGlassHighlight;
-        boolean ok = false;
-        ok |= drawLiquidKey(glass, client, x, y, scale, KEY_SIZE + GAP, 0, KEY_SIZE, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, 0, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, KEY_SIZE + GAP, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, (KEY_SIZE + GAP) * 2, KEY_SIZE + GAP, KEY_SIZE, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, 0, mouseY, leftMouseW, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, leftMouseW + GAP, mouseY, rightMouseW, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, 0, bottomY, leftMouseW, KEY_SIZE, tint, highlight);
-        ok |= drawLiquidKey(glass, client, x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE, tint, highlight);
-        return ok;
-    }
-
-    private boolean drawLiquidKey(LiquidGlassRenderer glass, Minecraft client, int baseX, int baseY, float scale,
-    float x, float y, float width, float height, int tint, boolean highlight) {
-        float radius = Math.min(7f, height * 0.32f) * scale;
-        return glass.renderPanel(client, baseX + x * scale, baseY + y * scale, width * scale, height * scale,
-        radius, tint, Config.liquidGlassShadow, highlight, 2.2f, 3);
-    }
-
-    private void drawFallback(GuiGraphics graphics, Minecraft client, int x, int y, float scale, int leftCps, int rightCps, boolean leftDown, boolean rightDown, boolean upDown, boolean keyLeftDown, boolean downDown, boolean keyRightDown, boolean jumpDown, boolean shiftDown) {
-        int mouseY = (KEY_SIZE + GAP) * 2;
-        int leftMouseW = (TOTAL_W - GAP) / 2;
-        int rightMouseW = TOTAL_W - GAP - leftMouseW;
-        drawFallbackKey(graphics, "W", x + (KEY_SIZE + GAP) * scale, y, KEY_SIZE * scale, KEY_SIZE * scale, upDown);
-        drawFallbackKey(graphics, "A", x, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, keyLeftDown);
-        drawFallbackKey(graphics, "S", x + (KEY_SIZE + GAP) * scale, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, downDown);
-        drawFallbackKey(graphics, "D", x + (KEY_SIZE + GAP) * 2 * scale, y + (KEY_SIZE + GAP) * scale, KEY_SIZE * scale, KEY_SIZE * scale, keyRightDown);
-        drawFallbackMouseKey(graphics, client, "LMB", leftCps, x, y + mouseY * scale, leftMouseW * scale, KEY_SIZE * scale, leftDown);
-        drawFallbackMouseKey(graphics, client, "RMB", rightCps, x + (leftMouseW + GAP) * scale, y + mouseY * scale, rightMouseW * scale, KEY_SIZE * scale, rightDown);
-        int bottomY = (KEY_SIZE + GAP) * 3;
-        drawFallbackKey(graphics, "SPACE", x, y + bottomY * scale, leftMouseW * scale, KEY_SIZE * scale, jumpDown);
-        drawFallbackKey(graphics, "SHIFT", x + (leftMouseW + GAP) * scale, y + bottomY * scale, rightMouseW * scale, KEY_SIZE * scale, shiftDown);
-    }
-
-    private void drawFallbackKey(GuiGraphics graphics, String label, float x, float y, float width, float height, boolean active) {
-        int ix = Math.round(x);
-        int iy = Math.round(y);
-        int iw = Math.round(width);
-        int ih = Math.round(height);
-        graphics.fill(ix, iy, ix + iw, iy + ih, active ? BG_ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
-
-        int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
-        Minecraft client = Minecraft.getInstance();
-        int textW = client.font.width(label);
-        int textX = Math.round(x + (width - textW) * 0.5f);
-        int textY = Math.round(y + (height - 8f) * 0.5f);
-        graphics.drawString(client.font, label, textX, textY, textColor, false);
+    private void updateLabelMetrics() {
+        long revision = SkijaUi.textFontRevision();
+        if (labelFontRevision == revision) return;
+        keyLabelW = SkijaUi.textWidth("W", 11f);
+        aLabelW = SkijaUi.textWidth("A", 11f);
+        sLabelW = SkijaUi.textWidth("S", 11f);
+        dLabelW = SkijaUi.textWidth("D", 11f);
+        spaceLabelW = SkijaUi.textWidth("SPACE", 11f);
+        shiftLabelW = SkijaUi.textWidth("SHIFT", 11f);
+        lmbLabelW = SkijaUi.textWidth("LMB", 8.5f);
+        rmbLabelW = SkijaUi.textWidth("RMB", 8.5f);
+        labelFontRevision = revision;
     }
 
     private void drawDynamicKey(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
@@ -344,25 +306,12 @@ public class KeystrokesRenderer {
     }
 
     private void drawKeyShell(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
-        float press = visual.press;
-        float pulse = visual.pulse;
-        float drawX = x;
-        float drawY = y;
-        float drawW = width;
-        float drawH = height;
-        float radius = Math.min(7f, drawH * 0.32f);
-
-        if (pulse > 0.01f) {
-            glowPaint.setColor(withAlpha(GLOW_COLOR, pulse * 0.28f));
-            canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), glowPaint);
+        int accent = Config.keystrokesAppearance.accent(x, y);
+        if (visual.pulse > 0.01f) {
+            SkijaUi.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, visual.pulse * 0.12f));
         }
-
-        bgPaint.setColor(Config.keystrokesMode == Config.KeystrokesMode.BLUR || Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS ? 0x00000000 : BG_COLOR);
-        canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), bgPaint);
-
-        if (press > 0.01f) {
-            ripplePaint.setColor(withAlpha(BG_ACTIVE_COLOR, 0.92f * easeOutCubic(press)));
-            canvas.drawRRect(RRect.makeXYWH(drawX, drawY, drawW, drawH, radius), ripplePaint);
+        if (visual.press > 0.01f) {
+            SkijaUi.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, 0.9f * easeOutCubic(visual.press)));
         }
     }
 
@@ -372,8 +321,7 @@ public class KeystrokesRenderer {
 
     private void drawCenteredText(Canvas canvas, String text, float textW, float x, float y, float width, float height, float size, int color) {
         float textX = x + (width - textW) * 0.5f;
-        float textY = y + (height + (SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent())) * 0.5f - 2.2f;
-        SkijaUi.text(canvas, text, textX, (textY) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
+        SkijaUi.text(canvas, text, textX, y, height, color, size);
     }
 
     public int getScaledWidth() {
@@ -400,22 +348,6 @@ public class KeystrokesRenderer {
         return Math.max(0, Math.min(y, screenH - getScaledHeight()));
     }
 
-    private void drawFallbackMouseKey(GuiGraphics graphics, Minecraft client, String label, int cps, float x, float y, float width, float height, boolean active) {
-        int ix = Math.round(x);
-        int iy = Math.round(y);
-        int iw = Math.round(width);
-        int ih = Math.round(height);
-        graphics.fill(ix, iy, ix + iw, iy + ih, active ? BG_ACTIVE_COLOR : BG_COLOR);
-        graphics.renderOutline(ix, iy, iw, ih, 0x99FFFFFF);
-
-        int textColor = active ? ACTIVE_TEXT_COLOR : TEXT_COLOR;
-        String cpsText = cps + " CPS";
-        int labelX = Math.round(x + (width - client.font.width(label)) * 0.5f);
-        int cpsX = Math.round(x + (width - client.font.width(cpsText)) * 0.5f);
-        graphics.drawString(client.font, label, labelX, Math.round(y + 4f), textColor, false);
-        graphics.drawString(client.font, cpsText, cpsX, Math.round(y + 14f), textColor, false);
-    }
-
     private int lerpColor(int from, int to, float t) {
         t = Math.max(0f, Math.min(1f, t));
         int a = Math.round(((from >>> 24) & 0xFF) + (((to >>> 24) & 0xFF) - ((from >>> 24) & 0xFF)) * t);
@@ -431,7 +363,10 @@ public class KeystrokesRenderer {
     }
 
     private int animatedTextColor(KeyVisual visual) {
-        return lerpColor(TEXT_COLOR, ACTIVE_TEXT_COLOR, easeOutCubic(visual.press));
+        int accent = Config.keystrokesAppearance.accent();
+        float luminance = ((accent >> 16) & 255) * 0.2126f + ((accent >> 8) & 255) * 0.7152f + (accent & 255) * 0.0722f;
+        int activeText = luminance > 145f ? 0xFF111827 : 0xFFFFFFFF;
+        return lerpColor(Config.keystrokesAppearance.text(), activeText, easeOutCubic(visual.press));
     }
 
     private float easeOutCubic(float value) {

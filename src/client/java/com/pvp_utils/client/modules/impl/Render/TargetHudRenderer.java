@@ -8,6 +8,7 @@ import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.types.Rect;
@@ -35,7 +36,8 @@ public class TargetHudRenderer {
     private boolean editPreview = false;
     private boolean wasEditActive = false;
 
-    private String lastRawName = "";
+    private long textFontRevision = -1L;
+    private String lastRawName = null;
     private String lastTruncatedName = "";
     private float animatedHealthRatio = 1f;
     private float animatedAbsorptionRatio = 0f;
@@ -207,7 +209,7 @@ public class TargetHudRenderer {
 
         updateAttackDistance(client, now);
 
-        if (Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
+        if (Config.targetHudMode == Config.TargetHudMode.BLUR || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
             renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
             return;
         }
@@ -368,6 +370,12 @@ public class TargetHudRenderer {
         animatedHealthRatio += (ratio - animatedHealthRatio) * Math.min(1f, dt * 10f);
         animatedAbsorptionRatio += (absorptionRatio - animatedAbsorptionRatio) * Math.min(1f, dt * 10f);
 
+        long revision = SkijaUi.textFontRevision();
+        if (textFontRevision != revision) {
+            java.util.Arrays.fill(healthCharWidthCached, false);
+            lastRawName = null;
+            textFontRevision = revision;
+        }
         String name = truncateName(target.getDisplayName().getString());
         float cx = x + scaledW * 0.5f;
         float cy = y + scaledH * 0.5f;
@@ -378,16 +386,8 @@ public class TargetHudRenderer {
         float drawH = scaledH * drawScale;
         float drawRadius = 16f * hudScale * drawScale;
 
-        boolean transparentMode = blurMode || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
-        if (blurMode) {
-            SkijaRenderer.draw(blurCanvas -> {
-                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(drawX, drawY, drawW, drawH, drawRadius), drawX, drawY, drawW, drawH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-                SkijaUi.rounded(blurCanvas, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor());
-            });
-        } else if (Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
-            LiquidGlassRenderer.getInstance().renderPanel(client, drawX, drawY, drawW, drawH, drawRadius,
-            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
-        }
+        boolean transparentMode = true;
+        boolean liquid = Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
 
         Identifier avatarTexture = target instanceof Player player
                 ? resolvePlayerSkin(client, player).body().texturePath()
@@ -402,21 +402,30 @@ public class TargetHudRenderer {
         float avatarInset = (NEW_AVATAR_SIZE - avatarSize) * 0.5f;
         RRect avatarClip = RRect.makeXYWH(12f + avatarInset, 10f + avatarInset,
                 avatarSize, avatarSize, NEW_AVATAR_RADIUS * avatarScale);
-        if (avatarTexture != null) {
-            SkijaRenderer.submit(c -> {
+        String healthText = currentHealthText;
+        float healthRatio = animatedHealthRatio;
+        float shieldRatio = animatedAbsorptionRatio;
+        if (avatarTexture != null) client.getTextureManager().getTexture(avatarTexture);
+        java.util.function.Consumer<Canvas> painter = c -> {
+            HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius,
+                    Config.targetAppearance, liquid, alpha);
+            int save = c.save();
+            try {
                 c.translate(drawX, drawY);
                 c.scale(hudScale * drawScale, hudScale * drawScale);
-                drawNewBase(c, name, transparentMode, avatarClip);
-                drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
+                newHudAvatarPaint.setColor(newHudAvatarBackplateColor());
+                c.drawRRect(avatarClip, newHudAvatarPaint);
                 renderNewAvatar(c, avatarTexture, avatarClip, hurtFlashFactor, healFlashFactor, alphaInt);
-            });
-        } else {
-            SkijaRenderer.draw(c -> {
-                c.translate(drawX, drawY);
-                c.scale(hudScale * drawScale, hudScale * drawScale);
                 drawNewBase(c, name, transparentMode, avatarClip);
-                drawNewOverlay(c, currentHealthText, animatedHealthRatio, animatedAbsorptionRatio, now, transparentMode);
-            });
+                drawNewOverlay(c, healthText, healthRatio, shieldRatio, now, transparentMode);
+            } finally {
+                c.restoreToCount(save);
+            }
+        };
+        if (avatarTexture != null) {
+            SkijaRenderer.submit(painter);
+        } else {
+            SkijaRenderer.draw(painter);
             SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
             if (eggItem != null) {
                 graphics.pose().pushMatrix();
@@ -430,13 +439,6 @@ public class TargetHudRenderer {
                     graphics.pose().popMatrix();
                 }
             }
-            if (hurtFlashFactor > 0f || healFlashFactor > 0f) {
-                SkijaRenderer.submit(c -> {
-                    c.translate(drawX, drawY);
-                    c.scale(hudScale * drawScale, hudScale * drawScale);
-                    renderNewAvatar(c, null, avatarClip, hurtFlashFactor, healFlashFactor, alphaInt);
-                });
-            }
         }
     }
 
@@ -445,10 +447,7 @@ public class TargetHudRenderer {
             newHudBgPaint.setColor(newHudCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
         }
-        newHudAvatarPaint.setColor(newHudAvatarBackplateColor());
-        c.drawRRect(avatarClip, newHudAvatarPaint);
-
-        SkijaUi.text(c, name, 60f, (24f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), newHudPrimaryTextColor(blurMode), 13f);
+        SkijaUi.text(c, name, 60f, 10f, 19f, newHudPrimaryTextColor(blurMode), 13f);
     }
 
     private void drawNewOverlay(Canvas c, String healthText, float healthRatio, float absorptionRatio, long now, boolean blurMode) {
@@ -475,7 +474,7 @@ public class TargetHudRenderer {
         newHudTrackPaint.setColor(newHudTrackColor(blurMode));
         c.drawRRect(RRect.makeXYWH(barX, barY, barW, barH, barH * 0.5f), newHudTrackPaint);
         float fillW = Math.max(barH, barW * Mth.clamp(healthRatio, 0f, 1f));
-        newHudFillPaint.setColor(0xFF000000 | (getHealthColor(Mth.clamp(healthRatio, 0f, 1f)) & 0xFFFFFF));
+        newHudFillPaint.setColor(Config.targetAppearance.accent());
         c.drawRRect(RRect.makeXYWH(barX, barY, fillW, barH, barH * 0.5f), newHudFillPaint);
         if (absorptionRatio > 0.01f) {
             float absorbW = Math.min(barW, barW * Mth.clamp(absorptionRatio, 0f, 1f));
@@ -582,11 +581,11 @@ public class TargetHudRenderer {
     }
 
     private int newHudPrimaryTextColor(boolean blurMode) {
-        return blurMode ? Config.hudPrimaryTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+        return Config.targetAppearance.text();
     }
 
     private int newHudMutedTextColor(boolean blurMode) {
-        return blurMode ? Config.hudMutedTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+        return Config.targetAppearance.secondaryText();
     }
 
     private int newHudTrackColor(boolean blurMode) {

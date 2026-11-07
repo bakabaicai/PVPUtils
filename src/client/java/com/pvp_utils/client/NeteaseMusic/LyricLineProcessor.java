@@ -68,13 +68,13 @@ public final class LyricLineProcessor {
     }
 
     public static int currentIndex(List<LyricLine> lyrics, long timeMs) {
-        int index = -1;
-        for (int i = 0; i < lyrics.size(); i++) {
-            if (lyrics.get(i).timeMs() > timeMs) {
-                break;
-            }
-            index = i;
+        int low = 0;
+        int high = lyrics.size();
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            if (lyrics.get(middle).timeMs() <= timeMs) low = middle + 1;
+            else high = middle;
         }
-        return index;
+        return low - 1;
     }
 }

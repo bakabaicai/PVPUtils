@@ -17,6 +17,39 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Config {
+    public static String themePreset = "BLEND";
+    public static boolean themeAnimated = true;
+    public static float themeSpeed = 1f;
+    public static int themePrimaryColor = 0xFF4794FD;
+    public static int themeSecondaryColor = 0xFF47FDA0;
+    public static boolean themeCustomColors;
+    public static boolean mainUIFrameLimitEnabled = true;
+    public static int mainUIFrameLimit = 120;
+    public static boolean hitSoundMeleeEnabled = true;
+    public static boolean hitSoundRangedEnabled = true;
+    public static HitSoundType hitSoundMeleeType = HitSoundType.NETHERITE;
+    public static HitSoundType hitSoundRangedType = HitSoundType.NETHERITE;
+    public static String hitSoundMeleeFile = "";
+    public static String hitSoundRangedFile = "";
+    public static HudStyle potionStatusStyle = HudStyle.LITE;
+    public static com.pvp_utils.client.render.HudAppearance musicInfoAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance targetAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance armorAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance pingAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance tpsAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance clockAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance scoreboardAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance clickGuiAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance hotbarAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance potionAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance keystrokesAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance blockCountAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance itemUseAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance dynamicIslandAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance notificationAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance lyricsAppearance = new com.pvp_utils.client.render.HudAppearance();
+    public static com.pvp_utils.client.render.HudAppearance arraylistAppearance = new com.pvp_utils.client.render.HudAppearance();
+
     private static final boolean PROFILE_GATE = false;
 
     public static boolean autoMode = false;
@@ -95,7 +128,7 @@ public class Config {
     public static boolean heldItemPosition = false;
     public static boolean fishingRodAssist = false;
     public static boolean blockCountDisplay = false;
-    public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
+    public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.BLUR;
     public static boolean dynamicIsland = false;
     public static boolean dynamicIslandLyrics = false;
     public static boolean dynamicIslandDoubleRow = false;
@@ -105,16 +138,6 @@ public class Config {
     public static int dynamicIslandColor = 0xED15191F;
     public static boolean dynamicIslandShadow = true;
     public static float dynamicIslandShadowStrength = 0.35f;
-    public static float liquidGlassBlur = 3f;
-    public static float liquidGlassRefractionHeight = 0.25f;
-    public static float liquidGlassRefractionAmount = 0.15f;
-    public static float liquidGlassIoR = 1.5f;
-    public static float liquidGlassDepthEffect = 0.3f;
-    public static float liquidGlassDispersion = 1.0f;
-    public static float liquidGlassRenderPrecision = 1.0f;
-    public static boolean liquidGlassHighlight = true;
-    public static boolean liquidGlassHighlightFollowView = true;
-    public static boolean liquidGlassShadow = true;
     public static boolean dynamicIslandBlockCount = false;
     public static boolean dynamicIslandBlockCountRestoresBlockCount = false;
     public static boolean dynamicIslandBlockCountAltIcon = false;
@@ -364,22 +387,22 @@ public class Config {
     public static FreelookTriggerMode freelookTriggerMode = FreelookTriggerMode.HOLD;
 
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
-    public enum HitSoundType { NETHERITE, EXPERIENCE }
+    public enum HitSoundType { NETHERITE, EXPERIENCE, CUSTOM }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
-    public enum TargetHudMode { LITE, NEW, BLUR, LIQUID_GLASS }
-    public enum BlockCountDisplayMode { NEW, BLUR }
-    public enum KeystrokesMode { LITE, NEW, BLUR, LIQUID_GLASS }
-    public enum ArmorHudMode { LITE, NEW }
+    public enum TargetHudMode { LITE, BLUR, LIQUID_GLASS }
+    public enum BlockCountDisplayMode { BLUR }
+    public enum KeystrokesMode { LITE, BLUR, LIQUID_GLASS }
+    public enum ArmorHudMode { LITE, BLUR, LIQUID_GLASS }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
-    public enum MusicInfoHudMode { LITE, NEW, BLUR, LIQUID_GLASS }
+    public enum MusicInfoHudMode { LITE, BLUR, LIQUID_GLASS }
 
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
-    public enum ItemUseStatusMode { LITE, NEW }
+    public enum ItemUseStatusMode { LITE, BLUR }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
-    public enum HudStyle { LITE, NEW, BLUR, LIQUID_GLASS }
+    public enum HudStyle { LITE, BLUR, LIQUID_GLASS, MATERIAL }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
     public enum DynamicIslandBackground { BLUR, SOLID, LIQUID_GLASS }
@@ -549,6 +572,7 @@ public class Config {
     public static synchronized void save() {
         normalizeFakeFps();
         normalizeDynamicIslandAppearance();
+        normalizeAppearance();
         ensureConfigDirectory();
         try {
             if (configSaveAllowed) {
@@ -562,13 +586,61 @@ public class Config {
         }
     }
 
+    private static void normalizeAppearance() {
+        mainUIFrameLimit = Math.clamp(mainUIFrameLimit, 30, 240);
+        themeSpeed = Float.isFinite(themeSpeed) ? Math.clamp(themeSpeed, 0.1f, 5f) : 1f;
+        for (Field field : configFields().values()) {
+            if (field.getType() != com.pvp_utils.client.render.HudAppearance.class) continue;
+            try {
+                com.pvp_utils.client.render.HudAppearance appearance =
+                        (com.pvp_utils.client.render.HudAppearance) field.get(null);
+                if (appearance == null) {
+                    appearance = new com.pvp_utils.client.render.HudAppearance();
+                    field.set(null, appearance);
+                }
+                appearance.normalize();
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+
+    public static void resetAppearance() {
+        themePreset = "BLEND";
+        themeAnimated = true;
+        themeSpeed = 1f;
+        themePrimaryColor = 0xFF4794FD;
+        themeSecondaryColor = 0xFF47FDA0;
+        themeCustomColors = false;
+        mainUIFrameLimitEnabled = true;
+        mainUIFrameLimit = 120;
+        hitSoundMeleeEnabled = true;
+        hitSoundRangedEnabled = true;
+        hitSoundMeleeType = HitSoundType.NETHERITE;
+        hitSoundRangedType = HitSoundType.NETHERITE;
+        hitSoundMeleeFile = "";
+        hitSoundRangedFile = "";
+        potionStatusStyle = HudStyle.LITE;
+        clickGuiCardW = 740f;
+        clickGuiCardH = 500f;
+        clickGuiFlyoutW = 288f;
+        for (Field field : configFields().values()) {
+            if (field.getType() != com.pvp_utils.client.render.HudAppearance.class) continue;
+            try {
+                field.set(null, new com.pvp_utils.client.render.HudAppearance());
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+
     public static int clampFakeFps(int value) {
         return Math.clamp(value, 1, 99999);
     }
 
     private static void normalizeDynamicIslandAppearance() {
         if (dynamicIslandShape == null) dynamicIslandShape = DynamicIslandShape.CAPSULE;
-        if (dynamicIslandBackground == null || dynamicIslandBackground == DynamicIslandBackground.LIQUID_GLASS) {
+        if (dynamicIslandBackground == null) {
             dynamicIslandBackground = DynamicIslandBackground.BLUR;
         }
         if (dynamicIslandMusicMode == null) dynamicIslandMusicMode = DynamicIslandMusicMode.LYRICS;
@@ -632,6 +704,16 @@ public class Config {
                 continue;
             }
             readJsonValue(field, value);
+        }
+        JsonObject sound = root.has("HitSound") && root.get("HitSound").isJsonObject()
+                ? root.getAsJsonObject("HitSound") : root;
+        if (!sound.has("melee-type") && !root.has("hitSoundMeleeType")) hitSoundMeleeType = hitSoundType;
+        if (!sound.has("ranged-type") && !root.has("hitSoundRangedType")) hitSoundRangedType = hitSoundType;
+        if (!sound.has("melee-enabled") && !root.has("hitSoundMeleeEnabled")) {
+            hitSoundMeleeEnabled = hitSoundCondition != HitSoundCondition.RANGED;
+        }
+        if (!sound.has("ranged-enabled") && !root.has("hitSoundRangedEnabled")) {
+            hitSoundRangedEnabled = hitSoundCondition != HitSoundCondition.MELEE;
         }
     }
 
@@ -709,6 +791,8 @@ public class Config {
                 object.addProperty(key, field.getDouble(null));
             } else if (type == String.class) {
                 object.addProperty(key, (String) field.get(null));
+            } else if (type == com.pvp_utils.client.render.HudAppearance.class) {
+                object.add(key, GSON.toJsonTree(field.get(null)));
             } else if (type.isEnum()) {
                 Object value = field.get(null);
                 object.addProperty(key, value == null ? "" : ((Enum<?>) value).name());
@@ -732,8 +816,19 @@ public class Config {
                 field.setDouble(null, value.getAsDouble());
             } else if (type == String.class) {
                 field.set(null, value.getAsString());
+            } else if (type == com.pvp_utils.client.render.HudAppearance.class) {
+                if (!value.isJsonObject()) throw new IllegalArgumentException("Expected an appearance object");
+                com.pvp_utils.client.render.HudAppearance appearance =
+                        GSON.fromJson(value, com.pvp_utils.client.render.HudAppearance.class);
+                appearance.normalize();
+                field.set(null, appearance);
             } else if (type.isEnum()) {
-                field.set(null, Enum.valueOf((Class<? extends Enum>) type, value.getAsString()));
+                String name = value.getAsString();
+                if ("NEW".equals(name) && (type == TargetHudMode.class || type == KeystrokesMode.class
+                        || type == ArmorHudMode.class || type == MusicInfoHudMode.class
+                        || type == BlockCountDisplayMode.class || type == ItemUseStatusMode.class
+                        || type == HudStyle.class)) name = "BLUR";
+                field.set(null, Enum.valueOf((Class<? extends Enum>) type, name));
             }
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid value for configuration field " + field.getName(), e);
@@ -741,6 +836,27 @@ public class Config {
     }
 
     private static ConfigPath pathForField(String fieldName) {
+        String appearanceModule = switch (fieldName) {
+            case "musicInfoAppearance" -> "MusicInfoHUD";
+            case "targetAppearance" -> "TargetHUD";
+            case "armorAppearance" -> "ArmorHUD";
+            case "pingAppearance" -> "PingHUD";
+            case "tpsAppearance" -> "TpsHUD";
+            case "clockAppearance" -> "ClockHUD";
+            case "scoreboardAppearance" -> "BetterScoreboard";
+            case "clickGuiAppearance" -> "ClickGUI";
+            case "hotbarAppearance" -> "BetterItemSelector";
+            case "potionAppearance" -> "PotionStatus";
+            case "keystrokesAppearance" -> "Keystrokes";
+            case "blockCountAppearance" -> "BlockCountDisplay";
+            case "itemUseAppearance" -> "ItemUseStatus";
+            case "dynamicIslandAppearance" -> "DynamicIsland";
+            case "notificationAppearance" -> "Notification";
+            case "lyricsAppearance" -> "LyricsDisplay";
+            case "arraylistAppearance" -> "Arraylist";
+            default -> null;
+        };
+        if (appearanceModule != null) return new ConfigPath(appearanceModule, "appearance");
         ModuleRule rule = moduleRuleFor(fieldName);
         if (rule == null) {
             return new ConfigPath("Global", toKebabCase(fieldName));
@@ -881,7 +997,6 @@ public class Config {
             new ModuleRule("HUDTheme", "hud", "", "skiaBlurStrength"),
             new ModuleRule("ClickGuiScale", "clickGui", "", "clickGuiScale", "clickGuiScrollSpeed", "clickGuiCardW", "clickGuiCardH", "clickGuiFlyoutW"),
             new ModuleRule("Notification", "notification", ""),
-            new ModuleRule("LiquidGlass", "liquidGlass", "", "liquidGlassBlur", "liquidGlassRefractionHeight", "liquidGlassRefractionAmount", "liquidGlassIoR", "liquidGlassDepthEffect", "liquidGlassDispersion", "liquidGlassRenderPrecision", "liquidGlassHighlight", "liquidGlassHighlightFollowView", "liquidGlassShadow"),
     };
 
     private record ModuleRule(String module, String prefix, String toggleField, String... extraFields) {}

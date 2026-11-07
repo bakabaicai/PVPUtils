@@ -6,6 +6,7 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingCycle;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
+import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
 
 import java.util.List;
 
@@ -13,13 +14,13 @@ public class CombatPage extends BasePage {
 
     public CombatPage() {
         if (Config.restrictedFeaturesUnlocked()) {
-        modules.add(new SettingModule(UiText.t("主手辅助", "AutoMainHand"), UiText.t("在合适的时候自动切换主手手持的物品", "Automatically switch the main-hand item at suitable moments"),
+        modules.add(new SettingModule(UiText.t("主手辅助", "AutoMainHand"), UiText.t("按使用场景切换主手物品", "Switch main-hand items for the current action"),
                 new SettingToggle(() -> Config.mainHandAssist, v -> { Config.mainHandAssist = v; Config.save(); }))
-                .addSub(UiText.t("近战武器辅助", "Melee Weapon Assist"), UiText.t("在手持武器时，长按右键可自动切换至物品栏内的血量回复道具", "When holding a weapon, hold right click to switch to a hotbar healing item"),
+                .addSub(UiText.t("近战武器辅助", "Melee Weapon Assist"), UiText.t("持武器长按右键时切换至快捷栏内的恢复道具", "Switch from a held weapon to a hotbar healing item while holding right click"),
                         new SettingToggle(() -> Config.mainHandAssistMeleeWeapon, v -> { Config.mainHandAssistMeleeWeapon = v; Config.save(); }))
                 .addSub(UiText.t("盾牌", "Shield"), UiText.t("右键自动使用盾牌", "Automatically switch to a shield when right clicking"),
                         new SettingToggle(() -> Config.mainHandAssistShield, v -> { Config.mainHandAssistShield = v; Config.save(); }))
-                .addSub(UiText.t("快速使用", "Quick Use"), UiText.t("为PotPVP、职业战争等需要快速补充状态的模式设计的的功能，单击右键即可快速执行。", "Designed for PotPVP, Career War and similar modes that need fast status refills. Click right mouse once to execute quickly."),
+                .addSub(UiText.t("快速使用", "Quick Use"), UiText.t("单击右键使用快捷栏内的补给物品", "Use a hotbar supply item with one right click"),
                         new SettingToggle(() -> Config.mainHandAssistQuickUse, v -> { Config.mainHandAssistQuickUse = v; Config.save(); }))
                 .addSub(UiText.t("执行完毕后切回原先槽位", "Switch Back After Use"), UiText.t("使用完成或松开右键后切回原先槽位", "Switch back to the original slot after use or after releasing right click"),
                         new SettingToggle(() -> Config.mainHandAssistSwitchBack, v -> { Config.mainHandAssistSwitchBack = v; Config.save(); }))
@@ -27,7 +28,7 @@ public class CombatPage extends BasePage {
                         new SettingSlider(2.0, 20.0, "%.0f", () -> (double) Math.max(2, Config.mainHandAssistSwitchDelayTicks), v -> { Config.mainHandAssistSwitchDelayTicks = Math.max(2, v.intValue()); Config.save(); }))
                 .visibleWhen(() -> Config.fullMode));
 
-        modules.add(new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("让鞘翅的使用更加便捷", "Make elytra usage more convenient"),
+        modules.add(new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("自动展开鞘翅并使用烟花推进", "Automatically deploy elytra and use firework boosts"),
                 new SettingToggle(() -> Config.elytraAssist, v -> { Config.elytraAssist = v; Config.save(); }))
                 .addSub(UiText.t("自动展开鞘翅", "Auto Deploy Elytra"), UiText.t("跳起时自动展开身上的鞘翅", "Automatically deploy equipped elytra when jumping"),
                         new SettingToggle(() -> Config.elytraAutoDeploy, v -> { Config.elytraAutoDeploy = v; Config.save(); }))
@@ -40,16 +41,26 @@ public class CombatPage extends BasePage {
         modules.add(new SettingModule(UiText.t("命中标记", "Hit Marker"), UiText.t("在命中时显示标记", "Show a marker when you hit a target"),
                 new SettingToggle(() -> Config.hitMarker, v -> { Config.hitMarker = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("命中提示音", "Hit Sound"), UiText.t("命中目标时播放音效", "Play a sound when you hit a target"),
-                new SettingToggle(() -> Config.hitSound, v -> { Config.hitSound = v; Config.save(); }))
-                .addSub(UiText.t("提示音类型", "Sound Type"), UiText.t("选择提示音效果", "Choose the hit sound effect"),
-                        new SettingCycle(List.of(UiText.t("下界合金块", "Netherite Block"), UiText.t("经验球", "Experience")),
-                                () -> Config.hitSoundType == Config.HitSoundType.NETHERITE ? 0 : 1,
-                                i -> { Config.hitSoundType = i == 0 ? Config.HitSoundType.NETHERITE : Config.HitSoundType.EXPERIENCE; Config.save(); }))
-                .addSub(UiText.t("播放时机", "Trigger Timing"), UiText.t("选择触发条件", "Choose when the sound should play"),
-                        new SettingCycle(List.of(UiText.t("近战&远程", "Melee & Ranged"), UiText.t("仅近战", "Melee Only"), UiText.t("仅远程", "Ranged Only")),
-                                () -> switch (Config.hitSoundCondition) { case BOTH -> 0; case MELEE -> 1; case RANGED -> 2; },
-                                i -> { Config.hitSoundCondition = switch (i) { case 1 -> Config.HitSoundCondition.MELEE; case 2 -> Config.HitSoundCondition.RANGED; default -> Config.HitSoundCondition.BOTH; }; Config.save(); })));
+        List<String> sounds = List.of(UiText.t("下界合金块", "Netherite Block"), UiText.t("经验球", "Experience"), UiText.t("自定义", "Custom"));
+        modules.add(new SettingModule(UiText.t("命中提示音", "Hit Sound"), UiText.t("命中目标时播放音效", "Play a sound when a hit is confirmed"),
+                new SettingToggle(() -> Config.hitSound, value -> { Config.hitSound = value; Config.save(); }))
+                .addSub(UiText.t("近战音效", "Melee Sound"), "",
+                        new SettingToggle(() -> Config.hitSoundMeleeEnabled, value -> { Config.hitSoundMeleeEnabled = value; Config.save(); }))
+                .addSubWhen(() -> Config.hitSoundMeleeEnabled, UiText.t("音效", "Sound"), "",
+                        new SettingCycle(sounds, () -> Config.hitSoundMeleeType.ordinal(),
+                                value -> { Config.hitSoundMeleeType = Config.HitSoundType.values()[value]; Config.save(); }))
+                .addSubWhen(() -> Config.hitSoundMeleeEnabled && Config.hitSoundMeleeType == Config.HitSoundType.CUSTOM,
+                        UiText.t("音频文件", "Audio File"), "WAV / AIFF / AU",
+                        new SettingTextBox(() -> Config.hitSoundMeleeFile, value -> { Config.hitSoundMeleeFile = value; Config.save(); }, 1024))
+                .addSub(UiText.t("远程音效", "Ranged Sound"), "",
+                        new SettingToggle(() -> Config.hitSoundRangedEnabled, value -> { Config.hitSoundRangedEnabled = value; Config.save(); }))
+                .addSubWhen(() -> Config.hitSoundRangedEnabled, UiText.t("音效", "Sound"), "",
+                        new SettingCycle(sounds, () -> Config.hitSoundRangedType.ordinal(),
+                                value -> { Config.hitSoundRangedType = Config.HitSoundType.values()[value]; Config.save(); }))
+                .addSubWhen(() -> Config.hitSoundRangedEnabled && Config.hitSoundRangedType == Config.HitSoundType.CUSTOM,
+                        UiText.t("音频文件", "Audio File"), "WAV / AIFF / AU",
+                        new SettingTextBox(() -> Config.hitSoundRangedFile, value -> { Config.hitSoundRangedFile = value; Config.save(); }, 1024)));
+
     }
 
     @Override public String getTitle() { return UiText.t("战斗设置", "Combat Settings"); }

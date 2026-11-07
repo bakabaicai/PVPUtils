@@ -84,7 +84,7 @@ public class ResetManager {
         Config.fishingRodAssistUseDelay = 4;
         Config.autoGGDelayTicks = 20;
         Config.blockCountDisplay = false;
-        Config.blockCountDisplayMode = Config.BlockCountDisplayMode.NEW;
+        Config.blockCountDisplayMode = Config.BlockCountDisplayMode.BLUR;
         Config.dynamicIsland = false;
         Config.dynamicIslandLyrics = false;
         Config.dynamicIslandDoubleRow = false;
@@ -257,16 +257,6 @@ public class ResetManager {
         Config.hotbarRollover = 0;
         Config.hudTheme = Config.HudTheme.LIGHT;
         Config.skiaBlurStrength = 1.0f;
-        Config.liquidGlassBlur = 3f;
-        Config.liquidGlassRefractionHeight = 0.25f;
-        Config.liquidGlassRefractionAmount = 0.15f;
-        Config.liquidGlassIoR = 1.5f;
-        Config.liquidGlassDepthEffect = 0.3f;
-        Config.liquidGlassDispersion = 1.0f;
-        Config.liquidGlassRenderPrecision = 1.0f;
-        Config.liquidGlassHighlight = true;
-        Config.liquidGlassHighlightFollowView = true;
-        Config.liquidGlassShadow = true;
         Config.clickGuiPanelBlur = false;
         Config.clickGuiScale = 1;
         Config.clickGuiScrollSpeed = 1.0f;
@@ -290,6 +280,7 @@ public class ResetManager {
         Config.animationMode = Config.AnimMode.MODE_1_7;
         Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.VELOCITY_BASED;
         Config.clientCommandPrefix = ".";
+        Config.resetAppearance();
         ModuleKeybindManager.clearAll(false);
         Config.save();
     }

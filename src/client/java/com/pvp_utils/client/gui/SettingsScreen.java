@@ -167,8 +167,8 @@ public class SettingsScreen extends Screen {
                     Config.hideHurtShake = false;
                     Config.hitSoundType = Config.HitSoundType.NETHERITE;
                     Config.hitSoundCondition = Config.HitSoundCondition.BOTH;
-                    Config.targetHudMode = Config.TargetHudMode.NEW;
-                    Config.keystrokesMode = Config.KeystrokesMode.NEW;
+                    Config.targetHudMode = Config.TargetHudMode.BLUR;
+                    Config.keystrokesMode = Config.KeystrokesMode.BLUR;
                     Config.mainUIGlslMode = Config.MainUIGlslMode.RANDOM;
                     Config.mainUIGlslShader = "Galaxy.frag.glsl";
                     Config.animationMode = Config.AnimMode.MODE_1_7;
@@ -451,13 +451,18 @@ public class SettingsScreen extends Screen {
 
             if (Config.hitSound) {
                 currentY += 25;
-                String typeName = Config.hitSoundType == Config.HitSoundType.NETHERITE ?
-                        (cn ? "下界合金块" : "Netherite Block") : (cn ? "经验声" : "Experience");
+                String typeName = switch (Config.hitSoundType) {
+                    case NETHERITE -> cn ? "下界合金块" : "Netherite Block";
+                    case EXPERIENCE -> cn ? "经验声" : "Experience";
+                    case CUSTOM -> cn ? "自定义" : "Custom";
+                };
                 this.addRenderableWidget(Button.builder(
                         Component.literal((cn ? "提示音: " : "Sound: ") + typeName),
                         (button) -> {
                             Config.hitSoundType = Config.hitSoundType == Config.HitSoundType.NETHERITE ?
                                     Config.HitSoundType.EXPERIENCE : Config.HitSoundType.NETHERITE;
+                            Config.hitSoundMeleeType = Config.hitSoundType;
+                            Config.hitSoundRangedType = Config.hitSoundType;
                             Config.save();
                             this.init();
                         }).bounds(centerX - 75, currentY, 150, 20).build());
@@ -476,6 +481,8 @@ public class SettingsScreen extends Screen {
                                 case MELEE -> Config.HitSoundCondition.RANGED;
                                 case RANGED -> Config.HitSoundCondition.BOTH;
                             };
+                            Config.hitSoundMeleeEnabled = Config.hitSoundCondition != Config.HitSoundCondition.RANGED;
+                            Config.hitSoundRangedEnabled = Config.hitSoundCondition != Config.HitSoundCondition.MELEE;
                             Config.save();
                             this.init();
                         }).bounds(centerX - 75, currentY, 150, 20).build());
@@ -541,7 +548,7 @@ public class SettingsScreen extends Screen {
         boolean cn = Config.isChinese;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(cn ? "§c是的，现在立刻重置所有设置" : "§cYes, reset all settings now"),
+                Component.literal(cn ? "§c确认重置" : "§cConfirm Reset"),
                 (button) -> {
                     if (resettingAll) {
                         ResetManager.resetAll();
@@ -556,7 +563,7 @@ public class SettingsScreen extends Screen {
                 }).bounds(centerX - 100, centerY - 25, 200, 20).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal(cn ? "§a不，我点错了" : "§aNo, I misclicked"),
+                Component.literal(cn ? "§a取消" : "§aCancel"),
                 (button) -> {
                     inResetConfirmPage = false;
                     this.init();
@@ -576,7 +583,7 @@ public class SettingsScreen extends Screen {
             case MODE_1_7 -> "1.7";
             case MODE_PUSH -> "Push";
             case MODE_1_7_PLUS -> "1.7+";
-            case MODE_NEW -> "New";
+            case MODE_NEW -> Config.isChinese ? "现代" : "Modern";
         };
     }
 

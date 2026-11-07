@@ -16,31 +16,10 @@ public class HitMarkerRenderer {
     }
 
     public void onHit(boolean isRanged, int color) {
+        HitSoundPlayer.play(isRanged);
         if (Config.hitMarker) {
             this.hitTime = System.currentTimeMillis();
             this.currentColor = color;
-
-            if (Config.hitSound) {
-                boolean shouldPlay = false;
-                if (Config.hitSoundCondition == Config.HitSoundCondition.BOTH) {
-                    shouldPlay = true;
-                } else if (Config.hitSoundCondition == Config.HitSoundCondition.MELEE && !isRanged) {
-                    shouldPlay = true;
-                } else if (Config.hitSoundCondition == Config.HitSoundCondition.RANGED && isRanged) {
-                    shouldPlay = true;
-                }
-
-                if (shouldPlay) {
-                    Minecraft client = Minecraft.getInstance();
-                    if (client.player != null) {
-                        if (Config.hitSoundType == Config.HitSoundType.NETHERITE) {
-                            client.player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 1.0F);
-                        } else {
-                            client.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F, 0.5F);
-                        }
-                    }
-                }
-            }
         }
     }
 

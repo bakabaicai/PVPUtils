@@ -30,7 +30,6 @@ public final class SkijaFrameRenderer {
                 SkijaRenderer.draw(MusicInfoHudRenderer.getInstance()::renderSkija);
                 SkijaRenderer.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
                         hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
-                LiquidGlassRenderer.getInstance().tick();
             }
             if (client.screen instanceof SkijaScreen screen) SkijaRenderer.draw(screen::renderSkija);
             SkijaRenderer.renderSubmitted();
@@ -41,7 +40,6 @@ public final class SkijaFrameRenderer {
     public static void close() {
         DynamicIslandRenderer.getInstance().close();
         LiquidGlassRenderer.getInstance().destroy();
-        GlassCaptureRenderer.getInstance().destroy();
         SkijaRenderer.close();
     }
 }

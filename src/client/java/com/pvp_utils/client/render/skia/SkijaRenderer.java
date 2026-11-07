@@ -219,6 +219,14 @@ public final class SkijaRenderer {
         return targetFramebuffer;
     }
 
+    static int currentTargetWidth() {
+        return targetWidth;
+    }
+
+    static int currentTargetHeight() {
+        return targetHeight;
+    }
+
     public static void flush() {
         if (context != null && surface != null) context.flushAndSubmit(surface);
     }

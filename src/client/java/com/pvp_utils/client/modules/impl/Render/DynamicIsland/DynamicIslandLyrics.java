@@ -18,7 +18,10 @@ public final class DynamicIslandLyrics {
     private DynamicIslandLyrics() {
     }
 
-    public record LyricsCard(boolean visible, String text, long songId, long lineTimeMs) {
+    public record LyricsCard(boolean visible, String text, long songId, long lineTimeMs, long lineDurationMs, LyricLine line) {
+        public LyricsCard(boolean visible, String text, long songId, long lineTimeMs) {
+            this(visible, text, songId, lineTimeMs, 6000L, null);
+        }
     }
 
     public static LyricsCard snapshot() {
@@ -43,15 +46,20 @@ public final class DynamicIslandLyrics {
         int index = lyrics.isEmpty() ? -1 : LyricLineProcessor.currentIndex(lyrics, position);
         String lineText = song.name() == null ? "" : song.name();
         long lineTime = -1L;
+        long duration = 6000L;
+        LyricLine selectedLine = null;
         for (int i = Math.min(index, lyrics.size() - 1); i >= 0 && i >= index - 5; i--) {
             LyricLine line = lyrics.get(i);
             if (line.text() != null && !line.text().isBlank() && !LyricFilter.shouldFilter(line.text(), song.name())) {
                 lineText = line.text().trim();
                 lineTime = line.timeMs();
+                selectedLine = line;
+                duration = i + 1 < lyrics.size() ? Math.max(1L, lyrics.get(i + 1).timeMs() - lineTime)
+                        : Math.max(1L, player.totalDurationMs() - lineTime);
                 break;
             }
         }
-        current = new LyricsCard(true, lineText, song.id(), lineTime);
+        current = new LyricsCard(true, lineText, song.id(), lineTime, duration, selectedLine);
         return current;
     }
 

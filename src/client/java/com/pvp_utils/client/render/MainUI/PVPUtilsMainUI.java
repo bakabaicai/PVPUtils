@@ -74,6 +74,9 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private boolean settingsOpen;
     private boolean settingsHover;
     private float settingsPanelProgress;
+    private float settingsPanelVelocity;
+    private boolean draggingFrameLimit;
+    private float settingsExpandedHeight = 276f;
     private float settingsHoverProgress;
     private float backgroundOffsetX;
     private float backgroundOffsetY;
@@ -254,7 +257,22 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             }
             return true;
         }
-        if (settingsOpen && event.button() == 0) {
+        if (settingsOpen && settingsPanelProgress > 0.85f && event.button() == 0) {
+            float controlsX = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
+            float limitY = getSettingsY() + getSettingsBaseHeight();
+            if (settingsMouseX >= controlsX && settingsMouseX <= controlsX + 270f
+                    && settingsMouseY >= limitY && settingsMouseY <= limitY + 30f) {
+                Config.mainUIFrameLimitEnabled = !Config.mainUIFrameLimitEnabled;
+                Config.save();
+                playClickSound();
+                return true;
+            }
+            if (Config.mainUIFrameLimitEnabled && settingsMouseX >= controlsX - 5f && settingsMouseX <= controlsX + 225f
+                    && settingsMouseY >= limitY + 39f && settingsMouseY <= limitY + 61f) {
+                draggingFrameLimit = true;
+                updateFrameLimit(settingsMouseX);
+                return true;
+            }
             if (isInsideBackgroundModeCustom(settingsMouseX, settingsMouseY)) {
                 setBackgroundMode(Config.MainUIBackgroundMode.IMAGE);
                 Config.save();
@@ -328,6 +346,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
                 return true;
             }
         }
+        if (settingsPanelProgress > 0.01f && isInsideSettingsArea(settingsMouseX, settingsMouseY)) return true;
         if (titleHitBox.contains((float) event.x(), (float) event.y())) {
             if (event.button() == 0) {
                 titlePressed = true;
@@ -347,7 +366,32 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     @Override
+    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+        if (draggingFrameLimit) {
+            updateFrameLimit(MainUiScale.topRightX((int) event.x(), width, height, mainLayoutScale()));
+            return true;
+        }
+        if (isFlipping()) return true;
+        if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseDragged(event, deltaX, deltaY);
+        if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseDragged(event, deltaX, deltaY);
+        if (embeddedAltManager != null) return embeddedAltManager.mouseDragged(event, deltaX, deltaY);
+        if (embeddedViaFabricPlus != null) return embeddedViaFabricPlus.mouseDragged(event, deltaX, deltaY);
+        return super.mouseDragged(event, deltaX, deltaY);
+    }
+
+    private void updateFrameLimit(float mouseX) {
+        float x = getSettingsX() + SETTINGS_SIZE - getSettingsPanelWidth() + 22f;
+        float value = Math.clamp((mouseX - x) / 220f, 0f, 1f);
+        Config.mainUIFrameLimit = Math.clamp(Math.round((30f + value * 210f) / 5f) * 5, 30, 240);
+    }
+
+    @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (draggingFrameLimit && event.button() == 0) {
+            draggingFrameLimit = false;
+            Config.save();
+            return true;
+        }
         if (isFlipping()) return true;
         if (embeddedSingleplayer != null) return embeddedSingleplayer.mouseReleased(event);
         if (embeddedMultiplayer != null) return embeddedMultiplayer.mouseReleased(event);
@@ -765,6 +809,10 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     @Override
     public void removed() {
+        if (draggingFrameLimit) {
+            draggingFrameLimit = false;
+            Config.save();
+        }
         if (preserveEmbeddedPages) {
             preserveEmbeddedPages = false;
         } else {
@@ -1130,21 +1178,23 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     private void renderSettingsPlaceholder(Canvas canvas) {
-        float x = getSettingsX();
+        float t = settingsPanelProgress;
+        float w = SETTINGS_SIZE + (getSettingsPanelWidth() - SETTINGS_SIZE) * t;
+        float h = SETTINGS_SIZE + (settingsExpandedHeight - SETTINGS_SIZE) * t;
+        float x = getSettingsX() + SETTINGS_SIZE - w;
         float y = getSettingsY();
-        float fade = 1f - easeOutCubic(settingsPanelProgress);
-        if (fade <= 0.01f) return;
-        int alpha = Math.round((isImageBackground() ? 47f : 190f) + 40f * settingsHoverProgress);
+        float fade = 1f - Math.min(1f, t * 2f);
         boolean lightTheme = isLightTheme();
+        float idleAlpha = (isImageBackground() ? 47f : 190f) + 40f * settingsHoverProgress;
+        float expandedAlpha = !isImageBackground() ? 196f : lightTheme ? 118f : 70f;
+        int alpha = Math.round(idleAlpha + (expandedAlpha - idleAlpha) * t);
         int baseColor = lightTheme ? 0x111111 : 0xFFFFFF;
         int accentColor = lightTheme ? 0xD17600 : 0xFFD176;
-        int bgColor = (Math.round(alpha * fade) << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF);
+        int bgColor = (alpha << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF);
         int iconColor = (Math.round((230f + 25f * settingsHoverProgress) * fade) << 24) | lerpRgb(baseColor, accentColor, settingsHoverProgress);
-        try (Paint bg = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor(bgColor);
-            canvas.drawRRect(RRect.makeXYWH(x, y, SETTINGS_SIZE, SETTINGS_SIZE, 10f), bg);
-        }
+        SkijaUi.rounded(canvas, x, y, w, h, 10f + 6f * t, bgColor);
+        if (fade <= 0.001f) return;
+        x = getSettingsX();
         String icon = "\uE8B8";
         float size = 22f;
         float iconW = SkijaUi.iconWidth(icon, size, SkijaUi.IconSet.MATERIAL_SYMBOLS);
@@ -1154,66 +1204,77 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
 
     private void renderSettingsPanel(Canvas canvas) {
         if (settingsPanelProgress <= 0.001f) return;
-        float t = easeOutCubic(settingsPanelProgress);
+        float t = settingsPanelProgress;
         float fullW = getSettingsPanelWidth();
-        float fullH = getSettingsPanelHeight();
-        float w = fullW * t;
-        float h = fullH * t;
-        float x = getSettingsX() + SETTINGS_SIZE - w;
+        float w = SETTINGS_SIZE + (fullW - SETTINGS_SIZE) * t;
+        float h = SETTINGS_SIZE + (settingsExpandedHeight - SETTINGS_SIZE) * t;
+        float x = getSettingsX() + SETTINGS_SIZE - fullW;
         float y = getSettingsY();
         boolean lightTheme = isLightTheme();
-        int alpha = Math.round((!isImageBackground() ? 196f : (lightTheme ? 118f : 70f)) * t);
-        try (Paint bg = new Paint()) {
-            bg.setAntiAlias(true);
-            bg.setColor((alpha << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF));
-            canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 16f), bg);
-        }
         if (t <= 0.45f) return;
 
         int textAlpha = Math.round(255f * Math.min(1f, (t - 0.45f) / 0.55f));
         int primary = (textAlpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF);
         int secondary = (Math.round(textAlpha * 0.72f) << 24) | (lightTheme ? 0x444444 : 0xFFFFFF);
-        float contentX = x + 22f;
-        float contentY = y + 34f;
-        SkijaUi.text(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, (contentY) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), primary, 18f);
+        int panelSave = canvas.save();
+        try {
+            canvas.clipRRect(RRect.makeXYWH(getSettingsX() + SETTINGS_SIZE - w, y, w, h, 10f + 6f * t), true);
+            float contentX = x + 22f;
+            float contentY = y + 34f;
+            SkijaUi.text(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, (contentY) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), primary, 18f);
 
-        float rowY = y + 72f;
-        SkijaUi.text(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, (rowY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-        renderChoice(canvas, contentX, rowY + 18f, 82f, Config.isChinese ? "\u5185\u7f6eGLSL" : "GLSL", isGlslBackground(), textAlpha);
-        renderChoice(canvas, contentX + 92f, rowY + 18f, 92f, Config.isChinese ? "\u56fe\u7247" : "Image", isImageBackground(), textAlpha);
-        renderChoice(canvas, contentX + 194f, rowY + 18f, 76f, Config.isChinese ? "\u89c6\u9891" : "Video", isVideoBackground(), textAlpha);
+            float rowY = y + 72f;
+            SkijaUi.text(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, (rowY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+            renderChoice(canvas, contentX, rowY + 18f, 82f, Config.isChinese ? "\u5185\u7f6eGLSL" : "GLSL", isGlslBackground(), textAlpha);
+            renderChoice(canvas, contentX + 92f, rowY + 18f, 92f, Config.isChinese ? "\u56fe\u7247" : "Image", isImageBackground(), textAlpha);
+            renderChoice(canvas, contentX + 194f, rowY + 18f, 76f, Config.isChinese ? "\u89c6\u9891" : "Video", isVideoBackground(), textAlpha);
 
-        if (isImageBackground() || isVideoBackground()) {
-            float folderY = y + 148f;
-            SkijaUi.text(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, (folderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-            renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
-        }
-
-        if (isImageBackground()) {
-            float imageY = y + 184f;
-            SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, (imageY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-            renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
-
-            float effectY = y + 220f;
-            SkijaUi.text(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, (effectY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-            renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
-        } else if (isVideoBackground()) {
-            float videoY = y + 184f;
-            SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, (videoY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-            String label = Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank()
-            ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
-            : Config.mainUIVideoBackground;
-            renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
-        } else {
-            float glslY = y + 148f;
-            SkijaUi.text(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, (glslY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-            renderChoice(canvas, contentX + 112f, glslY - 16f, 72f, Config.isChinese ? "\u968f\u673a" : "Random", Config.mainUIGlslMode == Config.MainUIGlslMode.RANDOM, textAlpha);
-            renderChoice(canvas, contentX + 194f, glslY - 16f, 76f, Config.isChinese ? "\u56fa\u5b9a" : "Fixed", Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED, textAlpha);
-            if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
-                float shaderY = y + 184f;
-                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, (shaderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
-                renderButton(canvas, contentX + 112f, shaderY - 16f, 158f, MainUIShader.normalizeShader(Config.mainUIGlslShader), textAlpha);
+            if (isImageBackground() || isVideoBackground()) {
+                float folderY = y + 148f;
+                SkijaUi.text(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, (folderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
             }
+
+            if (isImageBackground()) {
+                float imageY = y + 184f;
+                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, (imageY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
+
+                float effectY = y + 220f;
+                SkijaUi.text(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, (effectY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
+            } else if (isVideoBackground()) {
+                float videoY = y + 184f;
+                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, (videoY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                String label = Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank()
+                ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
+                : Config.mainUIVideoBackground;
+                renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
+            } else {
+                float glslY = y + 148f;
+                SkijaUi.text(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, (glslY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                renderChoice(canvas, contentX + 112f, glslY - 16f, 72f, Config.isChinese ? "\u968f\u673a" : "Random", Config.mainUIGlslMode == Config.MainUIGlslMode.RANDOM, textAlpha);
+                renderChoice(canvas, contentX + 194f, glslY - 16f, 76f, Config.isChinese ? "\u56fa\u5b9a" : "Fixed", Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED, textAlpha);
+                if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
+                    float shaderY = y + 184f;
+                    SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, (shaderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                    renderButton(canvas, contentX + 112f, shaderY - 16f, 158f, MainUIShader.normalizeShader(Config.mainUIGlslShader), textAlpha);
+                }
+            }
+            float limitY = y + getSettingsBaseHeight();
+            renderToggle(canvas, contentX, limitY, Config.isChinese ? "帧率限制" : "Frame Limit", Config.mainUIFrameLimitEnabled, textAlpha);
+            if (Config.mainUIFrameLimitEnabled) {
+                float sliderY = limitY + 50f;
+                float progress = Math.clamp((Config.mainUIFrameLimit - 30f) / 210f, 0f, 1f);
+                int trackColor = (Math.round(textAlpha * 0.16f) << 24) | (primary & 0xFFFFFF);
+                int activeColor = (textAlpha << 24) | (lightTheme ? 0xD17600 : 0xFFD176);
+                SkijaUi.rounded(canvas, contentX, sliderY - 2f, 220f, 4f, 2f, trackColor);
+                SkijaUi.rounded(canvas, contentX, sliderY - 2f, 220f * progress, 4f, 2f, activeColor);
+                SkijaUi.rounded(canvas, contentX + 220f * progress - 5f, sliderY - 5f, 10f, 10f, 5f, activeColor);
+                SkijaUi.text(canvas, Integer.toString(Config.mainUIFrameLimit), contentX + 238f, sliderY - 10f, 20f, primary, 11f);
+            }
+        } finally {
+            canvas.restoreToCount(panelSave);
         }
     }
 
@@ -1340,22 +1401,21 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         float dt = Math.min(0.05f, (now - lastRenderMs) / 1000f);
         lastRenderMs = now;
 
-        boolean oldHover = settingsHover;
         settingsHover = isInsideSettings(mouseX, mouseY);
-        if (settingsOpen && !isInsideSettingsArea(mouseX, mouseY)) {
-            settingsOpen = false;
-        }
-
+        if (settingsOpen && !draggingFrameLimit && !isInsideSettingsArea(mouseX, mouseY)) settingsOpen = false;
         float target = settingsOpen ? 1f : 0f;
-        float hoverTarget = settingsHover ? 1f : 0f;
-        float oldProgress = settingsPanelProgress;
-        float oldHoverProgress = settingsHoverProgress;
-        settingsPanelProgress += (target - settingsPanelProgress) * Math.min(1f, dt * 10f);
-        settingsHoverProgress += (hoverTarget - settingsHoverProgress) * Math.min(1f, dt * 12f);
-        if (Math.abs(settingsPanelProgress - target) < 0.002f) settingsPanelProgress = target;
-        if (Math.abs(settingsHoverProgress - hoverTarget) < 0.002f) settingsHoverProgress = hoverTarget;
-        if (oldHover != settingsHover || Math.abs(oldProgress - settingsPanelProgress) > 0.0005f || Math.abs(oldHoverProgress - settingsHoverProgress) > 0.0005f) {
+        float omega = 17f;
+        float displacement = settingsPanelProgress - target;
+        float impulse = settingsPanelVelocity + omega * displacement;
+        float decay = (float) Math.exp(-omega * dt);
+        settingsPanelProgress = target + (displacement + impulse * dt) * decay;
+        settingsPanelVelocity = (settingsPanelVelocity - omega * impulse * dt) * decay;
+        if (Math.abs(settingsPanelProgress - target) < 0.0005f && Math.abs(settingsPanelVelocity) < 0.005f) {
+            settingsPanelProgress = target;
+            settingsPanelVelocity = 0f;
         }
+        settingsHoverProgress += ((settingsHover ? 1f : 0f) - settingsHoverProgress) * (1f - (float) Math.exp(-12f * dt));
+        settingsExpandedHeight += (getSettingsPanelHeight() - settingsExpandedHeight) * (1f - (float) Math.exp(-14f * dt));
     }
 
     private boolean isInsideSettings(float mx, float my) {
@@ -1433,12 +1493,16 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         return 340f;
     }
 
-    private float getSettingsPanelHeight() {
+    private float getSettingsBaseHeight() {
         return isImageBackground() ? 276f : isVideoBackground() ? 220f : Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED ? 220f : 184f;
     }
 
+    private float getSettingsPanelHeight() {
+        return getSettingsBaseHeight() + (Config.mainUIFrameLimitEnabled ? 78f : 38f);
+    }
+
     private float getSettingsPanelMaxHeight() {
-        return 276f;
+        return 354f;
     }
 
     private void setBackgroundMode(Config.MainUIBackgroundMode mode) {

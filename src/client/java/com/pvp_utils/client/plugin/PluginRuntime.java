@@ -492,7 +492,7 @@ public final class PluginRuntime implements AutoCloseable {
                     case "glass" -> {
                         if (args.length > 5) textArgument(args, 5);
                         if (args.length > 6) args[6] = Context.toBoolean(args[6]);
-                        if (args.length > 7) args[7] = Context.toBoolean(args[7]);
+                        if (args.length > 7 && !(args[7] instanceof Scriptable)) args[7] = Context.toBoolean(args[7]);
                     }
                 }
             }

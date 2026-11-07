@@ -3,17 +3,13 @@ package com.pvp_utils.client.NeteaseMusic;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.skia.SkijaUi;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.FilterBlurMode;
 import io.github.humbleui.skija.Image;
-import io.github.humbleui.skija.MaskFilter;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.SamplingMode;
 import io.github.humbleui.types.Rect;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public final class MusicLyricsView implements AutoCloseable {
     private static final long SCROLL_DURATION_NANOS = 650_000_000L;
@@ -28,8 +24,10 @@ public final class MusicLyricsView implements AutoCloseable {
     private MusicBlurredCover previousBackground = new MusicBlurredCover();
     private final List<Row> rows = new ArrayList<>();
     private final List<HitRow> hitRows = new ArrayList<>();
-    private final Map<Integer, MaskFilter> blurMasks = new HashMap<>();
-    private final Paint lyricPaint = new Paint().setAntiAlias(true);
+    private LyricRasterCache rasterCache = new LyricRasterCache();
+    private boolean closed;
+    private int retainedFirst;
+    private int retainedLast = -1;
     private List<LyricLine> cachedLyrics = List.of();
     private float cachedWidth = -1f;
     private long cachedFontRevision = -1L;
@@ -84,12 +82,12 @@ public final class MusicLyricsView implements AutoCloseable {
 
     @Override
     public void close() {
+        if (closed) return;
         background.close();
         previousBackground.close();
-        blurMasks.values().forEach(MaskFilter::close);
-        blurMasks.clear();
-        lyricPaint.close();
         clearRows();
+        rasterCache.close();
+        closed = true;
         hitRows.clear();
         cachedLyrics = List.of();
         cachedWidth = -1f;
@@ -99,6 +97,10 @@ public final class MusicLyricsView implements AutoCloseable {
 
     public void render(Canvas canvas, float w, float h, float mouseX, float mouseY, float opacity) {
         if (w <= 0f || h <= 0f) return;
+        if (closed) {
+            rasterCache = new LyricRasterCache();
+            closed = false;
+        }
         layout(w, h);
         long now = System.nanoTime();
         float delta = lastFrameNanos == 0L ? 1f / 60f : Math.min(0.1f, (now - lastFrameNanos) / 1_000_000_000f);
@@ -149,8 +151,8 @@ public final class MusicLyricsView implements AutoCloseable {
         lyricsWidth = Math.max(40f, w - lyricsX - 28f);
         lyricsTop = 48f;
         lyricsBottom = Math.max(lyricsTop + 20f, h - 20f);
-        lyricSize = Math.min(32.5f, Math.max(17f, lyricsWidth / 12f));
-        translationSize = lyricSize * 0.52f;
+        lyricSize = Math.round(Math.min(32.5f, Math.max(17f, lyricsWidth / 12f)) * 2f) * 0.5f;
+        translationSize = Math.round(lyricSize * 0.52f * 2f) * 0.5f;
         float minimumCoverY = 42f;
         float controlsHeight = 66f + 27f + 45f;
         float bottomPadding = 16f;
@@ -292,9 +294,13 @@ public final class MusicLyricsView implements AutoCloseable {
             }
         }
         manualBlur = approach(manualBlur, manual ? 0f : 1f, delta, manual ? 14f : 8f);
-        updateRowSprings(scroll - previousScroll, delta, focusedIndex, !instant && !manual);
+        float buffer = Math.max(80f, lyricsBottom - lyricsTop);
+        int first = rowAt(scroll + lyricsTop - buffer);
+        int last = Math.min(rows.size() - 1, rowAt(scroll + lyricsBottom + buffer) + 1);
+        releaseOutside(first, last);
+        updateRowSprings(scroll - previousScroll, delta, focusedIndex, !instant && !manual, first, last);
         float blurUnit = lyricSize * BLUR_PER_LINE;
-        for (int i = 0; i < rows.size(); i++) {
+        for (int i = first; i <= last; i++) {
             Row row = rows.get(i);
             float focusTarget = i == focusedIndex ? 1f : 0f;
             if (row.focus < 0f) {
@@ -322,7 +328,7 @@ public final class MusicLyricsView implements AutoCloseable {
         int save = canvas.save();
         try {
             canvas.clipRect(Rect.makeXYWH(lyricsX - 8f, lyricsTop, lyricsWidth + 16f, lyricsBottom - lyricsTop));
-            for (int i = 0; i < rows.size(); i++) {
+            for (int i = first; i <= last; i++) {
                 Row row = rows.get(i);
                 float y = row.top() - scroll + row.springOffset;
                 if (y > lyricsBottom) break;
@@ -345,19 +351,20 @@ public final class MusicLyricsView implements AutoCloseable {
                         canvas.scale(scale, scale);
                         canvas.translate(-lyricsX, -centerY);
                     }
-                    lyricPaint.setMaskFilter(sigma > 0.08f ? blurMask(sigma) : null);
                     float lineY = y;
-                    for (SkijaUi.PreparedText line : row.primary()) {
+                    for (Fragment line : row.primary()) {
                         float edge = edgeAlpha(lineY, lyricSize * 1.25f);
-                        line.drawTop(canvas, lyricsX, lineY,
-                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge), lyricPaint);
+                        drawFragment(canvas, row.line(), line, lineY, lyricSize,
+                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge), sigma,
+                                playbackPosition, i == activeIndex);
                         lineY += lyricSize * 1.3f;
                     }
                     if (!row.translated().isEmpty()) lineY += 6f;
-                    for (SkijaUi.PreparedText line : row.translated()) {
+                    for (Fragment line : row.translated()) {
                         float edge = edgeAlpha(lineY, translationSize * 1.25f);
-                        line.drawTop(canvas, lyricsX, lineY,
-                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge * 0.66f), lyricPaint);
+                        drawFragment(canvas, row.line(), line, lineY, translationSize,
+                                MusicUi.alpha(MusicUi.TEXT, alpha * rowAlpha * edge * 0.66f), sigma,
+                                playbackPosition, false);
                         lineY += translationSize * 1.35f;
                     }
                 } finally {
@@ -369,19 +376,20 @@ public final class MusicLyricsView implements AutoCloseable {
         }
     }
 
-    private void updateRowSprings(float scrollDelta, float delta, int focusedIndex, boolean chain) {
+    private void updateRowSprings(float scrollDelta, float delta, int focusedIndex, boolean chain, int first, int last) {
         if (!chain) {
-            for (Row row : rows) {
+            for (int i = first; i <= last; i++) {
+                Row row = rows.get(i);
                 row.springOffset = 0f;
                 row.springVelocity = 0f;
             }
             return;
         }
-        for (int i = focusedIndex + 1; i < rows.size(); i++) rows.get(i).springOffset += scrollDelta;
+        for (int i = Math.max(first, focusedIndex + 1); i <= last; i++) rows.get(i).springOffset += scrollDelta;
         int steps = Math.max(1, (int) Math.ceil(delta / (1f / 240f)));
         float step = delta / steps;
         for (int s = 0; s < steps; s++) {
-            for (int i = rows.size() - 1; i >= 0; i--) {
+            for (int i = last; i >= first; i--) {
                 Row row = rows.get(i);
                 int distance = Math.max(0, i - focusedIndex);
                 float response = Math.max(CHAIN_MIN_RESPONSE, Math.min(1f, 1f - distance * CHAIN_FALLOFF));
@@ -394,7 +402,8 @@ public final class MusicLyricsView implements AutoCloseable {
             }
         }
         float limit = Math.max(40f, (lyricsBottom - lyricsTop) * 1.5f);
-        for (Row row : rows) {
+        for (int i = first; i <= last; i++) {
+            Row row = rows.get(i);
             if (Math.abs(row.springOffset) > limit) {
                 row.springOffset = Math.signum(row.springOffset) * limit;
                 row.springVelocity = 0f;
@@ -437,9 +446,54 @@ public final class MusicLyricsView implements AutoCloseable {
         return 3f * v * v * p1 + 6f * v * u * (p2 - p1) + 3f * u * u * (1f - p2);
     }
 
-    private MaskFilter blurMask(float sigma) {
-        int key = Math.max(1, Math.round(sigma * 8f));
-        return blurMasks.computeIfAbsent(key, value -> MaskFilter.makeBlur(FilterBlurMode.NORMAL, value / 8f));
+    private void drawFragment(Canvas canvas, LyricLine owner, Fragment fragment, float top, float size,
+                              int color, float sigma, long positionMs, boolean active) {
+        if ((color >>> 24) == 0) return;
+        if (fragment.prepared == null) fragment.prepared = MusicUi.prepareBold(fragment.value, size);
+        if (active && owner.hasWords() && fragment.timeline == null) {
+            fragment.timeline = new LyricWordTimeline(owner, fragment.value, fragment.start, size, true);
+        }
+        boolean timed = active && fragment.timeline != null && !fragment.timeline.isEmpty();
+        int base = timed ? MusicUi.alpha(color, 0.4f) : color;
+        rasterCache.draw(canvas, fragment.prepared, size, lyricsX, top, base, sigma, 2f);
+        if (timed) {
+            float highlighted = fragment.timeline.widthAt(positionMs);
+            if (highlighted <= 0f) return;
+            int save = canvas.save();
+            try {
+                canvas.clipRect(Rect.makeXYWH(lyricsX, top - 4f, highlighted, size * 2f));
+                rasterCache.draw(canvas, fragment.prepared, size, lyricsX, top, color, 0f, 2f);
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+
+    private int rowAt(float position) {
+        int low = 0;
+        int high = rows.size();
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            if (rows.get(middle).top() + rows.get(middle).height() < position) low = middle + 1;
+            else high = middle;
+        }
+        return Math.min(rows.size() - 1, low);
+    }
+
+    private void releaseOutside(int first, int last) {
+        for (int i = retainedFirst; i <= retainedLast && i < rows.size(); i++) {
+            if (i >= first && i <= last) continue;
+            Row row = rows.get(i);
+            row.primary().forEach(Fragment::close);
+            row.translated().forEach(Fragment::close);
+            row.springOffset = 0f;
+            row.springVelocity = 0f;
+            row.focus = -1f;
+            row.blur = -1f;
+            row.alpha = -1f;
+        }
+        retainedFirst = first;
+        retainedLast = last;
     }
 
     private float edgeAlpha(float y, float lineHeight) {
@@ -449,7 +503,7 @@ public final class MusicLyricsView implements AutoCloseable {
 
     private void rebuildRows(List<LyricLine> lyrics) {
         long fontRevision = SkijaUi.textFontRevision();
-        if (lyrics.equals(cachedLyrics) && Math.abs(cachedWidth - lyricsWidth) < 0.1f
+        if (lyrics == cachedLyrics && Math.abs(cachedWidth - lyricsWidth) < 0.1f
                 && cachedTranslation == translationVisible && cachedFontRevision == fontRevision) return;
         cachedLyrics = lyrics;
         cachedWidth = lyricsWidth;
@@ -459,9 +513,9 @@ public final class MusicLyricsView implements AutoCloseable {
         float y = 0f;
         for (LyricLine line : lyrics) {
             String primary = line.text() == null || line.text().isBlank() ? "· · ·" : line.text().trim();
-            List<SkijaUi.PreparedText> text = prepareLines(primary, lyricsWidth, lyricSize);
-            List<SkijaUi.PreparedText> translated = !translationVisible || line.translation() == null || line.translation().isBlank()
-                    ? List.of() : prepareLines(line.translation().trim(), lyricsWidth, translationSize);
+            List<Fragment> text = prepareLines(primary, lyricsWidth, lyricSize, Math.max(0, line.text() == null ? 0 : line.text().indexOf(primary)));
+            List<Fragment> translated = !translationVisible || line.translation() == null || line.translation().isBlank()
+                    ? List.of() : prepareLines(line.translation().trim(), lyricsWidth, translationSize, 0);
             float h = text.size() * lyricSize * 1.3f
                     + (translated.isEmpty() ? 0f : 6f + translated.size() * translationSize * 1.35f);
             rows.add(new Row(line, text, translated, y, h));
@@ -472,39 +526,48 @@ public final class MusicLyricsView implements AutoCloseable {
     }
 
     private void clearRows() {
+        rasterCache.clear();
+        retainedFirst = 0;
+        retainedLast = -1;
         for (Row row : rows) {
-            row.primary().forEach(SkijaUi.PreparedText::close);
-            row.translated().forEach(SkijaUi.PreparedText::close);
+            row.primary().forEach(Fragment::close);
+            row.translated().forEach(Fragment::close);
         }
         rows.clear();
     }
 
-    private static List<SkijaUi.PreparedText> prepareLines(String value, float maxWidth, float size) {
-        return wrap(value, maxWidth, size).stream().map(line -> MusicUi.prepareBold(line, size)).toList();
-    }
-
-    private static List<String> wrap(String value, float maxWidth, float size) {
-        List<String> result = new ArrayList<>();
+    private static List<Fragment> prepareLines(String value, float maxWidth, float size, int offset) {
+        List<Fragment> result = new ArrayList<>();
+        int paragraphStart = 0;
         for (String paragraph : value.split("\\R", -1)) {
-            String remaining = paragraph.trim();
-            if (remaining.isEmpty()) {
-                result.add("");
-                continue;
-            }
-            while (!remaining.isEmpty()) {
-                int end = 0;
-                int lastSpace = -1;
-                for (int at = 0; at < remaining.length();) {
-                    int next = at + Character.charCount(remaining.codePointAt(at));
-                    if (MusicUi.boldWidth(remaining.substring(0, next), size) > maxWidth && at > 0) break;
-                    end = next;
-                    if (Character.isWhitespace(remaining.codePointAt(at))) lastSpace = at;
-                    at = next;
+            int cursor = 0;
+            if (paragraph.isEmpty()) result.add(new Fragment("", paragraphStart + offset));
+            while (cursor < paragraph.length()) {
+                while (cursor < paragraph.length() && Character.isWhitespace(paragraph.codePointAt(cursor))) {
+                    cursor += Character.charCount(paragraph.codePointAt(cursor));
                 }
-                if (end == 0) end = Character.charCount(remaining.codePointAt(0));
-                if (end < remaining.length() && lastSpace > 0) end = lastSpace;
-                result.add(remaining.substring(0, end).stripTrailing());
-                remaining = remaining.substring(end).stripLeading();
+                if (cursor >= paragraph.length()) break;
+                int count = paragraph.codePointCount(cursor, paragraph.length());
+                int low = 1;
+                int high = count;
+                while (low < high) {
+                    int middle = (low + high + 1) >>> 1;
+                    int end = paragraph.offsetByCodePoints(cursor, middle);
+                    if (MusicUi.boldWidth(paragraph.substring(cursor, end), size) <= maxWidth) low = middle;
+                    else high = middle - 1;
+                }
+                int end = paragraph.offsetByCodePoints(cursor, low);
+                if (end < paragraph.length()) {
+                    int space = paragraph.lastIndexOf(' ', end - 1);
+                    if (space > cursor) end = space;
+                }
+                result.add(new Fragment(paragraph.substring(cursor, end).stripTrailing(), paragraphStart + cursor + offset));
+                cursor = end;
+            }
+            paragraphStart += paragraph.length();
+            if (paragraphStart < value.length()) {
+                if (value.charAt(paragraphStart) == '\r') paragraphStart++;
+                if (paragraphStart < value.length() && value.charAt(paragraphStart) == '\n') paragraphStart++;
             }
         }
         return result;
@@ -639,10 +702,29 @@ public final class MusicLyricsView implements AutoCloseable {
         return x >= left && x <= left + w && y >= top && y <= top + h;
     }
 
+    private static final class Fragment implements AutoCloseable {
+        private final String value;
+        private final int start;
+        private SkijaUi.PreparedText prepared;
+        private LyricWordTimeline timeline;
+
+        private Fragment(String value, int start) {
+            this.value = value;
+            this.start = start;
+        }
+
+        @Override
+        public void close() {
+            if (prepared != null) prepared.close();
+            prepared = null;
+            timeline = null;
+        }
+    }
+
     private static final class Row {
         private final LyricLine line;
-        private final List<SkijaUi.PreparedText> primary;
-        private final List<SkijaUi.PreparedText> translated;
+        private final List<Fragment> primary;
+        private final List<Fragment> translated;
         private final float top;
         private final float height;
         private float focus = -1f;
@@ -654,8 +736,8 @@ public final class MusicLyricsView implements AutoCloseable {
         private float springOffset;
         private float springVelocity;
 
-        private Row(LyricLine line, List<SkijaUi.PreparedText> primary,
-                    List<SkijaUi.PreparedText> translated, float top, float height) {
+        private Row(LyricLine line, List<Fragment> primary,
+                    List<Fragment> translated, float top, float height) {
             this.line = line;
             this.primary = primary;
             this.translated = translated;
@@ -667,11 +749,11 @@ public final class MusicLyricsView implements AutoCloseable {
             return line;
         }
 
-        private List<SkijaUi.PreparedText> primary() {
+        private List<Fragment> primary() {
             return primary;
         }
 
-        private List<SkijaUi.PreparedText> translated() {
+        private List<Fragment> translated() {
             return translated;
         }
 

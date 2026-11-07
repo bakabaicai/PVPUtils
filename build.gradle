@@ -101,10 +101,16 @@ dependencies {
     implementation "com.github.oshi:oshi-core:6.6.5"
     include "com.github.oshi:oshi-core:6.6.5"
 
-    implementation "org.jcodec:jcodec:0.2.5"
-    include "org.jcodec:jcodec:0.2.5"
-    implementation "org.jcodec:jcodec-javase:0.2.5"
-    include "org.jcodec:jcodec-javase:0.2.5"
+    implementation("org.bytedeco:javacv:1.5.12") { transitive = false }
+    include("org.bytedeco:javacv:1.5.12") { transitive = false }
+    implementation "org.bytedeco:javacpp:1.5.12"
+    include "org.bytedeco:javacpp:1.5.12"
+    implementation "org.bytedeco:ffmpeg:7.1.1-1.5.12"
+    include "org.bytedeco:ffmpeg:7.1.1-1.5.12"
+    runtimeOnly "org.bytedeco:javacpp:1.5.12:windows-x86_64"
+    include "org.bytedeco:javacpp:1.5.12:windows-x86_64"
+    runtimeOnly "org.bytedeco:ffmpeg:7.1.1-1.5.12:windows-x86_64"
+    include "org.bytedeco:ffmpeg:7.1.1-1.5.12:windows-x86_64"
 
     implementation "com.github.goxr3plus:java-stream-player:10.0.2"
     include "com.github.goxr3plus:java-stream-player:10.0.2"

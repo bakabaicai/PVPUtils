@@ -46,6 +46,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         Update.startAutoCheck();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
                 client -> {
+                    com.pvp_utils.client.modules.impl.Combat.HitSoundPlayer.close();
                     PseudoCreativeManager.setEnabled(false);
                     com.pvp_utils.client.plugin.PluginManager.INSTANCE.close();
                     com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();

@@ -15,6 +15,11 @@ public final class PingHudRenderer extends SkiaTextHudRenderer {
     }
 
     @Override
+    protected com.pvp_utils.client.render.HudAppearance appearance() {
+        return Config.pingAppearance;
+    }
+
+    @Override
     protected boolean enabled() {
         return Config.pingHud;
     }
@@ -68,6 +73,6 @@ public final class PingHudRenderer extends SkiaTextHudRenderer {
         net.minecraft.client.multiplayer.PlayerInfo info = client.getConnection().getPlayerInfo(client.player.getUUID());
         int latency = info == null ? -1 : info.getLatency();
         String text = latency < 0 ? "--" : latency + "ms";
-        return List.of(new Line("Ping: " + text, BetterPingDisplayRenderer.color(Math.max(0, latency))));
+        return List.of(new Line("Ping: " + text, latency < 150 ? Config.pingAppearance.accent() : BetterPingDisplayRenderer.color(latency)));
     }
 }

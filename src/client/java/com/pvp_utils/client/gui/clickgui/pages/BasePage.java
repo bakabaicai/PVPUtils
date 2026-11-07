@@ -115,6 +115,16 @@ public abstract class BasePage {
         return (index / 2) * (SettingModule.MODULE_H + ROW_GAP);
     }
 
+    public void updateFlyoutSources(float x, float y, float contentW, float scrollOffset) {
+        ensureLayoutCache();
+        float colW = columnWidth(contentW);
+        if (colW <= 0f) return;
+        for (int i = 0; i < visibleModules.size(); i++) {
+            visibleModules.get(i).setFlyoutSource(x + columnX(i, contentW) + panelShift,
+                    y + rowY(i) - scrollOffset, colW, SettingModule.TILE_H);
+        }
+    }
+
     public void draw(Canvas canvas, float x, float y, float contentW, float contentH, float alpha, float scrollOffset, float mouseX, float mouseY) {
         ensureLayoutCache();
         float colW = columnWidth(contentW);

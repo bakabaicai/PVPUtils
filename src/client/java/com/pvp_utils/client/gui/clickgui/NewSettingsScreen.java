@@ -17,6 +17,7 @@ import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.skia.SoftShadow;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
@@ -87,7 +88,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private static final float MIN_CARD_W = 560f;
     private static final float MIN_CARD_H = 380f;
     private static final float MIN_FLYOUT_W = 220f;
-    private static final float MAX_FLYOUT_W = 460f;
+    private static final float MAX_FLYOUT_W = 640f;
     private float cardW = Config.clickGuiCardW > 0f ? Config.clickGuiCardW : 740f;
     private float cardH = Config.clickGuiCardH > 0f ? Config.clickGuiCardH : 500f;
     private float flyoutW = Config.clickGuiFlyoutW > 0f ? Config.clickGuiFlyoutW : 288f;
@@ -107,6 +108,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private float cardOffsetX;
     private float cardOffsetY;
     private SettingModule flyoutModule;
+    private final List<SettingModule.FlyoutExit> exitingFlyouts = new ArrayList<>();
     private String cachedFooterSource = "";
     private String cachedFooterRender = "";
     private float cachedFooterMaxWidth = -1f;
@@ -157,6 +159,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     }
 
     public void rebuildCurrentPage() {
+        detachPageFlyouts(activePage(), true);
         pages.set(selectedTab, switch (selectedTab) {
             case 0 -> new CombatPage();
             case 1 -> new RenderPage();
@@ -171,6 +174,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     }
 
     public void showAddServerPage() {
+        detachPageFlyouts(activePage(), true);
         pages.set(selectedTab, new AddServerPage());
         invalidateScrollLayout();
     }
@@ -206,7 +210,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float rightLimit = layoutW * 0.5f + halfWidth;
         float leftLimit = layoutW * 0.5f - halfWidth;
         float baseCardX = (layoutW - cardW) / 2f + cardOffsetX;
-        float need = baseCardX + cardW + FLYOUT_GAP + flyoutW + 200f - rightLimit;
+        float reservedWidth = effectiveFlyoutWidth();
+        for (SettingModule.FlyoutExit exit : exitingFlyouts) reservedWidth = Math.max(reservedWidth, exit.width());
+        float need = baseCardX + cardW + FLYOUT_GAP + reservedWidth - rightLimit;
         float maxShift = Math.max(0f, baseCardX - leftLimit);
         return Math.min(Math.max(0f, need), maxShift);
     }
@@ -296,6 +302,23 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
     }
 
+    private void renderExitingFlyoutBlur(Canvas canvas, RRect panel, float alpha) {
+        if (!Config.clickGuiPanelBlur || alpha <= 0.01f) return;
+        if (alpha >= 0.999f) {
+            renderPanelBlur(canvas, panel);
+            return;
+        }
+        try (Paint paint = new Paint().setAlphaf(alpha)) {
+            int save = canvas.saveLayer(Rect.makeXYWH(panel.getLeft(), panel.getTop(),
+                    panel.getWidth(), panel.getHeight()), paint);
+            try {
+                renderPanelBlur(canvas, panel);
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+
     private float toLayoutX(double x, int width, float scale) {
         return layoutWidth() * 0.5f + ((float) x - width * 0.5f) / scale;
     }
@@ -329,10 +352,19 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     }
 
     private float getContentTotalHeight(BasePage page) {
-        return 54f + page.getTotalHeight() + 12f;
+        return page.getTotalHeight() + 12f;
     }
 
     private void updateScrollCache(BasePage page, float contentH) {
+        if (page instanceof ThemePage themePage) {
+            themePage.prepareLayout(cardW - 190f - 1f - 40f);
+            if (themePage.consumeScrollReset()) {
+                detachPageFlyouts(page, false);
+                targetScrollOffset = 0f;
+                contentScrollOffset = 0f;
+                invalidateScrollLayout();
+            }
+        }
         float contentTotalHeight = getContentTotalHeight(page);
         if (cachedScrollPage == page
         && cachedScrollContentH == contentH
@@ -353,7 +385,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     @Override
     public void removed() {
         pendingFrame = false;
-
+        exitingFlyouts.clear();
+        for (BasePage page : pages) {
+            for (SettingModule module : page.getModules()) module.resetFlyout();
+        }
+        flyoutModule = null;
         super.removed();
     }
 
@@ -443,6 +479,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             invalidateScrollLayout();
         }
         BasePage currentPage = activePage();
+        exitingFlyouts.removeIf(exit -> exit.module().isFlyoutOpen() || !exit.update(dt));
         long debugUpdateStartNs = Version.DEBUG ? System.nanoTime() : 0L;
         currentPage.update(dt);
         SettingModule openFlyout = currentPage.getOpenFlyout();
@@ -459,6 +496,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         for (SettingModule module : currentPage.getModules()) {
             float progress = module.isFlyoutOpen() ? 1f : module.getFlyoutProgress();
             if (progress > flyoutShiftProgress) flyoutShiftProgress = progress;
+        }
+        for (SettingModule.FlyoutExit exit : exitingFlyouts) {
+            flyoutShiftProgress = Math.max(flyoutShiftProgress, exit.progress());
         }
         float shiftTarget = flyoutShiftProgress > 0.001f
                 ? maxPanelShift(layoutWidth()) * SettingModule.cubicBezierEase(flyoutShiftProgress)
@@ -483,6 +523,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float sidebarW = l[4], tabStartY = l[5], tabH = l[6], tabGap = l[7], tabW = l[8];
         float closeX = l[9], closeY = l[10], closeH = l[11], resetY = l[12], resetH = l[13];
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
+        updateFlyoutSources(currentPage, l);
         float searchX = cardX + 18f, searchY = cardY + 66f, searchW = sidebarW - 36f, searchH = 28f;
 
         hoveredTab = -1;
@@ -524,15 +565,25 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
                 cy + (cardY - layoutHeight * 0.5f) * visualScale,
                 cardW * visualScale, cardH * visualScale, cardRadius * visualScale));
 
+        for (SettingModule.FlyoutExit exit : exitingFlyouts) {
+            float[] r = exit.rect(cardX, cardY);
+            float radius = 9f + 3f * SettingModule.cubicBezierEase(exit.progress());
+            renderExitingFlyoutBlur(canvas, RRect.makeXYWH(
+                    cx + (r[0] - layoutWidth * 0.5f) * visualScale,
+                    cy + (r[1] - layoutHeight * 0.5f) * visualScale,
+                    r[2] * visualScale, r[3] * visualScale, radius * visualScale), exit.alpha() * alpha);
+        }
+
         if (!themePreviewMode) {
             float[] fg = flyoutGeometry(cardX, cardY, cardW, cardH);
             for (SettingModule module : page.getModules()) {
                 if (module.getFlyoutProgress() > 0.01f) {
                     float[] r = module.flyoutMorphRect(fg[0], fg[1], fg[2], fg[3], panelShiftX);
+                    float radius = 9f + 3f * SettingModule.cubicBezierEase(module.getFlyoutProgress());
                     renderPanelBlur(canvas, RRect.makeXYWH(
                             cx + (r[0] - layoutWidth * 0.5f) * visualScale,
                             cy + (r[1] - layoutHeight * 0.5f) * visualScale,
-                            r[2] * visualScale, r[3] * visualScale, 12f * visualScale));
+                            r[2] * visualScale, r[3] * visualScale, radius * visualScale));
                 }
             }
         }
@@ -542,7 +593,12 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         canvas.scale(visualScale, visualScale);
         canvas.translate(-layoutWidth * 0.5f, -layoutHeight * 0.5f);
 
-        float panelAlpha = Config.clickGuiPanelBlur ? alpha * 0.52f : alpha;
+        if (Config.clickGuiAppearance.shadow) {
+            SoftShadow.drawRounded(canvas, cardX, cardY, cardW, cardH, cardRadius,
+                    Config.clickGuiAppearance.shadowStrength * alpha, 0xA0000000);
+        }
+        float panelAlpha = Config.clickGuiAppearance.customBackground ? alpha * Config.clickGuiAppearance.backgroundOpacity
+                : Config.clickGuiPanelBlur ? alpha * 0.52f : alpha;
         cardPaint.setColor(withAlpha(tc.window, panelAlpha));
         canvas.drawRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), cardPaint);
 
@@ -566,7 +622,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         canvas.save();
         canvas.clipRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), true);
 
-        sidebarPaint.setColor(withAlpha(tc.sidebar, Config.clickGuiPanelBlur ? alpha * 0.44f : alpha));
+        sidebarPaint.setColor(withAlpha(tc.sidebar, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.save();
         canvas.clipRRect(RRect.makeXYWH(cardX, cardY, sidebarW, cardH, cardRadius), true);
         canvas.drawRect(Rect.makeXYWH(cardX, cardY, sidebarW, cardH), sidebarPaint);
@@ -575,9 +631,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         dividerPaint.setColor(withAlpha(tc.border, alpha));
         canvas.drawRect(Rect.makeXYWH(cardX + sidebarW, cardY + 14f, 1f, cardH - 28f), dividerPaint);
 
-        SkijaUi.text(canvas, "PVPUtils", cardX + 18f, (cardY + 38f) + SkijaUi.textMetrics(16f).getAscent(), SkijaUi.textMetrics(16f).getDescent() - SkijaUi.textMetrics(16f).getAscent(), withAlpha(tc.primaryText, alpha), 16f);
+        SkijaUi.text(canvas, "PVPUtils", cardX + 18f, cardY + 22f, 24f, withAlpha(tc.primaryText, alpha), 16f);
         drawDebugOverlay(canvas, cardX, cardY, cardW, alpha, tc);
-        SkijaUi.text(canvas, UiText.t("在下方调整设置...", "Adjust the settings below..."), cardX + 18f, (cardY + 54f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
+        SkijaUi.text(canvas, UiText.t("客户端设置", "Client Settings"), cardX + 18f, cardY + 46f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
         drawSearchBox(canvas, searchX, searchY, searchW, searchH, alpha, dt, tc);
 
         indicatorPaint.setColor(withAlpha(tc.indicator, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
@@ -592,8 +648,8 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveIcon, alpha);
             int textColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveText, alpha);
-            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, (tabY + tabH / 2f + 10f) + SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getDescent() - SkijaUi.iconMetrics(13f, TAB_ICON_FONTS[i]).getAscent(), iconColor, 13f, TAB_ICON_FONTS[i]);
-            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, (tabY + tabH / 2f + 8f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), textColor, 13f);
+            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, tabY + 4f, tabH, iconColor, 13f, TAB_ICON_FONTS[i]);
+            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + 4f, tabH, textColor, 13f);
         }
 
         int closeBgColor = lerpColor(tc.buttonBackground, tc.dangerHoverBackground, closeHoverAlpha);
@@ -610,8 +666,8 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
         float resetTotalW = resetIconWidth + 6f + cachedResetTextWidth;
         float resetStartX = closeX + (tabW - resetTotalW) / 2f;
-        SkijaUi.icon(canvas, resetIcon, resetStartX, (resetY + 22f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(resetTextColor, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.text(canvas, resetText, resetStartX + resetIconWidth + 6f, (resetY + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(resetTextColor, alpha), 12f);
+        SkijaUi.icon(canvas, resetIcon, resetStartX, resetY, resetH, withAlpha(resetTextColor, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.text(canvas, resetText, resetStartX + resetIconWidth + 6f, resetY, resetH, withAlpha(resetTextColor, alpha), 12f);
 
         closeBgPaint.setColor(withAlpha(closeBgColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBgPaint);
@@ -620,18 +676,18 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             cachedCloseText = closeText;
             cachedCloseTextWidth = SkijaUi.textWidth(closeText, 12f);
         }
-        SkijaUi.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, (closeY + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(closeTextColor, alpha), 12f);
+        SkijaUi.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, closeY, closeH, withAlpha(closeTextColor, alpha), 12f);
 
         if (themePreviewMode) {
-            SkijaUi.text(canvas, UiText.t("面板主题", "Panel Theme"), contentX + 18f, (contentY + 26f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), withAlpha(tc.primaryText, alpha), 18f);
-            SkijaUi.text(canvas, UiText.t("点击缩略图切换面板配色", "Click a thumbnail to switch the panel theme"), contentX + 18f, (contentY + 42f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
+            SkijaUi.text(canvas, UiText.t("面板主题", "Panel Theme"), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, alpha), 18f);
+            SkijaUi.text(canvas, UiText.t("点击缩略图切换面板配色", "Click a thumbnail to switch the panel theme"), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
             float backX = themeBackX(contentX, contentW);
             hoverPaint.setColor(withAlpha(themeBackHovered ? tc.hoverBackground : tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
             canvas.drawRRect(RRect.makeXYWH(backX, contentY + 12f, 28f, 28f, 6f), hoverPaint);
-            SkijaUi.icon(canvas, "\uE5C4", backX + (28f - themeBackIconWidth) / 2f, (contentY + 35f) + SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(18f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.primaryText, alpha), 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, "\uE5C4", backX + (28f - themeBackIconWidth) / 2f, contentY + 12f, 28f, withAlpha(tc.primaryText, alpha), 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         } else {
-            SkijaUi.text(canvas, page.getTitle(), contentX + 18f, (contentY + 26f) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), withAlpha(tc.primaryText, alpha), 18f);
-            SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, (contentY + 42f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(tc.secondaryText, alpha), 10f);
+            SkijaUi.text(canvas, page.getTitle(), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, alpha), 18f);
+            SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
         }
 
         float clipTop = contentY + 54f;
@@ -662,6 +718,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
         canvas.restore();
 
+        for (SettingModule.FlyoutExit exit : exitingFlyouts) {
+            exit.draw(canvas, cardX, cardY, alpha);
+        }
         if (!themePreviewMode) {
             float[] g = flyoutGeometry(cardX, cardY, cardW, cardH);
             for (SettingModule module : page.getModules()) {
@@ -802,6 +861,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         return Math.max(MIN_CARD_H, this.height / scale - SCREEN_MARGIN);
     }
 
+    private float effectiveFlyoutWidth() {
+        return Math.min(MAX_FLYOUT_W, Math.max(flyoutW,
+                flyoutModule == null ? MIN_FLYOUT_W : flyoutModule.preferredFlyoutWidth()));
+    }
+
     private float[] flyoutGeometry(float cardX, float cardY, float cardW, float cardH) {
         float scale = Math.max(0.01f, getVisualScale(this.width, this.height));
         float halfWidth = Math.max(0f, this.width * 0.5f - 8f) / scale;
@@ -812,14 +876,40 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float available = rightLimit - targetX;
         float screenW = Math.max(0f, rightLimit - leftLimit);
         float minW = Math.min(160f, screenW);
-        float w = Math.min(Math.min(flyoutW, screenW), Math.max(minW, available));
+        float w = Math.min(Math.min(effectiveFlyoutWidth(), screenW), Math.max(minW, available));
         float x = Math.max(leftLimit, Math.min(targetX, rightLimit - w));
         return new float[]{x, cardY, w, cardH};
     }
 
     private void closeFlyout() {
         for (BasePage page : pages) page.closeFlyouts();
+    }
+
+    private void updateFlyoutSources(BasePage page, float[] geometry) {
+        page.setPanelShift(panelShiftX);
+        if (themePreviewMode) return;
+        float y = geometry[15] + 54f + (page instanceof PluginPage ? 40f : 0f);
+        page.updateFlyoutSources(geometry[14] + 10f, y, geometry[16] - 40f, contentScrollOffset);
+    }
+
+    private void detachPageFlyouts(BasePage page, boolean updateSources) {
+        float[] geometry = layout(layoutWidth(), layoutHeight());
+        if (updateSources) updateFlyoutSources(page, geometry);
+        float[] target = flyoutGeometry(geometry[0], geometry[1], geometry[2], geometry[3]);
+        for (SettingModule module : page.getModules()) {
+            SettingModule.FlyoutExit exit = module.captureFlyoutExit(geometry[0], geometry[1],
+                    target[0], target[1], target[2], target[3], panelShiftX);
+            if (exit != null) {
+                exitingFlyouts.removeIf(previous -> previous.module() == module);
+                exitingFlyouts.add(exit);
+            }
+            module.setFlyoutOpen(false);
+            module.resetFlyout();
+        }
         flyoutModule = null;
+        draggingInContent = false;
+        draggingScrollbar = false;
+        resizeMode = 0;
     }
 
     private static String truncate(String text, float maxWidth, float size) {
@@ -839,7 +929,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         searchBgPaint.setColor(withAlpha(background, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, width, height, 7f), searchBgPaint);
 
-        SkijaUi.icon(canvas, "\uE8B6", x + 9f, (y + 19f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(tc.searchIcon, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, "\uE8B6", x + 9f, y, height, withAlpha(tc.searchIcon, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         float textX = x + 28f;
         float textW = Math.max(1f, width - 36f);
         boolean empty = searchText.isEmpty();
@@ -850,7 +940,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(textX, y + 2f, textW, height - 4f));
-        SkijaUi.text(canvas, display, textX - (empty ? 0f : searchTextOffset), (y + 18.5f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
+        SkijaUi.text(canvas, display, textX - (empty ? 0f : searchTextOffset), y, height, withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
         if (searchFocused) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(searchCursorTime * 6f));
             float cursorX = textX + Math.min(textW - 1f, Math.max(0f, realTextWidth - searchTextOffset));
@@ -865,6 +955,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     }
 
     private void applySearch() {
+        detachPageFlyouts(activePage(), true);
         for (BasePage page : pages) {
             page.setSearchQuery(searchText);
         }
@@ -1088,7 +1179,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         BasePage page = activePage();
 
         if (!themePreviewMode && button == 0 && openProgress > 0.99f) {
-            float[] g = flyoutModule != null && flyoutModule.getFlyoutProgress() > 0.5f ? flyoutGeometry(cardX, l[1], l[2], l[3]) : null;
+            float[] g = flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.5f ? flyoutGeometry(cardX, l[1], l[2], l[3]) : null;
             if (g != null && mx >= g[0] + g[2] - 10f && mx <= g[0] + g[2] + 8f && my >= g[1] + g[3] - 10f && my <= g[1] + g[3] + 8f) {
                 resizeMode = 3;
                 resizeScale = visualScale;
@@ -1108,7 +1199,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             }
         }
 
-        if (!themePreviewMode && button == 0 && flyoutModule != null && flyoutModule.getFlyoutProgress() >= 0.5f) {
+        if (!themePreviewMode && button == 0 && flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() >= 0.5f) {
             float[] g = flyoutGeometry(cardX, l[1], l[2], l[3]);
             if (mx >= g[0] && mx <= g[0] + g[2] && my >= g[1] && my <= g[1] + g[3]) {
                 flyoutModule.flyoutClick(mx, my, g[0], g[1], g[2], g[3], button);
@@ -1149,7 +1240,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             float ty = tabStartY + i * (tabH + tabGap) + 4f;
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
                 if (button == 0) {
-                    boolean hadOpenFlyout = page.getOpenFlyout() != null;
                     clearSearch();
                     themePreviewMode = false;
                     selectedTab = i;
@@ -1159,23 +1249,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
                     targetScrollOffset = 0f;
                     contentScrollOffset = 0f;
                     invalidateScrollLayout();
-                    BasePage newPage = pages.get(selectedTab);
-                    for (BasePage p : pages) {
-                        if (p == newPage) continue;
-                        for (SettingModule mm : p.getModules()) mm.resetFlyout();
-                    }
-                    if (hadOpenFlyout && !(newPage instanceof PluginPage)) {
-                        float moduleStartY = contentY + 54f;
-                        float listHeight = contentH - 54f - FOOTER_H;
-                        newPage.setPanelShift(panelShiftX);
-                        newPage.openFirstFlyout(contentX + 10f, moduleStartY, contentW - 40f, listHeight, 0f);
-                        flyoutModule = newPage.getOpenFlyout();
-                    } else {
-                        for (BasePage p : pages) {
-                            for (SettingModule mm : p.getModules()) mm.resetFlyout();
-                        }
-                        flyoutModule = null;
-                    }
+                    flyoutModule = null;
+                    draggingInContent = false;
+                    draggingScrollbar = false;
+                    draggingWindow = false;
+                    resizeMode = 0;
                 }
                 return true;
             }
@@ -1231,11 +1309,14 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
                 return true;
             }
             float moduleStartY = contentY + 54f;
-            page.setPanelShift(panelShiftX);
+            if (my < moduleStartY || my > contentY + contentH - FOOTER_H) return false;
+            updateFlyoutSources(page, l);
             boolean hit = page.onClick(mx, my, contentX + 10f, moduleStartY, contentW - 40f, contentScrollOffset, button);
+            updateScrollCache(page, contentH);
             SettingModule open = page.getOpenFlyout();
             if (open != null) {
                 flyoutModule = open;
+                exitingFlyouts.removeIf(exit -> exit.module() == open);
             }
             if (hit && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
                 draggingInContent = true;
@@ -1281,7 +1362,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             invalidateScrollLayout();
             return true;
         }
-        if (flyoutModule != null && flyoutModule.getFlyoutProgress() > 0.01f && !themePreviewMode) {
+        if (flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.01f && !themePreviewMode) {
             float visualScale = getVisualScale(this.width, this.height);
             float mx = toLayoutX(event.x(), this.width, visualScale);
             float my = toLayoutY(event.y(), this.height, visualScale);
@@ -1330,7 +1411,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float[] l = layout(layoutWidth(), layoutHeight());
         float contentX = l[14], contentY = l[15], contentW = l[16], contentH = l[17];
 
-        if (flyoutModule != null && flyoutModule.getFlyoutProgress() > 0.01f) {
+        if (flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.01f) {
             float[] g = flyoutGeometry(l[0], l[1], l[2], l[3]);
             if (layoutMx >= g[0] && layoutMx <= g[0] + g[2] && layoutMy >= g[1] && layoutMy <= g[1] + g[3]) {
                 flyoutModule.scrollFlyout((float)(-vScroll * 16f * Math.max(0.2f, Config.clickGuiScrollSpeed)));

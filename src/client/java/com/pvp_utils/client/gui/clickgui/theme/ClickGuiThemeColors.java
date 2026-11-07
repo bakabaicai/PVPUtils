@@ -102,11 +102,11 @@ public final class ClickGuiThemeColors {
         ClickGuiThemePalette p = theme.palette();
         boolean dark = luminance(p.primaryText()) > luminance(p.windowBackground());
 
-        int primaryText = rgb(p.primaryText());
-        int secondaryText = rgb(p.secondaryText());
-        int window = rgb(p.windowBackground());
-        int sidebar = rgb(p.sidebarBackground());
-        int accent = rgb(p.accent());
+        int primaryText = rgb(Config.clickGuiAppearance.customText ? Config.clickGuiAppearance.textColor : p.primaryText());
+        int secondaryText = rgb(Config.clickGuiAppearance.customText ? Config.clickGuiAppearance.secondaryText() : p.secondaryText());
+        int window = rgb(Config.clickGuiAppearance.customBackground ? Config.clickGuiAppearance.backgroundColor : p.windowBackground());
+        int sidebar = Config.clickGuiAppearance.customBackground ? mix(window, rgb(p.sidebarBackground()), 0.15f) : rgb(p.sidebarBackground());
+        int accent = rgb(Config.clickGuiAppearance.accent());
         int border = rgb(p.border());
 
         // 文字派生：弱化与次级
@@ -140,7 +140,10 @@ public final class ClickGuiThemeColors {
         int dangerHoverText = dark ? 0xFF6B6B : 0xCC2222;
 
         return new ClickGuiThemeColors(
-                window, sidebar, rgb(p.contentBackground()), rgb(p.moduleBackground()), rgb(p.subModuleBackground()),
+                window, sidebar,
+                Config.clickGuiAppearance.customBackground ? window : rgb(p.contentBackground()),
+                Config.clickGuiAppearance.customBackground ? mix(window, dark ? 0xFFFFFF : 0x000000, 0.06f) : rgb(p.moduleBackground()),
+                Config.clickGuiAppearance.customBackground ? mix(window, dark ? 0xFFFFFF : 0x000000, 0.1f) : rgb(p.subModuleBackground()),
                 accent, primaryText, secondaryText, border,
                 mutedText, inactiveText, inactiveIcon, subModuleText,
                 indicator, hoverBackground, buttonBackground, buttonText,
@@ -158,7 +161,8 @@ public final class ClickGuiThemeColors {
 
     /** Lets blurred game content remain visible through ClickGUI background surfaces. */
     public static float panelBackgroundAlpha(float alpha) {
-        return Config.clickGuiPanelBlur ? alpha * 0.46f : alpha;
+        return Config.clickGuiAppearance.customBackground ? alpha * Config.clickGuiAppearance.backgroundOpacity
+                : Config.clickGuiPanelBlur ? alpha * 0.46f : alpha;
     }
 
     // —— 颜色数学工具 ——

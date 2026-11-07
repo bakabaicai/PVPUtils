@@ -29,11 +29,11 @@ The framework supplies drawing facilities. It does not automatically register co
 | `SkijaUi` | Shapes, text, icons, shared fonts, prepared text | Preferred interface for regular UI and HUD rendering |
 | `SkijaFrameRenderer` | Frame-level scheduling of HUDs, screens, and queues | Framework internals |
 | `LiquidGlassRenderer` | Liquid-glass panels | Components that explicitly require this effect |
-| `GlassCaptureRenderer`, `GlassGlBackend` | Glass capture and its dedicated Skia/OpenGL backend | Framework internals |
+| `GlassStyle`, `GlassShape` | Glass parameters and shape descriptions | Caller-owned |
 | `SkijaBackdrop`, `GlassGlState` | Backdrop sampling and GL state preservation | Package-private implementation |
 | `WorldRender` | World geometry and world-to-screen projection | World feature modules |
 
-Regular 2D rendering shares one managed Skia context. Liquid glass uses a separate managed backend with explicit flush and state-restoration boundaries. World geometry uses Minecraft Gizmos rather than the 2D Canvas.
+Regular 2D rendering shares one managed Skia context. Liquid glass uses a dedicated OpenGL pass with explicit flush and state-restoration boundaries. World geometry uses Minecraft Gizmos rather than the 2D Canvas.
 
 ## 2. Rendering Order and Integration
 
@@ -152,35 +152,83 @@ Font import and reload perform synchronous file operations. Run them as explicit
 
 ### 3.5 Liquid glass
 
-The entry point is `LiquidGlassRenderer.getInstance()`.
+The entry point is `LiquidGlassRenderer.getInstance()`. A dedicated OpenGL pass evaluates rounded-rectangle distance fields, smooth unions, refraction, dispersion, and radial blur sampling.
 
-| Interface | Purpose |
+| Interface | Behavior and constraints |
 | --- | --- |
-| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, boolean shadow, boolean highlight, float highlightTaper, int slot): boolean` | Draw a glass panel |
-| The same overload with a trailing `SlotGrid grid` | Include internal panel slot geometry |
-| `SlotGrid(int count, float x, float y, float pitch, float size, float radius)` | Panel-local GUI coordinates; `pitch` is horizontal spacing |
-| `panelTint(): int` | Obtain the configured panel tint |
-| `tick()`, `destroy()` | Framework-managed updates and cleanup |
+| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, GlassStyle): boolean` | Draws one rounded panel; colors use ARGB |
+| `renderShapes(Minecraft, List<GlassShape>, GlassStyle): boolean` | Draws multiple shapes with one background snapshot; each call processes at most the first 16 shapes |
+| The preceding signature plus a final `GlassShadow` | Adds distance-field shadow parameters; the default is `GlassShadow.NONE` |
+| `GlassShape(x, y, width, height, topLeft, topRight, bottomRight, bottomLeft, smoothness, opacity, int tint)` | Immutable shape description; geometry uses GUI units, while `smoothness` is the distance-field union width in framebuffer pixels |
+| `GlassShape.rounded(x, y, width, height, radius, int tint)` | Uses equal corner radii, a union width of 0.3, and shape opacity 1 |
+| `GlassShadow(expand, strength, offsetX, offsetY, int color)` | Expansion and offsets use framebuffer pixels; ranges are 0–80, 0–1, −60–60, and −60–60 respectively |
+| `GlassStyle.sanitize()` | Replaces non-finite parameters with defaults and clamps values to valid ranges |
+| `panelTint(): int` | Returns the host's default glass tint |
+| `destroy()` | Releases the shader program, vertex array, and background texture; framework lifecycle use only |
 
-Only slot indices 0–3 are valid; the implementation does not guard out-of-range indices. Allocate stable slots for concurrently used panels. Do not pass arbitrary module IDs. Slots reuse offscreen allocations, not the final rendered panel image.
+The caller owns `GlassStyle`, which exposes these fields:
 
-Panels use screen GUI coordinates and a dedicated Canvas. They do not inherit the caller's local transform or clip. Sampling reads the Minecraft main framebuffer, whose source and timing differ from the regular overlay backdrop snapshot. A `false` return requires a fallback. A `true` return only indicates outer-flow success; unavailable internal capture can still produce no visible pixels. Provide a base background so that the component remains usable without glass output.
+| Field | Default | Range | Unit or meaning |
+| --- | --- | --- | --- |
+| `blur` | 6 | 0–30 | Framebuffer pixels; radial sampling radius |
+| `refraction` | 1.35 | 1–5 | Refractive index |
+| `dispersion` | 1 | 0–3 | Separation strength of RGB sampling positions |
+| `rim` | 0.6 | 0–1 | Edge tint strength |
+| `alpha` | 0.9 | 0–1 | Blend proportion between the glass result and the background |
+| `glow` | 0.4 | 0–1 | Edge glow strength |
+| `thickness` | 10 | 1–120 | Framebuffer pixels; refraction-band thickness |
+
+Panel positions, dimensions, and corner radii use screen GUI coordinates and do not inherit local Canvas transforms or clips. Positions and dimensions convert to framebuffer pixels using the current target's width and height independently, matching the 2D Canvas screen-coordinate scale. Corner radii are limited to half the shorter side and use the smaller axis scale to preserve circular corners; shape opacity is clamped to 0–1. Blur and thickness do not automatically increase with GUI scale; callers must distinguish physical pixels from GUI units.
+
+Inside an active Skia pass, the framework flushes recorded commands and captures that pass's current target. Outside a pass, it uses the Minecraft main color target. The capture texture reuses allocation only: pixels refresh on every call, without caching effects across frames. After drawing, GL state is restored and the shared Skia context is resynchronized. No second Skia context or panel-slot allocation is created.
+
+A `false` result means the call did not draw; callers should provide a base-fill fallback. Shader compilation or execution exceptions are logged and disable the effect until framework destruction resets it. Exterior soft shadows may use `SoftShadow` before glass capture. When using `GlassShadow`, avoid adding another shadow to the same outline. Shapes requiring a smooth union must be submitted in the same `renderShapes` call.
 
 ### 3.6 World rendering: WorldRender
 
+Positions use world coordinates. Commands are submitted within Minecraft's Gizmos collection scope, and the host batches fills and lines. `throughWalls=false` retains depth occlusion; `true` uses always-on-top drawing.
+
 | Interface | Purpose |
 | --- | --- |
-| `line(Vec3 from, Vec3 to, int color, float width[, boolean throughWalls])` | World-space line; depth-tested by default |
+| `line(Vec3 from, Vec3 to, int color, float width[, boolean throughWalls])` | Line segment; depth-tested by default |
 | `box(AABB, int outlineColor)` | Box outline |
 | `box(AABB, int outlineColor, int fillColor)` | Box outline and fill |
+| `box(AABB, int outlineColor, int fillColor, float width, boolean throughWalls)` | Box with explicit line width and depth behavior |
 | `filledBox(AABB, int fillColor[, boolean throughWalls])` | Box fill; depth-tested by default |
-| `face(AABB, Vec3 viewer, int color, float width)` | Select and outline a box face from the viewer direction |
-| `face(AABB, Direction, int color, float width)` | Outline a specified face |
-| `project(Vec3): ScreenPoint` | Project world coordinates into GUI coordinates; nullable |
+| `face(AABB, Vec3 viewer, int color, float width)` | Outlines the box face selected from the viewer's direction |
+| `face(AABB, Direction, int color, float width)` | Outlines the specified face |
+| `filledFace(AABB, Direction, int color, boolean throughWalls)` | Fills the specified face |
+| `point(Vec3, int color, float size, boolean throughWalls)` | Point marker with screen-space size |
+| `arrow(Vec3 from, Vec3 to, int color, float width, boolean throughWalls)` | Arrow |
+| `polyline(List<Vec3>, int color, float width, boolean closed, boolean throughWalls)` | Open or closed polyline with at most 4096 vertices |
+| `triangle(Vec3 a, Vec3 b, Vec3 c, int color, boolean throughWalls)` | Filled triangle |
+| `quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, int color, boolean throughWalls)` | Filled quadrilateral |
+| `circle(Vec3 center, Vec3 normal, double radius, int segments, int outlineColor, int fillColor, float width, boolean throughWalls)` | Ring or disc in any plane; segment count is clamped to 3–128 |
+| `sphere(Vec3 center, double radius, int segments, int rings, int color, float width, boolean throughWalls)` | Wireframe sphere; 6–64 longitudinal segments and 3–32 latitude bands |
+| `billboard(Vec3 center, float width, float height, float rotation, int color, ParticleShape, boolean throughWalls)` | Camera-facing shape; dimensions use world units and rotation uses radians |
+| `ParticleShape` | `QUAD`, `CIRCLE`, `STAR`, `HEART`, and `BLOOM`; geometric shapes without external textures |
+| `project(Vec3): ScreenPoint` | World-to-GUI projection; may return `null` and does not test depth occlusion |
 | `ScreenPoint(float x, float y)` | Projected GUI coordinates |
-| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)` | Capture the current world view; framework only |
+| `register(Consumer<Frame>): Registration` | Registers a world drawing callback and returns a caller-owned registration handle |
+| `Frame(Vec3 cameraPosition, float partialTick)` | Current camera position and interpolation progress |
+| `Registration.close()` | Unregisters the callback; repeated calls are allowed |
+| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)`, `renderRegistered(float partialTick)` | Framework-internal view capture and callback scheduling |
 
-Integrate world commands inside the `collectPerFrameGizmos()` collection established by `WorldRenderLevelRendererMixin`. Do not issue world drawing from 2D overlay callbacks. `project()` checks matrix availability, position relative to the camera, and screen X/Y limits; it does not perform depth or occlusion testing.
+`WorldRenderLevelRendererMixin` invokes registered callbacks inside `collectPerFrameGizmos()`. Callbacks may submit these shapes directly; do not invoke them from a 2D overlay or networking thread. A callback that throws a runtime exception is logged and unregistered to prevent repeated frame failures. Close registration handles on deactivation or destruction so they do not retain stale objects. Point size and line width follow Gizmos screen-size conventions; circle, sphere, and billboard dimensions use world units.
+
+`WorldParticles` supplies a caller-owned, bounded particle collection:
+
+| Interface | Behavior and constraints |
+| --- | --- |
+| `WorldParticles(int capacity)` | Capacity is 1–4096; new particles evict the oldest when full |
+| `emit(Vec3 position, Vec3 velocity, Spec): boolean` | Adds a particle; velocity uses world units per second |
+| `Spec(lifetime, size, int color, ParticleShape, gravity, drag, angularVelocity, boolean throughWalls)` | Lifetime is in seconds, size in world units, gravity in world units/s², drag is a per-second coefficient, and angular velocity is in radians/s |
+| `update(float seconds)` | Advances simulation once and retains previous/current positions for interpolation; drawing does not advance it automatically |
+| `render(Frame[, double maxDistance])` | Draws inside a registered world callback; the default distance limit is 128 world units |
+| `size()`, `capacity()` | Current particle count and capacity |
+| `clear()`, `close()` | Clears particles; a closed collection stops accepting new particles |
+
+The collection does not register a callback or simulation clock automatically. Callers own updates, registration, and cleanup, and must clear old particles when the world changes. Per-frame drawing interpolates position and rotation, fades opacity and size by lifetime, and culls distant or nearly transparent particles.
 
 ### 3.7 Framework internals
 
@@ -192,10 +240,6 @@ Some methods below are `public`, but they are not standard entry points for new 
 | `SkijaRenderer` | `beginFrame()`, `renderMainSubmitted()`, `renderSubmitted()` |
 | `SkijaRenderer` | `renderOverlay(Consumer<Canvas>)`, `renderMainTarget(Consumer<Canvas>)` |
 | `SkijaRenderer` | `currentFramebuffer()`, `flush()`, `restoreContext()`, `close()` |
-| `GlassCaptureRenderer` | `getInstance()`, `currentDrawFramebufferId()`, `beginFrame(int)`, `endFrame()`, `context()`, `capture(Minecraft, x, y, width, height, margin)`, `destroy()` |
-| `GlassCaptureRenderer.Capture` | `EMPTY`, `image`, `width`, `height`, `dstX`, `dstY`, `dstW`, `dstH` |
-| `GlassGlBackend` | `begin()`, `begin(int)`, `end()`, `isDrawing()`, `hasSurface()` |
-| `GlassGlBackend` | `getContext()`, `ensureContext()`, `resetCanvasState()`, `runWithSavedState(Runnable)`, `destroy()` |
 
 `renderMainTarget()` reuses the current pass if the shared canvas is active; it does not force a target switch. `currentFramebuffer()` returns the framework's stored target state. Outside a pass, it cannot substitute for querying the actual GL binding. Do not call `flush()` per widget or create a new `DirectContext` for ordinary components.
 
@@ -268,7 +312,7 @@ Draw backdrop blur before local `translate/scale`, using screen GUI coordinates.
 | Feature-created `PreparedText`, Paint, Path, Image, Surface, filters, and similar objects | Owned by the feature; release on invalidation, replacement, or shutdown |
 | `BorrowedImage` | Borrow inside an active Skia callback and close the wrapper with try-with-resources |
 | Minecraft texture | Owned by the Minecraft texture system, not the borrower |
-| Framework contexts, Surface caches, and glass resources | Managed by the framework during recreation or client shutdown |
+| Framework contexts, Surface caches, glass shaders, and capture textures | Managed by the framework during recreation or client shutdown |
 
 Pair `save()` with `restoreToCount()` to isolate local transforms and clipping, using `try/finally` to ensure restoration. Use `saveLayer()` only when group opacity or filtering requires it. Do not promote a feature cache into a global policy without evaluating every affected caller.
 
@@ -536,7 +580,7 @@ Drawing, measurement, and cache keys must use this same result. The 0.25 increme
 | Static images | Feature-owned image cache with a total pixel budget | Image identity, target dimensions, or resource revision changes |
 | Blurred static images | Generate only when image or effect parameters change | Image, resolution, or blur parameters change |
 | Live world background | Use the framework's current-pass snapshot | An old image cannot remain a substitute for the current world |
-| Glass slots | Reuse allocated offscreen targets | Required size growth or framework destruction |
+| Glass background texture | Reuse allocation at the same dimensions and refresh pixels on every call | Target-size changes or framework destruction |
 
 The caller owns static-image blur caches and chooses their working resolution according to display dimensions and required detail. Reduced-resolution effect caches apply only to the corresponding image effect and do not change the drawing quality of text, icons, or other images.
 
@@ -546,7 +590,7 @@ The regular overlay pass reads the recorded blur-request flag at pass start, usu
 
 Do not capture the screen separately for every widget or sample the component's already-rendered content back into its background. Provide a base-fill fallback. A shared renderer failure is logged and disables rendering for the session; backdrop blur has a separate failure-disable state. Diagnose the first logged exception instead of hiding drawing errors with empty catch blocks.
 
-Glass requires capture, context transitions, offscreen drawing, and filtering, and generally costs more than basic shapes. Apply it to visible panels and avoid repeating the glass pipeline for every item in a long list.
+Glass requires a full-target capture, GL state transitions, and multiple background samples, and generally costs more than basic shapes. A single `renderShapes` call shares one snapshot; group shapes using the same effect to reduce captures and state transitions. Apply it to visible panels and avoid capturing the background separately for every item in a long list.
 
 ### 6.4 Validation
 
@@ -576,7 +620,7 @@ Change reports should identify the rendering stage used, cache and resource life
 - [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java), [SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java), [SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java), [SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
 - [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java), [ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java), [LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java), [AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
-- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java), [GlassCaptureRenderer](../../src/client/java/com/pvp_utils/client/render/skia/GlassCaptureRenderer.java), [GlassGlBackend](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlBackend.java), [GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)
-- [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java), [WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)
+- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java), [GlassStyle](../../src/client/java/com/pvp_utils/client/render/skia/GlassStyle.java), [GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java), [liquid_glass.fsh](../../src/client/resources/assets/pvp_utils/shaders/liquid_glass.fsh)
+- [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java), [WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java), [WorldParticles](../../src/client/java/com/pvp_utils/client/render/world/WorldParticles.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java), [GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
 - [Build definition](../../build.gradle)

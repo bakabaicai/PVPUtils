@@ -1,7 +1,6 @@
 package com.pvp_utils.client.command;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.command.impl.AutoGGCommand;
 import com.pvp_utils.client.command.impl.AutoLoginCommand;
 import com.pvp_utils.client.command.impl.ClientCommandPrefixCommand;
 import com.pvp_utils.client.command.impl.ClientNameCommand;
@@ -25,7 +24,6 @@ public final class CommandManager {
             new UpdateCommand(),
             new VersionWarningCommand(),
             new ClientNameCommand(),
-            new AutoGGCommand(),
             new AutoLoginCommand()
     );
 

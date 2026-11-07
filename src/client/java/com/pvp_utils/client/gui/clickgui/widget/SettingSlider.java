@@ -20,6 +20,7 @@ public class SettingSlider extends SettingWidget {
     private Supplier<Boolean> enabledSupplier = () -> true;
     private boolean dragging = false;
     private double cachedValue = Double.NaN;
+    private long cachedFontRevision = -1;
     private String cachedText = "";
     private float cachedTextWidth = 0f;
     private final Paint trackPaint = new Paint().setAntiAlias(true);
@@ -55,14 +56,16 @@ public class SettingSlider extends SettingWidget {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         float enabledAlpha = isEnabled() ? alpha : alpha * 0.4f;
         double value = getter.get();
-        if (Double.compare(value, cachedValue) != 0) {
+        long fontRevision = SkijaUi.textFontRevision();
+        if (Double.compare(value, cachedValue) != 0 || cachedFontRevision != fontRevision) {
+            cachedFontRevision = fontRevision;
             cachedValue = value;
             cachedText = String.format(format, value);
             cachedTextWidth = SkijaUi.textWidth(cachedText, 11f);
         }
         String val = cachedText;
         float lw = cachedTextWidth;
-        SkijaUi.text(canvas, val, x + LABEL_W - lw, (y + 14f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(tc.mutedText, enabledAlpha), 11f);
+        SkijaUi.text(canvas, val, x + LABEL_W - lw, y, getHeight(), withAlpha(tc.mutedText, enabledAlpha), 11f);
 
         float tx = x + LABEL_W + 8f;
         float t = (float)((value - min) / (max - min));

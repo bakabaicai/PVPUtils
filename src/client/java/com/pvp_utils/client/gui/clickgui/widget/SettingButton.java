@@ -42,7 +42,7 @@ public class SettingButton extends SettingWidget {
             cachedText = text;
             cachedTextWidth = SkijaUi.textWidth(text, 11f);
         }
-        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, (y + 15.5f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(0xFFFFFF, alpha), 11f);
+        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, y, getHeight(), withAlpha(0xFFFFFF, alpha), 11f);
     }
 
     @Override

@@ -26,6 +26,7 @@ public class WorldRenderLevelRendererMixin {
             FireballLandingPredictor.render();
             ProjectileTrajectoryPredictor.render(deltaTracker.getGameTimeDeltaPartialTick(false));
             CustomBlockOutlineRenderer.render();
+            WorldRender.renderRegistered(deltaTracker.getGameTimeDeltaPartialTick(false));
         }
     }
 }

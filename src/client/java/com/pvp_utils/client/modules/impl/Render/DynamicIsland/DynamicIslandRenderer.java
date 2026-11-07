@@ -1,6 +1,7 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
@@ -162,10 +163,27 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         }
         Rect bounds = geometry.bounds();
         if (Config.dynamicIslandShadow) SoftShadow.drawPath(canvas, geometry.path(), Config.dynamicIslandShadowStrength, 0xA0000000);
-        if (Config.dynamicIslandBackground != Config.DynamicIslandBackground.SOLID) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
+        boolean glass = false;
+        if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
+            List<LiquidGlassRenderer.GlassShape> shapes = new ArrayList<>(3);
+            shapes.add(LiquidGlassRenderer.GlassShape.rounded(x, y, next.width, next.height, next.radius, Config.dynamicIslandColor));
+            float leftRadius = geometry.leftSatelliteRadius();
+            float rightRadius = geometry.satelliteRadius();
+            if (leftRadius > 0.01f) shapes.add(LiquidGlassRenderer.GlassShape.rounded(
+                    geometry.leftSatelliteCenterX() - leftRadius, geometry.leftSatelliteCenterY() - leftRadius,
+                    leftRadius * 2f, leftRadius * 2f, leftRadius, Config.dynamicIslandColor));
+            if (rightRadius > 0.01f) shapes.add(LiquidGlassRenderer.GlassShape.rounded(
+                    geometry.satelliteCenterX() - rightRadius, geometry.satelliteCenterY() - rightRadius,
+                    rightRadius * 2f, rightRadius * 2f, rightRadius, Config.dynamicIslandColor));
+            glass = LiquidGlassRenderer.getInstance().renderShapes(client, shapes, Config.dynamicIslandAppearance.glass);
         }
-        SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
+        if (!glass) {
+            if (Config.dynamicIslandBackground != Config.DynamicIslandBackground.SOLID) {
+                SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(),
+                        bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
+            }
+            SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
+        }
         int save = canvas.save();
         try {
             canvas.translate(x, y);
@@ -351,7 +369,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         float innerWidth = right - left;
         float centerY = content.doubleRow ? 20f : layout.height * 0.5f;
         float fpsWidth = content.split ? 0f : fpsSlotWidth(content.fps);
-        int brandColor = primaryColor() == 0xFF20242D ? 0xFF497FA4 : 0xFF9DCCEA;
+        int brandColor = Config.dynamicIslandAppearance.accent();
         if (!content.split) drawFps(canvas, content.fps, right, centerY, innerWidth);
         if (content.doubleRow) {
             drawIconLabel(canvas, ICON_SWORDS, content.brand, left, centerY, TEXT_SIZE,
@@ -446,10 +464,12 @@ public final class DynamicIslandRenderer implements AutoCloseable {
             canvas.clipRect(lyricBounds);
             if (!previousLyric.isEmpty() && lyricProgress < 1f) {
                 ContentTransition.draw(canvas, lyricBounds, 1f - lyricProgress, -19f * lyricProgress,
-                        () -> textCache.draw(canvas, previousLyric, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0.5f));
+                        () -> textCache.drawScrolling(canvas, previousLyric, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0L, 6000L));
             }
             ContentTransition.draw(canvas, lyricBounds, lyricProgress, 19f * (1f - lyricProgress),
-                    () -> textCache.draw(canvas, lyricText, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0.5f));
+                    () -> textCache.drawScrolling(canvas, lyricText, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW,
+                            Math.max(0L, MusicPlaybackService.INSTANCE.positionMs() - lyricTime),
+                            DynamicIslandLyrics.snapshot().lineDurationMs(), DynamicIslandLyrics.snapshot().line()));
         } finally { canvas.restoreToCount(save); }
         float barsX = layout.width - 30f;
         int barColor = musicAccentColor(song);
@@ -544,6 +564,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
     }
 
     private int primaryColor() {
+        if (Config.dynamicIslandAppearance.customText) return Config.dynamicIslandAppearance.text();
         int color = Config.dynamicIslandColor;
         double luminance = ((color >>> 16) & 255) * 0.2126 + ((color >>> 8) & 255) * 0.7152 + (color & 255) * 0.0722;
         return luminance > 155d ? 0xFF20242D : 0xFFF3F5FA;

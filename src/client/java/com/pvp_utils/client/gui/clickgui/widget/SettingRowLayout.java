@@ -14,12 +14,17 @@ public final class SettingRowLayout {
 
     public static Row measure(float x, float y, float availableWidth, int depth,
                               SettingWidget widget, float leadingControlWidth) {
+        return measure(x, y, availableWidth, depth, widget, leadingControlWidth, 0f);
+    }
+
+    public static Row measure(float x, float y, float availableWidth, int depth,
+                              SettingWidget widget, float leadingControlWidth, float labelHeight) {
         float safeWidth = Math.max(0f, availableWidth);
         float inset = levelInset(safeWidth, depth);
         float rowX = x + inset;
         float width = safeWidth - inset;
         float padding = Math.min(20f, safeWidth * 0.12f);
-        float headerHeight = depth == 0 ? 48f : 38f;
+        float headerHeight = Math.max(depth == 0 ? 48f : 38f, labelHeight);
         float gap = depth == 0 ? 8f : 6f;
         float widgetWidth = widget == null ? 0f : Math.max(0f, widget.getWidth());
         float leading = Math.max(0f, leadingControlWidth);

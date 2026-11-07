@@ -47,7 +47,7 @@ public class SettingCycle extends SettingWidget {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         bgPaint.setColor(withAlpha(tc.buttonBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
-        SkijaUi.text(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, (y + 16f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(tc.subModuleText, alpha), 12f);
+        SkijaUi.text(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y, getHeight(), withAlpha(tc.subModuleText, alpha), 12f);
     }
 
     @Override

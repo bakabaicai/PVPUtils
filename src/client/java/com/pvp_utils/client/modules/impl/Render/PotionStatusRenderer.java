@@ -5,6 +5,7 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.SkijaScreen;
@@ -262,6 +263,12 @@ public class PotionStatusRenderer {
     private void renderGl(Minecraft client, List<EffectVisual> visuals, float x, float y, float userScale, float bgProgress, float baseH) {
         SkijaRenderer.draw(canvas -> {
             float easedBg = easeOutCubic(bgProgress);
+            if (Config.potionStatusBackground && Config.potionStatusStyle != Config.HudStyle.LITE) {
+                float scale = userScale * easedBg;
+                HudPanel.draw(canvas, x, y, WIDTH * scale, baseH * scale, BG_RADIUS * scale,
+                        Config.potionAppearance, Config.potionStatusStyle == Config.HudStyle.LIQUID_GLASS,
+                        bgProgress);
+            }
             canvas.save();
             canvas.translate(x, y);
             canvas.scale(userScale * easedBg, userScale * easedBg);
@@ -276,7 +283,7 @@ public class PotionStatusRenderer {
     }
 
     private void drawBackground(Canvas canvas, float baseH, float bgProgress) {
-        if (!Config.potionStatusBackground) return;
+        if (!Config.potionStatusBackground || Config.potionStatusStyle != Config.HudStyle.LITE) return;
         float drawW = WIDTH * bgProgress;
         if (drawW <= 0.01f) return;
         bgPaint.setColor(0x7A6E737A);
@@ -293,7 +300,9 @@ public class PotionStatusRenderer {
         float alpha = visual.rowAlpha;
         float drawX = PAD + (1f - slide) * -24f;
         float drawW = WIDTH - PAD * 2f;
-        int effectColor = 0xFF000000 | (effect.getEffect().value().getColor() & 0xFFFFFF);
+        int effectColor = Config.potionStatusStyle == Config.HudStyle.LITE
+                ? 0xFF000000 | (effect.getEffect().value().getColor() & 0xFFFFFF)
+                : Config.potionAppearance.accent();
         int darkColor = darken(effectColor, 0.28f);
         float fillRatio = Mth.clamp(visual.fillProgress, 0f, 1f);
         boolean showCountdown = Config.potionStatusCountdown;
@@ -313,10 +322,10 @@ public class PotionStatusRenderer {
         String name = truncate(Component.translatable(effect.getDescriptionId()).getString(), 70f, 10f);
         String amp = amplifier(effect.getAmplifier());
         if (showCountdown) {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(Config.potionAppearance.customText ? Config.potionAppearance.text() : 0xF6FFFFFF, alpha), 10f);
             drawDurationLine(canvas, visual, amp, drawX + ICON + 10f, rowY + 22f, withAlpha(0xCFFFFFFF, alpha));
         } else {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
+            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(Config.potionAppearance.customText ? Config.potionAppearance.text() : 0xF6FFFFFF, alpha), 10f);
         }
     }
 

@@ -5,6 +5,12 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
+import io.github.humbleui.skija.Path;
+import io.github.humbleui.skija.PathBuilder;
+import io.github.humbleui.skija.PaintStrokeCap;
+import io.github.humbleui.skija.PaintStrokeJoin;
+import io.github.humbleui.types.Rect;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
@@ -50,6 +56,11 @@ public class HudEditOverlay {
     private boolean wasMouseDown = false;
     private float dragOffsetX;
     private float dragOffsetY;
+    private boolean resizing;
+    private float resizeMouseX;
+    private float resizeMouseY;
+    private float resizeStartScale;
+    private RectState resizeStartRect;
     private float dashOffset = 0f;
     private long lastFrameMs = 0;
     private long animStartTime = 0;
@@ -58,7 +69,6 @@ public class HudEditOverlay {
     private boolean active = false;
     private float snapXLine = -1f;
     private float snapYLine = -1f;
-    private float gridAlpha = 0f;
     private float snapXAlpha = 0f;
     private float snapYAlpha = 0f;
     private boolean configDirty = false;
@@ -85,6 +95,15 @@ public class HudEditOverlay {
     }
 
     public void startClose() {
+        if (configDirty) {
+            Config.save();
+            PluginManager.INSTANCE.saveHudLayouts();
+            configDirty = false;
+        }
+        dragTarget = DragTarget.NONE;
+        resizing = false;
+        snapXLine = -1f;
+        snapYLine = -1f;
         animCloseTime = System.currentTimeMillis();
         closing = true;
         active = true;
@@ -124,7 +143,6 @@ public class HudEditOverlay {
         updateDrag(items, mx, my, mouseDown, weakSnap, guiW, guiH);
         updateHover(items, mx, my, dt);
 
-        gridAlpha += (((dragTarget != DragTarget.NONE) ? 1f : 0f) - gridAlpha) * Math.min(1f, dt * 12f);
         snapXAlpha += (((snapXLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapXAlpha) * Math.min(1f, dt * 18f);
         snapYAlpha += (((snapYLine >= 0f && dragTarget != DragTarget.NONE) ? 1f : 0f) - snapYAlpha) * Math.min(1f, dt * 18f);
 
@@ -164,21 +182,6 @@ public class HudEditOverlay {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (!active || Math.abs(amount) <= 0.001) return false;
-        Minecraft mc = Minecraft.getInstance();
-        int guiW = mc.getWindow().getGuiScaledWidth();
-        int guiH = mc.getWindow().getGuiScaledHeight();
-        float mx = (float) mouseX;
-        float my = (float) mouseY;
-        float delta = amount > 0 ? 0.05f : -0.05f;
-
-        for (EditItemState item : buildEditItems(guiW, guiH)) {
-            if (contains(item.rect(), mx, my, 4f) && item.definition().scale().scale(delta)) {
-                Config.save();
-                PluginManager.INSTANCE.saveHudLayouts();
-                return true;
-            }
-        }
         return false;
     }
 
@@ -209,7 +212,7 @@ public class HudEditOverlay {
                         layout.setScale(layout.scale() + delta);
                         plugin.move().accept(layout.x(), layout.y());
                         return true;
-                    }, false), rect));
+                    }, false, layout::scale), rect));
         }
         hoverAlpha.keySet().retainAll(items.stream().map(item -> item.definition().target()).toList());
         return items;
@@ -221,21 +224,27 @@ public class HudEditOverlay {
 
     private void addItem(List<EditItemState> items, DragTarget target, String label, boolean enabled, RectState rect, MoveHandler move, ScaleHandler scale, boolean locked) {
         if (enabled && rect != null) {
-            items.add(new EditItemState(new EditItem(target, label, move, scale, locked), rect));
+            items.add(new EditItemState(new EditItem(target, label, move, scale, locked, () -> scaleFor(target)), rect));
         }
     }
 
     private void updateDrag(List<EditItemState> items, float mx, float my, boolean mouseDown, boolean weakSnap, int guiW, int guiH) {
         if (mouseDown && !wasMouseDown) {
             dragTarget = DragTarget.NONE;
-            for (EditItemState item : items) {
-                if (item.definition().locked()) continue;
-                if (contains(item.rect(), mx, my, 4f)) {
-                    dragTarget = item.definition().target();
-                    dragOffsetX = mx - item.rect().x;
-                    dragOffsetY = my - item.rect().y;
-                    break;
-                }
+            resizing = false;
+            for (int i = items.size() - 1; i >= 0; i--) {
+                EditItemState item = items.get(i);
+                boolean grip = containsGrip(item.rect(), mx, my);
+                if (!grip && (item.definition().locked() || !contains(item.rect(), mx, my, 4f))) continue;
+                dragTarget = item.definition().target();
+                resizing = grip;
+                dragOffsetX = mx - item.rect().x;
+                dragOffsetY = my - item.rect().y;
+                resizeMouseX = mx;
+                resizeMouseY = my;
+                resizeStartRect = item.rect();
+                resizeStartScale = item.definition().scaleValue().get();
+                break;
             }
         }
         if (!mouseDown) {
@@ -245,21 +254,70 @@ public class HudEditOverlay {
                 configDirty = false;
             }
             dragTarget = DragTarget.NONE;
+            resizing = false;
+            snapXLine = -1f;
+            snapYLine = -1f;
         }
         wasMouseDown = mouseDown;
-
         EditItemState draggedItem = itemFor(items, dragTarget);
         if (draggedItem == null) return;
+        if (resizing && resizeStartRect != null) {
+            RectState start = resizeStartRect;
+            float denominator = Math.max(1f, start.w * start.w + start.h * start.h);
+            float ratio = 1f + ((mx - resizeMouseX) * start.w + (my - resizeMouseY) * start.h) / denominator;
+            float desired = clampScale(resizeStartScale * ratio);
+            float current = draggedItem.definition().scaleValue().get();
+            if (Math.abs(desired - current) > 0.0001f) {
+                draggedItem.definition().scale().scale(desired - current);
+                configDirty = true;
+            }
+            float actual = draggedItem.definition().scaleValue().get() / Math.max(0.001f, resizeStartScale);
+            RectState resized = clampRect(start.x, start.y, start.w * actual, start.h * actual, guiW, guiH);
+            if (!draggedItem.definition().locked()) draggedItem.definition().move().move(resized, guiW, guiH);
+            draggedItem.setRect(resized);
+            updateSnapGuides(resized, guiW, guiH, weakSnap, dragTarget, items);
+            return;
+        }
         RectState base = draggedItem.rect();
-        RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, base.w, base.h, guiW, guiH), guiW, guiH, weakSnap, draggedItem.definition().target(), items);
+        RectState dragged = snapRect(clampRect(mx - dragOffsetX, my - dragOffsetY, base.w, base.h, guiW, guiH),
+                guiW, guiH, weakSnap, draggedItem.definition().target(), items);
         draggedItem.setRect(dragged);
         draggedItem.definition().move().move(dragged, guiW, guiH);
         configDirty = true;
     }
 
+    private boolean containsGrip(RectState rect, float mouseX, float mouseY) {
+        float right = rect.x + rect.w + 4f;
+        float bottom = rect.y + rect.h + 4f;
+        return mouseX >= right - 27f && mouseX <= right + 5f
+                && mouseY >= bottom - 27f && mouseY <= bottom + 5f
+                && (mouseX >= right - 10f || mouseY >= bottom - 10f);
+    }
+
+    private float scaleFor(DragTarget target) {
+        return switch (target) {
+            case TARGET_HUD -> Config.targetHudScale;
+            case KEYSTROKES -> Config.keystrokesScale;
+            case BLOCK_COUNT -> Config.blockCountDisplayScale;
+            case ARMOR_HUD -> Config.armorHudScale;
+            case ITEM_USE_STATUS -> Config.itemUseStatusScale;
+            case DYNAMIC_ISLAND -> Config.dynamicIslandScale;
+            case ARRAYLIST -> Config.arraylistScale;
+            case NOTIFICATION -> Config.notificationScale;
+            case POTION_STATUS -> Config.potionStatusScale;
+            case LYRICS_DISPLAY -> Config.lyricsDisplayScale;
+            case MUSIC_INFO_HUD -> Config.musicInfoHudScale;
+            case BETTER_SCOREBOARD -> Config.betterScoreboardScale;
+            case PING_HUD -> Config.pingHudScale;
+            case TPS_HUD -> Config.tpsHudScale;
+            case CLOCK_HUD -> Config.clockHudScale;
+            default -> 1f;
+        };
+    }
+
     private void updateHover(List<EditItemState> items, float mx, float my, float dt) {
         for (EditItemState item : items) {
-            boolean hovered = contains(item.rect(), mx, my, 4f) || dragTarget == item.definition().target();
+            boolean hovered = containsGrip(item.rect(), mx, my) || contains(item.rect(), mx, my, 4f) || dragTarget == item.definition().target();
             Object key = item.definition().target();
             float alpha = hoverAlpha.getOrDefault(key, 0f);
             hoverAlpha.put(key, alpha + ((hovered ? 1f : 0f) - alpha) * Math.min(1f, dt * 14f));
@@ -382,48 +440,23 @@ public class HudEditOverlay {
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
-        float[] xs = {guiW * 0.25f, guiW * 0.5f, guiW * 0.75f};
-        float[] ys = {guiH * 0.25f, guiH * 0.5f, guiH * 0.75f};
-
-        try (Paint p = new Paint()) {
-            int a = (int) (0x44 * alpha * gridAlpha);
-            p.setColor((a << 24) | 0xFFFFFF);
-            p.setAntiAlias(true);
-            p.setPathEffect(PathEffect.makeDash(new float[]{10f, 10f}, 0f));
-            p.setStrokeWidth(1f);
-            p.setMode(PaintMode.STROKE);
-            for (float x : xs) canvas.drawLine(x, 0, x, guiH, p);
-            for (float y : ys) canvas.drawLine(0, y, guiW, y, p);
-        }
-
-        try (Paint p = new Paint()) {
-            p.setColor((int) (alpha * snapXAlpha * 255) << 24 | 0x7AA2FF);
-            p.setAntiAlias(true);
-            p.setStrokeWidth(1.5f);
-            p.setMode(PaintMode.STROKE);
-            if (snapXLine >= 0f) canvas.drawLine(snapXLine, 0, snapXLine, guiH, p);
-        }
-
-        try (Paint p = new Paint()) {
-            p.setColor((int) (alpha * snapYAlpha * 255) << 24 | 0x7AA2FF);
-            p.setAntiAlias(true);
-            p.setStrokeWidth(1.5f);
-            p.setMode(PaintMode.STROKE);
-            if (snapYLine >= 0f) canvas.drawLine(0, snapYLine, guiW, snapYLine, p);
-        }
+        int color = ThemeColors.accent();
+        if (snapXLine >= 0f) SkijaUi.line(canvas, snapXLine, 0f, snapXLine, guiH, 1.2f,
+                ThemeColors.withAlpha(color, alpha * snapXAlpha * 0.8f));
+        if (snapYLine >= 0f) SkijaUi.line(canvas, 0f, snapYLine, guiW, snapYLine, 1.2f,
+                ThemeColors.withAlpha(color, alpha * snapYAlpha * 0.8f));
     }
 
     private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, List<EditItemState> items) {
-        if (gridAlpha > 0.01f) {
-            drawGrid(canvas, guiW, guiH, progress);
-        }
+        if (dragTarget != DragTarget.NONE) drawGrid(canvas, guiW, guiH, progress);
         for (EditItemState item : items) {
             RectState rect = item.rect();
-            float alpha = hoverAlpha.getOrDefault(item.definition().target(), 0f);
+            float hover = hoverAlpha.getOrDefault(item.definition().target(), 0f);
             if (item.definition().target() == DragTarget.LYRICS_DISPLAY) {
                 drawLyricsPreview(canvas, rect, progress);
             }
-            drawOutline(canvas, rect.x, rect.y, rect.w, rect.h, item.definition().label(), alpha, progress);
+            drawOutline(canvas, rect.x, rect.y, rect.w, rect.h, item.definition().label(), hover, progress,
+                    Objects.equals(item.definition().target(), dragTarget));
         }
         drawHint(canvas, guiW, guiH, progress);
     }
@@ -433,47 +466,48 @@ public class HudEditOverlay {
                 Math.max(0.5f, Config.lyricsDisplayScale), progress);
     }
 
-    private void drawOutline(Canvas canvas, float x, float y, float w, float h, String label, float hoverAlpha, float alpha) {
+    private void drawOutline(Canvas canvas, float x, float y, float width, float height, String label,
+                             float hover, float opacity, boolean dragging) {
         float pad = 4f;
-        float rw = w + pad * 2f;
-        float rh = h + pad * 2f;
-        float a = (0.55f + hoverAlpha * 0.45f) * alpha;
-        int alphaInt = (int) (a * 255);
-        float drawX = Math.round(x) + 0.5f;
-        float drawY = Math.round(y) + 0.5f;
-
-        if (alpha > 0.01f) {
-            try (Paint fill = new Paint()) {
-                fill.setColor((int) (alpha * 30) << 24 | 0xFFFFFF);
-                fill.setAntiAlias(true);
-                canvas.drawRRect(RRect.makeXYWH(drawX - pad, drawY - pad, rw, rh, 6f), fill);
+        float left = x - pad;
+        float top = y - pad;
+        float right = x + width + pad;
+        float bottom = y + height + pad;
+        int color = ThemeColors.withAlpha(ThemeColors.accent(x, y), (0.65f + hover * 0.35f) * opacity);
+        if (dragging) {
+            try (PathEffect dash = PathEffect.makeDash(new float[]{DASH_LEN, DASH_GAP}, dashOffset);
+                 Paint paint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1.2f).setColor(color)) {
+                paint.setPathEffect(dash);
+                canvas.drawRRect(RRect.makeXYWH(left, top, width + pad * 2f, height + pad * 2f, 9f), paint);
             }
         }
-
-        try (Paint p = new Paint()) {
-            p.setColor((alphaInt << 24) | 0xFFFFFF);
-            p.setAntiAlias(true);
-            p.setPathEffect(PathEffect.makeDash(new float[]{DASH_LEN, DASH_GAP}, dashOffset));
-            p.setStrokeWidth(1.5f);
-            p.setMode(PaintMode.STROKE);
-            canvas.drawRRect(RRect.makeXYWH(drawX - pad, drawY - pad, rw, rh, 6f), p);
+        float gripLength = Math.clamp(Math.min(width, height) * 0.6f, 10f, 25f);
+        float radius = Math.min(14f, gripLength * 0.75f);
+        try (PathBuilder builder = new PathBuilder()) {
+            builder.moveTo(right - gripLength, bottom);
+            builder.lineTo(right - radius, bottom);
+            builder.arcTo(Rect.makeXYWH(right - radius * 2f, bottom - radius * 2f,
+                    radius * 2f, radius * 2f), 90f, -90f, false);
+            builder.lineTo(right, bottom - gripLength);
+            try (Path path = builder.detach()) {
+                SkijaUi.strokePath(canvas, path, 2.5f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
+            }
         }
-
-        SkijaUi.text(canvas, label, drawX - pad, (drawY - pad - 4f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), (alphaInt << 24) | 0xFFFFFF, 10f);
+        SkijaUi.text(canvas, label, left, Math.max(1f, top - 18f), 16f, color, 10f);
     }
 
     private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
-        String text = Config.isChinese ? "悬浮滚轮调节大小，按住 Shift 弱对齐" : "Hover and scroll to resize, hold Shift for weak snap";
-        float textW = SkijaUi.textWidth(text, HINT_TEXT_SIZE);
-        float x = (guiW - textW) * 0.5f;
-        float y = Math.max(48f, guiH - 92f);
-        int alpha = Math.round(210f * Math.max(0f, Math.min(1f, progress)));
-        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(HINT_TEXT_SIZE).getAscent(), SkijaUi.textMetrics(HINT_TEXT_SIZE).getDescent() - SkijaUi.textMetrics(HINT_TEXT_SIZE).getAscent(), (alpha << 24) | 0xFFFFFF, HINT_TEXT_SIZE);
+        if (dragTarget == DragTarget.NONE || (snapXLine < 0f && snapYLine < 0f)) return;
+        String text = Config.isChinese ? "弱对齐" : "Weak alignment";
+        float width = SkijaUi.textWidth(text, HINT_TEXT_SIZE);
+        float opacity = progress * Math.max(snapXAlpha, snapYAlpha) * 0.7f;
+        SkijaUi.text(canvas, text, (guiW - width) * 0.5f, Math.max(48f, guiH - 92f), 18f,
+                ThemeColors.withAlpha(ThemeColors.accent(), opacity), HINT_TEXT_SIZE);
     }
 
     private RectState getTargetHudRect(int guiW, int guiH) {
         float scale = Math.max(0.5f, Config.targetHudScale);
-        boolean newSize = Config.targetHudMode == Config.TargetHudMode.NEW || Config.targetHudMode == Config.TargetHudMode.BLUR || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
+        boolean newSize = Config.targetHudMode != Config.TargetHudMode.LITE;
         float baseW = newSize ? TARGET_HUD_NEW_WIDTH : TARGET_HUD_WIDTH;
         float baseH = newSize ? TARGET_HUD_NEW_HEIGHT : TARGET_HUD_HEIGHT;
         return clampRect(guiW * 0.5f + Config.targetHudX, guiH * 0.5f + Config.targetHudY, baseW * scale, baseH * scale, guiW, guiH);
@@ -559,6 +593,15 @@ public class HudEditOverlay {
         return clampRect(sx.position, sy.position, rect.w, rect.h, guiW, guiH);
     }
 
+    private void updateSnapGuides(RectState rect, int guiW, int guiH, boolean weakSnap,
+                                  Object target, List<EditItemState> refs) {
+        float threshold = weakSnap ? WEAK_SNAP_THRESHOLD : SNAP_THRESHOLD;
+        snapXLine = snapAxis(rect.x, rect.w,
+                buildSnapLines(guiW * 0.25f, guiW * 0.5f, guiW * 0.75f, rect, refs, target, true), threshold).line;
+        snapYLine = snapAxis(rect.y, rect.h,
+                buildSnapLines(guiH * 0.25f, guiH * 0.5f, guiH * 0.75f, rect, refs, target, false), threshold).line;
+    }
+
     private float[] buildSnapLines(float a, float b, float c, RectState dragged, List<EditItemState> refs, Object draggedTarget, boolean horizontal) {
         float[] lines = new float[3 + refs.size() * 3];
         int count = 0;
@@ -630,7 +673,11 @@ public class HudEditOverlay {
         void set(float value);
     }
 
-    private record EditItem(Object target, String label, MoveHandler move, ScaleHandler scale, boolean locked) {}
+    private interface FloatGetter {
+        float get();
+    }
+
+    private record EditItem(Object target, String label, MoveHandler move, ScaleHandler scale, boolean locked, FloatGetter scaleValue) {}
 
     private static final class EditItemState {
         private final EditItem definition;

@@ -38,6 +38,11 @@ public final class TpsHudRenderer extends SkiaTextHudRenderer {
     }
 
     @Override
+    protected com.pvp_utils.client.render.HudAppearance appearance() {
+        return Config.tpsAppearance;
+    }
+
+    @Override
     protected boolean enabled() {
         return Config.tpsHud;
     }
@@ -89,7 +94,7 @@ public final class TpsHudRenderer extends SkiaTextHudRenderer {
             return List.of(new Line("TPS: --", 0xFFAAAAAA));
         }
         float tps = Math.min(20f, smoothedTps);
-        int color = tps >= 18.5f ? 0xFF00E676 : tps >= 15f ? 0xFFD6CD30 : 0xFFE53935;
+        int color = tps >= 18.5f ? Config.tpsAppearance.accent() : tps >= 15f ? 0xFFD6CD30 : 0xFFE53935;
         return List.of(new Line(String.format(java.util.Locale.ROOT, "TPS: %.1f", tps), color));
     }
 }

@@ -6,6 +6,7 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
@@ -65,12 +66,12 @@ public class ArmorHudRenderer {
     }
 
     public boolean isPositionLockedToAdaptiveLayout() {
-        return Config.armorHudMode == Config.ArmorHudMode.NEW && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED;
+        return Config.armorHudMode != Config.ArmorHudMode.LITE && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED;
     }
 
     public float getEditWidth() {
         float scale = getRenderScale();
-        if (Config.armorHudMode == Config.ArmorHudMode.NEW) {
+        if (Config.armorHudMode != Config.ArmorHudMode.LITE) {
             if (Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
                 return CARD_W * scale * 2f + HOTBAR_W + SIDE_GAP * 2f;
             }
@@ -89,7 +90,7 @@ public class ArmorHudRenderer {
 
     public float getEditHeight() {
         float scale = getRenderScale();
-        if (Config.armorHudMode == Config.ArmorHudMode.NEW) {
+        if (Config.armorHudMode != Config.ArmorHudMode.LITE) {
             if (Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
                 return CARD_H * scale * 2f + CARD_GAP * scale;
             }
@@ -143,6 +144,9 @@ public class ArmorHudRenderer {
         float scale = getRenderScale();
         float drawH = CARD_H * scale;
         SkijaRenderer.draw(canvas -> {
+            HudPanel.draw(canvas, x, y, newCardWidth() * scale, newCardHeight() * scale,
+                    5f * scale, Config.armorAppearance,
+                    Config.armorHudMode == Config.ArmorHudMode.LIQUID_GLASS, 1f);
             canvas.translate(x, y);
             canvas.scale(scale, scale);
             drawNewCard(canvas, stack);
@@ -196,12 +200,8 @@ public class ArmorHudRenderer {
     }
 
     private void drawNewCard(Canvas canvas, ItemStack stack) {
-        bgPaint.setColor(0x7A262D39);
         float cardW = newCardWidth();
         float cardH = newCardHeight();
-        canvas.drawRRect(RRect.makeXYWH(0.5f, 0.5f, cardW - 1f, cardH - 1f, 5f), bgPaint);
-        borderPaint.setColor(0x4AFFFFFF);
-        canvas.drawRRect(RRect.makeXYWH(1f, 1f, cardW - 2f, cardH - 2f, 5f), borderPaint);
 
         if (!stack.isDamageableItem() || stack.getMaxDamage() <= 0) {
             return;
@@ -212,7 +212,7 @@ public class ArmorHudRenderer {
         if (Config.armorHudShowPercentage) {
             float textW = SkijaUi.textWidth(percent, 8.5f);
             float textX = Math.max(CARD_PAD + CARD_ICON + CARD_PAD, cardW - CARD_PAD - textW);
-            SkijaUi.text(canvas, percent, textX, (12.4f) + SkijaUi.textMetrics(8.5f).getAscent(), SkijaUi.textMetrics(8.5f).getDescent() - SkijaUi.textMetrics(8.5f).getAscent(), 0xFFFFFFFF, 8.5f);
+            SkijaUi.text(canvas, percent, textX, (12.4f) + SkijaUi.textMetrics(8.5f).getAscent(), SkijaUi.textMetrics(8.5f).getDescent() - SkijaUi.textMetrics(8.5f).getAscent(), Config.armorAppearance.text(), 8.5f);
         }
 
         if (Config.armorHudShowBar) {
@@ -221,7 +221,7 @@ public class ArmorHudRenderer {
             float barW = Math.max(6f, cardW - barX - CARD_PAD - 2f);
             barTrackPaint.setColor(0x36FFFFFF);
             canvas.drawRRect(RRect.makeXYWH(barX, barY, barW, 1.8f, 0.9f), barTrackPaint);
-            barFillPaint.setColor(durabilityColor(ratio));
+            barFillPaint.setColor(ratio < 0.25f ? durabilityColor(ratio) : Config.armorAppearance.accent());
             canvas.drawRRect(RRect.makeXYWH(barX, barY, Math.max(1f, barW * ratio), 1.8f, 0.9f), barFillPaint);
         }
     }

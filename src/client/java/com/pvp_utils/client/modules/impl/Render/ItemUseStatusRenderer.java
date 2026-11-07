@@ -6,6 +6,7 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
 import io.github.humbleui.skija.Paint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -69,7 +70,7 @@ public final class ItemUseStatusRenderer {
     }
 
     public float getDefaultY(int screenH) {
-        return screenH * 0.5f + (Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? 13f : 18f);
+        return screenH * 0.5f + (Config.itemUseStatusMode == Config.ItemUseStatusMode.BLUR ? 13f : 18f);
     }
 
     public float getRenderX(int screenW) {
@@ -159,7 +160,7 @@ public final class ItemUseStatusRenderer {
             return;
         }
 
-        if (Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW) {
+        if (Config.itemUseStatusMode == Config.ItemUseStatusMode.BLUR) {
             renderNew(graphics, client, animatedProgress, alpha);
         } else {
             renderLite(graphics, client, animatedProgress, alpha);
@@ -369,6 +370,8 @@ public final class ItemUseStatusRenderer {
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
         SkijaRenderer.draw(c -> {
+            HudPanel.draw(c, x, y, NEW_W * scale, NEW_H * scale, 8f * scale,
+                    Config.itemUseAppearance, false, alpha);
             c.translate(x, y);
             c.scale(scale, scale);
             int alphaInt = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 255f);
@@ -376,10 +379,10 @@ public final class ItemUseStatusRenderer {
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, NEW_BAR_W, NEW_BAR_H, NEW_BAR_H * 0.5f), newTrackPaint);
 
             float fillW = Math.max(NEW_BAR_H, NEW_BAR_W * Mth.clamp(progress, 0.0f, 1.0f));
-            newFillPaint.setColor((alphaInt << 24) | (progressColor(progress, 255) & 0xFFFFFF));
+            newFillPaint.setColor((alphaInt << 24) | (Config.itemUseAppearance.accent() & 0xFFFFFF));
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, fillW, NEW_BAR_H, NEW_BAR_H * 0.5f), newFillPaint);
 
-            int textColor = (alphaInt << 24) | 0xFFFFFF;
+            int textColor = (alphaInt << 24) | (Config.itemUseAppearance.text() & 0xFFFFFF);
             SkijaUi.text(c, Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 100.0f) + "%", 146f, (17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), textColor, 10f);
         });
     }
@@ -418,11 +421,11 @@ public final class ItemUseStatusRenderer {
     }
 
     private float getBaseWidth() {
-        return Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? NEW_W : BAR_W;
+        return Config.itemUseStatusMode == Config.ItemUseStatusMode.BLUR ? NEW_W : BAR_W;
     }
 
     private float getBaseHeight() {
-        return Config.itemUseStatusMode == Config.ItemUseStatusMode.NEW ? NEW_H : LITE_EDIT_H;
+        return Config.itemUseStatusMode == Config.ItemUseStatusMode.BLUR ? NEW_H : LITE_EDIT_H;
     }
 
     private float getScale() {

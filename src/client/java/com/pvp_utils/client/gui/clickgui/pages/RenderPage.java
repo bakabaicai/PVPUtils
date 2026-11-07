@@ -48,7 +48,7 @@ public class RenderPage extends BasePage {
                 .addSub("Admin", "", new SettingToggle(() -> Config.sunWorldRankAdmin, v -> { Config.sunWorldRankAdmin = v; Config.save(); }))
                 .visibleWhen(McbiServerGate::isAvailable));
 
-        modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("让部分物品使用1.7时候的动画", "Use 1.7-style animations for selected items"),
+        modules.add(new SettingModule(UiText.t("1.7 动画", "1.7 Animations"), UiText.t("为部分物品使用 1.7 风格动画", "Use 1.7-style animations for selected items"),
                 new SettingToggle(() -> Config.legacy17Animations, v -> { Config.legacy17Animations = v; Config.save(); }))
                 .addSub(UiText.t("使用物品挥手偏移", "Item Use Swing Offset"), UiText.t("使用物品时应用 1.7 风格的挥手偏移", "Apply the 1.7 swing offset while using an item"),
                         new SettingToggle(() -> Config.legacy17UseSwing, v -> { Config.legacy17UseSwing = v; Config.save(); }))
@@ -61,24 +61,24 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("物品拾取位置", "Item Pickup Position"), UiText.t("使用 1.7 风格的物品拾取终点", "Use the 1.7 item pickup destination"),
                         new SettingToggle(() -> Config.legacy17ItemPickup, v -> { Config.legacy17ItemPickup = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("打开 HUD 位置编辑器，悬浮控件后可使用滚轮缩放大小", "Open the HUD editor. Hover an element and use the mouse wheel to resize it"),
+        modules.add(new SettingModule(UiText.t("UI 编辑", "UI Editor"), UiText.t("调整 HUD 位置和大小", "Adjust HUD positions and sizes"),
                 new SettingToggle(() -> false, v -> Minecraft.getInstance().setScreen(new ChatScreen("", false))))
                 .addSub(UiText.t("在聊天框中快速启用", "Quick Enable in Chat"), UiText.t("打开聊天框时自动启用 HUD 拖动编辑", "Automatically enable HUD drag editing when opening chat"),
                         new SettingToggle(() -> Config.chatHudEditQuickEnable, v -> { Config.chatHudEditQuickEnable = v; Config.save(); })));
 
         SettingModule swordBlockModule = new SettingModule(UiText.t("防砍动画", "Sword Blocking Animation"), UiText.t("模拟旧版格挡动画效果", "Simulate the old blocking animation"),
                 new SettingToggle(() -> Config.swordBlock, v -> { Config.swordBlock = v; Config.save(); }))
-                .addSub(UiText.t("动画模式", "Animation Mode"), UiText.t("选择动画风格", "Choose the animation style"),
-                        new SettingCycle(List.of("1.7", "Push", "1.7+", "New"),
+                .addSub(UiText.t("动画模式", "Animation Mode"), "",
+                        new SettingCycle(List.of("1.7", "Push", "1.7+", UiText.t("现代", "Modern")),
                                 () -> switch (Config.animationMode) { case MODE_1_7 -> 0; case MODE_PUSH -> 1; case MODE_1_7_PLUS -> 2; case MODE_NEW -> 3; },
                                 i -> { Config.animationMode = switch (i) { case 1 -> Config.AnimMode.MODE_PUSH; case 2 -> Config.AnimMode.MODE_1_7_PLUS; case 3 -> Config.AnimMode.MODE_NEW; default -> Config.AnimMode.MODE_1_7; }; Config.save(); }))
-                .addSub(UiText.t("偏移 X", "Offset X"), UiText.t("水平偏移量", "Horizontal offset"),
+                .addSub(UiText.t("偏移 X", "Offset X"), "",
                         new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.offsetX, v -> { Config.offsetX = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("偏移 Y", "Offset Y"), UiText.t("垂直偏移量", "Vertical offset"),
+                .addSub(UiText.t("偏移 Y", "Offset Y"), "",
                         new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.offsetY, v -> { Config.offsetY = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("偏移 Z", "Offset Z"), UiText.t("深度偏移量", "Depth offset"),
+                .addSub(UiText.t("偏移 Z", "Offset Z"), "",
                         new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.offsetZ, v -> { Config.offsetZ = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("动画速度", "Animation Speed"), UiText.t("调整动画播放速度", "Adjust animation playback speed"),
+                .addSub(UiText.t("动画速度", "Animation Speed"), "",
                         new SettingSlider(0.0, 4.0, "%.2f", () -> (double) Config.animSpeed, v -> { Config.animSpeed = v.floatValue(); Config.save(); }));
         swordBlockModule.visibleWhen(() -> !SkinManager.hasSwordSkinActive());
         modules.add(swordBlockModule);
@@ -86,11 +86,11 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("去除攻击冷却动画", "Remove Attack Cooldown Animation"), UiText.t("去除武器挥动后高版本额外的抬手动画", "Remove the extra hand raise after weapon swings"),
                 new SettingToggle(() -> Config.noAttackCooldownAnimation, v -> { Config.noAttackCooldownAnimation = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("运动相机", "Motion camera"), UiText.t("更好的第三人称视角", "Better third-person view"),
+        modules.add(new SettingModule(UiText.t("运动相机", "Motion camera"), UiText.t("平滑第三人称相机运动", "Smooth third-person camera movement"),
                 new SettingToggle(() -> Config.motionCamera, v -> { Config.setMotionCamera(v); Config.save(); }))
-                .addSub(UiText.t("跟随速度", "Follow Speed"), UiText.t("控制相机追上玩家的速度", "Controls how fast the camera catches up to the player"),
+                .addSub(UiText.t("跟随速度", "Follow Speed"), "",
                         new SettingSlider(0.0, 1.0, "%.2f", () -> (double) Config.motionCameraFollowSpeed, v -> { Config.motionCameraFollowSpeed = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("相机距离", "Camera Distance"), UiText.t("控制第三人称相机距离身体的距离", "Controls the third-person camera distance from the body"),
+                .addSub(UiText.t("相机距离", "Camera Distance"), "",
                         new SettingSlider(1.0, 8.0, "%.1f", () -> (double) Config.motionCameraDistance, v -> { Config.motionCameraDistance = v.floatValue(); Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("攻击特效", "Attack Effects"), UiText.t("控制攻击时显示的粒子效果", "Control particles shown when attacking"), null)
@@ -142,7 +142,7 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("自动格挡", "Auto Block"), UiText.t("自动触发格挡动作", "Automatically trigger blocking"),
                 new SettingToggle(() -> Config.autoMode, v -> { Config.autoMode = v; Config.save(); }))
-                .addSub(UiText.t("触发距离", "Trigger Range"), UiText.t("自定义近战触发距离", "Customize melee trigger range"),
+                .addSub(UiText.t("触发距离", "Trigger Range"), "",
                         new SettingSlider(2.0, 6.0, "%.2f", () -> Config.range, v -> { Config.range = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("挖掘状态显示", "Digging Status"), UiText.t("在准星下方显示当前挖掘进度和预计剩余时间", "Show current digging progress and estimated remaining time under the crosshair"),
@@ -156,13 +156,13 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("音乐信息显示", "Music Info HUD"), UiText.t("显示当前播放的网易云音乐信息", "Show current Netease Music playback information"),
                 new SettingToggle(() -> Config.musicInfoHud, v -> { Config.musicInfoHud = v; Config.save(); }))
-                .addSub(UiText.t("封面圆角", "Rounded Cover"), UiText.t("封面使用圆角裁切（仅全新/模糊样式生效）", "Round the cover corners (New/Blur styles only)"),
+                .addSub(UiText.t("封面圆角", "Rounded Cover"), "",
                         new SettingToggle(() -> Config.musicInfoHudCoverRounded, v -> { Config.musicInfoHudCoverRounded = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
                 new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("功能列表", "Arraylist"), UiText.t("在HUD上显示当前启用的功能。", "Show currently enabled modules on the HUD."),
+        modules.add(new SettingModule(UiText.t("功能列表", "Arraylist"), UiText.t("显示已启用的功能", "Show enabled modules"),
                 new SettingToggle(() -> Config.arraylist, v -> { Config.arraylist = v; Config.save(); }))
                 .addSub(UiText.t("文字颜色", "Text Color"), "",
                         new SettingColorPreview(RenderPage::arraylistColorArgb, RenderPage::setArraylistColorArgb, false, Config::save))
@@ -177,7 +177,7 @@ public class RenderPage extends BasePage {
                 .addSubWhen(() -> Config.arraylistBorder, UiText.t("边框粗细", "Border Width"), "",
                         new SettingSlider(1.0, 4.0, "%.1f", () -> (double) Config.arraylistBorderWidth, v -> { Config.arraylistBorderWidth = v.floatValue(); Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
+        modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("集中显示状态、通知与音乐", "Display status, notifications, and music"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.setDynamicIsland(v); Config.save(); }))
                 .addSub(UiText.t("形态", "Shape"), "",
                         new SettingCycle(List.of(UiText.t("极简胶囊", "Minimal Capsule"), UiText.t("分体悬浮岛", "Split Floating Island")),
@@ -187,12 +187,12 @@ public class RenderPage extends BasePage {
                         UiText.t("双层模式", "Two-row Mode"), UiText.t("显示更多信息", "Show more information"),
                         new SettingToggle(() -> Config.dynamicIslandDoubleRow, v -> { Config.dynamicIslandDoubleRow = v; Config.save(); }))
                 .addSub(UiText.t("背景模式", "Background"), "",
-                        new SettingCycle(List.of(UiText.t("模糊", "Blur"), UiText.t("纯色", "Solid")),
-                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : 0,
-                                i -> { Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : Config.DynamicIslandBackground.BLUR; Config.save(); }))
+                        new SettingCycle(List.of("Blur", UiText.t("纯色", "Solid"), "Liquid"),
+                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS ? 2 : 0,
+                                i -> { Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : i == 2 ? Config.DynamicIslandBackground.LIQUID_GLASS : Config.DynamicIslandBackground.BLUR; Config.save(); }))
                 .addSub(UiText.t("背景颜色", "Background Color"), "",
                         new SettingColorPreview(() -> Config.dynamicIslandColor, v -> Config.dynamicIslandColor = v, true, Config::save))
-                .addSub(UiText.t("柔和阴影", "Soft Shadow"), "",
+                .addSub(UiText.t("阴影", "Shadow"), "",
                         new SettingToggle(() -> Config.dynamicIslandShadow, v -> { Config.dynamicIslandShadow = v; Config.save(); }))
                 .addSubWhen(() -> Config.dynamicIslandShadow, UiText.t("阴影强度", "Shadow Strength"), "",
                         new SettingSlider(0, 1, "%.2f", () -> (double) Config.dynamicIslandShadowStrength,
@@ -229,17 +229,17 @@ public class RenderPage extends BasePage {
                             Config.save();
                         })));
 
-        modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("让掉落物以更加物理的方式掉落", "Make dropped items fall in a more physical way"),
+        modules.add(new SettingModule(UiText.t("物品物理掉落", "Item Physics"), UiText.t("调整掉落物的旋转和落地表现", "Adjust dropped-item rotation and landing"),
                 new SettingToggle(() -> Config.itemPhysics, v -> {
                     Config.itemPhysics = v;
                     if (v) Config.item2DRender = false;
                     Config.save();
                 }))
-                .addSub(UiText.t("旋转速度", "Rotation Speed"), UiText.t("调整掉落物腾空时的旋转速度", "Adjust how fast dropped items rotate in the air"),
+                .addSub(UiText.t("旋转速度", "Rotation Speed"), "",
                         new SettingSlider(0.0, 3.0, "%.1fx", () -> (double) Config.itemPhysicsRotationSpeed,
                                 v -> { Config.itemPhysicsRotationSpeed = v.floatValue(); Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("掉落物 2D 渲染", "Dropped Item 2D Render"), UiText.t("将掉落物的渲染方式更改为2D渲染（老版本渲染方式）", "Change dropped item rendering to 2D rendering (old version style)"),
+        modules.add(new SettingModule(UiText.t("掉落物 2D 渲染", "Dropped Item 2D Render"), UiText.t("使用旧版二维掉落物样式", "Use the legacy 2D dropped-item style"),
                 new SettingToggle(() -> Config.item2DRender, v -> {
                     Config.item2DRender = v;
                     if (v) Config.itemPhysics = false;
@@ -250,18 +250,18 @@ public class RenderPage extends BasePage {
                 UiText.t("竖向", "Vertical"), UiText.t("横向", "Horizontal"));
         List<String> liteArmorLayouts = armorLayouts.subList(1, 3);
         modules.add(new SettingModule(
-                UiText.t("盔甲 HUD", "Armor HUD"),
-                UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
+                UiText.t("护甲信息显示", "Armor Information"),
+                UiText.t("显示装备与剩余耐久", "Show equipped armor and remaining durability"),
                 new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); }))
-                .addSub(UiText.t("布局", "Layout"), UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
-                        new SettingCycle(() -> Config.armorHudMode == Config.ArmorHudMode.NEW ? armorLayouts : liteArmorLayouts,
-                                () -> Config.armorHudMode == Config.ArmorHudMode.NEW ? switch (Config.armorHudLayout) {
+                .addSub(UiText.t("布局", "Layout"), "",
+                        new SettingCycle(() -> Config.armorHudMode != Config.ArmorHudMode.LITE ? armorLayouts : liteArmorLayouts,
+                                () -> Config.armorHudMode != Config.ArmorHudMode.LITE ? switch (Config.armorHudLayout) {
                                     case SEPARATED -> 0;
                                     case VERTICAL -> 1;
                                     case HORIZONTAL -> 2;
                                 } : Config.armorHudLayout == Config.ArmorHudLayout.VERTICAL ? 0 : 1,
                                 i -> {
-                                    if (Config.armorHudMode == Config.ArmorHudMode.NEW) {
+                                    if (Config.armorHudMode != Config.ArmorHudMode.LITE) {
                                         Config.armorHudLayout = switch (i) {
                                             case 1 -> Config.ArmorHudLayout.VERTICAL;
                                             case 2 -> Config.ArmorHudLayout.HORIZONTAL;
@@ -289,9 +289,9 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("战斗中显示", "Show In Combat"), UiText.t("最近参与战斗时临时恢复盔甲显示", "Temporarily restore armor visibility while recently in combat"),
                         new SettingToggle(() -> Config.armorTransparencyShowInCombat, v -> { Config.armorTransparencyShowInCombat = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示当前药水效果和剩余时间。", "Show active potion effects and remaining time."),
+        modules.add(new SettingModule(UiText.t("药水状态", "Potion Status"), UiText.t("显示药水效果与剩余时间", "Show active effects and remaining duration"),
                 new SettingToggle(() -> Config.potionStatus, v -> { Config.potionStatus = v; Config.save(); }))
-                .addSub(UiText.t("灰色遮罩", "Gray Background"), UiText.t("控制外层灰色背景是否显示", "Control whether the outer gray background is visible"),
+                .addSub(UiText.t("显示背景", "Show Background"), "",
                         new SettingToggle(() -> Config.potionStatusBackground, v -> { Config.potionStatusBackground = v; Config.save(); }))
                 .addSub(UiText.t("倒计时数字", "Countdown Text"), UiText.t("关闭后只显示效果名称", "When disabled, only the effect name is shown"),
                         new SettingToggle(() -> Config.potionStatusCountdown, v -> { Config.potionStatusCountdown = v; Config.save(); }))
@@ -300,23 +300,23 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("潜行动画调整", "Sneak Animation Adjustment"), UiText.t("调整潜行视角下降效果", "Adjust sneak camera drop effect"),
                 new SettingToggle(() -> Config.noSneakAnimation, v -> { Config.noSneakAnimation = v; Config.save(); }))
-                .addSub(UiText.t("下降幅度", "Drop Amount"), UiText.t("潜行时的下降幅度", "Sneak camera drop amount"),
+                .addSub(UiText.t("下降幅度", "Drop Amount"), "",
                         new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakDropScale * 100.0, v -> { Config.sneakDropScale = (v.floatValue() / 100.0f); Config.save(); }))
-                .addSub(UiText.t("过渡速度", "Transition Speed"), UiText.t("潜行动画的过渡速度", "Sneak animation transition speed"),
+                .addSub(UiText.t("过渡速度", "Transition Speed"), "",
                         new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.sneakAnimationSpeed * 100.0, v -> { Config.sneakAnimationSpeed = (v.floatValue() / 100.0f); Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("伽马覆写", "Gamma Override"), UiText.t("强制使用自定义亮度值", "Force a custom brightness value"),
                 new SettingToggle(() -> Config.gammaOverride, v -> { Config.gammaOverride = v; Config.save(); }))
-                .addSub(UiText.t("伽马值", "Gamma Value"), UiText.t("调整游戏亮度上限", "Adjust the brightness limit"),
+                .addSub(UiText.t("伽马值", "Gamma Value"), "",
                         new SettingSlider(0.0, 15.0, "%.1f", () -> Config.gammaValue, v -> { Config.gammaValue = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("动态模糊", "Dynamic Motion Blur"), UiText.t("根据相机运动生成速度模糊效果", "Apply velocity blur based on camera motion"),
                 new SettingToggle(() -> Config.dynamicMotionBlur, v -> { Config.dynamicMotionBlur = v; Config.save(); }))
-                .addSub(UiText.t("算法", "Algorithm"), UiText.t("选择动态模糊算法", "Choose the motion blur algorithm"),
+                .addSub(UiText.t("算法", "Algorithm"), "",
                         new SettingCycle(List.of("Velocity", "Frame", "Hybrid", "Max", "Mix"),
                                 () -> Config.motionBlurAlgorithm.ordinal(),
                                 i -> { Config.motionBlurAlgorithm = Config.MotionBlurAlgorithm.values()[i % Config.MotionBlurAlgorithm.values().length]; Config.save(); }))
-                .addSub(UiText.t("强度", "Strength"), UiText.t("调整动态模糊强度", "Adjust motion blur strength"),
+                .addSub(UiText.t("强度", "Strength"), "",
                         new SettingSlider(0.0, 300.0, "%.0f%%", () -> (double) Config.dynamicMotionBlurStrength * 100.0, v -> { Config.dynamicMotionBlurStrength = v.floatValue() / 100.0f; Config.save(); }))
                 .addSub(UiText.t("刷新率缩放", "Refresh Rate Scaling"), UiText.t("高 FPS 时按显示器刷新率自动增强采样", "Scale blur samples against display refresh rate at high FPS"),
                         new SettingToggle(() -> Config.dynamicMotionBlurRefreshRateScaling, v -> { Config.dynamicMotionBlurRefreshRateScaling = v; Config.save(); })));
@@ -353,39 +353,92 @@ public class RenderPage extends BasePage {
         modules.add(new SettingModule(UiText.t("伤害数值显示", "Damage Numbers"), UiText.t("显示目标血量变化", "Show target health changes"),
                 new SettingToggle(() -> Config.damageNumbers, v -> { Config.damageNumbers = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("目标 HUD", "Target HUD"), UiText.t("显示目标信息面板", "Show target information panel"),
+        modules.add(new SettingModule(UiText.t("目标信息显示", "Target Information"), UiText.t("显示目标名称与生命值", "Show the target name and health"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
-                .addSub(UiText.t("攻击距离", "Attack Reach"), UiText.t("在命中时在目标名字旁显示与目标的距离", "Show distance to target next to name when hitting"),
+                .addSub(UiText.t("攻击距离", "Attack Reach"), UiText.t("命中时显示目标距离", "Show target distance on hit"),
                         new SettingToggle(() -> Config.attackReachDisplay, v -> { Config.attackReachDisplay = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("按键显示", "Keystrokes"), UiText.t("显示 WASD 和鼠标按键状态", "Show WASD and mouse button states"),
                 new SettingToggle(() -> Config.keystrokes, v -> { Config.keystrokes = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("Ping 显示", "Ping HUD"), UiText.t("显示当前与服务器的延迟", "Show your current latency to the server"),
+        modules.add(new SettingModule(UiText.t("Ping 显示", "Ping HUD"), UiText.t("显示服务器延迟", "Show server latency"),
                 new SettingToggle(() -> Config.pingHud, v -> { Config.pingHud = v; Config.save(); }))
-                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                .addSub(UiText.t("显示背景", "Show Background"), "",
                         new SettingToggle(() -> Config.pingHudBackground, v -> { Config.pingHudBackground = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("TPS 显示", "TPS HUD"), UiText.t("估算当前服务器的 TPS", "Estimate the server's current TPS"),
                 new SettingToggle(() -> Config.tpsHud, v -> { Config.tpsHud = v; Config.save(); }))
-                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                .addSub(UiText.t("显示背景", "Show Background"), "",
                         new SettingToggle(() -> Config.tpsHudBackground, v -> { Config.tpsHudBackground = v; Config.save(); })));
 
-        modules.add(new SettingModule(UiText.t("现实时钟", "Clock"), UiText.t("显示现实世界的时间", "Show real-world time"),
+        modules.add(new SettingModule(UiText.t("现实时钟显示", "Real-Time Clock"), UiText.t("显示本地时间", "Show local time"),
                 new SettingToggle(() -> Config.clockHud, v -> { Config.clockHud = v; Config.save(); }))
-                .addSub(UiText.t("渲染背景", "Background"), UiText.t("是否绘制 HUD 的背景面板", "Draw the HUD background panel"),
+                .addSub(UiText.t("显示背景", "Show Background"), "",
                         new SettingToggle(() -> Config.clockHudBackground, v -> { Config.clockHudBackground = v; Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("名称标签", "Name Tags"), UiText.t("调整原版实体名称标签显示效果", "Adjust vanilla entity name tag rendering"),
                 new SettingToggle(() -> Config.nameTag, v -> { Config.nameTag = v; Config.save(); }))
-                .addSub(UiText.t("缩放", "Scale"), UiText.t("调整名称标签整体大小", "Adjust name tag size"),
+                .addSub(UiText.t("缩放", "Scale"), "",
                         new SettingSlider(50.0, 300.0, "%.0f%%", () -> (double) Config.nameTagScale * 100.0, v -> { Config.nameTagScale = v.floatValue() / 100.0f; Config.save(); }))
-                .addSub(UiText.t("动态缩放", "Dynamic Scale"), UiText.t("根据距离自动缩放名称标签，让远近大小更接近", "Scale name tags by distance so their screen size stays closer"),
+                .addSub(UiText.t("动态缩放", "Dynamic Scale"), UiText.t("按距离调整名称标签大小", "Scale name tags by distance"),
                         new SettingToggle(() -> Config.nameTagDynamicScale, v -> { Config.nameTagDynamicScale = v; Config.save(); }))
-                .addSub(UiText.t("仅玩家", "Only Player"), UiText.t("只放大真实玩家的名称标签，过滤多数 NPC", "Only scale real player name tags and filter most NPCs"),
+                .addSub(UiText.t("仅玩家", "Only Player"), UiText.t("仅调整玩家标签并过滤可识别的 NPC", "Adjust player labels and filter identifiable NPCs"),
                         new SettingToggle(() -> Config.nameTagOnlyPlayer, v -> { Config.nameTagOnlyPlayer = v; Config.save(); }))
                 .addSub(UiText.t("显示自身名称标签", "Show Own Name Tag"), UiText.t("在第三人称视角显示自己头顶的名称标签", "Show your own overhead name tag in third-person view"),
                         new SettingToggle(() -> Config.nameTagShowSelf, v -> { Config.nameTagShowSelf = v; Config.save(); })));
+        SettingModule target = HudAppearanceSettings.module(modules, "目标信息显示", "Target Information");
+        HudAppearanceSettings.style(target, List.of(Config.TargetHudMode.LITE, Config.TargetHudMode.BLUR, Config.TargetHudMode.LIQUID_GLASS),
+                () -> Config.targetHudMode, value -> Config.targetHudMode = value);
+        HudAppearanceSettings.add(target, () -> Config.targetAppearance,
+                () -> Config.targetHudMode != Config.TargetHudMode.LITE, () -> Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS);
+        SettingModule armor = HudAppearanceSettings.module(modules, "护甲信息显示", "Armor Information");
+        HudAppearanceSettings.style(armor, List.of(Config.ArmorHudMode.LITE, Config.ArmorHudMode.BLUR, Config.ArmorHudMode.LIQUID_GLASS),
+                () -> Config.armorHudMode, value -> {
+                    Config.armorHudMode = value;
+                    if (value == Config.ArmorHudMode.LITE && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
+                        Config.armorHudLayout = Config.ArmorHudLayout.HORIZONTAL;
+                    }
+                });
+        HudAppearanceSettings.add(armor, () -> Config.armorAppearance,
+                () -> Config.armorHudMode != Config.ArmorHudMode.LITE, () -> Config.armorHudMode == Config.ArmorHudMode.LIQUID_GLASS);
+        SettingModule music = HudAppearanceSettings.module(modules, "音乐信息显示", "Music Info HUD");
+        HudAppearanceSettings.style(music, List.of(Config.MusicInfoHudMode.LITE, Config.MusicInfoHudMode.BLUR, Config.MusicInfoHudMode.LIQUID_GLASS),
+                () -> Config.musicInfoHudMode, value -> Config.musicInfoHudMode = value);
+        HudAppearanceSettings.add(music, () -> Config.musicInfoAppearance,
+                () -> true, () -> Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
+        SettingModule ping = HudAppearanceSettings.module(modules, "Ping 显示", "Ping HUD");
+        HudAppearanceSettings.style(ping, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+                () -> Config.pingHudStyle, value -> Config.pingHudStyle = value);
+        HudAppearanceSettings.add(ping, () -> Config.pingAppearance,
+                () -> Config.pingHudStyle != Config.HudStyle.LITE, () -> Config.pingHudStyle == Config.HudStyle.LIQUID_GLASS);
+        SettingModule tps = HudAppearanceSettings.module(modules, "TPS 显示", "TPS HUD");
+        HudAppearanceSettings.style(tps, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+                () -> Config.tpsHudStyle, value -> Config.tpsHudStyle = value);
+        HudAppearanceSettings.add(tps, () -> Config.tpsAppearance,
+                () -> Config.tpsHudStyle != Config.HudStyle.LITE, () -> Config.tpsHudStyle == Config.HudStyle.LIQUID_GLASS);
+        SettingModule clock = HudAppearanceSettings.module(modules, "现实时钟显示", "Real-Time Clock");
+        HudAppearanceSettings.style(clock, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS, Config.HudStyle.MATERIAL),
+                () -> Config.clockHudStyle, value -> Config.clockHudStyle = value);
+        HudAppearanceSettings.add(clock, () -> Config.clockAppearance, () -> true, () -> Config.clockHudStyle == Config.HudStyle.LIQUID_GLASS);
+        SettingModule potion = HudAppearanceSettings.module(modules, "药水状态", "Potion Status");
+        HudAppearanceSettings.style(potion, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+                () -> Config.potionStatusStyle, value -> Config.potionStatusStyle = value);
+        HudAppearanceSettings.add(potion, () -> Config.potionAppearance,
+                () -> Config.potionStatusStyle != Config.HudStyle.LITE, () -> Config.potionStatusStyle == Config.HudStyle.LIQUID_GLASS);
+        SettingModule keys = HudAppearanceSettings.module(modules, "按键显示", "Keystrokes");
+        HudAppearanceSettings.style(keys, List.of(Config.KeystrokesMode.LITE, Config.KeystrokesMode.BLUR, Config.KeystrokesMode.LIQUID_GLASS),
+                () -> Config.keystrokesMode, value -> Config.keystrokesMode = value);
+        HudAppearanceSettings.add(keys, () -> Config.keystrokesAppearance,
+                () -> Config.keystrokesMode != Config.KeystrokesMode.LITE, () -> Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS);
+        SettingModule itemUse = HudAppearanceSettings.module(modules, "物品使用状态显示", "Item Use Status");
+        HudAppearanceSettings.style(itemUse, List.of(Config.ItemUseStatusMode.LITE, Config.ItemUseStatusMode.BLUR),
+                () -> Config.itemUseStatusMode, value -> Config.itemUseStatusMode = value);
+        HudAppearanceSettings.add(itemUse, () -> Config.itemUseAppearance,
+                () -> Config.itemUseStatusMode != Config.ItemUseStatusMode.LITE, () -> false);
+        HudAppearanceSettings.colors(HudAppearanceSettings.module(modules, "灵动岛", "Dynamic Island"), () -> Config.dynamicIslandAppearance);
+        HudAppearanceSettings.glass(HudAppearanceSettings.module(modules, "灵动岛", "Dynamic Island"),
+                () -> Config.dynamicIslandAppearance, () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS);
+
     }
 
     @Override public String getTitle() { return UiText.t("视觉设置", "Render Settings"); }

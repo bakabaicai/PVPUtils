@@ -6,6 +6,7 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
@@ -216,17 +217,12 @@ public class BlockCountDisplayRenderer {
         float ratio = Math.max(0f, Math.min(1f, displayStack.getCount() / (float) Math.max(1, displayStack.getMaxStackSize())));
         ringProgress += (ratio - ringProgress) * 0.18f;
 
-        boolean blurMode = Config.blockCountDisplayMode == Config.BlockCountDisplayMode.BLUR;
-        if (blurMode) {
-            SkijaRenderer.draw(blurCanvas -> {
-                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(drawX, drawY, drawW, drawH, drawRadius), drawX, drawY, drawW, drawH, Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
-                SkijaUi.rounded(blurCanvas, drawX, drawY, drawW, drawH, drawRadius, Config.skiaBlurTintColor());
-            });
-        }
+        boolean blurMode = true;
 
         String frameName = name;
         float frameProgress = ringProgress;
         SkijaRenderer.draw(c -> {
+            HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius, Config.blockCountAppearance, false, 1f);
             c.translate(drawX, drawY);
             c.scale(userScale * drawScale, userScale * drawScale);
             drawBase(c, frameName, blurMode);
@@ -355,7 +351,7 @@ public class BlockCountDisplayRenderer {
         c.drawCircle(ringCx, ringCy, radius + 5f, ringFillPaint);
         ringTrackPaint.setColor(ringTrackColor(blurMode));
         c.drawCircle(ringCx, ringCy, radius, ringTrackPaint);
-        ringArcPaint.setColor((int) PURPLE);
+        ringArcPaint.setColor(Config.blockCountAppearance.accent());
         c.drawArc(ringCx - radius, ringCy - radius, ringCx + radius, ringCy + radius, -90f, -360f * progress, false, ringArcPaint);
     }
 
@@ -364,11 +360,11 @@ public class BlockCountDisplayRenderer {
     }
 
     private int primaryTextColor(boolean blurMode) {
-        return blurMode ? Config.hudPrimaryTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+        return blurMode ? Config.blockCountAppearance.text() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
     }
 
     private int mutedTextColor(boolean blurMode) {
-        return blurMode ? Config.hudMutedTextColor() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+        return blurMode ? Config.blockCountAppearance.secondaryText() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
     }
 
     private int ringFillColor(boolean blurMode) {

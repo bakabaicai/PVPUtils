@@ -556,9 +556,9 @@ pvputils.events.on("render", ctx => {
 | 方法 | 行为 |
 |---|---|
 | `ctx.blur(x,y,w,h,radius,strength)` | 复用项目 framebuffer 背景模糊；strength 0–64 |
-| `ctx.glass(x,y,w,h,radius,tint?,shadow?,highlight?)` | 复用原有液态玻璃；默认项目 tint、开启投影和高光 |
+| `ctx.glass(x,y,w,h,radius,tint?,shadow?,options?)` | 绘制液态玻璃；默认基础着色、开启阴影，`options` 为局部效果参数 |
 
-液态玻璃的折射、色散与模糊参数沿用客户端现有配置。
+`options` 支持 `blur`（6，0–30）、`refraction`（1.35，1–5）、`dispersion`（1，0–3）、`rim`（0.6，0–1）、`alpha`（0.9，0–1）、`glow`（0.4，0–1）与 `thickness`（10，1–120）。括号内依次为默认值与范围；模糊半径和折射带厚度以帧缓冲像素为单位。参数只作用于本次调用，不修改客户端配置。第八个参数仍接受旧脚本传入的布尔值，该值不再控制效果；前七个位置参数保持兼容。
 若液态玻璃渲染失败，则绘制同色圆角背景；模糊快照首帧可能还未准备好。
 这些效果采样屏幕背景，仅支持回调的基础坐标；
 在调用 save、手动变换或裁剪后使用它们会抛出错误。

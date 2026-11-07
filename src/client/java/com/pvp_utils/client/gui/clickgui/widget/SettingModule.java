@@ -5,7 +5,9 @@ import io.github.humbleui.types.Rect;
 
 import com.pvp_utils.client.render.skia.SkijaUi;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.ModuleKeybindManager;
+import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import io.github.humbleui.skija.Canvas;
@@ -57,6 +59,7 @@ public class SettingModule {
     private float flyoutScrollTarget;
     private float flyoutContentH;
     private float flyoutViewportH = 240f;
+    private float flyoutLayoutWidth = FLYOUT_W;
     private float flyoutSourceX;
     private float flyoutSourceY;
     private float flyoutSourceW;
@@ -67,6 +70,7 @@ public class SettingModule {
     private String cachedTitleSource = "";
     private String cachedTitleRender = "";
     private float cachedTitleMaxWidth = -1f;
+    private long cachedTitleRevision = -1;
     private final Paint modulePaint = new Paint().setAntiAlias(true);
     private final Paint subPaint = new Paint().setAntiAlias(true);
     private final Paint keybindPaint = new Paint().setAntiAlias(true);
@@ -85,12 +89,32 @@ public class SettingModule {
     }
 
     public SettingModule addSub(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier) {
-        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, false));
+        SubEntry entry = new SubEntry(title, subtitle, widget, visibleSupplier, false);
+        if (!subEntries.isEmpty() && subEntries.getLast().widget instanceof SettingToggle) {
+            subEntries.getLast().children.add(entry);
+        } else {
+            subEntries.add(entry);
+        }
         return this;
     }
 
     public SettingModule addSubWhen(BooleanSupplier visibleSupplier, String title, String subtitle, SettingWidget widget) {
-        subEntries.add(new SubEntry(title, subtitle, widget, visibleSupplier, false));
+        SubEntry entry = new SubEntry(title, subtitle, widget, visibleSupplier, false);
+        if (!subEntries.isEmpty() && subEntries.getLast().widget instanceof SettingToggle) {
+            subEntries.getLast().children.add(entry);
+        } else {
+            subEntries.add(entry);
+        }
+        return this;
+    }
+
+    public SettingModule addSubVisible(String title, String subtitle, SettingWidget widget, BooleanSupplier visible) {
+        subEntries.add(new SubEntry(title, subtitle, widget, visible, false));
+        return this;
+    }
+
+    public SettingModule addSubGroupWhen(BooleanSupplier visible, String title, String subtitle) {
+        subEntries.add(new SubEntry(title, subtitle, null, visible, true));
         return this;
     }
 
@@ -161,10 +185,15 @@ public class SettingModule {
         if (open && !hasVisibleSubEntries()) return;
         if (flyoutOpen == open) return;
         flyoutOpen = open;
-        if (!open) flyoutScrollTarget = 0f;
+        if (!open) {
+            SettingTextBox.clearFocus();
+            releaseDrag();
+            flyoutScrollTarget = 0f;
+        }
     }
 
     public void resetFlyout() {
+        releaseDrag();
         flyoutOpen = false;
         flyoutProgress = 0f;
         flyoutScroll = 0f;
@@ -205,12 +234,17 @@ public class SettingModule {
     }
 
     public float[] flyoutMorphRect(float x, float y, float width, float height, float shiftX) {
-        float p = cubicBezierEase(flyoutProgress);
         boolean hasSource = flyoutSourceW > 0f && flyoutSourceH > 0f;
         float sx = hasSource ? flyoutSourceX - shiftX : x;
         float sy = hasSource ? flyoutSourceY : y;
         float sw = hasSource ? flyoutSourceW : width;
         float sh = hasSource ? flyoutSourceH : height;
+        return morphRect(sx, sy, sw, sh, x, y, width, height, flyoutProgress);
+    }
+
+    private static float[] morphRect(float sx, float sy, float sw, float sh,
+                                     float x, float y, float width, float height, float progress) {
+        float p = cubicBezierEase(progress);
         return new float[]{
             sx + (x - sx) * p, sy + (y - sy) * p,
             sw + (width - sw) * p, sh + (height - sh) * p
@@ -222,6 +256,78 @@ public class SettingModule {
         flyoutSourceY = y;
         flyoutSourceW = width;
         flyoutSourceH = height;
+    }
+
+    public FlyoutExit captureFlyoutExit(float cardX, float cardY, float x, float y,
+                                        float width, float height, float shiftX) {
+        if (flyoutProgress <= 0.01f) return null;
+        collectFlyoutRows(width);
+        return new FlyoutExit(cardX, cardY, x, y, width, height, shiftX);
+    }
+
+    public final class FlyoutExit {
+        private final float sourceX;
+        private final float sourceY;
+        private final float sourceW;
+        private final float sourceH;
+        private final float targetX;
+        private final float targetY;
+        private final float width;
+        private final float height;
+        private final float scroll;
+        private final float fadeStart;
+        private final List<FlyoutRow> rows;
+        private float progress;
+
+        private FlyoutExit(float cardX, float cardY, float x, float y, float width,
+                           float height, float shiftX) {
+            boolean hasSource = flyoutSourceW > 0f && flyoutSourceH > 0f;
+            sourceX = (hasSource ? flyoutSourceX - shiftX : x) - cardX;
+            sourceY = (hasSource ? flyoutSourceY : y) - cardY;
+            sourceW = hasSource ? flyoutSourceW : width;
+            sourceH = hasSource ? flyoutSourceH : height;
+            targetX = x - cardX;
+            targetY = y - cardY;
+            this.width = width;
+            this.height = height;
+            scroll = flyoutScroll;
+            progress = flyoutProgress;
+            fadeStart = Math.min(0.6f, progress);
+            rows = List.copyOf(flyoutRows);
+        }
+
+        public SettingModule module() {
+            return SettingModule.this;
+        }
+
+        public boolean update(float dt) {
+            progress = Math.max(0f, progress - dt / FLYOUT_CLOSE_SECONDS);
+            return progress > 0.01f;
+        }
+
+        public float progress() {
+            return progress;
+        }
+
+        public float width() {
+            return width;
+        }
+
+        public float alpha() {
+            float value = Math.clamp(progress / fadeStart, 0f, 1f);
+            return value * value * (3f - 2f * value);
+        }
+
+        public float[] rect(float cardX, float cardY) {
+            return morphRect(cardX + sourceX, cardY + sourceY, sourceW, sourceH,
+                    cardX + targetX, cardY + targetY, width, height, progress);
+        }
+
+        public void draw(Canvas canvas, float cardX, float cardY, float alpha) {
+            drawFlyout(canvas, cardX + targetX, cardY + targetY, width, height,
+                    rect(cardX, cardY), progress, scroll, rows, alpha * alpha(),
+                    Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
+        }
     }
 
     public void toggleFlyout() {
@@ -270,7 +376,7 @@ public class SettingModule {
         if (mainWidget != null && mainWidget.isAnimating()) return true;
         for (SubEntry sub : subEntries) {
             if (!sub.isVisible()) continue;
-            if (Math.abs((sub.expanded ? 1f : 0f) - sub.childProgress) > 0.01f) return true;
+            if (Math.abs((!sub.group || sub.expanded ? 1f : 0f) - sub.childProgress) > 0.01f) return true;
             if (sub.widget != null && sub.widget.isAnimating()) return true;
             for (SubEntry child : sub.children) {
                 if (child.isVisible() && child.widget != null && child.widget.isAnimating()) return true;
@@ -290,7 +396,7 @@ public class SettingModule {
         if (mainWidget != null) mainWidget.update(dt);
         for (SubEntry sub : subEntries) {
             if (!sub.isVisible()) continue;
-            sub.childProgress += ((sub.expanded ? 1f : 0f) - sub.childProgress) * Math.min(1f, dt * 14f);
+            sub.childProgress += ((!sub.group || sub.expanded ? 1f : 0f) - sub.childProgress) * Math.min(1f, dt * 14f);
             if (sub.childProgress < 0.001f) sub.childProgress = 0f;
             if (sub.childProgress > 0.999f) sub.childProgress = 1f;
             if (sub.widget != null) sub.widget.update(dt);
@@ -320,14 +426,14 @@ public class SettingModule {
         float ascent = SkijaUi.textMetrics(12f).getAscent();
         float lineHeight = SkijaUi.textMetrics(12f).getDescent() - ascent;
         SkijaUi.text(canvas, fitTitle(title, Math.max(0f, textMax)), x + PAD_X,
-                (y + TILE_H * 0.5f + 3f) + ascent, lineHeight, withAlpha(tc.primaryText, alpha), 12f);
+                y, TILE_H, withAlpha(tc.primaryText, alpha), 12f);
 
         if (arrowW > 0f) {
             String arrow = flyoutOpen ? ARROW_EXPANDED : ARROW_COLLAPSED;
             float arrowX = wx - 8f - keybindSpace - arrowW;
             float iconAscent = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent();
             float iconHeight = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - iconAscent;
-            SkijaUi.icon(canvas, arrow, arrowX, (y + TILE_H * 0.5f + 5f) + iconAscent, iconHeight,
+            SkijaUi.icon(canvas, arrow, arrowX, y, TILE_H,
                     withAlpha(flyoutOpen ? tc.accent : tc.mutedText, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
 
@@ -377,16 +483,18 @@ public class SettingModule {
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float size, float alpha) {
         float textW = SkijaUi.textWidth(text, size);
-        SkijaUi.text(canvas, text, x + (width - textW) / 2f, (y + KEYBIND_H / 2f + 3.5f) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), withAlpha(0xFFFFFF, alpha), size);
+        SkijaUi.text(canvas, text, x + (width - textW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), size);
     }
 
     private void drawCenteredIcon(Canvas canvas, String icon, float x, float y, float width, float alpha) {
         float iconW = SkijaUi.iconWidth(icon, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.icon(canvas, icon, x + (width - iconW) / 2f, (y + KEYBIND_H / 2f + 6.2f) + SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(0xFFFFFF, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, x + (width - iconW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     }
 
     private String fitTitle(String text, float maxWidth) {
-        if (!text.equals(cachedTitleSource) || Math.abs(maxWidth - cachedTitleMaxWidth) > 0.5f) {
+        long revision = SkijaUi.textFontRevision();
+        if (!text.equals(cachedTitleSource) || Math.abs(maxWidth - cachedTitleMaxWidth) > 0.5f || cachedTitleRevision != revision) {
+            cachedTitleRevision = revision;
             cachedTitleSource = text;
             cachedTitleMaxWidth = maxWidth;
             cachedTitleRender = truncate(text, maxWidth, 12f);
@@ -451,198 +559,189 @@ public class SettingModule {
     }
 
     public void releaseDrag() {
-        if (mainWidget instanceof SettingSlider s) s.releaseDrag();
+        if (mainWidget != null) mainWidget.releaseDrag();
         for (SubEntry sub : subEntries) {
-            if (sub.isVisible() && sub.widget instanceof SettingSlider s) s.releaseDrag();
+            if (sub.widget != null) sub.widget.releaseDrag();
             for (SubEntry child : sub.children) {
-                if (child.isVisible() && child.widget instanceof SettingSlider cs) cs.releaseDrag();
+                if (child.widget != null) child.widget.releaseDrag();
             }
         }
+    }
+
+    public float preferredFlyoutWidth() {
+        float width = Math.max(320f, SkijaUi.textWidth(title, 13f) + 120f);
+        for (SubEntry sub : subEntries) {
+            if (!sub.isVisible()) continue;
+            width = Math.max(width, preferredRowWidth(sub, 0f));
+            for (SubEntry child : sub.children) {
+                if (child.isVisible()) width = Math.max(width, preferredRowWidth(child, SettingRowLayout.LEVEL_OFFSET));
+            }
+        }
+        return Math.min(620f, width);
+    }
+
+    private float preferredRowWidth(SubEntry entry, float indent) {
+        float labelWidth = entry.preferredLabelWidth();
+        return labelWidth + (entry.widget == null ? 24f : entry.widget.getWidth()) + 76f + indent;
     }
 
     public void draw(Canvas canvas, float x, float y, float width, float height, float shiftX, float alpha, float mouseX, float mouseY) {
         if (flyoutProgress <= 0.01f) return;
-        collectFlyoutRows();
-        float p = cubicBezierEase(flyoutProgress);
-        ClickGuiThemeColors tc = ClickGuiThemeColors.current();
-        float[] rect = flyoutMorphRect(x, y, width, height, shiftX);
-        float morphX = rect[0];
-        float morphY = rect[1];
-        float morphW = rect[2];
-        float morphH = rect[3];
-        float radius = 9f + (FLYOUT_RADIUS - 9f) * p;
-        int tileColor = tc.module;
-        if (isEnabled()) tileColor = lerpColor(tc.module, tc.accent, tc.dark ? 0.34f : 0.20f);
-        int cardColor = lerpColor(tileColor, tc.content, p);
-        float bodyAlpha = ClickGuiThemeColors.panelBackgroundAlpha(alpha);
-        float titleAlpha = alpha;
-        float a = alpha * Math.max(0f, Math.min(1f, (flyoutProgress - 0.52f) / 0.34f));
-        float bodyTop = y + FLYOUT_HEADER_H;
-        float bodyH = Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD);
+        collectFlyoutRows(width);
         flyoutViewportH = height;
-        float maxScroll = Math.max(0f, flyoutContentH - bodyH);
-        flyoutScrollTarget = Math.min(flyoutScrollTarget, maxScroll);
-        flyoutScroll = Math.min(flyoutScroll, maxScroll);
+        clampFlyoutScroll(Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD));
+        drawFlyout(canvas, x, y, width, height, flyoutMorphRect(x, y, width, height, shiftX),
+                flyoutProgress, flyoutScroll, flyoutRows, alpha, mouseX, mouseY);
+    }
 
+    private void drawFlyout(Canvas canvas, float x, float y, float width, float height,
+                            float[] rect, float animationProgress, float scroll,
+                            List<FlyoutRow> rows, float alpha, float mouseX, float mouseY) {
+        float progress = cubicBezierEase(animationProgress);
+        ClickGuiThemeColors colors = ClickGuiThemeColors.current();
+        float radius = 9f + (FLYOUT_RADIUS - 9f) * progress;
+        int tileColor = isEnabled() ? lerpColor(colors.module, colors.accent, colors.dark ? 0.34f : 0.20f) : colors.module;
+        int cardColor = lerpColor(tileColor, colors.content, progress);
+        float bodyAlpha = ClickGuiThemeColors.panelBackgroundAlpha(alpha);
+        float contentAlpha = alpha * Math.clamp((animationProgress - 0.52f) / 0.34f, 0f, 1f);
+        float bodyTop = y + FLYOUT_HEADER_H;
+        float bodyHeight = Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD);
+        if (Config.clickGuiAppearance.shadow) {
+            SoftShadow.drawRounded(canvas, rect[0], rect[1], rect[2], rect[3], radius,
+                    Config.clickGuiAppearance.shadowStrength * alpha, 0xA0000000);
+        }
         int cardSave = canvas.save();
-        canvas.clipRRect(RRect.makeXYWH(morphX, morphY, morphW, morphH, radius), true);
-        flyoutPaint.setColor(withAlpha(cardColor, bodyAlpha));
-        canvas.drawRRect(RRect.makeXYWH(morphX, morphY, morphW, morphH, radius), flyoutPaint);
-        SkijaUi.outline(canvas, morphX, morphY, morphW, morphH, radius, 1f, withAlpha(tc.border, bodyAlpha * 0.85f));
-        if (titleAlpha <= 0.01f) {
-            canvas.restoreToCount(cardSave);
-            return;
-        }
-
-        float ascent = SkijaUi.textMetrics(13f).getAscent();
-        float lineHeight = SkijaUi.textMetrics(13f).getDescent() - ascent;
-        float headerH = Math.min(FLYOUT_HEADER_H, morphH);
-        float headerX = morphX + PAD_X + 2f * p;
-        float headerCenterY = morphY + headerH * 0.5f;
-        float closeX = morphX + morphW - 12f - CLOSE_SIZE;
-        SkijaUi.text(canvas, truncate(title, Math.max(0f, closeX - headerX - 10f), 13f), headerX,
-                headerCenterY + 4f + ascent, lineHeight, withAlpha(tc.primaryText, titleAlpha), 13f);
-
-        if (mainWidget != null) {
-            mainWidget.draw(canvas, morphX + morphW - WIDGET_PAD - 28f * p - mainWidget.getWidth(),
-                    morphY + (headerH - mainWidget.getHeight()) / 2f, alpha);
-        }
-
-        float headerContentAlpha = Math.max(0f, alpha - a);
-        if (headerContentAlpha > 0.01f) {
-            float widgetX = morphX + morphW - WIDGET_PAD - 28f * p - (mainWidget == null ? 0f : mainWidget.getWidth());
-            float keybindSpace = isKeybindable() && !keybindId().isBlank() ? keybindWidth + 6f : 0f;
-            float arrowW = hasVisibleSubEntries() ? SkijaUi.iconWidth(ARROW_COLLAPSED, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS) : 0f;
-            if (arrowW > 0f) {
-                float arrowX = widgetX - 8f - keybindSpace - arrowW;
-                float iconAscent = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent();
-                float iconHeight = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - iconAscent;
-                SkijaUi.icon(canvas, ARROW_EXPANDED, arrowX, morphY + headerH * 0.5f + 5f + iconAscent, iconHeight,
-                        withAlpha(tc.accent, headerContentAlpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            }
-            drawKeybind(canvas, widgetX, morphY + (headerH - KEYBIND_H) / 2f, headerContentAlpha, mouseX, mouseY);
-        }
-
-        if (a <= 0.01f) {
-            canvas.restoreToCount(cardSave);
-            return;
-        }
-
-        float closeY = y + (FLYOUT_HEADER_H - CLOSE_SIZE) / 2f + 1f;
-        float closeHitX = x + width - 12f - CLOSE_SIZE;
-        boolean closeHovered = mouseX >= closeHitX && mouseX <= closeHitX + CLOSE_SIZE && mouseY >= closeY && mouseY <= closeY + CLOSE_SIZE;
-        if (closeHovered) {
-            flyoutBorderPaint.setColor(withAlpha(tc.hoverBackground, ClickGuiThemeColors.panelBackgroundAlpha(a)));
-            canvas.drawRRect(RRect.makeXYWH(closeHitX, closeY, CLOSE_SIZE, CLOSE_SIZE, 5f), flyoutBorderPaint);
-        }
-        float closeAscent = SkijaUi.textMetrics(13f).getAscent();
-        SkijaUi.text(canvas, "\u00D7", closeHitX + CLOSE_SIZE * 0.5f - 3.5f,
-                (closeY + CLOSE_SIZE * 0.5f) + closeAscent, SkijaUi.textMetrics(13f).getDescent() - closeAscent,
-                withAlpha(tc.secondaryText, a), 13f);
-
-        flyoutBorderPaint.setColor(withAlpha(tc.border, a * 0.7f));
-        canvas.drawRect(Rect.makeXYWH(x + 12f, y + FLYOUT_HEADER_H - 1f, width - 24f, 1f), flyoutBorderPaint);
-
-        int save = canvas.save();
         try {
-            canvas.clipRect(Rect.makeXYWH(x + 4f, bodyTop, width - 8f, bodyH));
-            float m12Ascent = SkijaUi.textMetrics(12f).getAscent();
-            float m12Line = SkijaUi.textMetrics(12f).getDescent() - m12Ascent;
-            float m10Ascent = SkijaUi.textMetrics(10f).getAscent();
-            float m10Line = SkijaUi.textMetrics(10f).getDescent() - m10Ascent;
-            for (FlyoutRow row : flyoutRows) {
-                SubEntry entry = row.entry;
-                float ry = bodyTop + 5f + row.y - flyoutScroll;
-                if (ry + SUB_H - 6f <= bodyTop || ry >= bodyTop + bodyH) continue;
-                float rowX = x + FLYOUT_PAD + row.indent;
-                float rowW = width - FLYOUT_PAD * 2f - row.indent;
-                subPaint.setColor(withAlpha(tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(a)));
-                canvas.drawRRect(RRect.makeXYWH(rowX, ry, rowW, SUB_H - 6f, 8f), subPaint);
-                float textX = rowX + PAD_X;
-                if (entry.subtitle == null || entry.subtitle.isEmpty()) {
-                    SkijaUi.text(canvas, truncate(entry.title, rowW - PAD_X * 2f - (entry.widget == null ? 34f : entry.widget.getWidth() + 8f), 12f),
-                            textX, (ry + (SUB_H - 6f) / 2f + 2f) + m12Ascent, m12Line, withAlpha(tc.subModuleText, a), 12f);
-                } else {
-                    float titleMax = rowW - PAD_X * 2f - (entry.widget == null ? 34f : entry.widget.getWidth() + 8f);
-                    SkijaUi.text(canvas, truncate(entry.title, titleMax, 12f), textX,
-                            (ry + 15f) + m12Ascent, m12Line, withAlpha(tc.subModuleText, a), 12f);
-                    SkijaUi.text(canvas, truncate(entry.subtitle, titleMax, 10f), textX,
-                            (ry + 30f) + m10Ascent, m10Line, withAlpha(tc.secondaryText, a), 10f);
+            canvas.clipRRect(RRect.makeXYWH(rect[0], rect[1], rect[2], rect[3], radius), true);
+            SkijaUi.rounded(canvas, rect[0], rect[1], rect[2], rect[3], radius, withAlpha(cardColor, bodyAlpha));
+            float headerHeight = Math.min(FLYOUT_HEADER_H, rect[3]);
+            float closeX = rect[0] + rect[2] - 12f - CLOSE_SIZE;
+            float widgetWidth = mainWidget == null ? 0f : mainWidget.getWidth() + 10f;
+            SkijaUi.text(canvas, truncate(title, Math.max(0f, closeX - rect[0] - PAD_X - widgetWidth - 10f), 13f),
+                    rect[0] + PAD_X, rect[1], headerHeight, withAlpha(colors.primaryText, alpha), 13f);
+            if (mainWidget != null) {
+                mainWidget.draw(canvas, closeX - 10f - mainWidget.getWidth(),
+                        rect[1] + (headerHeight - mainWidget.getControlHeight()) * 0.5f, alpha);
+            }
+            if (contentAlpha <= 0.01f) return;
+            float closeY = y + (FLYOUT_HEADER_H - CLOSE_SIZE) * 0.5f;
+            float closeHitX = x + width - 12f - CLOSE_SIZE;
+            boolean hovered = mouseX >= closeHitX && mouseX <= closeHitX + CLOSE_SIZE
+                    && mouseY >= closeY && mouseY <= closeY + CLOSE_SIZE;
+            if (hovered) SkijaUi.rounded(canvas, closeHitX, closeY, CLOSE_SIZE, CLOSE_SIZE, 5f,
+                    withAlpha(colors.hoverBackground, contentAlpha));
+            int closeColor = withAlpha(colors.secondaryText, contentAlpha);
+            SkijaUi.line(canvas, closeHitX + 5f, closeY + 5f, closeHitX + 13f, closeY + 13f,
+                    1.4f, closeColor, PaintStrokeCap.ROUND);
+            SkijaUi.line(canvas, closeHitX + 13f, closeY + 5f, closeHitX + 5f, closeY + 13f,
+                    1.4f, closeColor, PaintStrokeCap.ROUND);
+            int contentSave = canvas.save();
+            try {
+                canvas.clipRect(Rect.makeXYWH(x + 4f, bodyTop, width - 8f, bodyHeight));
+                for (FlyoutRow row : rows) {
+                    SettingRowLayout.Row layout = row.layout;
+                    float rowY = bodyTop + 5f + layout.y() - scroll;
+                    float visibleHeight = layout.bodyHeight() * row.visibility;
+                    if (rowY + visibleHeight <= bodyTop || rowY >= bodyTop + bodyHeight) continue;
+                    int rowSave = canvas.save();
+                    try {
+                        canvas.clipRect(Rect.makeXYWH(x, rowY, width, visibleHeight));
+                        float rowAlpha = contentAlpha * row.visibility;
+                        SkijaUi.rounded(canvas, x + layout.x(), rowY, layout.width(), layout.bodyHeight(), 8f,
+                                withAlpha(colors.subModule, ClickGuiThemeColors.panelBackgroundAlpha(rowAlpha)));
+                        if (row.depth >= 2) {
+                            SkijaUi.line(canvas, x + layout.x() - 6f, rowY + 6f,
+                                    x + layout.x() - 6f, rowY + layout.bodyHeight() - 6f, 1.5f,
+                                    withAlpha(colors.accent, rowAlpha * 0.48f), PaintStrokeCap.ROUND);
+                        }
+                        SubEntry entry = row.entry;
+                        float titleTop = row.description.length == 0
+                                ? rowY + (layout.headerHeight() - 18f) * 0.5f : rowY + 6f;
+                        SkijaUi.text(canvas, truncate(entry.title, layout.textWidth(), 12f), x + layout.textX(),
+                                titleTop, 18f, withAlpha(colors.subModuleText, rowAlpha), 12f);
+                        for (int i = 0; i < row.description.length; i++) {
+                            SkijaUi.text(canvas, row.description[i], x + layout.textX(), rowY + 24f + i * 13f,
+                                    13f, withAlpha(colors.secondaryText, rowAlpha), 10f);
+                        }
+                        if (entry.group && entry.hasVisibleChildren()) {
+                            SkijaUi.icon(canvas, entry.expanded ? ARROW_EXPANDED : ARROW_COLLAPSED,
+                                    x + layout.x() + layout.width() - 28f, rowY, layout.headerHeight(),
+                                    withAlpha(colors.mutedText, rowAlpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+                        } else if (entry.widget != null) {
+                            drawRowWidget(canvas, row, x, bodyTop + 5f - scroll, rowAlpha);
+                        }
+                    } finally {
+                        canvas.restoreToCount(rowSave);
+                    }
                 }
-                if (entry.group && entry.hasVisibleChildren()) {
-                    String arrow = entry.childProgress > 0.5f ? ARROW_EXPANDED : ARROW_COLLAPSED;
-                    float aw = SkijaUi.iconWidth(arrow, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-                    float iconAscent = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent();
-                    float iconHeight = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - iconAscent;
-                    SkijaUi.icon(canvas, arrow, rowX + rowW - 12f - aw, (ry + (SUB_H - 6f) / 2f) + iconAscent, iconHeight,
-                            withAlpha(tc.mutedText, a), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-                } else if (entry.widget != null) {
-                    float wxp = rowX + rowW - PAD_X - entry.widget.getWidth();
-                    float wyp = ry + (SUB_H - 6f - entry.widget.getHeight()) / 2f;
-                    entry.widget.draw(canvas, wxp, wyp, a);
-                }
+            } finally {
+                canvas.restoreToCount(contentSave);
             }
         } finally {
-            canvas.restoreToCount(save);
+            canvas.restoreToCount(cardSave);
         }
-        canvas.restoreToCount(cardSave);
-        float gripLen = 26f;
-        float gripThick = 3f;
-        float gripInset = 3f;
-        float gripRadius = Math.max(2f, radius - gripInset);
-        int gripColor = withAlpha(tc.accent, alpha * 0.55f);
-        float cornerX = x + width - gripInset;
-        float cornerY = y + height - gripInset;
+        float cornerX = x + width - 3f;
+        float cornerY = y + height - 3f;
+        float gripRadius = Math.max(2f, radius - 3f);
         try (PathBuilder builder = new PathBuilder()) {
-            builder.moveTo(cornerX - gripLen, cornerY);
+            builder.moveTo(cornerX - 26f, cornerY);
             builder.lineTo(cornerX - gripRadius, cornerY);
-            builder.arcTo(Rect.makeXYWH(cornerX - gripRadius * 2f, cornerY - gripRadius * 2f, gripRadius * 2f, gripRadius * 2f), 90f, -90f, false);
-            builder.lineTo(cornerX, cornerY - gripLen);
+            builder.arcTo(Rect.makeXYWH(cornerX - gripRadius * 2f, cornerY - gripRadius * 2f,
+                    gripRadius * 2f, gripRadius * 2f), 90f, -90f, false);
+            builder.lineTo(cornerX, cornerY - 26f);
             try (Path path = builder.detach()) {
-                SkijaUi.strokePath(canvas, path, gripThick, gripColor, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
+                SkijaUi.strokePath(canvas, path, 3f, withAlpha(colors.accent, alpha * 0.55f),
+                        PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
             }
         }
     }
 
+    private void drawRowWidget(Canvas canvas, FlyoutRow row, float x, float y, float alpha) {
+        SettingRowLayout.Row layout = row.layout;
+        float controlX = x + layout.controlX();
+        float controlY = y + layout.controlY();
+        int save = canvas.save();
+        try {
+            canvas.translate(controlX, controlY);
+            canvas.scale(layout.controlScale(), layout.controlScale());
+            row.entry.widget.draw(canvas, 0f, 0f, alpha);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
     public boolean flyoutClick(float mx, float my, float x, float y, float width, float height, int button) {
-        if (flyoutProgress < 0.5f) return false;
-        if (button != 0) return false;
-        collectFlyoutRows();
+        if (flyoutProgress < 0.5f || button != 0) return false;
+        collectFlyoutRows(width);
         float closeX = x + width - 12f - CLOSE_SIZE;
-        float closeY = y + (FLYOUT_HEADER_H - CLOSE_SIZE) / 2f + 1f;
+        float closeY = y + (FLYOUT_HEADER_H - CLOSE_SIZE) * 0.5f;
         if (mx >= closeX && mx <= closeX + CLOSE_SIZE && my >= closeY && my <= closeY + CLOSE_SIZE) {
             setFlyoutOpen(false);
             return true;
         }
         if (mainWidget != null) {
             float widgetX = closeX - 10f - mainWidget.getWidth();
-            float widgetY = y + (FLYOUT_HEADER_H - mainWidget.getHeight()) / 2f;
-            if (mx >= widgetX && mx <= widgetX + mainWidget.getWidth() && my >= widgetY && my <= widgetY + mainWidget.getHeight()) {
+            float widgetY = y + (FLYOUT_HEADER_H - mainWidget.getControlHeight()) * 0.5f;
+            if (mx >= widgetX && mx <= widgetX + mainWidget.getWidth()
+                    && my >= widgetY && my <= widgetY + mainWidget.getControlHeight()) {
                 return mainWidget.onClick(mx, my, widgetX, widgetY, button);
             }
         }
         float bodyTop = y + FLYOUT_HEADER_H;
-        float bodyH = Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD);
+        float bodyHeight = Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD);
+        if (my < bodyTop || my > bodyTop + bodyHeight) return false;
+        float localX = mx - x;
+        float localY = my - bodyTop - 5f + flyoutScroll;
         for (FlyoutRow row : flyoutRows) {
-            SubEntry entry = row.entry;
-            float ry = bodyTop + 5f + row.y - flyoutScroll;
-            float hitTop = Math.max(ry, bodyTop);
-            float hitBottom = Math.min(ry + SUB_H - 6f, bodyTop + bodyH);
-            if (hitBottom <= hitTop) continue;
-            if (my < hitTop || my > hitBottom) continue;
-            float rowX = x + FLYOUT_PAD + row.indent;
-            float rowW = width - FLYOUT_PAD * 2f - row.indent;
-            if (mx < rowX || mx > rowX + rowW) continue;
-            if (entry.group) {
-                entry.expanded = !entry.expanded;
-                return entry.hasVisibleChildren();
+            SettingRowLayout.Row layout = row.layout;
+            if (!layout.contains(localX, localY) || localY > layout.y() + layout.bodyHeight() * row.visibility) continue;
+            if (row.entry.group) {
+                row.entry.expanded = !row.entry.expanded;
+                return true;
             }
-            if (entry.widget == null) return true;
-            float widgetX = rowX + rowW - PAD_X - entry.widget.getWidth();
-            float widgetY = ry + (SUB_H - 6f - entry.widget.getHeight()) / 2f;
-            if (mx < widgetX || mx > widgetX + entry.widget.getWidth()) return true;
-            if (my < widgetY || my > widgetY + entry.widget.getHeight()) return true;
-            entry.widget.onClick(mx, my, widgetX, widgetY, button);
+            if (row.entry.widget == null || !layout.containsControl(localX, localY)) return true;
+            row.entry.widget.onClick((localX - layout.controlX()) / layout.controlScale(),
+                    (localY - layout.controlY()) / layout.controlScale(), 0f, 0f, button);
             return true;
         }
         return false;
@@ -650,50 +749,58 @@ public class SettingModule {
 
     public boolean flyoutDrag(float mx, float my, float x, float y, float width, float height) {
         if (flyoutProgress < 0.5f) return false;
-        collectFlyoutRows();
-        float bodyTop = y + FLYOUT_HEADER_H;
+        collectFlyoutRows(width);
+        float localX = mx - x;
+        float localY = my - y - FLYOUT_HEADER_H - 5f + flyoutScroll;
         for (FlyoutRow row : flyoutRows) {
-            SubEntry entry = row.entry;
-            float ry = bodyTop + 5f + row.y - flyoutScroll;
-            float rowX = x + FLYOUT_PAD + row.indent;
-            float rowW = width - FLYOUT_PAD * 2f - row.indent;
-            if (entry.widget instanceof SettingTextBox textBox) {
-                float widgetX = rowX + rowW - PAD_X - textBox.getWidth();
-                float widgetY = ry + (SUB_H - 6f - textBox.getHeight()) / 2f;
-                if (textBox.onDrag(mx, my, widgetX, widgetY)) return true;
-            }
-            if (entry.widget instanceof SettingSlider slider && slider.isDragging()) {
-                float widgetX = rowX + rowW - PAD_X - slider.getWidth();
-                float widgetY = ry + (SUB_H - 6f - slider.getHeight()) / 2f;
-                if (slider.onDrag(mx, my, widgetX, widgetY)) return true;
-            }
+            SettingWidget widget = row.entry.widget;
+            if (widget == null || !(widget.isDragging() || widget instanceof SettingTextBox)) continue;
+            SettingRowLayout.Row layout = row.layout;
+            if (widget.onDrag((localX - layout.controlX()) / layout.controlScale(),
+                    (localY - layout.controlY()) / layout.controlScale(), 0f, 0f)) return true;
         }
         return false;
     }
 
     public void scrollFlyout(float amount) {
-        collectFlyoutRows();
-        float bodyH = Math.max(0f, flyoutViewportH - FLYOUT_HEADER_H - FLYOUT_PAD);
-        float maxScroll = Math.max(0f, flyoutContentH - bodyH);
-        flyoutScrollTarget = Math.max(0f, Math.min(maxScroll, flyoutScrollTarget + amount));
+        collectFlyoutRows(flyoutLayoutWidth);
+        float bodyHeight = Math.max(0f, flyoutViewportH - FLYOUT_HEADER_H - FLYOUT_PAD);
+        float maxScroll = Math.max(0f, flyoutContentH - bodyHeight);
+        flyoutScrollTarget = Math.clamp(flyoutScrollTarget + amount, 0f, maxScroll);
     }
 
-    private void collectFlyoutRows() {
+    private void clampFlyoutScroll(float bodyHeight) {
+        float maxScroll = Math.max(0f, flyoutContentH - bodyHeight);
+        flyoutScrollTarget = Math.clamp(flyoutScrollTarget, 0f, maxScroll);
+        flyoutScroll = Math.clamp(flyoutScroll, 0f, maxScroll);
+    }
+
+    private void collectFlyoutRows(float width) {
+        flyoutLayoutWidth = width;
         flyoutRows.clear();
         float y = 0f;
         for (SubEntry sub : subEntries) {
             if (!sub.isVisible()) continue;
-            flyoutRows.add(new FlyoutRow(sub, y, 0f));
-            y += SUB_H;
-            if (sub.group && sub.childProgress > 0.01f) {
-                for (SubEntry child : sub.children) {
-                    if (!child.isVisible()) continue;
-                    flyoutRows.add(new FlyoutRow(child, y, 10f));
-                    y += SUB_H;
-                }
+            y = appendFlyoutRow(sub, y, width, 1, 1f);
+            float visibility = sub.group ? sub.childProgress : 1f;
+            if (visibility <= 0.001f) continue;
+            for (SubEntry child : sub.children) {
+                if (child.isVisible()) y = appendFlyoutRow(child, y, width, 2, visibility);
             }
         }
-        flyoutContentH = y;
+        flyoutContentH = y + 5f;
+    }
+
+    private float appendFlyoutRow(SubEntry entry, float y, float width, int depth, float visibility) {
+        SettingRowLayout.Row layout = SettingRowLayout.measure(FLYOUT_PAD, y, width - FLYOUT_PAD * 2f,
+                depth - 1, entry.widget, entry.group ? 24f : 0f);
+        String[] description = entry.descriptionLines(layout.textWidth());
+        if (description.length > 0) {
+            layout = SettingRowLayout.measure(FLYOUT_PAD, y, width - FLYOUT_PAD * 2f,
+                    depth - 1, entry.widget, entry.group ? 24f : 0f, 30f + description.length * 13f);
+        }
+        flyoutRows.add(new FlyoutRow(entry, layout, depth, visibility, description));
+        return y + layout.height() * visibility;
     }
 
     private boolean hasVisibleSubEntries() {
@@ -712,7 +819,7 @@ public class SettingModule {
         return ((int) (ar + (br - ar) * t) << 16) | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
     }
 
-    private record FlyoutRow(SubEntry entry, float y, float indent) {
+    private record FlyoutRow(SubEntry entry, SettingRowLayout.Row layout, int depth, float visibility, String[] description) {
     }
 
     private final class SubEntry {
@@ -724,6 +831,44 @@ public class SettingModule {
         private final List<SubEntry> children = new ArrayList<>();
         private boolean expanded;
         private float childProgress;
+        private long labelRevision = -1;
+        private float labelWidth;
+        private float descriptionWidth = -1f;
+
+        private float preferredLabelWidth() {
+            long revision = SkijaUi.textFontRevision();
+            if (labelRevision != revision) {
+                labelRevision = revision;
+                labelWidth = Math.max(SkijaUi.textWidth(title, 12f),
+                        Math.min(280f, SkijaUi.textWidth(subtitle == null ? "" : subtitle, 10f)));
+            }
+            return labelWidth;
+        }
+        private long descriptionRevision = -1;
+        private String[] description = new String[0];
+
+        private String[] descriptionLines(float width) {
+            long revision = SkijaUi.textFontRevision();
+            if (Math.abs(descriptionWidth - width) < 0.01f && descriptionRevision == revision) return description;
+            descriptionWidth = width;
+            descriptionRevision = revision;
+            if (subtitle == null || subtitle.isBlank() || width <= 1f) return description = new String[0];
+            ArrayList<String> lines = new ArrayList<>();
+            int start = 0;
+            while (start < subtitle.length()) {
+                int end = start;
+                int next = start;
+                while (next < subtitle.length()) {
+                    int after = next + Character.charCount(subtitle.codePointAt(next));
+                    if (end > start && SkijaUi.textWidth(subtitle.substring(start, after), 10f) > width) break;
+                    end = after;
+                    next = after;
+                }
+                lines.add(subtitle.substring(start, Math.max(start + 1, end)));
+                start = Math.max(start + 1, end);
+            }
+            return description = lines.toArray(String[]::new);
+        }
 
         private SubEntry(String title, String subtitle, SettingWidget widget, BooleanSupplier visibleSupplier, boolean group) {
             this.title = title;

@@ -4,13 +4,13 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.LyricLine;
 import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
+import com.pvp_utils.client.NeteaseMusic.LyricRasterCache;
+import com.pvp_utils.client.NeteaseMusic.LyricWordTimeline;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.render.skia.SkijaScreen;
 import com.pvp_utils.client.render.skia.SkijaUi;
 import io.github.humbleui.skija.Canvas;
-import io.github.humbleui.skija.FilterBlurMode;
-import io.github.humbleui.skija.MaskFilter;
-import io.github.humbleui.skija.Paint;
+import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -24,7 +24,7 @@ public class LyricsDisplayRenderer {
     private static final float BASE_W = 460f;
     private static final float BASE_H = 196f;
     private static final float LINE_SPACING = 34f;
-    private static final float TRANSLATION_LINE_SPACING = 40f;
+    private static final float TRANSLATION_LINE_SPACING = 54f;
     private static final float CURRENT_SIZE = 21f;
     private static final float SIDE_SIZE = 15f;
     private static final float TRANSLATION_SIZE = 14f;
@@ -43,8 +43,11 @@ public class LyricsDisplayRenderer {
     private static final long PREVIEW_CYCLE_MS = 1850L;
 
     private final Map<TextKey, SkijaUi.PreparedText> preparedLines = new LinkedHashMap<>(32, 0.75f, true);
-    private final Map<Integer, MaskFilter> blurMasks = new LinkedHashMap<>(16, 0.75f, true);
-    private final Paint textPaint = new Paint().setAntiAlias(true);
+    private final LyricRasterCache rasterCache = new LyricRasterCache();
+    private final Map<LyricLine, LyricWordTimeline> wordTimelines = new LinkedHashMap<>(32, 0.75f, true);
+    private int springFirst;
+    private int springLast = -1;
+    private float rasterResolution = 2f;
 
     private float visualIndex = 0f;
     private float previousVisualIndex = 0f;
@@ -119,19 +122,21 @@ public class LyricsDisplayRenderer {
         float y = getRenderY(screenH);
         float scale = getScale();
 
+        float frameVisualIndex = visualIndex;
+        float resolution = (float) client.getWindow().getGuiScale() * scale;
         SkijaRenderer.submit(canvas -> {
+            refreshFont();
+            rasterResolution = resolution;
             canvas.translate(x, y);
             canvas.scale(scale, scale);
-            drawLines(canvas, lyrics, visualIndex, currentIndex, alpha, spacing);
+            canvas.clipRect(Rect.makeXYWH(16f, 0f, MAX_TEXT_WIDTH, BASE_H));
+            drawLines(canvas, lyrics, frameVisualIndex, currentIndex, alpha, spacing, positionMs);
         });
     }
 
     public void drawPreview(Canvas canvas, float originX, float originY, float scale, float progress) {
-        long fontRevision = SkijaUi.textFontRevision();
-        if (cachedFontRevision != fontRevision) {
-            clearPreparedLines();
-            cachedFontRevision = fontRevision;
-        }
+        refreshFont();
+        rasterResolution = Math.max(1f, (float) Minecraft.getInstance().getWindow().getGuiScale() * scale);
         long now = System.nanoTime();
         if (previewStartNanos == 0L) {
             previewStartNanos = now;
@@ -152,6 +157,7 @@ public class LyricsDisplayRenderer {
         try {
             canvas.translate(originX, originY);
             canvas.scale(scale, scale);
+            canvas.clipRect(Rect.makeXYWH(16f, 0f, MAX_TEXT_WIDTH, BASE_H));
             for (int k = -2; k <= 2; k++) {
                 float distance = Math.abs(k - anchorDelta);
                 float focus = clamp(1f - distance / FADE_RADIUS);
@@ -159,14 +165,14 @@ public class LyricsDisplayRenderer {
                 LyricLine line = lines.get(Math.floorMod(anchorIndex + k, lines.size()));
                 float rowCenter = centerY + (k - anchorDelta) * spacing;
                 float sigma = Math.min(distance * BLUR_PER_LINE, MAX_BLUR);
-                int color = withAlpha(focus > 0.72f ? 0xFFFFFF : 0xC8CDD8,
+                int color = withAlpha(lyricColor(focus),
                         Math.round((0.35f + 0.65f * focus) * progress * 255f));
-                drawStyledLine(canvas, displayText(line.text()), centerX, rowCenter, focus, color, sigma);
-                if (Config.lyricsDisplayTranslation && k == 0) {
+                drawStyledLine(canvas, line, centerX, rowCenter, focus, color, sigma, elapsedMs % PREVIEW_CYCLE_MS, PREVIEW_CYCLE_MS, false);
+                if (Config.lyricsDisplayTranslation) {
                     String translation = line.translation();
                     if (translation != null && !translation.isBlank()) {
                         drawTranslationLine(canvas, translation.trim(), centerX,
-                                rowCenter + CURRENT_SIZE * 0.5f + 4f, progress, sigma);
+                                rowCenter + CURRENT_SIZE * 0.5f + 4f, progress * (0.35f + 0.65f * focus), sigma, 0L, PREVIEW_CYCLE_MS);
                     }
                 }
             }
@@ -257,14 +263,23 @@ public class LyricsDisplayRenderer {
             }
             return;
         }
+        int first = Math.max(0, focusedIndex - 4);
         int last = Math.min(size - 1, focusedIndex + 4);
+        for (int i = springFirst; i <= springLast && i < size; i++) {
+            if (i < first || i > last) {
+                springOffsets[i] = 0f;
+                springVelocities[i] = 0f;
+            }
+        }
+        springFirst = first;
+        springLast = last;
         for (int i = focusedIndex + 1; i <= last; i++) {
             springOffsets[i] += scrollDelta;
         }
         int steps = Math.max(1, (int) Math.ceil(dt / (1f / 240f)));
         float step = dt / steps;
         for (int s = 0; s < steps; s++) {
-            for (int i = last; i >= 0; i--) {
+            for (int i = last; i >= first; i--) {
                 int distance = Math.max(0, i - focusedIndex);
                 float response = Math.max(SPRING_MIN_RESPONSE,
                         Math.min(1f, 1f - distance * SPRING_FALLOFF));
@@ -278,7 +293,7 @@ public class LyricsDisplayRenderer {
             }
         }
         float limit = BASE_H * 1.5f;
-        for (int i = 0; i < size; i++) {
+        for (int i = first; i <= last; i++) {
             if (Math.abs(springOffsets[i]) > limit) {
                 springOffsets[i] = Math.signum(springOffsets[i]) * limit;
                 springVelocities[i] = 0f;
@@ -287,7 +302,7 @@ public class LyricsDisplayRenderer {
     }
 
     private void drawLines(Canvas canvas, List<LyricLine> lyrics, float visual, int currentIndex,
-            float globalAlpha, float spacing) {
+            float globalAlpha, float spacing, long positionMs) {
         float centerX = BASE_W * 0.5f;
         float centerY = BASE_H * 0.5f;
         int from = Math.max(0, currentIndex - 3);
@@ -300,57 +315,93 @@ public class LyricsDisplayRenderer {
             float offset = i < springOffsets.length ? springOffsets[i] : 0f;
             float rowCenter = centerY + (i - visual) * spacing + offset;
             float sigma = Math.min(distance * BLUR_PER_LINE, MAX_BLUR);
-            int color = withAlpha(focus > 0.72f ? 0xFFFFFF : 0xC8CDD8,
+            int color = withAlpha(lyricColor(focus),
                     Math.round((0.35f + 0.65f * focus) * globalAlpha * 255f));
-            drawStyledLine(canvas, displayText(line.text()), centerX, rowCenter, focus, color, sigma);
-            if (Config.lyricsDisplayTranslation && i == currentIndex) {
+            long duration = i + 1 < lyrics.size() ? Math.max(1L, lyrics.get(i + 1).timeMs() - line.timeMs()) : 6000L;
+            drawStyledLine(canvas, line, centerX, rowCenter, focus, color, sigma, positionMs, duration, i == currentIndex);
+            if (Config.lyricsDisplayTranslation) {
                 String translation = line.translation();
                 if (translation != null && !translation.isBlank()) {
                     drawTranslationLine(canvas, translation.trim(), centerX,
-                            rowCenter + CURRENT_SIZE * 0.5f + 4f, globalAlpha, sigma);
+                            rowCenter + CURRENT_SIZE * 0.5f + 4f, globalAlpha * (0.35f + 0.65f * focus), sigma,
+                            Math.max(0L, positionMs - line.timeMs()), duration);
                 }
             }
         }
     }
 
-    private void drawStyledLine(Canvas canvas, String text, float centerX, float centerY,
-            float focus, int color, float sigma) {
+    private int lyricColor(float focus) {
+        return Config.lyricsAppearance.customText ? Config.lyricsAppearance.textColor
+                : focus > 0.72f ? 0xFFFFFF : 0xC8CDD8;
+    }
+
+    private void drawStyledLine(Canvas canvas, LyricLine line, float centerX, float centerY,
+            float focus, int color, float sigma, long positionMs, long durationMs, boolean active) {
         if ((color >>> 24) == 0) return;
-        SkijaUi.PreparedText prepared = preparedText(text, MAX_TEXT_WIDTH, CURRENT_SIZE);
+        String text = displayText(line.text());
+        SkijaUi.PreparedText prepared = preparedText(text, CURRENT_SIZE);
+        LyricWordTimeline timeline = active && line.hasWords() ? timeline(line, text) : null;
+        if (timeline != null && timeline.isEmpty()) timeline = null;
+        float highlighted = timeline == null ? 0f : timeline.widthAt(positionMs);
         float fontScale = (SIDE_SIZE + (CURRENT_SIZE - SIDE_SIZE) * focus) / CURRENT_SIZE;
+        float available = MAX_TEXT_WIDTH / fontScale;
+        float x = horizontalX(prepared.width(), centerX, available, Math.max(0L, positionMs - line.timeMs()), durationMs);
+        if (timeline != null && prepared.width() > available) {
+            x = centerX - available * 0.5f - Math.clamp(highlighted - available * 0.55f, 0f, prepared.width() - available);
+        }
+        float top = centerY - lineHeight(CURRENT_SIZE) * 0.5f;
         int save = canvas.save();
         try {
-            if (fontScale < 0.999f) {
-                canvas.translate(centerX, centerY);
-                canvas.scale(fontScale, fontScale);
-                canvas.translate(-centerX, -centerY);
+            canvas.translate(centerX, centerY);
+            canvas.scale(fontScale, fontScale);
+            canvas.translate(-centerX, -centerY);
+            int base = timeline == null ? color : withAlpha(color, Math.round((color >>> 24) * 0.4f));
+            rasterCache.draw(canvas, prepared, CURRENT_SIZE, x, top, base, sigma, rasterResolution);
+            if (timeline != null && highlighted > 0f) {
+                canvas.clipRect(Rect.makeXYWH(x, top - 4f, highlighted, CURRENT_SIZE * 2f));
+                rasterCache.draw(canvas, prepared, CURRENT_SIZE, x, top, color, 0f, rasterResolution);
             }
-            textPaint.setMaskFilter(sigma > 0.12f ? blurMask(sigma) : null);
-            prepared.drawTop(canvas, centerX - prepared.width() * 0.5f,
-                    centerY - lineHeight(CURRENT_SIZE) * 0.5f, color, textPaint);
         } finally {
-            textPaint.setMaskFilter(null);
             canvas.restoreToCount(save);
         }
     }
 
     private void drawTranslationLine(Canvas canvas, String text, float centerX, float top,
-            float globalAlpha, float sigma) {
-        SkijaUi.PreparedText prepared = preparedText(text, MAX_TEXT_WIDTH, TRANSLATION_SIZE);
+            float globalAlpha, float sigma, long elapsedMs, long durationMs) {
+        SkijaUi.PreparedText prepared = preparedText(text, TRANSLATION_SIZE);
         int alpha = Math.round(0.62f * globalAlpha * 255f);
         if (alpha <= 0) return;
-        int save = canvas.save();
-        try {
-            textPaint.setMaskFilter(sigma > 0.12f ? blurMask(sigma) : null);
-            prepared.drawTop(canvas, centerX - prepared.width() * 0.5f, top,
-                    withAlpha(0xC8CDD8, alpha), textPaint);
-        } finally {
-            textPaint.setMaskFilter(null);
-            canvas.restoreToCount(save);
-        }
+        float x = horizontalX(prepared.width(), centerX, MAX_TEXT_WIDTH, elapsedMs, durationMs);
+        rasterCache.draw(canvas, prepared, TRANSLATION_SIZE, x, top, withAlpha(lyricColor(0f), alpha), sigma, rasterResolution);
     }
 
-    private SkijaUi.PreparedText preparedText(String text, float maxWidth, float size) {
+    private LyricWordTimeline timeline(LyricLine line, String text) {
+        LyricWordTimeline timeline = wordTimelines.get(line);
+        if (timeline != null) return timeline;
+        timeline = new LyricWordTimeline(line, text, Math.max(0, line.text().indexOf(text)), CURRENT_SIZE, false);
+        wordTimelines.put(line, timeline);
+        if (wordTimelines.size() > MAX_PREPARED_LINES) {
+            var oldest = wordTimelines.entrySet().iterator();
+            oldest.next();
+            oldest.remove();
+        }
+        return timeline;
+    }
+
+    private static float horizontalX(float width, float centerX, float available, long elapsedMs, long durationMs) {
+        if (width <= available) return centerX - width * 0.5f;
+        float progress = Math.clamp((elapsedMs - 500L) / (float) Math.max(1000L, durationMs - 1000L), 0f, 1f);
+        return centerX - available * 0.5f - (width - available) * progress;
+    }
+
+    private void refreshFont() {
+        long revision = SkijaUi.textFontRevision();
+        if (revision == cachedFontRevision) return;
+        clearPreparedLines();
+        cachedFontRevision = revision;
+    }
+
+    private SkijaUi.PreparedText preparedText(String text, float size) {
         int sizeSteps = Math.round(size * 4f);
         TextKey key = new TextKey(text, sizeSteps);
         SkijaUi.PreparedText prepared = preparedLines.get(key);
@@ -358,7 +409,7 @@ public class LyricsDisplayRenderer {
             return prepared;
         }
         float fontSize = sizeSteps * 0.25f;
-        prepared = SkijaUi.prepareText(trimToWidth(text, maxWidth, fontSize), fontSize, false);
+        prepared = SkijaUi.prepareText(text, fontSize, false);
         preparedLines.put(key, prepared);
         if (preparedLines.size() > MAX_PREPARED_LINES) {
             var oldest = preparedLines.entrySet().iterator();
@@ -366,22 +417,6 @@ public class LyricsDisplayRenderer {
             oldest.remove();
         }
         return prepared;
-    }
-
-    private MaskFilter blurMask(float sigma) {
-        int key = Math.max(1, Math.round(sigma * 8f));
-        MaskFilter mask = blurMasks.get(key);
-        if (mask != null) {
-            return mask;
-        }
-        mask = MaskFilter.makeBlur(FilterBlurMode.NORMAL, key / 8f);
-        blurMasks.put(key, mask);
-        if (blurMasks.size() > 24) {
-            var oldest = blurMasks.entrySet().iterator();
-            oldest.next().getValue().close();
-            oldest.remove();
-        }
-        return mask;
     }
 
     private float lineHeight(float size) {
@@ -440,20 +475,6 @@ public class LyricsDisplayRenderer {
             return Config.isChinese ? "纯音乐，请欣赏" : "Instrumental";
         }
         return text.trim();
-    }
-
-    private String trimToWidth(String text, float maxWidth, float size) {
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
-        String ellipsis = "...";
-        int[] points = text.codePoints().toArray();
-        int low = 0;
-        int high = points.length;
-        while (low < high) {
-            int middle = (low + high + 1) / 2;
-            if (SkijaUi.textWidth(new String(points, 0, middle) + ellipsis, size) <= maxWidth) low = middle;
-            else high = middle - 1;
-        }
-        return new String(points, 0, low) + ellipsis;
     }
 
     private List<LyricLine> lyricsOrFallback(MusicPlaybackService player) {
@@ -515,6 +536,8 @@ public class LyricsDisplayRenderer {
     }
 
     private void clearPreparedLines() {
+        rasterCache.clear();
+        wordTimelines.clear();
         preparedLines.values().forEach(SkijaUi.PreparedText::close);
         preparedLines.clear();
         cachedFontRevision = -1L;

@@ -29,11 +29,11 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | `SkijaUi` | 图形、文字、图标、共享字体及预备文本 | 常规 UI/HUD 首选 |
 | `SkijaFrameRenderer` | HUD、屏幕和队列的帧级调度 | 框架内部 |
 | `LiquidGlassRenderer` | 液态玻璃面板 | 明确需要该效果的组件 |
-| `GlassCaptureRenderer`、`GlassGlBackend` | 玻璃采样与专用 Skia/OpenGL 后端 | 框架内部 |
+| `GlassStyle`、`GlassShape` | 玻璃参数与形状描述 | 调用方持有 |
 | `SkijaBackdrop`、`GlassGlState` | 背景采样、GL 状态保存与恢复 | 包内实现 |
 | `WorldRender` | 世界空间图形及世界坐标投影 | 三维功能模块 |
 
-常规二维绘制复用一个受管理的 Skia 上下文。液态玻璃有独立的受管理后端，通过显式提交与状态恢复衔接。三维图形走 Minecraft Gizmos，不经过二维 Canvas。
+常规二维绘制复用一个受管理的 Skia 上下文。液态玻璃通过专用 OpenGL 通道执行，前后显式提交并恢复状态。三维图形走 Minecraft Gizmos，不经过二维 Canvas。
 
 ## 2. 绘制时序与接入方式
 
@@ -152,35 +152,83 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 ### 3.5 液态玻璃
 
-入口为 `LiquidGlassRenderer.getInstance()`。
+入口为 `LiquidGlassRenderer.getInstance()`。效果通过一个 OpenGL 绘制通道执行圆角矩形距离场、平滑联合、折射、色散和径向模糊采样。
 
-| 接口 | 用途 |
+| 接口 | 行为与约束 |
 | --- | --- |
-| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, boolean shadow, boolean highlight, float highlightTaper, int slot): boolean` | 绘制玻璃面板 |
-| 上述接口末尾增加 `SlotGrid grid` | 添加面板内部格槽描述 |
-| `SlotGrid(int count, float x, float y, float pitch, float size, float radius)` | 面板局部 GUI 坐标下的格槽；`pitch` 为水平间距 |
-| `panelTint(): int` | 获取当前配置的面板着色 |
-| `tick()`、`destroy()` | 框架统一维护与释放 |
+| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, GlassStyle): boolean` | 绘制单个圆角面板，颜色使用 ARGB |
+| `renderShapes(Minecraft, List<GlassShape>, GlassStyle): boolean` | 一次绘制多个形状，单次最多处理前 16 个形状，共用一次背景快照 |
+| 上述接口末尾增加 `GlassShadow` | 使用距离场计算阴影；默认 `GlassShadow.NONE` |
+| `GlassShape(x, y, width, height, topLeft, topRight, bottomRight, bottomLeft, smoothness, opacity, int tint)` | 不可变形状描述；几何尺寸为 GUI 单位，`smoothness` 为距离场联合宽度，单位为帧缓冲像素 |
+| `GlassShape.rounded(x, y, width, height, radius, int tint)` | 四角使用相同半径，联合宽度为 0.3，形状透明度为 1 |
+| `GlassShadow(expand, strength, offsetX, offsetY, int color)` | 阴影扩展及偏移使用帧缓冲像素；范围分别为 0–80、0–1、−60–60、−60–60 |
+| `GlassStyle.sanitize()` | 将非有限参数恢复为默认值，并限制在有效范围内 |
+| `panelTint(): int` | 返回宿主的默认玻璃着色 |
+| `destroy()` | 释放着色器、顶点数组与背景纹理，仅由框架生命周期调用 |
 
-`slot` 仅允许 0–3，当前实现没有越界保护。为并存面板分配稳定的槽位；不要将任意模块编号直接传入。槽位复用离屏资源分配，不缓存整个面板的最终画面。
+`GlassStyle` 为调用方持有的参数对象，包含以下公开字段：
 
-面板使用屏幕 GUI 坐标及专用 Canvas，不继承调用方的局部变换或裁剪。采样来自 Minecraft 主帧缓冲，与常规叠加背景快照的来源和时序不同。`false` 表示需要降级；`true` 仅代表外层流程成功，内部采样不可用时仍可能没有可见像素。组件应提供基础背景，避免完全依赖玻璃输出。
+| 字段 | 默认值 | 范围 | 单位或含义 |
+| --- | --- | --- | --- |
+| `blur` | 6 | 0–30 | 帧缓冲像素；径向采样半径 |
+| `refraction` | 1.35 | 1–5 | 折射率 |
+| `dispersion` | 1 | 0–3 | RGB 采样位置的分离强度 |
+| `rim` | 0.6 | 0–1 | 边缘着色强度 |
+| `alpha` | 0.9 | 0–1 | 玻璃结果与背景的混合比例 |
+| `glow` | 0.4 | 0–1 | 边缘辉光强度 |
+| `thickness` | 10 | 1–120 | 帧缓冲像素；折射带厚度 |
+
+面板位置、尺寸与圆角使用屏幕 GUI 坐标，不继承 Canvas 的局部变换或裁剪。位置与尺寸按当前目标的宽高分别换算为帧缓冲像素，与二维 Canvas 的屏幕坐标比例一致。四角半径被限制在较短边的一半以内，并使用两轴比例的较小值保持圆形圆角；形状透明度被限制为 0–1。玻璃参数中的模糊和厚度不随 GUI 缩放自动增大；调用方需区分物理像素与 GUI 单位。
+
+活动 Skia 通道内，框架先提交已记录命令，再捕获该通道的当前目标；通道外使用 Minecraft 主颜色目标。捕获纹理仅复用分配，每次调用更新像素，不是跨帧效果缓存。完成绘制后恢复 GL 状态并使共享 Skia 上下文重新同步；不再创建第二个 Skia 上下文或面板槽位。
+
+`false` 表示当前调用未绘制，调用方应提供基础填充降级。着色器编译或执行异常记录后禁用该效果，框架销毁时重置。外围柔和阴影可使用 `SoftShadow`，应在玻璃捕获前绘制；使用 `GlassShadow` 时避免再为同一轮廓叠加另一份阴影。多个需要平滑联合的形状必须在同一次 `renderShapes` 中提交。
 
 ### 3.6 世界绘制：WorldRender
 
+所有位置均为世界坐标。绘制在 Minecraft Gizmos 收集区间内提交，填充与线条由宿主批量处理；`throughWalls=false` 保留深度遮挡，`true` 使用始终置顶绘制。
+
 | 接口 | 用途 |
 | --- | --- |
-| `line(Vec3 from, Vec3 to, int color, float width[, boolean throughWalls])` | 世界空间线段；默认不穿墙 |
+| `line(Vec3 from, Vec3 to, int color, float width[, boolean throughWalls])` | 线段；默认不穿墙 |
 | `box(AABB, int outlineColor)` | 盒体线框 |
 | `box(AABB, int outlineColor, int fillColor)` | 盒体线框与填充 |
+| `box(AABB, int outlineColor, int fillColor, float width, boolean throughWalls)` | 指定线宽与深度行为的盒体 |
 | `filledBox(AABB, int fillColor[, boolean throughWalls])` | 盒体填充；默认不穿墙 |
 | `face(AABB, Vec3 viewer, int color, float width)` | 根据观察者方向选取盒体表面描边 |
 | `face(AABB, Direction, int color, float width)` | 指定表面描边 |
-| `project(Vec3): ScreenPoint` | 世界坐标转 GUI 坐标；可能返回 `null` |
+| `filledFace(AABB, Direction, int color, boolean throughWalls)` | 指定表面填充 |
+| `point(Vec3, int color, float size, boolean throughWalls)` | 屏幕尺寸的点标记 |
+| `arrow(Vec3 from, Vec3 to, int color, float width, boolean throughWalls)` | 箭头 |
+| `polyline(List<Vec3>, int color, float width, boolean closed, boolean throughWalls)` | 最多 4096 个顶点的折线或闭合线框 |
+| `triangle(Vec3 a, Vec3 b, Vec3 c, int color, boolean throughWalls)` | 三角形填充 |
+| `quad(Vec3 a, Vec3 b, Vec3 c, Vec3 d, int color, boolean throughWalls)` | 四边形填充 |
+| `circle(Vec3 center, Vec3 normal, double radius, int segments, int outlineColor, int fillColor, float width, boolean throughWalls)` | 任意平面的圆环或圆盘；分段数限制为 3–128 |
+| `sphere(Vec3 center, double radius, int segments, int rings, int color, float width, boolean throughWalls)` | 球体线框；经线 6–64 段、纬度 3–32 段 |
+| `billboard(Vec3 center, float width, float height, float rotation, int color, ParticleShape, boolean throughWalls)` | 面向相机的图形；尺寸为世界单位，旋转为弧度 |
+| `ParticleShape` | `QUAD`、`CIRCLE`、`STAR`、`HEART`、`BLOOM`；几何图形，不依赖外部贴图 |
+| `project(Vec3): ScreenPoint` | 世界坐标转 GUI 坐标；可能返回 `null`，不执行深度遮挡检测 |
 | `ScreenPoint(float x, float y)` | 投影后的 GUI 坐标 |
-| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)` | 捕获当前世界视图，只由框架调用 |
+| `register(Consumer<Frame>): Registration` | 注册世界绘制回调，返回由调用方持有的注册句柄 |
+| `Frame(Vec3 cameraPosition, float partialTick)` | 当前帧的相机位置及插值进度 |
+| `Registration.close()` | 注销回调；可重复调用 |
+| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)`、`renderRegistered(float partialTick)` | 框架内部的视图捕获和回调调度 |
 
-在 `WorldRenderLevelRendererMixin` 已建立的 `collectPerFrameGizmos()` 收集区间内接入三维命令，不要在二维叠加回调中调用世界绘制。`project()` 检查矩阵是否可用、相机前后及屏幕 X/Y 范围，不执行深度遮挡检测。
+注册回调由 `WorldRenderLevelRendererMixin` 在 `collectPerFrameGizmos()` 区间内调用。回调内可以直接提交上述图形；不得从二维叠加或网络线程调用。回调抛出运行时异常时记录错误并注销，避免每帧重复失败。调用方在停用或销毁时关闭注册句柄，避免持有失效对象。点尺寸和线宽遵循 Gizmos 的屏幕尺寸约定；圆、球体与广告牌尺寸使用世界单位。
+
+`WorldParticles` 提供调用方所属的有限粒子集合：
+
+| 接口 | 行为与约束 |
+| --- | --- |
+| `WorldParticles(int capacity)` | 容量为 1–4096；超出容量时淘汰最早粒子 |
+| `emit(Vec3 position, Vec3 velocity, Spec): boolean` | 添加粒子；速度为世界单位/秒 |
+| `Spec(lifetime, size, int color, ParticleShape, gravity, drag, angularVelocity, boolean throughWalls)` | 生命周期为秒，尺寸为世界单位，重力为世界单位/秒²，阻尼为每秒系数，角速度为弧度/秒 |
+| `update(float seconds)` | 推进一次模拟，保存前后位置供插值；不在绘制时自动推进 |
+| `render(Frame[, double maxDistance])` | 在已注册世界回调内绘制；默认距离上限为 128 世界单位 |
+| `size()`、`capacity()` | 当前粒子数量与容量 |
+| `clear()`、`close()` | 清空粒子；关闭后停止接受新粒子 |
+
+粒子集合不自动注册回调或模拟时钟。调用方负责更新、注册和注销，并在世界切换时清空旧粒子。每帧绘制只插值位置与旋转，按寿命衰减透明度和尺寸，并剔除距离过远或近乎透明的粒子。
 
 ### 3.7 框架内部接口
 
@@ -192,10 +240,6 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | `SkijaRenderer` | `beginFrame()`、`renderMainSubmitted()`、`renderSubmitted()` |
 | `SkijaRenderer` | `renderOverlay(Consumer<Canvas>)`、`renderMainTarget(Consumer<Canvas>)` |
 | `SkijaRenderer` | `currentFramebuffer()`、`flush()`、`restoreContext()`、`close()` |
-| `GlassCaptureRenderer` | `getInstance()`、`currentDrawFramebufferId()`、`beginFrame(int)`、`endFrame()`、`context()`、`capture(Minecraft, x, y, width, height, margin)`、`destroy()` |
-| `GlassCaptureRenderer.Capture` | `EMPTY`、`image`、`width`、`height`、`dstX`、`dstY`、`dstW`、`dstH` |
-| `GlassGlBackend` | `begin()`、`begin(int)`、`end()`、`isDrawing()`、`hasSurface()` |
-| `GlassGlBackend` | `getContext()`、`ensureContext()`、`resetCanvasState()`、`runWithSavedState(Runnable)`、`destroy()` |
 
 `renderMainTarget()` 在共享画布已活动时复用当前通道，不强制切换目标。`currentFramebuffer()` 返回框架保存的目标状态，通道之外不能用它代替真实 GL 绑定查询。不要为每个控件调用 `flush()` 或创建新的 `DirectContext`。
 
@@ -268,7 +312,7 @@ Minecraft 返回既有 Screen 实例时，`added()` 会执行，但受保护的 
 | 功能创建的 `PreparedText`、Paint、Path、Image、Surface、滤镜等 | 功能持有并在失效、替换、关闭时释放 |
 | `BorrowedImage` | 在活动 Skia 回调中借用并用 try-with-resources 关闭包装 |
 | Minecraft 纹理 | 由 Minecraft 纹理系统管理，不由借用者销毁 |
-| 框架上下文、Surface 缓存、玻璃资源 | 由框架在重建或客户端关闭时管理 |
+| 框架上下文、Surface 缓存、玻璃着色器与捕获纹理 | 由框架在重建或客户端关闭时管理 |
 
 使用 `save()` 与 `restoreToCount()` 成对保护局部变换和裁剪，并使用 `try/finally` 保证恢复。只有确实需要整体透明度或滤镜时才使用 `saveLayer()`。不能把功能缓存提升为全局策略而不评估所有调用方。
 
@@ -536,7 +580,7 @@ public final class ChromaAnimatedCapsule {
 | 静态图片 | 功能所属图像缓存，限制像素总量 | 图片身份、目标尺寸或资源版本改变 |
 | 静态图片的模糊结果 | 只在图像或效果参数变化时生成 | 图片、分辨率、模糊参数变化 |
 | 实时世界背景 | 使用框架的当前通道快照 | 不能将旧画面长期当作当前世界 |
-| 玻璃槽位 | 复用分配的离屏目标 | 尺寸需要增长或框架销毁 |
+| 玻璃背景纹理 | 复用同尺寸分配，每次调用刷新像素 | 目标尺寸变化或框架销毁 |
 
 静态图像模糊缓存由调用方持有，工作分辨率按实际显示尺寸与所需细节确定。低分辨率效果缓存仅用于相应图像效果，不改变文字、图标或其他图像的绘制质量。
 
@@ -546,7 +590,7 @@ public final class ChromaAnimatedCapsule {
 
 不要为每个控件重新截图，不要将本组件已经绘制的内容再次采样为背景。给效果提供基础填充降级；共享渲染失败会记录错误并在当前会话禁用，背景模糊还有独立的失败禁用状态。先定位日志中的首次异常，不要用空 catch 隐藏绘制错误。
 
-玻璃需要背景捕获、上下文衔接、离屏绘制和滤镜，成本通常高于基础图形。为可见面板提供效果，避免对长列表中的每一项重复建立玻璃流程。
+玻璃需要全目标捕获、GL 状态衔接和多次背景采样，成本通常高于基础图形。一个 `renderShapes` 调用共用一张快照；同一效果下的多个形状可合并提交，减少捕获与状态切换。为可见面板提供效果，避免对长列表的每一项分别捕获背景。
 
 ### 6.4 验证
 
@@ -576,7 +620,7 @@ public final class ChromaAnimatedCapsule {
 - [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java)、[SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java)、[SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java)、[SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
 - [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java)、[ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java)、[LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java)、[AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
-- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java)、[GlassCaptureRenderer](../../src/client/java/com/pvp_utils/client/render/skia/GlassCaptureRenderer.java)、[GlassGlBackend](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlBackend.java)、[GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)
-- [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java)、[WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)
+- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java)、[GlassStyle](../../src/client/java/com/pvp_utils/client/render/skia/GlassStyle.java)、[GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)、[liquid_glass.fsh](../../src/client/resources/assets/pvp_utils/shaders/liquid_glass.fsh)
+- [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java)、[WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)、[WorldParticles](../../src/client/java/com/pvp_utils/client/render/world/WorldParticles.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java)、[GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
 - [构建定义](../../build.gradle)
