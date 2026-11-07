@@ -69,6 +69,12 @@ public class Config {
     public static boolean projectileTrajectoryPredictEntityMovement = true;
     public static boolean projectileTrajectoryPredictOtherPlayers = false;
     public static boolean victorySound = false;
+    public static boolean fakeFps = false;
+    public static int fakeFpsMin = 300;
+    public static int fakeFpsMax = 600;
+    public static boolean fakeFpsRandom = false;
+    public static float fakeFpsJumpMinSeconds = 0.5f;
+    public static float fakeFpsJumpMaxSeconds = 1.5f;
     public static boolean gammaOverride = false;
     public static boolean autoSprint = false;
     public static boolean noSwimming = false;
@@ -91,7 +97,13 @@ public class Config {
     public static BlockCountDisplayMode blockCountDisplayMode = BlockCountDisplayMode.NEW;
     public static boolean dynamicIsland = false;
     public static boolean dynamicIslandLyrics = false;
-    public static DynamicIslandBackground dynamicIslandBackground = DynamicIslandBackground.LIQUID_GLASS;
+    public static boolean dynamicIslandDoubleRow = false;
+    public static DynamicIslandShape dynamicIslandShape = DynamicIslandShape.CAPSULE;
+    public static DynamicIslandMusicMode dynamicIslandMusicMode = DynamicIslandMusicMode.LYRICS;
+    public static DynamicIslandBackground dynamicIslandBackground = DynamicIslandBackground.BLUR;
+    public static int dynamicIslandColor = 0xED15191F;
+    public static boolean dynamicIslandShadow = true;
+    public static float dynamicIslandShadowStrength = 0.35f;
     public static float liquidGlassBlur = 3f;
     public static float liquidGlassRefractionHeight = 0.25f;
     public static float liquidGlassRefractionAmount = 0.15f;
@@ -365,7 +377,9 @@ public class Config {
     public enum HudStyle { LITE, NEW, BLUR, LIQUID_GLASS }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
-    public enum DynamicIslandBackground { BLUR, LIQUID_GLASS }
+    public enum DynamicIslandBackground { BLUR, SOLID, LIQUID_GLASS }
+    public enum DynamicIslandMusicMode { LYRICS, MINIMIZED }
+    public enum DynamicIslandShape { CAPSULE, SPLIT }
 
     public static void setMotionCamera(boolean value) {
         motionCamera = value;
@@ -528,6 +542,8 @@ public class Config {
     }
 
     public static synchronized void save() {
+        normalizeFakeFps();
+        normalizeDynamicIslandAppearance();
         ensureConfigDirectory();
         try {
             if (configSaveAllowed) {
@@ -539,6 +555,31 @@ public class Config {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static int clampFakeFps(int value) {
+        return Math.clamp(value, 1, 99999);
+    }
+
+    private static void normalizeDynamicIslandAppearance() {
+        if (dynamicIslandShape == null) dynamicIslandShape = DynamicIslandShape.CAPSULE;
+        if (dynamicIslandBackground == null || dynamicIslandBackground == DynamicIslandBackground.LIQUID_GLASS) {
+            dynamicIslandBackground = DynamicIslandBackground.BLUR;
+        }
+        if (dynamicIslandMusicMode == null) dynamicIslandMusicMode = DynamicIslandMusicMode.LYRICS;
+        dynamicIslandShadowStrength = Float.isFinite(dynamicIslandShadowStrength)
+                ? Math.clamp(dynamicIslandShadowStrength, 0f, 1f) : 0.35f;
+    }
+
+    public static float clampFakeFpsJumpSeconds(float value) {
+        return Float.isFinite(value) ? Math.round(Math.clamp(value, 0.1f, 3f) * 10f) / 10f : 0.1f;
+    }
+
+    private static void normalizeFakeFps() {
+        fakeFpsMin = clampFakeFps(fakeFpsMin);
+        fakeFpsMax = Math.max(fakeFpsMin, clampFakeFps(fakeFpsMax));
+        fakeFpsJumpMinSeconds = clampFakeFpsJumpSeconds(fakeFpsJumpMinSeconds);
+        fakeFpsJumpMaxSeconds = Math.max(fakeFpsJumpMinSeconds, clampFakeFpsJumpSeconds(fakeFpsJumpMaxSeconds));
     }
 
     private static boolean loadJsonConfig(Path path) {
@@ -788,6 +829,7 @@ public class Config {
             new ModuleRule("FireballLandingPrediction", "fireballLandingPredict", "fireballLandingPredict"),
             new ModuleRule("ProjectileTrajectoryPrediction", "projectileTrajectoryPredict", "projectileTrajectoryPredict", "projectileTrajectoryPredictBow", "projectileTrajectoryPredictSnowball", "projectileTrajectoryPredictEnderPearl", "projectileTrajectoryPredictBlock", "projectileTrajectoryPredictEntity", "projectileTrajectoryPredictEntityMovement", "projectileTrajectoryPredictOtherPlayers"),
             new ModuleRule("VictorySound", "victorySound", "victorySound"),
+            new ModuleRule("FakeFPS", "fakeFps", "fakeFps"),
             new ModuleRule("GammaOverride", "gammaOverride", "gammaOverride", "gammaValue"),
             new ModuleRule("AutoSprint", "autoSprint", "autoSprint"),
             new ModuleRule("NoSwimming", "noSwimming", "noSwimming"),

@@ -117,47 +117,25 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("更改受击颜色", "Hit Color"), UiText.t("更改实体受击时的颜色", "Change the color shown when entities are hit"),
                 new SettingToggle(() -> Config.hitColor, v -> { Config.hitColor = v; Config.save(); }))
-                .addSub("R", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorRed, v -> { Config.hitColorRed = clampColor(v); Config.save(); }))
-                .addSub("G", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorGreen, v -> { Config.hitColorGreen = clampColor(v); Config.save(); }))
-                .addSub("B", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.hitColorBlue, v -> { Config.hitColorBlue = clampColor(v); Config.save(); }))
-                .addSub(UiText.t("透明度", "Transparency"), "",
-                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.hitColorAlpha), v -> { Config.hitColorAlpha = transparencyPercentToAlpha(v); Config.save(); }))
-                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示当前受击覆盖颜色", "Preview the current hit overlay color"),
-                        new SettingColorPreview(() -> hitColorArgb())));
+                .addSub(UiText.t("受击颜色", "Overlay Color"), UiText.t("点击色块调整颜色与透明度", "Click the swatch to edit color and opacity"),
+                        new SettingColorPreview(RenderPage::hitColorArgb, RenderPage::setHitColorArgb, true, Config::save)));
 
         modules.add(new SettingModule(UiText.t("自定义方块轮廓", "Custom Block Outline"), UiText.t("自定义准星指向方块的轮廓样式", "Customize the outline of the block under the crosshair"),
                 new SettingToggle(() -> Config.customBlockOutline, v -> { Config.customBlockOutline = v; Config.save(); }))
                 .addSub(UiText.t("边框粗细", "Border Width"), "",
                         new SettingSlider(1.0, 4.0, "%.1f", () -> (double) Config.customBlockOutlineWidth, v -> { Config.customBlockOutlineWidth = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("边框 R", "Border R"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineRed, v -> { Config.customBlockOutlineRed = clampColor(v); Config.save(); }))
-                .addSub(UiText.t("边框 G", "Border G"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineGreen, v -> { Config.customBlockOutlineGreen = clampColor(v); Config.save(); }))
-                .addSub(UiText.t("边框 B", "Border B"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineBlue, v -> { Config.customBlockOutlineBlue = clampColor(v); Config.save(); }))
-                .addSub(UiText.t("边框透明度", "Border Transparency"), "",
-                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.customBlockOutlineAlpha), v -> { Config.customBlockOutlineAlpha = transparencyPercentToAlpha(v); Config.save(); }))
+                .addSub(UiText.t("边框颜色", "Border Color"), "",
+                        new SettingColorPreview(RenderPage::customBlockOutlineArgb, RenderPage::setCustomBlockOutlineArgb, true, Config::save))
                 .addSub(UiText.t("填充", "Fill"), "",
                         new SettingToggle(() -> Config.customBlockOutlineFill, v -> { Config.customBlockOutlineFill = v; Config.save(); }))
-                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 R", "Fill R"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillRed, v -> { Config.customBlockOutlineFillRed = clampColor(v); Config.save(); }))
-                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 G", "Fill G"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillGreen, v -> { Config.customBlockOutlineFillGreen = clampColor(v); Config.save(); }))
-                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充 B", "Fill B"), "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.customBlockOutlineFillBlue, v -> { Config.customBlockOutlineFillBlue = clampColor(v); Config.save(); }))
-                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充透明度", "Fill Transparency"), "",
-                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> alphaToTransparencyPercent(Config.customBlockOutlineFillAlpha), v -> { Config.customBlockOutlineFillAlpha = transparencyPercentToAlpha(v); Config.save(); }))
+                .addSubWhen(() -> Config.customBlockOutlineFill, UiText.t("填充颜色", "Fill Color"), "",
+                        new SettingColorPreview(RenderPage::customBlockOutlineFillArgb, RenderPage::setCustomBlockOutlineFillArgb, true, Config::save))
                 .addSub(UiText.t("动画改进", "Animation Improvements"), UiText.t("为轮廓出现、退出和目标移动添加缓动动画", "Add eased animations for appearance, exit, and target movement"),
                         new SettingToggle(() -> Config.customBlockOutlineAnimation, v -> { Config.customBlockOutlineAnimation = v; Config.save(); }))
                 .addSubWhen(() -> Config.customBlockOutlineAnimation, UiText.t("进入/退出速度", "Enter/Exit Speed"), "",
                         new SettingSlider(1.0, 20.0, "%.1f", () -> (double) Config.customBlockOutlineAnimationSpeed, v -> { Config.customBlockOutlineAnimationSpeed = v.floatValue(); Config.save(); }))
                 .addSubWhen(() -> Config.customBlockOutlineAnimation, UiText.t("移动速度", "Move Speed"), "",
-                        new SettingSlider(1.0, 20.0, "%.1f", () -> (double) Config.customBlockOutlineMoveSpeed, v -> { Config.customBlockOutlineMoveSpeed = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示边框和填充颜色", "Preview the outline and fill colors"),
-                        new SettingColorPreview(RenderPage::customBlockOutlineArgb, RenderPage::customBlockOutlineFillArgb, () -> Config.customBlockOutlineFill)));
+                        new SettingSlider(1.0, 20.0, "%.1f", () -> (double) Config.customBlockOutlineMoveSpeed, v -> { Config.customBlockOutlineMoveSpeed = v.floatValue(); Config.save(); })));
 
         modules.add(new SettingModule(UiText.t("彩虹附魔光效", "Rainbow Enchantment Glint"), UiText.t("将附魔光效更改为彩虹色", "Change the enchantment glint to rainbow colors"),
                 new SettingToggle(() -> Config.customEnchantmentGlint, v -> { Config.customEnchantmentGlint = v; Config.save(); })));
@@ -186,22 +164,12 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("功能列表", "Arraylist"), UiText.t("在HUD上显示当前启用的功能。", "Show currently enabled modules on the HUD."),
                 new SettingToggle(() -> Config.arraylist, v -> { Config.arraylist = v; Config.save(); }))
-                .addSub("R", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorRed, v -> { Config.arraylistColorRed = clampColor(v); Config.save(); }))
-                .addSub("G", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorGreen, v -> { Config.arraylistColorGreen = clampColor(v); Config.save(); }))
-                .addSub("B", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistColorBlue, v -> { Config.arraylistColorBlue = clampColor(v); Config.save(); }))
-                .addSub(UiText.t("当前颜色", "Current Color"), UiText.t("显示 Arraylist 当前文字颜色", "Preview the current Arraylist text color"),
-                        new SettingColorPreview(() -> arraylistColorArgb(), () -> arraylistGradientColorArgb(), () -> Config.arraylistGradient))
+                .addSub(UiText.t("文字颜色", "Text Color"), "",
+                        new SettingColorPreview(RenderPage::arraylistColorArgb, RenderPage::setArraylistColorArgb, false, Config::save))
                 .addSub(UiText.t("渐变", "Gradient"), "",
                         new SettingToggle(() -> Config.arraylistGradient, v -> { Config.arraylistGradient = v; Config.save(); }))
-                .addSubWhen(() -> Config.arraylistGradient, "R2", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientRed, v -> { Config.arraylistGradientRed = clampColor(v); Config.save(); }))
-                .addSubWhen(() -> Config.arraylistGradient, "G2", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientGreen, v -> { Config.arraylistGradientGreen = clampColor(v); Config.save(); }))
-                .addSubWhen(() -> Config.arraylistGradient, "B2", "",
-                        new SettingSlider(0.0, 255.0, "%.0f", () -> (double) Config.arraylistGradientBlue, v -> { Config.arraylistGradientBlue = clampColor(v); Config.save(); }))
+                .addSubWhen(() -> Config.arraylistGradient, UiText.t("渐变颜色", "Gradient Color"), "",
+                        new SettingColorPreview(RenderPage::arraylistGradientColorArgb, RenderPage::setArraylistGradientColorArgb, false, Config::save))
                 .addSubWhen(() -> Config.arraylistGradient, UiText.t("渐变速度", "Gradient Speed"), "",
                         new SettingSlider(0.0, 5.0, "%.1fx", () -> (double) Config.arraylistGradientSpeed, v -> { Config.arraylistGradientSpeed = v.floatValue(); Config.save(); }))
                 .addSub(UiText.t("边框", "Border"), "",
@@ -211,12 +179,30 @@ public class RenderPage extends BasePage {
 
         modules.add(new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("在界面上添加灵动岛组件", "Add a Dynamic Island component to the HUD"),
                 new SettingToggle(() -> Config.dynamicIsland, v -> { Config.setDynamicIsland(v); Config.save(); }))
+                .addSub(UiText.t("形态", "Shape"), "",
+                        new SettingCycle(List.of(UiText.t("极简胶囊", "Minimal Capsule"), UiText.t("分体悬浮岛", "Split Floating Island")),
+                                () -> Config.dynamicIslandShape == Config.DynamicIslandShape.SPLIT ? 1 : 0,
+                                i -> { Config.dynamicIslandShape = i == 1 ? Config.DynamicIslandShape.SPLIT : Config.DynamicIslandShape.CAPSULE; Config.save(); }))
+                .addSubWhen(() -> Config.dynamicIslandShape == Config.DynamicIslandShape.CAPSULE,
+                        UiText.t("双层模式", "Two-row Mode"), UiText.t("显示更多信息", "Show more information"),
+                        new SettingToggle(() -> Config.dynamicIslandDoubleRow, v -> { Config.dynamicIslandDoubleRow = v; Config.save(); }))
+                .addSub(UiText.t("背景模式", "Background"), "",
+                        new SettingCycle(List.of(UiText.t("模糊", "Blur"), UiText.t("纯色", "Solid")),
+                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : 0,
+                                i -> { Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : Config.DynamicIslandBackground.BLUR; Config.save(); }))
+                .addSub(UiText.t("背景颜色", "Background Color"), "",
+                        new SettingColorPreview(() -> Config.dynamicIslandColor, v -> Config.dynamicIslandColor = v, true, Config::save))
+                .addSub(UiText.t("柔和阴影", "Soft Shadow"), "",
+                        new SettingToggle(() -> Config.dynamicIslandShadow, v -> { Config.dynamicIslandShadow = v; Config.save(); }))
+                .addSubWhen(() -> Config.dynamicIslandShadow, UiText.t("阴影强度", "Shadow Strength"), "",
+                        new SettingSlider(0, 1, "%.2f", () -> (double) Config.dynamicIslandShadowStrength,
+                                v -> { Config.dynamicIslandShadowStrength = v.floatValue(); Config.save(); }))
                 .addSub(UiText.t("方块数量显示", "Block Count Display"), "",
                         new SettingToggle(() -> Config.dynamicIslandBlockCount, v -> {
                             Config.setDynamicIslandBlockCount(v);
                             Config.save();
                         }))
-                .addSub("备选图标", "Alternative Icon",
+                .addSub("???", "",
                         new SettingToggle(() -> Config.dynamicIslandBlockCountAltIcon, v -> {
                             Config.dynamicIslandBlockCountAltIcon = v;
                             Config.save();
@@ -227,11 +213,15 @@ public class RenderPage extends BasePage {
                             Config.setDynamicIslandItemUseStatus(v);
                             Config.save();
                         }))
-                .addSub(UiText.t("歌词显示", "Lyrics Display"), "",
+                .addSub(UiText.t("音乐上岛", "Music on Island"), "",
                         new SettingToggle(() -> Config.dynamicIslandLyrics, v -> {
                             Config.dynamicIslandLyrics = v;
                             Config.save();
                         }))
+                .addSubWhen(() -> Config.dynamicIslandLyrics, UiText.t("音乐显示方式", "Music Display"), "",
+                        new SettingCycle(List.of(UiText.t("歌词上岛", "Lyrics on Island"), UiText.t("始终缩小", "Always Minimized")),
+                                () -> Config.dynamicIslandMusicMode == Config.DynamicIslandMusicMode.MINIMIZED ? 1 : 0,
+                                i -> { Config.dynamicIslandMusicMode = i == 1 ? Config.DynamicIslandMusicMode.MINIMIZED : Config.DynamicIslandMusicMode.LYRICS; Config.save(); }))
                 .addSub(UiText.t("低血量提示", "Low Health Warning"), "",
                         new SettingToggle(() -> Config.dynamicIslandLowHealthWarning, v -> {
                             Config.dynamicIslandLowHealthWarning = v;
@@ -256,20 +246,20 @@ public class RenderPage extends BasePage {
                     Config.save();
                 })));
 
+        List<String> armorLayouts = List.of(UiText.t("分离式", "Separated"),
+                UiText.t("竖向", "Vertical"), UiText.t("横向", "Horizontal"));
+        List<String> liteArmorLayouts = armorLayouts.subList(1, 3);
         modules.add(new SettingModule(
                 UiText.t("盔甲 HUD", "Armor HUD"),
                 UiText.t("在快捷栏两侧显示当前装备和耐久", "Show equipped armor and durability beside the hotbar"),
                 new SettingToggle(() -> Config.armorHud, v -> { Config.armorHud = v; Config.save(); }))
                 .addSub(UiText.t("布局", "Layout"), UiText.t("选择 Armor HUD 的排列方式", "Choose the Armor HUD layout"),
-                        new SettingCycle(List.of(
-                                        UiText.t("分离式", "Separated"),
-                                        UiText.t("竖向", "Vertical"),
-                                        UiText.t("横向", "Horizontal")),
-                                () -> switch (Config.armorHudLayout) {
+                        new SettingCycle(() -> Config.armorHudMode == Config.ArmorHudMode.NEW ? armorLayouts : liteArmorLayouts,
+                                () -> Config.armorHudMode == Config.ArmorHudMode.NEW ? switch (Config.armorHudLayout) {
                                     case SEPARATED -> 0;
                                     case VERTICAL -> 1;
                                     case HORIZONTAL -> 2;
-                                },
+                                } : Config.armorHudLayout == Config.ArmorHudLayout.VERTICAL ? 0 : 1,
                                 i -> {
                                     if (Config.armorHudMode == Config.ArmorHudMode.NEW) {
                                         Config.armorHudLayout = switch (i) {
@@ -416,22 +406,8 @@ public class RenderPage extends BasePage {
                         ));
     }
 
-    private static int clampColor(Double value) {
-        return Math.max(0, Math.min(255, value.intValue()));
-    }
-
     private static int clampPercent(Double value) {
         return Math.max(0, Math.min(100, value.intValue()));
-    }
-
-    private static double alphaToTransparencyPercent(int alpha) {
-        int clamped = Math.max(0, Math.min(255, alpha));
-        return (255.0 - clamped) / 255.0 * 100.0;
-    }
-
-    private static int transparencyPercentToAlpha(Double value) {
-        double percent = Math.max(0.0, Math.min(100.0, value));
-        return Math.max(0, Math.min(255, (int) Math.round((100.0 - percent) / 100.0 * 255.0)));
     }
 
     private static int hitColorArgb() {
@@ -467,5 +443,38 @@ public class RenderPage extends BasePage {
                 | ((Config.arraylistGradientRed & 0xFF) << 16)
                 | ((Config.arraylistGradientGreen & 0xFF) << 8)
                 | (Config.arraylistGradientBlue & 0xFF);
+    }
+
+    private static void setHitColorArgb(int color) {
+        Config.hitColorAlpha = color >>> 24;
+        Config.hitColorRed = (color >>> 16) & 0xFF;
+        Config.hitColorGreen = (color >>> 8) & 0xFF;
+        Config.hitColorBlue = color & 0xFF;
+    }
+
+    private static void setCustomBlockOutlineArgb(int color) {
+        Config.customBlockOutlineAlpha = color >>> 24;
+        Config.customBlockOutlineRed = (color >>> 16) & 0xFF;
+        Config.customBlockOutlineGreen = (color >>> 8) & 0xFF;
+        Config.customBlockOutlineBlue = color & 0xFF;
+    }
+
+    private static void setCustomBlockOutlineFillArgb(int color) {
+        Config.customBlockOutlineFillAlpha = color >>> 24;
+        Config.customBlockOutlineFillRed = (color >>> 16) & 0xFF;
+        Config.customBlockOutlineFillGreen = (color >>> 8) & 0xFF;
+        Config.customBlockOutlineFillBlue = color & 0xFF;
+    }
+
+    private static void setArraylistColorArgb(int color) {
+        Config.arraylistColorRed = (color >>> 16) & 0xFF;
+        Config.arraylistColorGreen = (color >>> 8) & 0xFF;
+        Config.arraylistColorBlue = color & 0xFF;
+    }
+
+    private static void setArraylistGradientColorArgb(int color) {
+        Config.arraylistGradientRed = (color >>> 16) & 0xFF;
+        Config.arraylistGradientGreen = (color >>> 8) & 0xFF;
+        Config.arraylistGradientBlue = color & 0xFF;
     }
 }

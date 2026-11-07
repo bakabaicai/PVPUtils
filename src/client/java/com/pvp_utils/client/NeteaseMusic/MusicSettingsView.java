@@ -1,6 +1,8 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.gui.clickgui.widget.SettingRowLayout;
+import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 
@@ -12,6 +14,10 @@ public final class MusicSettingsView {
     private static final float INSET = 24f;
     private static final float CONTENT_TOP = 86f;
     private static final float ROW_HEIGHT = 24f;
+    private static final List<String> PREVIEW_LYRICS_ZH = List.of("让音乐陪伴每一次旅程", "此刻，听见你的热爱", "把旋律留在每个瞬间", "跟随节奏，继续向前");
+    private static final List<String> PREVIEW_LYRICS_EN = List.of("Music for every journey", "Find your rhythm", "Keep the melody with you", "Follow the beat, keep moving");
+    private static final Song PREVIEW_SONG_ZH = new Song(null, "PVPUtils Music", "正在播放", -1L, 240_000L);
+    private static final Song PREVIEW_SONG_EN = new Song(null, "PVPUtils Music", "Now playing", -1L, 240_000L);
     private final List<Control> controls = new ArrayList<>();
     private int tab;
     private float width;
@@ -22,6 +28,9 @@ public final class MusicSettingsView {
     private Control dragging;
     private boolean dirty;
     private boolean lyricPreview;
+    private float lyricsGroupY;
+    private long lastPreviewNs;
+    private double previewTimeMs;
 
     public void render(Canvas canvas, float w, float h, float mouseX, float mouseY, float alpha) {
         width = w;
@@ -31,7 +40,9 @@ public final class MusicSettingsView {
         contentHeight = tab == 0 ? 146f : tab == 1 ? 70f : 198f;
         scroll = Math.max(0f, Math.min(maxScroll(), scroll));
         controls.clear();
-        lyricPreview = tab == 1;
+        long now = System.nanoTime();
+        if (lastPreviewNs != 0L) previewTimeMs += Math.min(100d, Math.max(0d, (now - lastPreviewNs) / 1_000_000d));
+        lastPreviewNs = now;
         MusicUi.bold(canvas, text("设置", "Settings"), INSET, 18f, 17f, color(MusicUi.TEXT, alpha));
         String[] labels = {text("通用", "General"), text("歌词", "Lyrics"), text("布局", "Layout")};
         for (int i = 0; i < labels.length; i++) {
@@ -63,13 +74,14 @@ public final class MusicSettingsView {
             } else if (tab == 1) {
                 y = section(canvas, text("歌词显示", "Lyrics display"), y, alpha);
                 y = toggle(canvas, "lyrics", text("显示歌词", "In-game lyrics"), Config.lyricsDisplay, y, mouseX, mouseY, alpha);
-                toggle(canvas, "island", text("灵动岛歌词", "Dynamic Island lyrics"), Config.dynamicIslandLyrics, y, mouseX, mouseY, alpha);
+                toggle(canvas, "island", text("音乐上岛", "Music on Island"), Config.dynamicIslandLyrics, y, mouseX, mouseY, alpha);
             } else {
                 y = section(canvas, text("音乐信息", "Music information"), y, alpha);
                 y = slider(canvas, Slider.INFO_SCALE, text("缩放", "Scale"), y, mouseX, mouseY, alpha);
                 y = slider(canvas, Slider.INFO_X, text("水平位置", "Horizontal position"), y, mouseX, mouseY, alpha);
                 y = slider(canvas, Slider.INFO_Y, text("垂直位置", "Vertical position"), y, mouseX, mouseY, alpha);
-                y = section(canvas, text("歌词", "Lyrics"), y + 8f, alpha);
+                lyricsGroupY = y + 8f;
+                y = section(canvas, text("歌词", "Lyrics"), lyricsGroupY, alpha);
                 y = slider(canvas, Slider.LYRICS_SCALE, text("缩放", "Scale"), y, mouseX, mouseY, alpha);
                 y = slider(canvas, Slider.LYRICS_X, text("水平位置", "Horizontal position"), y, mouseX, mouseY, alpha);
                 slider(canvas, Slider.LYRICS_Y, text("垂直位置", "Vertical position"), y, mouseX, mouseY, alpha);
@@ -94,17 +106,25 @@ public final class MusicSettingsView {
         return y + 16f;
     }
 
-    private void row(Canvas canvas, String title, float y, float controlWidth, float mouseX, float mouseY, float alpha) {
+    private float rowWidth(int depth) {
+        return contentWidth - SettingRowLayout.levelInset(contentWidth, depth);
+    }
+
+    private void row(Canvas canvas, String title, float y, float controlWidth, float mouseX, float mouseY, float alpha, int depth) {
+        float rowWidth = rowWidth(depth);
+        float rowX = INSET + contentWidth - rowWidth;
         boolean hovered = mouseY >= CONTENT_TOP && mouseY <= height - 24f
-                && hit(mouseX, mouseY, INSET, y, contentWidth, ROW_HEIGHT);
-        MusicUi.rounded(canvas, INSET, y, contentWidth, ROW_HEIGHT, 6f,
-                color(hovered ? 0xFF303238 : MusicUi.PANEL, alpha));
-        MusicUi.bold(canvas, MusicUi.fit(title, Math.max(1f, contentWidth - controlWidth - 36f), 8f),
-                INSET + 12f, y + 7f, 8f, color(MusicUi.TEXT, alpha));
+                && hit(mouseX, mouseY, rowX, y, rowWidth, ROW_HEIGHT);
+        MusicUi.rounded(canvas, rowX, y, rowWidth, ROW_HEIGHT, 6f,
+                color(hovered ? 0xFF303238 : MusicUi.PANEL, alpha * (depth == 0 ? 1f : 0.65f)));
+        if (depth >= 2) MusicUi.rounded(canvas, Math.max(INSET, rowX - 9f), y + 5f,
+                2f, ROW_HEIGHT - 10f, 1f, color(MusicUi.ACCENT, alpha * 0.22f));
+        MusicUi.bold(canvas, MusicUi.fit(title, Math.max(1f, rowWidth - controlWidth - 36f), 8f),
+                rowX + 12f, y + 7f, 8f, color(MusicUi.TEXT, alpha));
     }
 
     private float toggle(Canvas canvas, String id, String title, boolean value, float y, float mouseX, float mouseY, float alpha) {
-        row(canvas, title, y, 24f, mouseX, mouseY, alpha);
+        row(canvas, title, y, 24f, mouseX, mouseY, alpha, "rounded".equals(id) ? 1 : 0);
         float x = INSET + contentWidth - 36f;
         MusicUi.rounded(canvas, x, y + 6f, 24f, 12f, 6f,
                 color(value ? MusicUi.ACCENT : 0xFF55575E, alpha));
@@ -115,7 +135,7 @@ public final class MusicSettingsView {
     }
 
     private float mode(Canvas canvas, float y, float mouseX, float mouseY, float alpha) {
-        row(canvas, text("显示样式", "Display style"), y, 104f, mouseX, mouseY, alpha);
+        row(canvas, text("显示样式", "Display style"), y, 104f, mouseX, mouseY, alpha, 1);
         float x = INSET + contentWidth - 116f;
         MusicUi.rounded(canvas, x, y + 3f, 104f, 18f, 4f, color(0xFF383A42, alpha));
         MusicUi.text(canvas, modeName(), x + 8f, y + 7.5f, 7.5f, color(MusicUi.TEXT, alpha));
@@ -125,8 +145,10 @@ public final class MusicSettingsView {
     }
 
     private float slider(Canvas canvas, Slider slider, String title, float y, float mouseX, float mouseY, float alpha) {
-        float controlWidth = Math.max(112f, Math.min(160f, contentWidth * 0.4f));
-        row(canvas, title, y, controlWidth, mouseX, mouseY, alpha);
+        int depth = slider == Slider.VOLUME ? 0 : 1;
+        float rowWidth = rowWidth(depth);
+        float controlWidth = Math.max(112f, Math.min(160f, rowWidth * 0.4f));
+        row(canvas, title, y, controlWidth, mouseX, mouseY, alpha, depth);
         float x = INSET + contentWidth - controlWidth - 12f;
         float trackWidth = controlWidth - 36f;
         float fraction = Math.max(0f, Math.min(1f, (slider.value() - slider.min()) / (slider.max() - slider.min())));
@@ -139,8 +161,6 @@ public final class MusicSettingsView {
         Control control = new Control(slider.name(), x, y, trackWidth, ROW_HEIGHT, slider);
         controls.add(control);
         if (dragging != null && dragging.slider == slider) dragging = control;
-        if (hit(mouseX, mouseY, INSET, y, contentWidth, ROW_HEIGHT) && mouseY >= CONTENT_TOP
-                && mouseY <= height - 24f) lyricPreview = slider.name().startsWith("LYRICS");
         return y + ROW_HEIGHT + 2f;
     }
 
@@ -180,37 +200,38 @@ public final class MusicSettingsView {
     }
 
     private void drawMusicPreview(Canvas canvas, float alpha) {
-        boolean lite = Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE;
-        float w = lite ? 190f : 216f;
-        float h = lite ? 58f : 68f;
-        MusicUi.rounded(canvas, -w * 0.5f, -h * 0.5f, w, h, lite ? 8f : 16f,
-                color(Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS ? 0xA5444750 : 0xEC20232B, alpha));
-        float coverSize = lite ? 42f : 48f;
-        float left = -w * 0.5f + 10f;
-        Song song = MusicPlaybackService.INSTANCE.currentSong();
-        MusicUi.cover(canvas, song == null ? null : NeteaseMusicCovers.skiaImage(song.image()), left,
-                -coverSize * 0.5f, coverSize, Config.musicInfoHudCoverRounded ? 10f : 0f, Math.round(alpha * 255f));
-        String title = song == null ? "PVPUtils Music" : song.name();
-        String artist = song == null ? text("正在播放", "Now playing") : song.displayArtist();
-        float textX = left + coverSize + 10f;
-        float textW = w - coverSize - 30f;
-        MusicUi.bold(canvas, MusicUi.fit(title, textW, 12f), textX, -19f, 12f, color(MusicUi.TEXT, alpha));
-        MusicUi.text(canvas, MusicUi.fit(artist, textW, 10f), textX, -2f, 10f, color(MusicUi.MUTED, alpha));
-        MusicUi.rounded(canvas, textX, 17f, textW, 3f, 1.5f, color(0xFF464A54, alpha));
-        MusicUi.rounded(canvas, textX, 17f, textW * 0.42f, 3f, 1.5f, color(MusicUi.ACCENT, alpha));
+        MusicPlaybackService player = MusicPlaybackService.INSTANCE;
+        Song song = player.currentSong();
+        if (song == null) song = Config.isChinese ? PREVIEW_SONG_ZH : PREVIEW_SONG_EN;
+        long total = player.totalDurationMs();
+        if (total <= 0L) total = song.durationMs() > 0L ? song.durationMs() : 240_000L;
+        long position = player.isPlaying() ? player.positionMs() : (long) previewTimeMs % total;
+        MusicInfoHudRenderer renderer = MusicInfoHudRenderer.getInstance();
+        int save = canvas.save();
+        try {
+            canvas.translate(-renderer.getBaseWidth() * 0.5f, -renderer.getBaseHeight() * 0.5f);
+            renderer.drawPreview(canvas, song, position, total, player.playbackMode().label(), alpha);
+        } finally {
+            canvas.restoreToCount(save);
+        }
     }
 
     private void drawLyricsPreview(Canvas canvas, float alpha) {
-        List<LyricLine> lyrics = MusicPlaybackService.INSTANCE.lyricsSnapshot();
-        int active = Math.max(0, LyricLineProcessor.currentIndex(lyrics, MusicPlaybackService.INSTANCE.positionMs()));
-        String[] fallback = {text("让音乐陪伴每一次旅程", "Music for every journey"), "PVPUtils Music", text("此刻，听见你的热爱", "Find your rhythm")};
-        for (int i = -1; i <= 1; i++) {
-            int index = active + i;
-            String value = index >= 0 && index < lyrics.size() ? lyrics.get(index).text() : fallback[i + 1];
-            float size = i == 0 ? 20f : 13f;
-            value = MusicUi.fit(value, 286f, size);
-            MusicUi.bold(canvas, value, -MusicUi.boldWidth(value, size) * 0.5f, i * 33f - size * 0.5f, size,
-                    color(i == 0 ? MusicUi.TEXT : MusicUi.MUTED, alpha * (i == 0 ? 1f : 0.5f)));
+        List<String> lines = Config.isChinese ? PREVIEW_LYRICS_ZH : PREVIEW_LYRICS_EN;
+        long step = (long) (previewTimeMs / 3200d);
+        float progress = (float) Math.min(1d, previewTimeMs % 3200d / 600d);
+        progress = 1f - (1f - progress) * (1f - progress) * (1f - progress);
+        double visualLine = step == 0L ? 0d : step - 1d + progress;
+        long first = (long) Math.floor(visualLine) - 1L;
+        for (long line = first; line <= first + 3L; line++) {
+            float offset = (float) (line - visualLine);
+            float distance = Math.abs(offset);
+            float focus = Math.max(0f, 1f - distance);
+            float opacity = (0.4f + focus * 0.6f) * Math.clamp(2f - distance, 0f, 1f);
+            float size = Math.round((13f + focus * 7f) * 2f) * 0.5f;
+            String value = MusicUi.fit(lines.get(Math.floorMod(line, lines.size())), 286f, size);
+            MusicUi.text(canvas, value, -MusicUi.width(value, size) * 0.5f, offset * 33f - size * 0.5f, size,
+                    color(MusicUi.TEXT, alpha * opacity));
         }
     }
 
@@ -220,6 +241,7 @@ public final class MusicSettingsView {
             if (hit(x, y, INSET + i * 84f, 52f, 78f, 24f)) {
                 mouseReleased();
                 tab = i;
+                if (tab != 2) lyricPreview = tab == 1;
                 scroll = 0f;
                 controls.clear();
                 return true;
@@ -231,11 +253,14 @@ public final class MusicSettingsView {
             return true;
         }
         if (y < CONTENT_TOP || y > height - 24f) return false;
+        boolean layoutRow = tab == 2 && x >= INSET && x <= INSET + contentWidth;
+        if (layoutRow) lyricPreview = y >= lyricsGroupY;
         for (Control control : controls) {
             if (!hit(x, y, control.x - (control.slider == null ? 0f : 5f), control.y,
                     control.width + (control.slider == null ? 0f : 10f), control.height)) continue;
             if (control.slider != null) {
                 dragging = control;
+                if (tab == 2) lyricPreview = control.slider.name().startsWith("LYRICS");
                 mouseDragged(x, y);
             } else {
                 switch (control.id) {
@@ -253,7 +278,7 @@ public final class MusicSettingsView {
             }
             return true;
         }
-        return false;
+        return layoutRow;
     }
 
     public boolean mouseDragged(float x, float y) {

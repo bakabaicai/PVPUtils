@@ -87,7 +87,13 @@ public class ResetManager {
         Config.blockCountDisplayMode = Config.BlockCountDisplayMode.NEW;
         Config.dynamicIsland = false;
         Config.dynamicIslandLyrics = false;
-        Config.dynamicIslandBackground = Config.DynamicIslandBackground.LIQUID_GLASS;
+        Config.dynamicIslandDoubleRow = false;
+        Config.dynamicIslandShape = Config.DynamicIslandShape.CAPSULE;
+        Config.dynamicIslandMusicMode = Config.DynamicIslandMusicMode.LYRICS;
+        Config.dynamicIslandBackground = Config.DynamicIslandBackground.BLUR;
+        Config.dynamicIslandColor = 0xED15191F;
+        Config.dynamicIslandShadow = true;
+        Config.dynamicIslandShadowStrength = 0.35f;
         Config.dynamicIslandBlockCount = false;
         Config.dynamicIslandBlockCountRestoresBlockCount = false;
         Config.dynamicIslandBlockCountAltIcon = false;

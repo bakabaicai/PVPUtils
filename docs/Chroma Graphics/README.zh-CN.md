@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Chroma Graphics 是 PVPUtils 的客户端渲染框架，负责二维界面、HUD、共享文字绘制、背景模糊、液态玻璃及三维标记的渲染接入。框架统一管理常规二维绘制的 Skia 上下文、帧缓冲包装、绘制时序和 OpenGL 状态恢复，使功能模块能够通过现有接口提交绘制内容。
+Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、文字与图标、背景模糊、液态玻璃及世界空间图形接口。框架统一管理常规二维绘制的 Skia 上下文、帧缓冲包装、绘制时序和 OpenGL 状态恢复。本文说明当前实现的接口、坐标空间、调用约束、资源生命周期与性能使用方法。当前后端接入 Minecraft，依赖如下。
 
 Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、`SkijaUi` 等名称；不存在名为 `ChromaGraphics` 的统一入口类。
 
@@ -43,7 +43,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 2. Minecraft 收集 GUI 绘制内容。此期间在活动 Skia 画布之外调用 `draw()`，会进入主目标队列。
 3. `GameRendererMixin` 在 `GuiRenderer.render(GpuBufferSlice)` 之前调用 `renderMainSubmitted()`，将主目标队列绘制到 Minecraft 主颜色目标。
 4. Minecraft 将主目标 `blitToScreen()` 后，`SkijaFrameRenderer.render()` 开始叠加绘制。窗口最小化或存在 Minecraft 加载叠加层时跳过。
-5. 叠加通道依次绘制已接入的 HUD 与插件、当前 `SkijaScreen`、`submit()` 队列、HUD 编辑叠加层。
+5. 叠加通道依次执行宿主接入的 HUD 绘制、当前 `SkijaScreen`、`submit()` 队列和宿主的末尾叠加绘制。
 6. 通道结束时提交 Skia 命令并恢复外部 GL 状态。玻璃效果的中间衔接可能产生额外提交。
 
 主目标通道使用包装 Minecraft 主颜色纹理的 FBO；叠加通道使用默认帧缓冲 FBO 0。通道开始时完成尺寸检查、Surface 复用或重建、GL 状态同步及 GUI 坐标缩放。
@@ -104,7 +104,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 `glowLayer` 中的回调用于生成发光层；需要清晰前景时另行绘制前景。阴影、发光和渐变接口不意味着最终像素结果已缓存。
 
-线段与路径描边复用共享 Paint，线宽至少为 0.1，调用结束后恢复填充模式、默认线宽、端点与连接状态。音乐 UI 的圆角、线段及图标路径通过这些接口绘制，不单独创建基础图形 Paint。
+线段与路径描边复用共享 Paint，线宽至少为 0.1，调用结束后恢复填充模式、默认线宽、端点与连接状态。
 
 ### 3.3 文字与图标：SkijaUi
 
@@ -199,6 +199,34 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 `renderMainTarget()` 在共享画布已活动时复用当前通道，不强制切换目标。`currentFramebuffer()` 返回框架保存的目标状态，通道之外不能用它代替真实 GL 绑定查询。不要为每个控件调用 `flush()` 或创建新的 `DirectContext`。
 
+### 3.8 组件效果与形变
+
+以下工具使用当前共享 Canvas，不创建渲染后端，也不推进动画时钟。所有尺寸均属于调用方的当前坐标空间；用于背景采样的形变路径必须在屏幕 GUI 坐标中生成。
+
+| 接口 | 行为与约束 |
+| --- | --- |
+| `SoftShadow.drawRounded(Canvas, x, y, width, height, radius, strength, color)` | 绘制圆角轮廓外侧的均匀柔和阴影；`strength` 为 0–1，0 跳过绘制 |
+| `SoftShadow.drawPath(Canvas, Path, strength, color)` | 使用同一个填充路径生成外围阴影；不修改或关闭传入路径 |
+| `ContentTransition.draw(Canvas, Rect bounds, visibility, offsetY, Runnable drawing)` | 非稳态时在 `bounds` 内叠加渐显渐隐与等向模糊；`visibility` 为 0–1，`offsetY` 为可选的显式纵向位移 |
+| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, progress): Geometry` | 构建主圆角面板及右侧圆球的共用填充路径；进度 0 仅含主面板，1 为具有指定间隙的分体 |
+| 上述接口末尾增加 `boolean alignTop` | 默认重载使圆球垂直居中；`true` 将球心锚定在 `y + max(cornerRadius, satelliteRadius)`，主面板增高时分体保持靠上排列 |
+| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, leftProgress, rightProgress, alignTop): Geometry` | 两侧圆球按独立进度分离，合并为同一个填充路径；原单进度重载等价于 `leftProgress=0` |
+| `LiquidSeparation.Geometry.path(): Path`、`bounds(): Rect` | 返回当前形变的路径及紧致外框，可用于同一帧的填充、背景裁剪、阴影及输入范围 |
+| `Geometry.satelliteCenterX()`、`satelliteCenterY()`、`satelliteRadius()` | 返回右侧圆球的当前几何；右侧进度 0 时可见半径为 0 |
+| `Geometry.leftSatelliteCenterX()`、`leftSatelliteCenterY()`、`leftSatelliteRadius()` | 返回左侧圆球的当前几何；左侧进度 0 时可见半径为 0 |
+| `Geometry.close()` | 释放所属 Path，可重复关闭；不得单独关闭其借出的 `path()` |
+| `AnimatedStatusIcon.draw(Canvas, success, x, y, size, progress, color)` | 按路径长度绘制成功对勾，或按错开的进度区间绘制失败叉号的两条线段，使用圆端点及圆转角 |
+
+阴影应在面板内容和面板内部裁剪之前绘制。其强度同时影响颜色透明度与模糊宽度，颜色为 ARGB；阴影不会覆盖轮廓内部，也不产生包边。形变中应对完整路径调用一次阴影和一次填充，避免在黏附区域反复混合半透明颜色。
+
+`ContentTransition` 只在过渡期建立局部图层，并在退出调用前释放 Paint 和滤镜、恢复 Canvas。透明度与 `visibility` 成正比；模糊在两个方向使用相同强度，随显现减弱，不根据位移添加纵向拖影。`visibility` 接近 1 且位移为 0 时直接调用绘制函数；此时不建立额外裁剪，稳态内容的裁剪仍由调用方负责。传入的 `bounds` 是过渡期的硬裁剪范围，应包含显式位移所需的空间。不要用全屏矩形包装单行文字，不要从绘制函数再次提交队列。过渡期间保持字号固定。
+
+`offsetY=0f` 表示在原位渐显渐隐并叠加模糊；非零值只对本次回调施加纵向位移。显隐、位移及其动画曲线由调用方提供，接口不管理内容切换或计时。
+
+液体分离的主路径、两侧圆球和黏附桥采用相同绕向的非零填充，一次绘制即可得到合并轮廓；双侧模式不得分别调用两次填充、背景采样或阴影。桥在分离后段逐渐收细并断开。实际圆球半径限制在主面板高度的一半以内；右球心从面板内部移动到 `x + width + gap + satelliteRadius`，左球心移动到 `x - gap - satelliteRadius`。公式中的 `gap` 和 `satelliteRadius` 指经参数限制后的值：间隙不小于 0，圆球半径不超过面板高度的一半。上沿对齐使用经过尺寸限制后的圆角与圆球半径，零半径时不添加圆球或黏附桥。`bounds()` 包含两侧的实际扩展，布局和输入范围应读取同一份几何。`Geometry` 由创建它的组件拥有，在本帧用完或几何失效时关闭；相同参数下允许组件自行复用，框架没有全局几何或图像缓存。
+
+动画进度由调用方每帧计算一次，并在同一帧的各次绘制中复用。`AnimatedStatusIcon` 仅依据传入的进度绘制，不保存动画状态。
+
 ## 4. 坐标、动画与资源约定
 
 ### 4.1 坐标空间
@@ -208,8 +236,6 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 矩形参数为 `x, y, width, height`，不是右下角坐标。颜色统一使用 `0xAARRGGBB`。
 
 布局应根据当前可用宽高计算。若使用设计坐标与局部缩放，鼠标必须应用同一变换的逆变换。例如局部变换为 `screenX = originX + localX * scale`，则 `localX = (mouseX - originX) / scale`。绘制、裁剪和命中测试必须使用同一帧的几何结果。
-
-主界面的 `MainUiScale` 是页面专用布局工具。修改这些页面时配套使用 `applyPage`、`pageX/pageY/pageEvent` 和 `pageScreenX/pageScreenY/pageScreenSize`，并传递一致的 scale 与中心点。不要将该工具默认应用于全部 HUD。
 
 ### 4.2 文字定位与复用
 
@@ -221,7 +247,9 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 `PreparedText` 保存 TextBlob 字形数据及宽度，避免每帧重复回退分段、宽度测量和字形构造。它不是位图缓存，也不自动执行换行、省略、复杂文字排版或字体版本更新。中文和缺失字形沿用现有回退逻辑；CJK 优先尝试系统回退字体，粗体请求不保证回退字形具有粗体效果。
 
-缓存键至少包含文字、离散字号、粗体状态、字体版本，以及使用时的临时字体名。换行或截断结果还需包含可用宽度、翻译显示模式等布局条件。位置和颜色变化不需要重建 TextBlob。
+缓存键至少包含文字、离散字号、粗体状态、字体版本，以及使用时的临时字体名。换行或截断结果还需包含可用宽度、换行与截断策略等布局条件。位置和颜色变化不需要重建 TextBlob。
+
+完整文本是否能容纳，必须先按实际可用宽度判断；不能先将宽度向下取整作为缓存键，再误把刚好容纳的文本省略。只有确实超宽的文本才进入截断计算，缓存量化不得改变完整文本的显示结果。
 
 ### 4.3 动画与生命周期
 
@@ -246,7 +274,7 @@ Minecraft 返回既有 Screen 实例时，`added()` 会执行，但受保护的 
 
 ## 5. 使用示例
 
-以下四个类可分别放入客户端源码集。示例展示接口组合与生命周期；不提供自动注册、导航或输入控件。
+以下示例可分别放入客户端源码集。示例展示接口组合与生命周期；页面注册、导航和输入派发仍由现有宿主负责。
 
 ### 5.1 自适应屏幕与可复用文字
 
@@ -441,6 +469,45 @@ public final class ChromaTexturePainter {
 }
 ```
 
+### 5.5 共用形变轮廓与局部文字过渡
+
+在已有 HUD 绘制入口的活动 Canvas 中调用，`x/y` 为屏幕 GUI 坐标，所有进度已由调用方更新。示例先绘制外围阴影，再采样当前背景并填充面板，最后使文字在原位渐显渐隐并叠加模糊。文字的所有权由调用方保留。
+
+```java
+package com.pvp_utils.client.render.examples;
+
+import com.pvp_utils.client.render.skia.ContentTransition;
+import com.pvp_utils.client.render.skia.LiquidSeparation;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.skia.SoftShadow;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.types.Rect;
+
+public final class ChromaAnimatedCapsule {
+    public static void draw(Canvas canvas, float x, float y, float leftSeparation, float rightSeparation,
+                            float visibility, SkijaUi.PreparedText label) {
+        try (LiquidSeparation.Geometry shape = LiquidSeparation.create(
+                x, y, 240f, 32f, 16f, 14f, 7f, leftSeparation, rightSeparation, true)) {
+            Rect bounds = shape.bounds();
+            SoftShadow.drawPath(canvas, shape.path(), 0.45f, 0xB0000000);
+            SkijaRenderer.drawBlurredBackdrop(canvas, shape.path(),
+                    bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), 10f);
+            SkijaUi.fillPath(canvas, shape.path(), 0xD91B1F26);
+            int save = canvas.save();
+            try {
+                canvas.clipRect(Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f));
+                ContentTransition.draw(canvas, Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f),
+                        visibility, 0f,
+                        () -> label.drawTop(canvas, x + 14f, y + 8f, 0xFFF3F6FC));
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+}
+```
+
 ## 6. 性能最佳实践
 
 以下规则用于减少可避免的 CPU、GPU 与本地资源开销，不构成特定设备上的帧率承诺。
@@ -465,13 +532,13 @@ public final class ChromaTexturePainter {
 | 数据 | 推荐缓存策略 | 失效条件 |
 | --- | --- | --- |
 | 单行固定标签 | 单个 `PreparedText` | 内容、字号、字重、字体选择或版本改变 |
-| 歌词、多行列表 | 按功能限制数量的文本及排版缓存 | 歌曲、文字、布局宽度、显示模式、字体变化；淘汰时 close |
+| 多行文本与列表 | 由调用方持有、限制数量的文本及排版缓存 | 内容版本、文字、布局宽度、排版策略或字体变化；淘汰时关闭资源 |
 | 静态图片 | 功能所属图像缓存，限制像素总量 | 图片身份、目标尺寸或资源版本改变 |
 | 静态图片的模糊结果 | 只在图像或效果参数变化时生成 | 图片、分辨率、模糊参数变化 |
 | 实时世界背景 | 使用框架的当前通道快照 | 不能将旧画面长期当作当前世界 |
 | 玻璃槽位 | 复用分配的离屏目标 | 尺寸需要增长或框架销毁 |
 
-音乐模块的 `MusicBlurredCover` 是模糊封面背景的功能缓存，256 像素工作尺寸只用于该类低频细节背景。不得将其推广到正文、图标、普通封面或全部 UI。
+静态图像模糊缓存由调用方持有，工作分辨率按实际显示尺寸与所需细节确定。低分辨率效果缓存仅用于相应图像效果，不改变文字、图标或其他图像的绘制质量。
 
 ### 6.3 背景与特效成本
 
@@ -485,35 +552,31 @@ public final class ChromaTexturePainter {
 
 检查客户端编译、不同 GUI 缩放与窗口尺寸的几何计算、首次进入和返回、字体切换后的失效、长期动画中的缓存数量、关闭后的本地资源释放。性能证据应区分 CPU 耗时、GPU 耗时、分配量及缓存命中情况；只凭一次 FPS 读数不能定位瓶颈。
 
-按根目录 `AGENTS.md` 设置项目内临时目录，执行包含 `compileClientJava` 的编译任务。未得到用户明确要求时，不启动 Minecraft 做运行测试。
+当前 Minecraft 后端的源码验证应包含 `compileClientJava`。静态检查与编译结果不能替代运行环境中的视觉或性能验证。
 
 ## 7. AI 开发代理使用规范
 
-处理 UI、HUD、文字、模糊、玻璃或底层渲染任务前，必须阅读本节、相关接口章节及对应实现。
+使用 Chroma Graphics 前，必须阅读本节、相关接口章节及对应实现。
 
-1. **确认环境与 API。** 以当前仓库代码、Minecraft 1.21.11 官方映射源码和实际依赖为依据。先阅读涉及的 Minecraft 类，再编写调用；不得猜测方法签名或虚构 Chroma Graphics API。
-2. **确定阶段。** 明确内容属于 Screen、主目标 GUI、HUD 叠加还是世界 Gizmos，确认提交点在对应队列消费之前。复用现有入口，不重复注册相同内容。
-3. **复用共享字体。** 常规文字使用 `SkijaUi`；重复文字使用明确所有权的 `PreparedText`。不要另建字体管理器，不要将连续浮点动画字号直接送入共享缓存。
-4. **统一几何。** 每帧只推进一次动画。绘制、模糊、裁剪和鼠标命中读取同一份结果；所有布局明确区分物理像素、GUI 坐标和局部设计坐标。
-5. **限制工作量。** 先剔除不可见内容，再处理可见布局。缓存注明键、容量、失效条件和释放时机；单个功能的低分辨率缓存不得改变全局清晰度策略。
-6. **维护所有权。** 不保存或关闭借出的 Canvas；关闭自己创建的本地资源；GPU 操作留在客户端渲染阶段。功能模块不得调用共享资源的全局关闭入口。
-7. **遵守框架边界。** 不为普通控件新建上下文、截图链路、字体路径或全屏离屏通道。确需修改后端时，核实全部受影响调用方的 GL 状态、资源与时序。
-8. **覆盖失败与返回路径。** 处理模糊或纹理不可用、窗口变化、字体重载、页面返回及资源重建。异步结果更新数据，不重复触发进入动画。
-9. **完成必要验证。** 按 `AGENTS.md` 修正进程临时目录并包含客户端编译。仅在用户明确要求时启动游戏；不得将静态检查或离线结果表述为实机帧率验证。
-10. **同步文档。** 修改公开接口或行为时同步更新中英文文档与示例。遵守项目的禁止新增代码注释规则；解释放在文档正文中。
+1. **核实接口与依赖。** 以当前实现及实际依赖为依据，核实类型、签名与调用行为。使用 Minecraft 后端时核对对应版本和映射的源码，不得猜测方法或虚构框架 API。
+2. **确定绘制阶段。** 明确内容属于 Screen、主目标 GUI、HUD 叠加还是世界 Gizmos，确认提交点在对应队列消费之前。复用现有入口，同一内容只接入一次。
+3. **复用字体接口。** 常规文字使用 `SkijaUi`；重复文字使用由调用方持有的 `PreparedText`。保持固定或离散字号，测量与绘制采用相同字体选择；缓存键包含字体版本及临时字体名。
+4. **统一坐标与几何。** 每帧只推进一次动画。绘制、背景采样、裁剪和命中测试读取同一份结果；区分物理像素、GUI 坐标和局部坐标，并对输入应用相应逆变换。
+5. **限定缓存与工作量。** 先剔除不可见内容，再处理可见布局。明确缓存键、容量、失效条件和释放时机；局部缓存策略仅适用于其所属内容。
+6. **维护资源所有权。** 不跨帧保存或关闭借出的 Canvas。关闭自己创建的本地资源，将 GPU 操作留在正确的客户端渲染阶段；调用方不得关闭框架共享资源。
+7. **遵守后端边界。** 常规绘制使用现有上下文、背景采样和字体接口。修改后端时，核实受影响通道的 GL 状态、目标帧缓冲、资源所有权及提交顺序。
+8. **处理失效与重建。** 覆盖背景或纹理不可用、窗口尺寸变化、字体重载及资源释放后的重建。将异步数据更新与动画生命周期分别管理。
+9. **验证实际行为。** 核实编译、坐标计算、绘制顺序、缓存失效和资源释放。性能测量区分 CPU、GPU 与分配成本，不将静态检查或编译结果表述为运行性能结论。
+10. **同步文档。** 公开接口或行为变化时，同步更新中英文接口说明和受影响示例，确保名称、参数、坐标空间及所有权描述与实现一致。
 
-提交说明应列明所用绘制阶段、缓存与资源生命周期、实际执行的验证及尚未验证的运行行为。
+变更说明应列明所用绘制阶段、缓存与资源生命周期、实际执行的验证及尚未验证的运行行为。
 
 ## 8. 实现索引
 
 - [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java)、[SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java)、[SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java)、[SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
+- [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java)、[ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java)、[LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java)、[AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
 - [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java)、[GlassCaptureRenderer](../../src/client/java/com/pvp_utils/client/render/skia/GlassCaptureRenderer.java)、[GlassGlBackend](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlBackend.java)、[GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)
 - [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java)、[WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java)、[GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
-- [MainUiScale](../../src/client/java/com/pvp_utils/client/render/MainUI/MainUiScale.java)、[MainUIFlipAnimation](../../src/client/java/com/pvp_utils/client/render/MainUI/MainUIFlipAnimation.java)
-- [共享字体的功能用例：LyricsDisplayRenderer](../../src/client/java/com/pvp_utils/client/modules/impl/Render/LyricsDisplayRenderer.java)、[局部图片缓存：MusicBlurredCover](../../src/client/java/com/pvp_utils/client/NeteaseMusic/MusicBlurredCover.java)
-- [构建定义](../../build.gradle)、[项目协作规则](../../AGENTS.md)
-- [插件接口](../PLUGINS.md)、[插件教程](../PLUGIN_TUTORIAL.md)、[着色器文档](../SHADERS.md)
-
-JavaScript 插件使用插件系统提供的渲染外观接口，其参数与生命周期以插件文档为准。主界面背景、翻转、音乐背景缓存及着色器是建立在相关渲染路径上的专用功能，不是所有组件都必须采用的全局策略。
+- [构建定义](../../build.gradle)

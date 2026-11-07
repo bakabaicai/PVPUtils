@@ -39,6 +39,7 @@ public final class SkijaFrameRenderer {
     }
 
     public static void close() {
+        DynamicIslandRenderer.getInstance().close();
         LiquidGlassRenderer.getInstance().destroy();
         GlassCaptureRenderer.getInstance().destroy();
         SkijaRenderer.close();

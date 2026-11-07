@@ -1,18 +1,25 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
-import io.github.humbleui.types.RRect;
-
-import com.pvp_utils.client.render.skia.SkijaUi;
-
 import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
+import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
+import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
+import com.pvp_utils.client.render.skia.AnimatedStatusIcon;
+import com.pvp_utils.client.render.skia.ContentTransition;
+import com.pvp_utils.client.render.skia.LiquidSeparation;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
-import io.github.humbleui.skija.*;
+import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.skia.SoftShadow;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.Image;
+import io.github.humbleui.skija.Paint;
+import io.github.humbleui.skija.SamplingMode;
+import io.github.humbleui.types.RRect;
+import io.github.humbleui.types.Rect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -29,675 +36,529 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class DynamicIslandRenderer {
+public final class DynamicIslandRenderer implements AutoCloseable {
     private static final DynamicIslandRenderer INSTANCE = new DynamicIslandRenderer();
-    private static final float HEIGHT = 30f;
-    private static final float MIN_WIDTH = 250f;
-    private static final float MAX_WIDTH_MARGIN = 24f;
+    private static final float HEIGHT = 40f;
+    private static final float MUSIC_HEIGHT = 32f;
+    private static final float MUSIC_MIN_WIDTH = MUSIC_HEIGHT * 3f;
+    private static final float MIN_WIDTH = 246f;
     private static final float TOP = 10f;
-    private static final float PADDING_X = 18f;
     private static final float TEXT_SIZE = 11.5f;
-    private static final float ICON_SIZE = 13.5f;
-    private static final float ICON_GAP = 4f;
-    private static final float ICON_Y_OFFSET = 3.0f;
-    private static final float SEPARATOR_GAP = 8f;
-    private static final float BLOCK_MIN_WIDTH = 206f;
-    private static final float BLOCK_HEIGHT = 72f;
-    private static final float ALERT_HEIGHT = 58f;
-    private static final float BLOCK_ICON_X = 12f;
-    private static final float BLOCK_ICON_Y = 10f;
-    private static final float BLOCK_ICON_BOX = 42f;
-    private static final float BLOCK_TEXT_X = 68f;
-    private static final float BLOCK_PROGRESS_X = 16f;
-    private static final float BLOCK_PROGRESS_Y = 59f;
-    private static final float BLOCK_PROGRESS_H = 9f;
-    private static final float BLOCK_RIGHT_PADDING = 18f;
-    private static final float TAB_MIN_WIDTH = 340f;
-    private static final float TAB_MAX_WIDTH_MARGIN = 34f;
+    private static final float SIZE_EASE_SPEED = 13.5f;
+    private static final float SATELLITE_RADIUS = 20f;
+    private static final float SATELLITE_GAP = 7f;
+    private static final float IDLE_PADDING = 14f;
+    private static final float IDLE_ICON_SIZE = 12f;
+    private static final float IDLE_ICON_GAP = 7f;
+    private static final float FPS_SIZE = 11.5f;
+    private static final float FPS_UNIT_SIZE = 8f;
+    private static final long TAB_REQUEST_TTL_MS = 120L;
     private static final float TAB_TOP_PADDING = 16f;
     private static final float TAB_BOTTOM_PADDING = 16f;
-    private static final float TAB_SIDE_PADDING = 22f;
+    private static final float TAB_SIDE_PADDING = 18f;
     private static final float TAB_ROW_HEIGHT = 14f;
-    private static final float TAB_COLUMN_GAP = 20f;
+    private static final float TAB_COLUMN_GAP = 16f;
     private static final float TAB_NAME_SIZE = 11.5f;
     private static final int TAB_MAX_ROWS = 20;
-    private static final String ICON_LINK = "\uE157";
-    private static final String ICON_COMPUTER = "\uE30C";
-    private static final String ICON_PERSON = "\uE7FD";
+    private static final int TAB_SELF_NAME_COLOR = 0xFFFF7777;
+    private static final int TAB_DEFAULT_NAME_COLOR = 0xFFFFFFFF;
+    private static final int TAB_SPECTATOR_NAME_COLOR = 0xFFAAAAAA;
+    private static final String ICON_MUSIC = "\uE405";
     private static final String ICON_BLOCK = "\uF720";
     private static final String ICON_BLOCK_ALT = "\uE934";
     private static final String ICON_ITEM_USE = "\uE425";
-    private static final long NOTIFICATION_ICON_ANIMATION_MS = 520L;
-    private static final int TAB_SELF_NAME_COLOR = 0xFFFF5555;
-    private static final int TAB_DEFAULT_NAME_COLOR = 0xFFFFFFFF;
-    private static final int TAB_SPECTATOR_NAME_COLOR = 0xFFAAAAAA;
-    private static final float SIZE_EASE_SPEED = 13.5f;
-    private static final float TAB_FADE_EASE_SPEED = 9.0f;
-    private static final long TAB_REQUEST_TTL_MS = 120L;
-    private static final long LYRICS_EXPAND_DURATION_MS = 700L;
-    private static final float LYRICS_STAGGER_RATIO = 0.45f;
-
+    private static final String ICON_SWORDS = "\uF889";
+    private static final String ICON_PERSON = "\uE7FD";
+    private static final String ICON_GLOBE = "\uE894";
+    private final IslandTextCache textCache = new IslandTextCache();
+    private final float[] musicLevels = new float[7];
+    private DisplayFrame displayed;
+    private Phase phase = Phase.STEADY;
+    private float visibility = 1f;
     private float animatedWidth = -1f;
-    private float animatedHeight = -1f;
-    private float tabContentFade = 0f;
-    private float lyricsFade = 0f;
-    private boolean lastLyricsOpen = false;
-    private String lastLyricsText = "";
-    private long lyricsExpandStartTime = 0L;
-    private long lastLyricsDurationMs = 3000L;
-    private long lastAnimationTime = 0L;
-    private long lastTabRequestTime = 0L;
+    private float animatedHeight = HEIGHT;
+    private float separation;
+    private float satelliteVisibility;
+    private float leftSeparation;
+    private float leftSatelliteVisibility;
+    private float renderedWidth = MIN_WIDTH;
+    private long lastFrameNs;
+    private long lastTabRequestTime;
+    private long contentShownMs;
+    private long resizeStartedMs;
+    private Song satelliteSong;
+    private Song leftSatelliteSong;
+    private String satelliteFps = "0";
+    private boolean satelliteMusic;
+    private String lyricText = "";
+    private String previousLyric = "";
+    private long lyricSongId = -1L;
+    private long lyricTime = -1L;
+    private float lyricProgress = 1f;
+    private LiquidSeparation.Geometry geometry;
+    private GeometryKey geometryKey;
 
-    public static DynamicIslandRenderer getInstance() {
-        return INSTANCE;
-    }
-
-    public float getEditWidth() {
-        return getBaseEditWidth() * getScale();
-    }
-
-    public float getEditHeight() {
-        return getBaseEditHeight() * getScale();
-    }
-
-    public float getDefaultY() {
-        return TOP;
-    }
+    public static DynamicIslandRenderer getInstance() { return INSTANCE; }
+    public float getEditWidth() { return renderedWidth * getScale(); }
+    public float getEditHeight() { return animatedHeight * getScale(); }
+    public float getDefaultY() { return TOP; }
 
     public float getRenderX(int screenW) {
-        float w = getEditWidth();
-        return clamp((screenW - w) * 0.5f + Config.dynamicIslandX, 0f, Math.max(0f, screenW - w));
+        return clamp((screenW - getEditWidth()) * 0.5f + Config.dynamicIslandX, 0f, Math.max(0f, screenW - getEditWidth()));
     }
 
     public float getRenderY(int screenH) {
-        float h = getEditHeight();
-        return clamp(getDefaultY() + Config.dynamicIslandY, 0f, Math.max(0f, screenH - h));
+        return clamp(TOP + Config.dynamicIslandY, 0f, Math.max(0f, screenH - getEditHeight()));
     }
 
-    public void requestTabListFrame() {
-        lastTabRequestTime = System.currentTimeMillis();
-    }
+    public void requestTabListFrame() { lastTabRequestTime = System.currentTimeMillis(); }
 
     public void renderSkija(Canvas canvas) {
-        if (!Config.dynamicIsland) {
-            resetAnimation();
-            return;
-        }
-
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || client.options.hideGui || client.getWindow() == null) {
-            resetAnimation();
+        if (!Config.dynamicIsland || client.player == null || client.level == null || client.options.hideGui) {
+            close();
             return;
         }
         if (client.screen instanceof AbstractContainerScreen<?>) {
+            lastFrameNs = 0L;
             return;
         }
-
-        IslandContent content = buildContent(client);
-        boolean tabOpen = isTabOpen();
-        List<PlayerInfo> tabPlayers = tabOpen ? getTabPlayers(client) : List.of();
-        BlockCountDisplayRenderer.Snapshot blockSnapshot = Config.dynamicIslandBlockCount
-        ? BlockCountDisplayRenderer.getInstance().snapshot(client)
-        : BlockCountDisplayRenderer.Snapshot.EMPTY;
-        ItemUseStatusRenderer.Snapshot itemUseSnapshot = Config.dynamicIslandItemUseStatus
-        ? ItemUseStatusRenderer.getInstance().snapshot(client)
-        : ItemUseStatusRenderer.Snapshot.EMPTY;
-        DynamicIslandNotificationCard notificationCard = DynamicIslandNotifications.snapshot();
-        LowHealthHandler.Snapshot alertSnapshot = LowHealthHandler.snapshot();
-        boolean notificationOpen = !tabOpen && notificationCard.visible();
-        boolean alertOpen = !tabOpen && !notificationOpen && alertSnapshot.visible();
-        boolean itemUseOpen = !tabOpen && !notificationOpen && !alertOpen && itemUseSnapshot.visible();
-        boolean blockOpen = !tabOpen && !notificationOpen && !alertOpen && !itemUseOpen && blockSnapshot.visible();
-        DynamicIslandLyrics.LyricsCard lyricsCard = Config.dynamicIslandLyrics && !tabOpen && !notificationOpen && !alertOpen
-        ? DynamicIslandLyrics.snapshot()
-        : DynamicIslandLyrics.HIDDEN;
-        boolean lyricsOpen = !blockOpen && lyricsCard.visible();
-        lyricsFade += ((lyricsOpen ? 1f : 0f) - lyricsFade) * 0.15f;
-        if (lyricsFade < 0.001f) lyricsFade = 0f;
-        if (lyricsOpen && !lyricsCard.text().isEmpty()) {
-            if (!lyricsCard.text().equals(lastLyricsText) || !lastLyricsOpen) {
-                lyricsExpandStartTime = System.currentTimeMillis();
-                lastLyricsDurationMs = lyricsCard.durationMs();
-            }
-            lastLyricsText = lyricsCard.text();
-        } else if (lyricsOpen) {
-            lastLyricsText = "";
+        long nowNs = System.nanoTime();
+        long nowMs = System.currentTimeMillis();
+        float dt = lastFrameNs == 0L ? 1f / 60f : clamp((nowNs - lastFrameNs) / 1_000_000_000f, 0f, 0.05f);
+        lastFrameNs = nowNs;
+        DynamicIslandLyrics.LyricsCard lyrics = Config.dynamicIslandLyrics ? DynamicIslandLyrics.snapshot() : DynamicIslandLyrics.HIDDEN;
+        DisplayFrame desired = snapshot(client, lyrics);
+        boolean musicActive = lyrics.visible() && desired.song != null;
+        boolean musicOnLeft = desired.content.split && musicActive;
+        boolean detached = desired.content.split || musicActive && (desired.kind != Kind.MUSIC || Config.dynamicIslandMusicMode == Config.DynamicIslandMusicMode.MINIMIZED);
+        separation = snap(easeTo(separation, detached ? 1f : 0f, SIZE_EASE_SPEED, dt));
+        satelliteVisibility = snap(easeTo(satelliteVisibility, detached ? 1f : 0f, 18f, dt));
+        leftSeparation = snap(easeTo(leftSeparation, musicOnLeft ? 1f : 0f, SIZE_EASE_SPEED, dt));
+        leftSatelliteVisibility = snap(easeTo(leftSatelliteVisibility, musicOnLeft ? 1f : 0f, 18f, dt));
+        if (musicOnLeft) leftSatelliteSong = desired.song;
+        if (detached) {
+            satelliteMusic = musicActive && !musicOnLeft;
+            satelliteSong = desired.song;
+            satelliteFps = desired.content.fps;
         }
-        lastLyricsOpen = lyricsOpen;
-        boolean lyricsShowing = lyricsFade > 0.01f && !lastLyricsText.isEmpty();
-        IslandLayout targetLayout = tabOpen ? measureTabLayout(client, tabPlayers) : notificationOpen ? measureNotificationLayout(client, notificationCard) : alertOpen ? measureAlertLayout(client, alertSnapshot) : itemUseOpen ? measureItemUseLayout(client, itemUseSnapshot) : blockOpen ? measureBlockLayout(client, blockSnapshot) : lyricsShowing ? measureLyricsLayout(client, lastLyricsText) : measureLayout(client, content);
-        IslandLayout layout = updateAnimatedLayout(targetLayout);
-        float islandScale = getScale();
-        float x = getRenderX(client.getWindow().getGuiScaledWidth());
+        updatePresentation(desired, dt, nowMs);
+        updateLyrics(lyrics, dt);
+        updateMusicLevels(dt, nowMs);
+        float scale = getScale();
+        float radius = Math.min(animatedHeight * 0.5f, 20f);
+        float leftExtension = satelliteExtension(animatedHeight, radius, leftSeparation);
+        float extension = leftExtension + satelliteExtension(animatedHeight, radius, separation);
+        animatedWidth = Math.min(animatedWidth, availableWidth(client, extension));
+        renderedWidth = animatedWidth + extension;
+        float x = getRenderX(client.getWindow().getGuiScaledWidth()) + leftExtension * scale;
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
-
-        boolean blurred;
-        if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
-            blurred = LiquidGlassRenderer.getInstance().renderPanel(client, x, y,
-            layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale,
-            LiquidGlassRenderer.panelTint(), Config.liquidGlassShadow, Config.liquidGlassHighlight, 0f, 1);
-        } else {
-            SkijaRenderer.draw(blurCanvas -> {
-                SkijaRenderer.drawBlurredBackdrop(blurCanvas, RRect.makeXYWH(x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale), x, y, layout.width * islandScale, layout.height * islandScale, Math.max(0f, Math.min(2f, blurStrength())) * 10.5f);
-                SkijaUi.rounded(blurCanvas, x, y, layout.width * islandScale, layout.height * islandScale, layout.radius * islandScale, blurTint());
-            });
-            blurred = true;
+        GeometryKey next = new GeometryKey(x, y, animatedWidth * scale, animatedHeight * scale, radius * scale, leftSeparation, separation, scale);
+        if (!next.equals(geometryKey)) {
+            if (geometry != null) geometry.close();
+            geometry = LiquidSeparation.create(x, y, next.width, next.height, next.radius,
+                    SATELLITE_RADIUS * scale, SATELLITE_GAP * scale, leftSeparation, separation, true);
+            geometryKey = next;
         }
-        renderContentDirect(client, content, tabPlayers, blockSnapshot, itemUseSnapshot, alertSnapshot, notificationCard, layout, tabOpen, blockOpen, itemUseOpen, alertOpen, notificationOpen, x, y, islandScale, blurred);
+        Rect bounds = geometry.bounds();
+        if (Config.dynamicIslandShadow) SoftShadow.drawPath(canvas, geometry.path(), Config.dynamicIslandShadowStrength, 0xA0000000);
+        if (Config.dynamicIslandBackground != Config.DynamicIslandBackground.SOLID) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
+        }
+        SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
+        int save = canvas.save();
+        try {
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
+            int clip = canvas.save();
+            try {
+                canvas.clipRRect(RRect.makeXYWH(0f, 0f, animatedWidth, animatedHeight, radius), true);
+                ContentTransition.draw(canvas, Rect.makeXYWH(0f, 0f, animatedWidth, animatedHeight), visibility, 0f,
+                        () -> drawContent(canvas, displayed, new IslandLayout(animatedWidth, animatedHeight, radius, displayed.kind == Kind.TAB), nowMs));
+            } finally { canvas.restoreToCount(clip); }
+            if (leftSatelliteVisibility > 0.001f && leftSeparation > 0.08f && leftSatelliteSong != null) {
+                float sx = (geometry.leftSatelliteCenterX() - x) / scale;
+                float sy = (geometry.leftSatelliteCenterY() - y) / scale;
+                float r = geometry.leftSatelliteRadius() / scale;
+                float outside = clamp((r - sx) / Math.max(1f, r * 2f), 0f, 1f);
+                drawMusicLogo(canvas, leftSatelliteSong, sx - 10f, sy - 10f, 20f,
+                        leftSatelliteVisibility * outside, true);
+            }
+            if (satelliteVisibility > 0.001f && separation > 0.08f) {
+                float sx = (geometry.satelliteCenterX() - x) / scale;
+                float sy = (geometry.satelliteCenterY() - y) / scale;
+                float r = geometry.satelliteRadius() / scale;
+                float outside = clamp((sx - animatedWidth + r) / Math.max(1f, r * 2f), 0f, 1f);
+                float alpha = satelliteVisibility * outside;
+                if (satelliteMusic) {
+                    drawMusicLogo(canvas, satelliteSong, sx - 10f, sy - 10f, 20f, alpha, true);
+                } else {
+                    float numberWidth = r * 2f - 6f;
+                    float valueWidth = textCache.width(satelliteFps, 10f);
+                    float numberScale = Math.min(1f, Math.max(0f, numberWidth) / Math.max(0.01f, valueWidth));
+                    int numberSave = canvas.save();
+                    try {
+                        canvas.translate(sx, sy - 4f);
+                        canvas.scale(numberScale, numberScale);
+                        textCache.draw(canvas, satelliteFps, -valueWidth * 0.5f, 0f, 10f,
+                                withAlpha(primaryColor(), Math.round(alpha * 255f)), valueWidth, 0f);
+                    } finally {
+                        canvas.restoreToCount(numberSave);
+                    }
+                    textCache.draw(canvas, "FPS", sx - r + 3f, sy + 8f, 6.5f,
+                            withAlpha(secondaryColor(), Math.round(alpha * 170f)), r * 2f - 6f, 0.5f);
+                }
+            }
+        } finally { canvas.restoreToCount(save); }
     }
 
-    private boolean isTabOpen() {
-        Minecraft client = Minecraft.getInstance();
-        boolean keyDown = client.options != null && client.options.keyPlayerList.isDown();
-        return keyDown || System.currentTimeMillis() - lastTabRequestTime <= TAB_REQUEST_TTL_MS;
+    private DisplayFrame snapshot(Minecraft client, DynamicIslandLyrics.LyricsCard lyrics) {
+        IslandContent content = buildContent(client);
+        boolean tab = client.options.keyPlayerList.isDown() || System.currentTimeMillis() - lastTabRequestTime <= TAB_REQUEST_TTL_MS;
+        List<PlayerInfo> players = tab ? getTabPlayers(client) : List.of();
+        DynamicIslandNotificationCard notification = DynamicIslandNotifications.snapshot();
+        LowHealthHandler.Snapshot alert = LowHealthHandler.snapshot();
+        ItemUseStatusRenderer.Snapshot item = Config.dynamicIslandItemUseStatus ? ItemUseStatusRenderer.getInstance().snapshot(client) : ItemUseStatusRenderer.Snapshot.EMPTY;
+        BlockCountDisplayRenderer.Snapshot block = Config.dynamicIslandBlockCount ? BlockCountDisplayRenderer.getInstance().snapshot(client) : BlockCountDisplayRenderer.Snapshot.EMPTY;
+        Kind kind = tab ? Kind.TAB : notification.visible() ? Kind.NOTIFICATION : alert.visible() ? Kind.ALERT : item.visible() ? Kind.ITEM : block.visible() ? Kind.BLOCK
+                : lyrics.visible() && Config.dynamicIslandMusicMode == Config.DynamicIslandMusicMode.LYRICS ? Kind.MUSIC : Kind.IDLE;
+        String key = switch (kind) {
+            case NOTIFICATION -> kind + ":" + notification.createdAtMs();
+            case ALERT -> kind + ":" + alert.createdAtMs();
+            case IDLE -> kind + ":" + content.doubleRow;
+            default -> kind.name();
+        };
+        return new DisplayFrame(kind, key + ":" + content.split, content, players, block, item, alert, notification, lyrics, MusicPlaybackService.INSTANCE.currentSong());
     }
 
-    private IslandLayout updateAnimatedLayout(IslandLayout target) {
-        long now = System.currentTimeMillis();
-        if (animatedWidth < 0f || animatedHeight < 0f || lastAnimationTime == 0L) {
-            animatedWidth = target.width;
-            animatedHeight = target.height;
-            lastAnimationTime = now;
-            return target;
+    private void updatePresentation(DisplayFrame desired, float dt, long nowMs) {
+        if (displayed == null) {
+            displayed = desired;
+            IslandLayout first = measureLayout(desired);
+            animatedWidth = first.width;
+            animatedHeight = first.height;
+            visibility = 1f;
+            phase = Phase.STEADY;
+            contentShownMs = nowMs;
+            return;
         }
-
-        float dt = Math.min((now - lastAnimationTime) / 1000f, 0.05f);
-        lastAnimationTime = now;
+        boolean changed = !displayed.key.equals(desired.key);
+        if (changed && phase != Phase.EXIT) phase = Phase.EXIT;
+        if (!changed) {
+            displayed = desired;
+            if (phase == Phase.EXIT) phase = Phase.ENTER;
+        }
+        if (phase == Phase.EXIT) {
+            visibility = easeTo(visibility, 0f, 24f, dt);
+            if (visibility < 0.025f) {
+                visibility = 0f;
+                displayed = desired;
+                phase = Phase.RESIZE;
+                resizeStartedMs = nowMs;
+            }
+        }
+        IslandLayout target = measureLayout(displayed);
         animatedWidth = easeTo(animatedWidth, target.width, SIZE_EASE_SPEED, dt);
         animatedHeight = easeTo(animatedHeight, target.height, SIZE_EASE_SPEED, dt);
-        boolean reachedTarget = Math.abs(animatedWidth - target.width) < 1.25f && Math.abs(animatedHeight - target.height) < 1.25f;
-        if (reachedTarget) {
+        boolean settled = Math.abs(animatedWidth - target.width) < 0.65f && Math.abs(animatedHeight - target.height) < 0.35f;
+        if (settled) {
             animatedWidth = target.width;
             animatedHeight = target.height;
+            if (phase == Phase.RESIZE) { phase = Phase.ENTER; contentShownMs = nowMs; }
         }
-        tabContentFade = easeTo(tabContentFade, target.isTab && reachedTarget ? 1f : 0f, TAB_FADE_EASE_SPEED, dt);
-        if (tabContentFade > 0.985f) {
-            tabContentFade = 1f;
-        } else if (tabContentFade < 0.015f) {
-            tabContentFade = 0f;
+        if (phase == Phase.RESIZE && nowMs - resizeStartedMs >= 420L) {
+            phase = Phase.ENTER;
+            contentShownMs = nowMs;
         }
-        return new IslandLayout(animatedWidth, animatedHeight, Math.min(animatedHeight * 0.5f, target.isTab ? 18f : 16f), target.isTab);
+        if (phase == Phase.ENTER) {
+            visibility = easeTo(visibility, 1f, 18f, dt);
+            if (visibility > 0.99f) { visibility = 1f; phase = Phase.STEADY; }
+        }
     }
 
-    private float easeTo(float current, float target, float speed, float dt) {
-        float alpha = 1f - (float) Math.exp(-speed * dt);
-        return current + (target - current) * alpha;
+    private IslandLayout measureLayout(DisplayFrame frame) {
+        Minecraft client = Minecraft.getInstance();
+        float width;
+        float height;
+        switch (frame.kind) {
+            case MUSIC -> { width = Math.min(390f, Math.max(MUSIC_MIN_WIDTH, textCache.width(frame.lyrics.text(), TEXT_SIZE) + (frame.content.split ? 67f : 92f))); height = MUSIC_HEIGHT; }
+            case IDLE -> {
+                float brand = iconTextWidth(frame.content.brand, TEXT_SIZE);
+                float server = textCache.width(frame.content.location, 10f);
+                float fps = fpsSlotWidth(frame.content.fps);
+                if (frame.content.doubleRow) {
+                    float user = iconTextWidth(frame.content.username, 10f);
+                    float bottom = user + IDLE_ICON_SIZE + IDLE_ICON_GAP + server + 24f;
+                    width = Math.max(264f, IDLE_PADDING * 2f + Math.max(brand + fps + 24f, bottom));
+                } else {
+                    width = Math.max(frame.content.split ? 210f : MIN_WIDTH,
+                            IDLE_PADDING * 2f + brand + 24f + server + (frame.content.split ? 0f : fps + 16f));
+                }
+                height = frame.content.doubleRow ? 64f : HEIGHT;
+            }
+            case TAB -> {
+                int count = Math.max(1, frame.players.size());
+                int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
+                int rows = Math.max(1, (count + columns - 1) / columns);
+                width = Math.max(320f, TAB_SIDE_PADDING * 2f + columns * 170f + (columns - 1) * TAB_COLUMN_GAP);
+                height = TAB_TOP_PADDING + TAB_BOTTOM_PADDING + rows * TAB_ROW_HEIGHT;
+            }
+            default -> {
+                width = Math.min(410f, Math.max(230f, 65f + Math.max(textCache.width(title(frame), 12f), textCache.width(detail(frame), 10f))));
+                height = frame.kind == Kind.ITEM || frame.kind == Kind.BLOCK ? 59f : 54f;
+            }
+        }
+        float radius = Math.min(height * 0.5f, 20f);
+        float maxWidth = availableWidth(client, satelliteExtension(height, radius, leftSeparation)
+                + satelliteExtension(height, radius, separation));
+        float maxHeight = Math.max(HEIGHT, (client.getWindow().getGuiScaledHeight() - 20f) / getScale());
+        return new IslandLayout(Math.max(1f, Math.min(width, maxWidth)), Math.min(height, maxHeight), Math.min(height * 0.5f, 20f), frame.kind == Kind.TAB);
+    }
+
+    private float availableWidth(Minecraft client, float extension) {
+        return Math.max(1f, Math.max(1f, client.getWindow().getGuiScaledWidth() - 20f) / getScale() - extension);
+    }
+
+    private float satelliteExtension(float height, float radius, float progress) {
+        float r = Math.min(SATELLITE_RADIUS, height * 0.5f);
+        float center = -Math.max(radius, r) + (Math.max(radius, r) + SATELLITE_GAP + r) * progress;
+        float growth = clamp(progress / 0.4f, 0f, 1f);
+        float circle = r * (0.72f + 0.28f * growth * growth * (3f - 2f * growth));
+        return progress <= 0f ? 0f : Math.max(0f, center + circle);
     }
 
     private IslandContent buildContent(Minecraft client) {
-        String username = getAccountDisplayName(client);
-        String location = getLocationText(client);
-        String fps = String.valueOf(client.getFps());
-        String brand = Config.clientName == null || Config.clientName.isBlank() ? "PVPUtils" : Config.clientName;
-        return new IslandContent(brand, username, location, fps);
-    }
-
-    private String getAccountDisplayName(Minecraft client) {
-        if (Config.nickHider && Config.nickHiderTab && Config.nickHiderNickname != null && !Config.nickHiderNickname.isBlank()) {
-            return Config.nickHiderNickname;
-        }
-        if (client.getUser() != null && client.getUser().getName() != null && !client.getUser().getName().isBlank()) {
-            return client.getUser().getName();
-        }
-        return client.player != null ? client.player.getScoreboardName() : "Unknown";
-    }
-
-    private String getLocationText(Minecraft client) {
+        String username = Config.nickHider && Config.nickHiderTab && Config.nickHiderNickname != null && !Config.nickHiderNickname.isBlank() ? Config.nickHiderNickname : client.getUser().getName();
         ServerData server = client.getCurrentServer();
-        if (server != null && server.ip != null && !server.ip.isBlank()) {
-            return server.ip;
+        String location = server != null && server.ip != null && !server.ip.isBlank() ? server.ip : UiText.t("单人游戏", "Singleplayer");
+        String brand = Config.clientName == null || Config.clientName.isBlank() ? "PVPUtils" : Config.clientName;
+        boolean split = Config.dynamicIslandShape == Config.DynamicIslandShape.SPLIT;
+        return new IslandContent(brand, username, location, String.valueOf(client.getFps()), Config.dynamicIslandDoubleRow && !split, split);
+    }
+
+    private void drawContent(Canvas canvas, DisplayFrame frame, IslandLayout layout, long nowMs) {
+        switch (frame.kind) {
+            case IDLE -> drawIdle(canvas, frame.content, layout);
+            case MUSIC -> drawMusic(canvas, frame.song, layout, frame.content.split);
+            case TAB -> drawTabContent(canvas, frame.players, layout, 1f);
+            default -> drawStatus(canvas, frame, layout, nowMs);
         }
-        return "Singleplayer";
     }
 
-    private IslandLayout measureLayout(Minecraft client, IslandContent content) {
-        float textW = measure(content.brand)
-        + measureIconSegment(content.username)
-        + measureIconSegment(content.location)
-        + measureIconSegment("FPS:" + content.fps)
-        + measure("|") * 3f
-        + SEPARATOR_GAP * 6f;
-        float maxW = Math.max(120f, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(MIN_WIDTH, textW + PADDING_X * 2f), MIN_WIDTH, maxW);
-        return new IslandLayout(width, HEIGHT, Math.min(HEIGHT * 0.5f, 16f), false);
-    }
-
-    private IslandLayout measureBlockLayout(Minecraft client, BlockCountDisplayRenderer.Snapshot snapshot) {
-        String title = snapshot.itemName();
-        String detail = blockDetail(snapshot);
-        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(title, 13.5f), measureBlockText(detail, 11f)) + BLOCK_RIGHT_PADDING;
-        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
-        return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
-    }
-
-    private IslandLayout measureItemUseLayout(Minecraft client, ItemUseStatusRenderer.Snapshot snapshot) {
-        String title = itemUseTitle(snapshot);
-        String detail = itemUseDetail(snapshot);
-        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(title, 13.5f), measureBlockText(detail, 11f)) + BLOCK_RIGHT_PADDING;
-        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
-        return new IslandLayout(width, BLOCK_HEIGHT, 14f, false);
-    }
-
-    private IslandLayout measureAlertLayout(Minecraft client, LowHealthHandler.Snapshot snapshot) {
-        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(snapshot.title(), 13.5f), measureBlockText(snapshot.message(), 11f)) + BLOCK_RIGHT_PADDING;
-        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
-        return new IslandLayout(width, ALERT_HEIGHT, 14f, false);
-    }
-
-    private IslandLayout measureNotificationLayout(Minecraft client, DynamicIslandNotificationCard card) {
-        float contentW = BLOCK_TEXT_X + Math.max(measureBlockText(card.title(), 13.5f), measureBlockText(card.message(), 11f)) + BLOCK_RIGHT_PADDING;
-        float maxW = Math.max(BLOCK_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(BLOCK_MIN_WIDTH, contentW), BLOCK_MIN_WIDTH, maxW);
-        return new IslandLayout(width, ALERT_HEIGHT, 14f, false);
-    }
-
-    private IslandLayout measureLyricsLayout(Minecraft client, String text) {
-        Song song = MusicPlaybackService.INSTANCE.currentSong();
-        if (song == null) return new IslandLayout(BLOCK_MIN_WIDTH, BLOCK_HEIGHT, 14f, false);
-
-        float textStartX = BLOCK_ICON_X;
-        float lyricsW = (text != null && !text.isEmpty()) ? measureBlockText(text, 13f) : 0f;
-        float songInfoW = 0f;
-        String songName = song.name();
-        String artist = song.displayArtist();
-        String combined = "";
-        if (songName != null && !songName.isBlank()) {
-            combined = songName;
+    private void drawIdle(Canvas canvas, IslandContent content, IslandLayout layout) {
+        float left = IDLE_PADDING;
+        float right = Math.max(left, layout.width - IDLE_PADDING);
+        float innerWidth = right - left;
+        float centerY = content.doubleRow ? 20f : layout.height * 0.5f;
+        float fpsWidth = content.split ? 0f : fpsSlotWidth(content.fps);
+        int brandColor = primaryColor() == 0xFF20242D ? 0xFF497FA4 : 0xFF9DCCEA;
+        if (!content.split) drawFps(canvas, content.fps, right, centerY, innerWidth);
+        if (content.doubleRow) {
+            drawIconLabel(canvas, ICON_SWORDS, content.brand, left, centerY, TEXT_SIZE,
+                    primaryColor(), brandColor, Math.max(0f, innerWidth - fpsWidth - 24f));
+            float usable = Math.max(0f, innerWidth - 24f);
+            float serverWidth = iconTextWidth(content.location, 10f);
+            float userWidth = Math.min(iconTextWidth(content.username, 10f),
+                    Math.max(0f, usable - Math.min(serverWidth, usable * 0.55f)));
+            float serverBudget = Math.min(serverWidth, Math.max(0f, usable - userWidth));
+            drawIconLabel(canvas, ICON_PERSON, content.username, left, 45f, 10f,
+                    secondaryColor(), secondaryColor(), userWidth);
+            drawIconLabel(canvas, ICON_GLOBE, content.location, right - serverBudget, 45f, 10f,
+                    secondaryColor(), secondaryColor(), serverBudget);
+            return;
         }
-        if (artist != null && !artist.isBlank()) {
-            combined = combined.isEmpty() ? artist : combined + " - " + artist;
+        float serverRight = content.split ? right : right - fpsWidth - 16f;
+        float pairWidth = Math.max(0f, serverRight - left - 24f);
+        float serverWidth = textCache.width(content.location, 10f);
+        float brandWidth = Math.min(iconTextWidth(content.brand, TEXT_SIZE), pairWidth);
+        float serverBudget = Math.min(serverWidth, Math.max(0f, pairWidth - brandWidth));
+        drawIconLabel(canvas, ICON_SWORDS, content.brand, left, centerY, TEXT_SIZE,
+                primaryColor(), brandColor, brandWidth);
+        textCache.draw(canvas, content.location, serverRight - serverBudget, centerY, 10f,
+                secondaryColor(), serverBudget, 1f);
+    }
+
+    private float iconTextWidth(String text, float size) {
+        return IDLE_ICON_SIZE + IDLE_ICON_GAP + textCache.width(text, size);
+    }
+
+    private void drawIconLabel(Canvas canvas, String icon, String text, float x, float centerY, float size,
+                               int color, int iconColor, float width) {
+        if (width < IDLE_ICON_SIZE + IDLE_ICON_GAP) return;
+        float glyphWidth = SkijaUi.iconWidth(icon, IDLE_ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        SkijaUi.icon(canvas, icon, x + (IDLE_ICON_SIZE - glyphWidth) * 0.5f, centerY - IDLE_ICON_SIZE * 0.5f,
+                IDLE_ICON_SIZE, iconColor, IDLE_ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        textCache.draw(canvas, text, x + IDLE_ICON_SIZE + IDLE_ICON_GAP, centerY, size,
+                color, width - IDLE_ICON_SIZE - IDLE_ICON_GAP, 0f);
+    }
+
+    private float fpsSlotWidth(String fps) {
+        return Math.max(textCache.width("88888", FPS_SIZE), textCache.width(fps, FPS_SIZE))
+                + 4f + textCache.width("FPS", FPS_UNIT_SIZE);
+    }
+
+    private void drawFps(Canvas canvas, String fps, float right, float centerY, float availableWidth) {
+        if (availableWidth <= 0f) return;
+        float valueWidth = textCache.width(fps, FPS_SIZE);
+        float unitWidth = textCache.width("FPS", FPS_UNIT_SIZE);
+        float width = valueWidth + 4f + unitWidth;
+        float scale = Math.min(1f, availableWidth / width);
+        int save = canvas.save();
+        try {
+            canvas.translate(right - width * scale, centerY);
+            canvas.scale(scale, scale);
+            textCache.draw(canvas, fps, 0f, 0f, FPS_SIZE, primaryColor(), valueWidth, 0f);
+            textCache.draw(canvas, "FPS", valueWidth + 4f, 1f, FPS_UNIT_SIZE, secondaryColor(), unitWidth, 0f);
+        } finally {
+            canvas.restoreToCount(save);
         }
-        if (!combined.isEmpty()) {
-            songInfoW = measureBlockText(combined, 10f);
+    }
+
+    private void updateLyrics(DynamicIslandLyrics.LyricsCard lyrics, float dt) {
+        if (lyrics.visible() && (lyrics.songId() != lyricSongId || lyrics.lineTimeMs() != lyricTime || !lyrics.text().equals(lyricText))) {
+            previousLyric = lyricText;
+            lyricText = lyrics.text();
+            lyricSongId = lyrics.songId();
+            lyricTime = lyrics.lineTimeMs();
+            lyricProgress = previousLyric.isEmpty() || displayed.kind != Kind.MUSIC ? 1f : 0f;
         }
-        float contentW = textStartX + Math.max(lyricsW, songInfoW) + BLOCK_RIGHT_PADDING;
-        float maxW = client.getWindow().getGuiScaledWidth() - MAX_WIDTH_MARGIN * 2f;
-        float width = clamp(contentW, 100f, maxW);
-
-        boolean hasSongInfo = (songName != null && !songName.isBlank()) || (artist != null && !artist.isBlank());
-        float height = hasSongInfo ? 50f : 36f;
-        float maxH = Math.max(HEIGHT, client.getWindow().getGuiScaledHeight() - TOP * 2f);
-        return new IslandLayout(width, clamp(height, 50f, maxH), 14f, false);
+        lyricProgress = snap(easeTo(lyricProgress, 1f, SIZE_EASE_SPEED, dt));
+        if (lyricProgress >= 1f) previousLyric = "";
     }
 
-    private IslandLayout measureTabLayout(Minecraft client, List<PlayerInfo> players) {
-        int count = Math.max(1, players.size());
-        int columns = Math.max(1, (count + TAB_MAX_ROWS - 1) / TAB_MAX_ROWS);
-        int rows = Math.max(1, (count + columns - 1) / columns);
-        float nameW = 120f;
-        for (PlayerInfo player : players) {
-            nameW = Math.max(nameW, measure(resolveTabName(player, TAB_DEFAULT_NAME_COLOR).getKey()));
+    private void updateMusicLevels(float dt, long nowMs) {
+        var levels = MusicPlaybackService.INSTANCE.visualizerSnapshot();
+        boolean fresh = MusicPlaybackService.INSTANCE.isPlaying() && nowMs - levels.timestampMs() < 350L;
+        for (int i = 0; i < musicLevels.length; i++) {
+            float target = fresh ? levels.level(i) : 0f;
+            musicLevels[i] = easeTo(musicLevels[i], target, target > musicLevels[i] ? 26f : 12f, dt);
         }
-        float columnW = clamp(nameW + 48f, 150f, 230f);
-        float rawWidth = TAB_SIDE_PADDING * 2f + columns * columnW + (columns - 1) * TAB_COLUMN_GAP;
-        float maxW = Math.max(TAB_MIN_WIDTH, client.getWindow().getGuiScaledWidth() - TAB_MAX_WIDTH_MARGIN * 2f);
-        float width = clamp(Math.max(TAB_MIN_WIDTH, rawWidth), TAB_MIN_WIDTH, maxW);
-        float height = TAB_TOP_PADDING + TAB_BOTTOM_PADDING + rows * TAB_ROW_HEIGHT;
-        float maxH = Math.max(HEIGHT, client.getWindow().getGuiScaledHeight() - TOP * 2f);
-        return new IslandLayout(width, clamp(height, 74f, maxH), 18f, true);
     }
 
-    private float measure(String text) {
-        return SkijaUi.textWidth(text, TEXT_SIZE);
-    }
-
-    private float measureBlockText(String text, float size) {
-        return SkijaUi.textWidth(text, size);
-    }
-
-    private void renderContentDirect(Minecraft client, IslandContent content, List<PlayerInfo> tabPlayers, BlockCountDisplayRenderer.Snapshot blockSnapshot, ItemUseStatusRenderer.Snapshot itemUseSnapshot, LowHealthHandler.Snapshot alertSnapshot, DynamicIslandNotificationCard notificationCard, IslandLayout layout, boolean tabOpen, boolean blockOpen, boolean itemUseOpen, boolean alertOpen, boolean notificationOpen, float x, float y, float islandScale, boolean blurred) {
-        SkijaRenderer.draw(canvas -> {
-            canvas.save();
-            canvas.translate(x, y);
-            canvas.scale(islandScale, islandScale);
-            if (!blurred) {
-                Paint fallback = new Paint().setAntiAlias(true);
-                fallback.setColor(Config.hudTheme == Config.HudTheme.LIGHT ? 0xE0F2F4F8 : 0xE0101420);
-                canvas.drawRRect(RRect.makeXYWH(0f, 0f, layout.width, layout.height, layout.radius), fallback);
+    private void drawMusic(Canvas canvas, Song song, IslandLayout layout, boolean split) {
+        if (!split) drawMusicLogo(canvas, song, 9f, (layout.height - 20f) * 0.5f, 20f, 1f, false);
+        float lyricX = split ? 14f : 39f;
+        float lyricW = Math.max(0f, layout.width - lyricX - 43f);
+        float centerY = layout.height * 0.5f;
+        Rect lyricBounds = Rect.makeXYWH(lyricX, 4f, lyricW, layout.height - 8f);
+        int save = canvas.save();
+        try {
+            canvas.clipRect(lyricBounds);
+            if (!previousLyric.isEmpty() && lyricProgress < 1f) {
+                ContentTransition.draw(canvas, lyricBounds, 1f - lyricProgress, -19f * lyricProgress,
+                        () -> textCache.draw(canvas, previousLyric, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0.5f));
             }
-            if (tabOpen || tabContentFade > 0f) {
-                drawTabContent(canvas, tabPlayers, layout, tabContentFade);
-            } else if (notificationOpen) {
-                drawNotificationContent(canvas, notificationCard, layout);
-            } else if (alertOpen) {
-                drawAlertContent(canvas, alertSnapshot, layout);
-            } else if (itemUseOpen) {
-                drawItemUseContent(canvas, itemUseSnapshot, layout);
-            } else if (blockOpen) {
-                drawBlockCountContent(canvas, blockSnapshot, layout);
-            } else if (lyricsFade > 0.01f && !lastLyricsText.isEmpty()) {
-                drawLyricsContent(canvas, lastLyricsText, layout, lyricsFade, lastLyricsDurationMs);
-            } else {
-                drawCenteredContent(canvas, content, layout);
-            }
-            canvas.restore();
-        });
-    }
-
-    private void drawLyricsContent(Canvas canvas, String text, IslandLayout layout, float fade, long durationMs) {
-        int alpha = Math.round(clamp(fade, 0f, 1f) * 255f);
-
-        Song song = MusicPlaybackService.INSTANCE.currentSong();
-        if (song == null) return;
-
-        float centerX = layout.width * 0.5f;
-
-        float infoY = 18f;
-        String songName = song.name();
-        String artist = song.displayArtist();
-        String combined = "";
-        if (songName != null && !songName.isBlank()) {
-            combined = songName;
-        }
-        if (artist != null && !artist.isBlank()) {
-            combined = combined.isEmpty() ? artist : combined + " - " + artist;
-        }
-        if (!combined.isEmpty()) {
-            float infoW = SkijaUi.textWidth(combined, 10f);
-            SkijaUi.text(canvas, combined, centerX - infoW * 0.5f, (infoY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xFFA0A4B0, alpha), 10f);
-            infoY += 14f;
-        }
-
-        if (text == null || text.isEmpty()) return;
-
-        float textSize = 13f;
-        float textY = infoY + 4f;
-
-        int charCount = text.length();
-        float totalTextW = SkijaUi.textWidth(text, textSize);
-        float textCenterX = centerX;
-
-        long now = System.currentTimeMillis();
-        float expandElapsed = now - lyricsExpandStartTime;
-        float expandDuration = Math.max(300f, (float) durationMs);
-        float expandProgress = clamp(expandElapsed / expandDuration, 0f, 1f);
-        expandProgress = easeOutCubic(expandProgress);
-
-        float staggerWindow = Math.max(1f, charCount * LYRICS_STAGGER_RATIO);
-
-        float cursorX = centerX - totalTextW * 0.5f;
-        for (int i = 0; i < charCount; i++) {
-            String ch = text.substring(i, i + 1);
-            float charW = SkijaUi.textWidth(ch, textSize);
-
-            float charProgress = clamp((expandProgress * (charCount + staggerWindow) - i) / staggerWindow, 0f, 1f);
-            charProgress = easeOutCubic(charProgress);
-
-            float finalX = cursorX;
-            float drawX = textCenterX + (finalX - textCenterX) * charProgress;
-            int charAlpha = Math.round(charProgress * alpha);
-            SkijaUi.text(canvas, ch, drawX, (textY) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(0xFFF2F4F8, charAlpha), textSize);
-            cursorX += charW;
+            ContentTransition.draw(canvas, lyricBounds, lyricProgress, 19f * (1f - lyricProgress),
+                    () -> textCache.draw(canvas, lyricText, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0.5f));
+        } finally { canvas.restoreToCount(save); }
+        float barsX = layout.width - 30f;
+        int barColor = musicAccentColor(song);
+        for (int i = 0; i < musicLevels.length; i++) {
+            float envelope = 1f - Math.abs(i - 3f) / 4f;
+            float height = 2.5f + envelope * 6.5f + musicLevels[i] * (5f + envelope * 4f);
+            SkijaUi.rounded(canvas, barsX + i * 3f, centerY - height * 0.5f, 1.8f, height, 0.9f, barColor);
         }
     }
 
-    private String tabKey(List<PlayerInfo> players, boolean tabOpen) {
-        if (!tabOpen) return "compact";
-        StringBuilder key = new StringBuilder("tab:")
-        .append(Config.nickHider)
-        .append('|')
-        .append(Config.nickHiderTab)
-        .append('|')
-        .append(Config.nickHiderNickname)
-        .append(':');
-        for (int i = 0; i < Math.min(players.size(), 80); i++) {
-            PlayerInfo player = players.get(i);
-            key.append(player.getProfile().id())
-            .append(':').append(getPlayerName(player))
-            .append('@').append(player.getLatency())
-            .append(';');
+    private int musicAccentColor(Song song) {
+        int fallback = primaryColor();
+        int color = NeteaseMusicCovers.accentColor(song == null ? null : song.image(), fallback);
+        int red = (color >>> 16) & 255;
+        int green = (color >>> 8) & 255;
+        int blue = color & 255;
+        float luminance = red * 0.2126f + green * 0.7152f + blue * 0.0722f;
+        boolean lightBackground = fallback == 0xFF20242D;
+        float target = lightBackground ? Math.min(luminance, 105f) : Math.max(luminance, 145f);
+        if (Math.abs(target - luminance) < 0.01f) return color;
+        float endpoint = lightBackground ? 0f : 255f;
+        float amount = (target - luminance) / (endpoint - luminance);
+        return 0xFF000000 | (Math.round(red + (endpoint - red) * amount) << 16)
+                | (Math.round(green + (endpoint - green) * amount) << 8)
+                | Math.round(blue + (endpoint - blue) * amount);
+    }
+
+    private void drawMusicLogo(Canvas canvas, Song song, float x, float y, float size, float alpha, boolean circle) {
+        if (alpha <= 0f) return;
+        Image cover = song == null ? null : NeteaseMusicCovers.skiaImage(song.image());
+        if (cover == null) {
+            float glyphWidth = SkijaUi.iconWidth(ICON_MUSIC, size * 0.8f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, ICON_MUSIC, x + (size - glyphWidth) * 0.5f, y, size, withAlpha(primaryColor(), Math.round(alpha * 255f)), size * 0.8f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            return;
         }
-        return key.toString();
+        int save = canvas.save();
+        try (Paint paint = new Paint().setAntiAlias(true).setAlpha(Math.round(alpha * 255f))) {
+            canvas.clipRRect(RRect.makeXYWH(x, y, size, size, circle ? size * 0.5f : 6f), true);
+            float crop = Math.min(cover.getWidth(), cover.getHeight());
+            Rect source = Rect.makeXYWH((cover.getWidth() - crop) * 0.5f, (cover.getHeight() - crop) * 0.5f, crop, crop);
+            canvas.drawImageRect(cover, source, Rect.makeXYWH(x, y, size, size), SamplingMode.LINEAR, paint, true);
+        } finally { canvas.restoreToCount(save); }
     }
 
-    private String blockKey(BlockCountDisplayRenderer.Snapshot snapshot, boolean blockOpen) {
-        if (!blockOpen || !snapshot.visible()) return "block:none";
-        return "block:" + snapshot.itemName() + "|" + snapshot.blocksLeft() + "|" + snapshot.blocksPerSecond() + "|" + Math.round(snapshot.progress() * 160f) + "|" + Math.round(snapshot.alpha() * 255f);
-    }
-
-    private String itemUseKey(ItemUseStatusRenderer.Snapshot snapshot, boolean itemUseOpen) {
-        if (!itemUseOpen || !snapshot.visible()) return "itemuse:none";
-        return "itemuse:" + snapshot.itemName() + "|" + Math.round(snapshot.progress() * 220f) + "|" + Math.round(snapshot.alpha() * 255f);
-    }
-
-    private String alertKey(LowHealthHandler.Snapshot snapshot, boolean alertOpen) {
-        if (!alertOpen || !snapshot.visible()) return "alert:none";
-        return "alert:" + snapshot.stage() + "|" + snapshot.icon() + "|" + snapshot.title() + "|" + snapshot.message() + "|" + timedIconAnimationFrame(snapshot.createdAtMs());
-    }
-
-    private String notificationKey(DynamicIslandNotificationCard card, boolean notificationOpen) {
-        if (!notificationOpen || !card.visible()) return "notification:none";
-        return "notification:" + card.icon() + "|" + card.title() + "|" + card.message() + "|" + card.accentColor() + "|" + timedIconAnimationFrame(card.createdAtMs());
-    }
-
-    private String blockDetail(BlockCountDisplayRenderer.Snapshot snapshot) {
-        return snapshot.blocksLeft() + " blocks left - " + String.format(Locale.ROOT, "%.2f block/s", snapshot.blocksPerSecond());
-    }
-
-    private String itemUseTitle(ItemUseStatusRenderer.Snapshot snapshot) {
-        return "Using " + snapshot.itemName();
-    }
-
-    private String itemUseDetail(ItemUseStatusRenderer.Snapshot snapshot) {
-        return Math.round(clamp(snapshot.progress(), 0f, 1f) * 100f) + "%";
-    }
-
-    private void drawCenteredContent(Canvas canvas, IslandContent content, IslandLayout layout) {
-        float fullW = measure(content.brand)
-        + measureIconSegment(content.username)
-        + measureIconSegment(content.location)
-        + measureIconSegment("FPS:" + content.fps)
-        + measure("|") * 3f
-        + SEPARATOR_GAP * 6f;
-        float x = (layout.width - fullW) * 0.5f;
-        float y = 19.5f;
-        x = drawSegment(canvas, content.brand, x, y);
-        x = drawSeparator(canvas, x, y);
-        x = drawIconSegment(canvas, ICON_PERSON, content.username, x, y);
-        x = drawSeparator(canvas, x, y);
-        x = drawIconSegment(canvas, ICON_LINK, content.location, x, y);
-        x = drawSeparator(canvas, x, y);
-        drawIconSegment(canvas, ICON_COMPUTER, "FPS:" + content.fps, x, y);
-    }
-
-    private float drawSegment(Canvas canvas, String text, float x, float y) {
-        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), compactTextColor(), TEXT_SIZE);
-        return x + measure(text);
-    }
-
-    private float drawIconSegment(Canvas canvas, String icon, String text, float x, float y) {
-        SkijaUi.icon(canvas, icon, x, (y + ICON_Y_OFFSET) + SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), compactTextColor(), ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        x += measureIcon() + ICON_GAP;
-        SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), compactTextColor(), TEXT_SIZE);
-        return x + measure(text);
-    }
-
-    private float measureIconSegment(String text) {
-        return measureIcon() + ICON_GAP + measure(text);
-    }
-
-    private float measureIcon() {
-        return SkijaUi.iconWidth(ICON_PERSON, ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-    }
-
-    private float drawSeparator(Canvas canvas, float x, float y) {
-        x += SEPARATOR_GAP;
-        SkijaUi.text(canvas, "|", x, (y) + SkijaUi.textMetrics(TEXT_SIZE).getAscent(), SkijaUi.textMetrics(TEXT_SIZE).getDescent() - SkijaUi.textMetrics(TEXT_SIZE).getAscent(), separatorColor(), TEXT_SIZE);
-        return x + measure("|") + SEPARATOR_GAP;
-    }
-
-    private void drawBlockCountContent(Canvas canvas, BlockCountDisplayRenderer.Snapshot snapshot, IslandLayout layout) {
-        int alpha = Math.round(clamp(snapshot.alpha(), 0f, 1f) * 255f);
-        if (alpha <= 0) return;
-
-        Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(iconChipColor(alpha));
-        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
-        String icon = Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
-        float iconSize = 23f;
-        float iconW = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        SkijaUi.icon(canvas, icon, iconX + 0.2f, (42.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-
-        String title = trimToWidth(snapshot.itemName(), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
-        String detail = blockDetail(snapshot);
-        SkijaUi.text(canvas, title, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), 13.5f);
-        SkijaUi.text(canvas, detail, BLOCK_TEXT_X, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
-
-        float progressX = BLOCK_PROGRESS_X;
-        float progressW = Math.max(80f, layout.width - progressX * 2f);
-
-        Paint track = new Paint().setAntiAlias(true);
-        track.setColor(progressTrackColor(alpha));
-        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
-
-        float fillW = Math.max(BLOCK_PROGRESS_H, progressW * clamp(snapshot.progress(), 0f, 1f));
-        Paint fill = new Paint().setAntiAlias(true);
-        fill.setColor(progressColor(snapshot.progress(), alpha));
-        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
-    }
-
-    private void drawItemUseContent(Canvas canvas, ItemUseStatusRenderer.Snapshot snapshot, IslandLayout layout) {
-        int alpha = Math.round(clamp(snapshot.alpha(), 0f, 1f) * 255f);
-        if (alpha <= 0) return;
-
-        Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(iconChipColor(alpha));
-        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, BLOCK_ICON_Y, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
-        float iconSize = 23f;
-        float iconW = SkijaUi.iconWidth(ICON_ITEM_USE, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        SkijaUi.icon(canvas, ICON_ITEM_USE, iconX + 0.2f, (42.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-
-        String title = trimToWidth(itemUseTitle(snapshot), layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
-        String detail = itemUseDetail(snapshot);
-        SkijaUi.text(canvas, title, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(detailPrimaryTextColor(), alpha), 13.5f);
-        SkijaUi.text(canvas, detail, BLOCK_TEXT_X, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
-
-        float progressX = BLOCK_PROGRESS_X;
-        float progressW = Math.max(80f, layout.width - progressX * 2f);
-
-        Paint track = new Paint().setAntiAlias(true);
-        track.setColor(progressTrackColor(alpha));
-        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, progressW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), track);
-
-        float progress = clamp(snapshot.progress(), 0f, 1f);
-        float fillW = Math.max(BLOCK_PROGRESS_H, progressW * progress);
-        Paint fill = new Paint().setAntiAlias(true);
-        fill.setColor(progressColor(progress, alpha));
-        canvas.drawRRect(RRect.makeXYWH(progressX, BLOCK_PROGRESS_Y, fillW, BLOCK_PROGRESS_H, BLOCK_PROGRESS_H * 0.5f), fill);
-    }
-
-    private void drawAlertContent(Canvas canvas, LowHealthHandler.Snapshot snapshot, IslandLayout layout) {
-        drawNotificationLikeContent(canvas, snapshot.icon(), snapshot.title(), snapshot.message(), 0xFFFFFFFF, layout, timedIconAnimationProgress(snapshot.createdAtMs()), true);
-    }
-
-    private void drawNotificationContent(Canvas canvas, DynamicIslandNotificationCard card, IslandLayout layout) {
-        drawNotificationLikeContent(canvas, card.icon(), card.title(), card.message(), card.accentColor(), layout, timedIconAnimationProgress(card.createdAtMs()), true);
-    }
-
-    private void drawNotificationLikeContent(Canvas canvas, String icon, String title, String message, int accentColor, IslandLayout layout, float iconProgress, boolean animateIcon) {
-        int alpha = 255;
-        Paint iconBg = new Paint().setAntiAlias(true);
-        iconBg.setColor(iconChipColor(alpha));
-        canvas.drawRRect(RRect.makeXYWH(BLOCK_ICON_X, 8f, BLOCK_ICON_BOX, BLOCK_ICON_BOX, 10f), iconBg);
-
-        float iconSize = 23f;
-        float iconW = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float iconX = BLOCK_ICON_X + (BLOCK_ICON_BOX - iconW) * 0.5f;
-        if (animateIcon) {
-            drawAnimatedNotificationIcon(canvas, icon, iconX + 0.2f, 40.8f, iconSize, accentColor, iconProgress);
+    private void drawStatus(Canvas canvas, DisplayFrame frame, IslandLayout layout, long nowMs) {
+        float iconSize = 21f;
+        float iconX = 14f;
+        float iconY = (layout.height - iconSize) * 0.5f - (frame.kind == Kind.ITEM || frame.kind == Kind.BLOCK ? 4f : 0f);
+        String icon = switch (frame.kind) {
+            case ITEM -> ICON_ITEM_USE;
+            case BLOCK -> Config.dynamicIslandBlockCountAltIcon ? ICON_BLOCK_ALT : ICON_BLOCK;
+            case ALERT -> frame.alert.icon();
+            default -> frame.notification.icon();
+        };
+        int accent = frame.kind == Kind.NOTIFICATION ? frame.notification.accentColor() : primaryColor();
+        float iconProgress = clamp((nowMs - contentShownMs) / 520f, 0f, 1f);
+        if (icon.equals("\uE5CA") || icon.equals("\uE5CD")) {
+            AnimatedStatusIcon.draw(canvas, icon.equals("\uE5CA"), iconX, iconY, iconSize, iconProgress, accent);
         } else {
-            SkijaUi.icon(canvas, icon, iconX + 0.2f, (40.8f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(accentColor, alpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            float width = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            SkijaUi.icon(canvas, icon, iconX + (iconSize - width) * 0.5f, iconY, iconSize, accent, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
-
-        String trimmedTitle = trimToWidth(title, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 13.5f);
-        String trimmedMessage = trimToWidth(message, layout.width - BLOCK_TEXT_X - BLOCK_RIGHT_PADDING, 11f);
-        SkijaUi.text(canvas, trimmedTitle, BLOCK_TEXT_X, (24f) + SkijaUi.textMetrics(13.5f).getAscent(), SkijaUi.textMetrics(13.5f).getDescent() - SkijaUi.textMetrics(13.5f).getAscent(), withAlpha(accentColor, alpha), 13.5f);
-        SkijaUi.text(canvas, trimmedMessage, BLOCK_TEXT_X, (41f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), withAlpha(detailSecondaryTextColor(), alpha), 11f);
-    }
-
-    private int blurTint() {
-        return Config.skiaBlurTintColor();
-    }
-
-    private float blurStrength() {
-        return Config.skiaBlurStrength;
-    }
-
-    private int compactTextColor() {
-        return Config.hudPrimaryTextColor();
-    }
-
-    private int separatorColor() {
-        return Config.hudSecondaryTextColor();
-    }
-
-    private int detailPrimaryTextColor() {
-        return Config.hudPrimaryTextColor();
-    }
-
-    private int detailSecondaryTextColor() {
-        return Config.hudSecondaryTextColor();
-    }
-
-    private int iconChipColor(int alpha) {
-        int base = Config.hudTheme == Config.HudTheme.LIGHT ? 0x40FFFFFF : 0x332A3345;
-        return multiplyAlpha(base, alpha);
-    }
-
-    private int progressTrackColor(int alpha) {
-        int base = Config.hudTheme == Config.HudTheme.LIGHT ? 0x55FFFFFF : 0x55A8B3CF;
-        return multiplyAlpha(base, alpha);
-    }
-
-    private int timedIconAnimationFrame(long createdAtMs) {
-        if (createdAtMs <= 0L) {
-            return 24;
+        float contentX = 47f;
+        float contentWidth = Math.max(0f, layout.width - contentX - 15f);
+        textCache.draw(canvas, title(frame), contentX, 19f, 12f, primaryColor(), contentWidth, 0f);
+        textCache.draw(canvas, detail(frame), contentX, 35f, 10f, secondaryColor(), contentWidth, 0f);
+        if (frame.kind == Kind.ITEM || frame.kind == Kind.BLOCK) {
+            float progress = frame.kind == Kind.ITEM ? frame.item.progress() : frame.block.progress();
+            float width = Math.max(0f, layout.width - 30f);
+            SkijaUi.rounded(canvas, 15f, layout.height - 10f, width, 2.5f, 1.25f, withAlpha(primaryColor(), 36));
+            float filled = width * clamp(progress, 0f, 1f);
+            if (filled > 0f) SkijaUi.rounded(canvas, 15f, layout.height - 10f, filled, 2.5f, 1.25f, withAlpha(primaryColor(), 220));
         }
-        long elapsed = System.currentTimeMillis() - createdAtMs;
-        if (elapsed >= NOTIFICATION_ICON_ANIMATION_MS) {
-            return 24;
-        }
-        return Math.round(clamp(elapsed / (float) NOTIFICATION_ICON_ANIMATION_MS, 0f, 1f) * 24f);
     }
 
-    private float timedIconAnimationProgress(long createdAtMs) {
-        if (createdAtMs <= 0L) {
-            return 1f;
-        }
-        float raw = clamp((System.currentTimeMillis() - createdAtMs) / (float) NOTIFICATION_ICON_ANIMATION_MS, 0f, 1f);
-        return easeOutCubic(raw);
+    private String title(DisplayFrame frame) {
+        return switch (frame.kind) {
+            case ITEM -> frame.item.itemName();
+            case BLOCK -> frame.block.itemName();
+            case ALERT -> frame.alert.title();
+            default -> frame.notification.title();
+        };
     }
 
-    private float easeOutCubic(float value) {
-        float t = 1f - clamp(value, 0f, 1f);
-        return 1f - t * t * t;
+    private String detail(DisplayFrame frame) {
+        return switch (frame.kind) {
+            case ITEM -> UiText.t("使用中", "Using") + " · " + Math.round(clamp(frame.item.progress(), 0f, 1f) * 100f) + "%";
+            case BLOCK -> frame.block.blocksLeft() + UiText.t(" 个剩余", " remaining") + " · " + String.format(Locale.ROOT, "%.1f/s", frame.block.blocksPerSecond());
+            case ALERT -> frame.alert.message();
+            default -> frame.notification.message();
+        };
     }
 
-    private void drawAnimatedNotificationIcon(Canvas canvas, String icon, float iconX, float iconY, float iconSize, int accentColor, float progress) {
-        float p = clamp(progress, 0f, 1f);
-        int animatedAlpha = Math.round(255f * p);
-        canvas.save();
-        float cx = BLOCK_ICON_X + BLOCK_ICON_BOX * 0.5f;
-        float cy = 8f + BLOCK_ICON_BOX * 0.5f;
-        float scale = 0.82f + 0.18f * p;
-        canvas.translate(cx, cy);
-        canvas.scale(scale, scale);
-        canvas.translate(-cx, -cy);
-        SkijaUi.icon(canvas, icon, iconX, (iconY) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(accentColor, animatedAlpha), iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        canvas.restore();
+    private int primaryColor() {
+        int color = Config.dynamicIslandColor;
+        double luminance = ((color >>> 16) & 255) * 0.2126 + ((color >>> 8) & 255) * 0.7152 + (color & 255) * 0.0722;
+        return luminance > 155d ? 0xFF20242D : 0xFFF3F5FA;
     }
+
+    private int secondaryColor() { return withAlpha(primaryColor(), 170); }
+    private float easeTo(float current, float target, float speed, float dt) { return current + (target - current) * (1f - (float) Math.exp(-speed * dt)); }
+    private float snap(float value) { return value < 0.001f ? 0f : value > 0.999f ? 1f : value; }
 
     private List<PlayerInfo> getTabPlayers(Minecraft client) {
         if (client.getConnection() == null) return List.of();
         List<PlayerInfo> players = new ArrayList<>(client.getConnection().getListedOnlinePlayers());
         players.sort(Comparator
         .comparingInt(PlayerInfo::getTabListOrder)
-        .thenComparing(info -> getPlayerName(info).toLowerCase()));
+        .thenComparing(info -> getPlayerName(info).toLowerCase(Locale.ROOT)));
         return players;
     }
 
@@ -711,7 +572,7 @@ public class DynamicIslandRenderer {
         float usableW = layout.width - TAB_SIDE_PADDING * 2f - (columns - 1) * TAB_COLUMN_GAP;
         float columnW = usableW / columns;
         float totalContentH = rows * TAB_ROW_HEIGHT;
-        float startY = TAB_TOP_PADDING + (layout.height - TAB_TOP_PADDING - TAB_BOTTOM_PADDING - totalContentH) * 0.5f + 10.5f;
+        float startY = TAB_TOP_PADDING + Math.max(0f, layout.height - TAB_TOP_PADDING - TAB_BOTTOM_PADDING - totalContentH) * 0.5f + TAB_ROW_HEIGHT * 0.5f;
 
         for (int i = 0; i < count; i++) {
             int column = i / rows;
@@ -719,15 +580,15 @@ public class DynamicIslandRenderer {
             float x = TAB_SIDE_PADDING + column * (columnW + TAB_COLUMN_GAP);
             float y = startY + row * TAB_ROW_HEIGHT;
             PlayerInfo player = players.get(i);
-            int baseColor = player.getGameMode() == GameType.SPECTATOR ? TAB_SPECTATOR_NAME_COLOR : TAB_DEFAULT_NAME_COLOR;
+            if (y - TAB_ROW_HEIGHT * 0.5f >= layout.height - 4f) continue;
+            int baseColor = player.getGameMode() == GameType.SPECTATOR ? secondaryColor() : primaryColor();
             Map.Entry<String, Integer> formattedName = resolveTabName(player, baseColor);
-            String name = trimToWidth(formattedName.getKey(), columnW - 46f, TAB_NAME_SIZE);
             int color = isLocalPlayer(player) ? TAB_SELF_NAME_COLOR : formattedName.getValue();
-            SkijaUi.text(canvas, name, x, (y) + SkijaUi.textMetrics(TAB_NAME_SIZE).getAscent(), SkijaUi.textMetrics(TAB_NAME_SIZE).getDescent() - SkijaUi.textMetrics(TAB_NAME_SIZE).getAscent(), withAlpha(color, alpha), TAB_NAME_SIZE);
+            textCache.draw(canvas, formattedName.getKey(), x, y, TAB_NAME_SIZE, withAlpha(color, alpha), columnW - 46f, 0f);
 
             String latency = formatLatency(player.getLatency());
-            float latencyW = SkijaUi.textWidth(latency, 9f);
-            SkijaUi.text(canvas, latency, x + columnW - latencyW, (y) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), withAlpha(latencyColor(player.getLatency()), alpha), 9f);
+            float latencyW = Math.min(42f, columnW);
+            textCache.draw(canvas, latency, x + columnW - latencyW, y, 9f, withAlpha(latencyColor(player.getLatency()), alpha), latencyW, 1f);
         }
     }
 
@@ -921,94 +782,63 @@ public class DynamicIslandRenderer {
         return player.getProfile().name();
     }
 
-    private String trimToWidth(String text, float maxWidth, float size) {
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
-        String suffix = "...";
-        float suffixW = SkijaUi.textWidth(suffix, size);
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            String next = out + text.substring(i, i + 1);
-            if (SkijaUi.textWidth(next, size) + suffixW > maxWidth) break;
-            out.append(text.charAt(i));
-        }
-        return out + suffix;
-    }
-
-    private String formatLatency(int latency) {
-        return latency < 0 ? "?" : latency + "ms";
-    }
+    private String formatLatency(int latency) { return latency < 0 ? "?" : latency + "ms"; }
 
     private int latencyColor(int latency) {
-        if (latency < 0) return 0xFFAAAAAA;
+        if (latency < 0) return secondaryColor();
         if (latency < 150) return 0xFF53D86A;
         if (latency < 300) return 0xFFFFD166;
         return 0xFFFF6B6B;
     }
 
-    private int progressColor(float progress, int alpha) {
-        progress = clamp(progress, 0f, 1f);
-        int r;
-        int g;
-        if (progress < 0.5f) {
-            float t = progress * 2.0f;
-            r = 255;
-            g = Math.round(255.0f * t);
-        } else {
-            float t = (progress - 0.5f) * 2.0f;
-            r = Math.round(255.0f * (1.0f - t));
-            g = 255;
-        }
-        return ((alpha & 0xFF) << 24) | (r << 16) | (g << 8);
-    }
-
-    private int withAlpha(int argb, int alpha) {
-        return (argb & 0x00FFFFFF) | (clamp(alpha, 0, 255) << 24);
-    }
-
-    private int multiplyAlpha(int argb, int alpha) {
-        int baseAlpha = (argb >>> 24) & 0xFF;
-        int finalAlpha = Math.round(baseAlpha * (clamp(alpha, 0, 255) / 255f));
-        return (argb & 0x00FFFFFF) | (finalAlpha << 24);
-    }
-
-    private void resetAnimation() {
-        animatedWidth = -1f;
-        animatedHeight = -1f;
-        tabContentFade = 0f;
-        lyricsFade = 0f;
-        lastLyricsOpen = false;
-        lastLyricsText = "";
-        lyricsExpandStartTime = 0L;
-        lastAnimationTime = 0L;
-        lastTabRequestTime = 0L;
-    }
-
-    private float getBaseEditWidth() {
-        return animatedWidth > 0f ? animatedWidth : MIN_WIDTH;
-    }
-
-    private float getBaseEditHeight() {
-        return animatedHeight > 0f ? animatedHeight : HEIGHT;
-    }
-
+    private int withAlpha(int argb, int alpha) { return (argb & 0x00FFFFFF) | (Math.clamp(alpha, 0, 255) << 24); }
+    private float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
     private float getScale() {
-        return Math.max(0.5f, Config.dynamicIslandScale);
+        float requested = Float.isFinite(Config.dynamicIslandScale) ? Math.clamp(Config.dynamicIslandScale, 0.5f, 3f) : 1f;
+        if (displayed == null || displayed.kind != Kind.MUSIC) return requested;
+        float extension = satelliteExtension(MUSIC_HEIGHT, MUSIC_HEIGHT * 0.5f, leftSeparation)
+                + satelliteExtension(MUSIC_HEIGHT, MUSIC_HEIGHT * 0.5f, separation);
+        float available = Math.max(1f, Minecraft.getInstance().getWindow().getGuiScaledWidth() - 20f);
+        return Math.min(requested, available / (MUSIC_MIN_WIDTH + extension));
     }
 
-    private float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
+    @Override
+    public void close() {
+        textCache.close();
+        if (geometry != null) geometry.close();
+        geometry = null;
+        geometryKey = null;
+        displayed = null;
+        phase = Phase.STEADY;
+        visibility = 1f;
+        animatedWidth = -1f;
+        animatedHeight = HEIGHT;
+        separation = 0f;
+        satelliteVisibility = 0f;
+        leftSeparation = 0f;
+        leftSatelliteVisibility = 0f;
+        renderedWidth = MIN_WIDTH;
+        lastFrameNs = 0L;
+        satelliteSong = null;
+        leftSatelliteSong = null;
+        satelliteFps = "0";
+        satelliteMusic = false;
+        lyricText = "";
+        previousLyric = "";
+        lyricSongId = -1L;
+        lyricTime = -1L;
+        lyricProgress = 1f;
+        java.util.Arrays.fill(musicLevels, 0f);
+        DynamicIslandLyrics.reset();
     }
 
-    private int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    private record IslandContent(String brand, String username, String location, String fps) {
-        String key() {
-            return brand + "|" + username + "|" + location + "|" + fps;
-        }
-    }
-
-    private record IslandLayout(float width, float height, float radius, boolean isTab) {
-    }
+    private enum Kind { IDLE, MUSIC, TAB, BLOCK, ITEM, ALERT, NOTIFICATION }
+    private enum Phase { STEADY, EXIT, RESIZE, ENTER }
+    private record IslandContent(String brand, String username, String location, String fps, boolean doubleRow, boolean split) { }
+    private record IslandLayout(float width, float height, float radius, boolean isTab) { }
+    private record GeometryKey(float x, float y, float width, float height, float radius, float leftProgress, float progress, float scale) { }
+    private record DisplayFrame(Kind kind, String key, IslandContent content, List<PlayerInfo> players,
+                                BlockCountDisplayRenderer.Snapshot block, ItemUseStatusRenderer.Snapshot item,
+                                LowHealthHandler.Snapshot alert, DynamicIslandNotificationCard notification,
+                                DynamicIslandLyrics.LyricsCard lyrics, Song song) { }
 }

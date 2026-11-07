@@ -146,10 +146,10 @@ public class ThemePage extends BasePage {
                                     Config.save();
                                 }))
                 .addSub(UiText.t("灵动岛背景", "Dynamic Island Background"), UiText.t("选择灵动岛的背景样式", "Choose the Dynamic Island background style"),
-                        new SettingCycle(List.of("Blur", "Liquid"),
-                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS ? 1 : 0,
+                        new SettingCycle(List.of(UiText.t("模糊", "Blur"), UiText.t("纯色", "Solid")),
+                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : 0,
                                 i -> {
-                                    Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.LIQUID_GLASS : Config.DynamicIslandBackground.BLUR;
+                                    Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : Config.DynamicIslandBackground.BLUR;
                                     Config.save();
                                 })));
     }

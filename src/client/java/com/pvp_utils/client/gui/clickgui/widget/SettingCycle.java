@@ -13,16 +13,20 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SettingCycle extends SettingWidget {
-    private final List<String> options;
+    private final Supplier<List<String>> optionsSupplier;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
     private final Paint bgPaint = new Paint().setAntiAlias(true);
-    private int cachedIndex = Integer.MIN_VALUE;
+    private long cachedFontRevision = -1L;
     private String cachedLabel = "";
     private float cachedTextWidth = 0f;
 
     public SettingCycle(List<String> options, Supplier<Integer> getter, Consumer<Integer> setter) {
-        this.options = options;
+        this(() -> options, getter, setter);
+    }
+
+    public SettingCycle(Supplier<List<String>> optionsSupplier, Supplier<Integer> getter, Consumer<Integer> setter) {
+        this.optionsSupplier = optionsSupplier;
         this.getter = getter;
         this.setter = setter;
     }
@@ -32,10 +36,12 @@ public class SettingCycle extends SettingWidget {
 
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
-        int index = getter.get() % options.size();
-        if (index != cachedIndex) {
-            cachedIndex = index;
-            cachedLabel = options.get(index);
+        List<String> options = optionsSupplier.get();
+        String label = options.isEmpty() ? "" : options.get(Math.floorMod(getter.get(), options.size()));
+        long fontRevision = SkijaUi.textFontRevision();
+        if (!label.equals(cachedLabel) || fontRevision != cachedFontRevision) {
+            cachedLabel = label;
+            cachedFontRevision = fontRevision;
             cachedTextWidth = SkijaUi.textWidth(cachedLabel, 12f);
         }
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
@@ -47,7 +53,9 @@ public class SettingCycle extends SettingWidget {
     @Override
     public boolean onClick(float mx, float my, float x, float y, int button) {
         if (button != 0) return false;
-        setter.accept((getter.get() + 1) % options.size());
+        List<String> options = optionsSupplier.get();
+        if (options.isEmpty()) return false;
+        setter.accept((Math.floorMod(getter.get(), options.size()) + 1) % options.size());
         return true;
     }
 }

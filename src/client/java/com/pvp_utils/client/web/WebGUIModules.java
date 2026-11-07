@@ -46,21 +46,12 @@ final class WebGUIModules {
                             check("attackEffectsLightning", "Lightning", "闪电"),
                             slider("attackEffectsLightningCount", "Lightning Count", "闪电数量", 1, 5, 1, "attackEffectsLightning")),
                     module("Hit Color", "更改受击颜色", "Change the color shown when entities are hit.", "更改实体受击时的颜色", "hitColor",
-                            slider("hitColorRed", "R", "R", 0, 255, 1),
-                            slider("hitColorGreen", "G", "G", 0, 255, 1),
-                            slider("hitColorBlue", "B", "B", 0, 255, 1),
-                            slider("hitColorAlpha", "Alpha", "透明度", 0, 255, 1)),
+                            color("hitColorValue", "Color", "颜色", true, null)),
                     module("Custom Block Outline", "自定义方块轮廓", "Customize the outline of the block under the crosshair.", "自定义准星指向方块的轮廓样式", "customBlockOutline",
                             slider("customBlockOutlineWidth", "Border Width", "边框粗细", 1, 4, 0.1),
-                            slider("customBlockOutlineRed", "Border R", "边框 R", 0, 255, 1),
-                            slider("customBlockOutlineGreen", "Border G", "边框 G", 0, 255, 1),
-                            slider("customBlockOutlineBlue", "Border B", "边框 B", 0, 255, 1),
-                            slider("customBlockOutlineAlpha", "Border Alpha", "边框透明度", 0, 255, 1),
+                            color("customBlockOutlineColor", "Border Color", "边框颜色", true, null),
                             check("customBlockOutlineFill", "Fill", "填充"),
-                            slider("customBlockOutlineFillRed", "Fill R", "填充 R", 0, 255, 1, "customBlockOutlineFill"),
-                            slider("customBlockOutlineFillGreen", "Fill G", "填充 G", 0, 255, 1, "customBlockOutlineFill"),
-                            slider("customBlockOutlineFillBlue", "Fill B", "填充 B", 0, 255, 1, "customBlockOutlineFill"),
-                            slider("customBlockOutlineFillAlpha", "Fill Alpha", "填充透明度", 0, 255, 1, "customBlockOutlineFill"),
+                            color("customBlockOutlineFillColor", "Fill Color", "填充颜色", true, "customBlockOutlineFill"),
                             check("customBlockOutlineAnimation", "Animation Improvements", "动画改进"),
                             slider("customBlockOutlineAnimationSpeed", "Enter/Exit Speed", "进入/退出速度", 1, 20, 0.1, "customBlockOutlineAnimation"),
                             slider("customBlockOutlineMoveSpeed", "Move Speed", "移动速度", 1, 20, 0.1, "customBlockOutlineAnimation")),
@@ -74,21 +65,24 @@ final class WebGUIModules {
                     module("Item Use Status", "物品使用状态显示", "Show current item use progress or status on the screen.", "在屏幕上显示当前物品使用进度或状态", "itemUseStatus",
                             select("itemUseStatusMode", "Mode", "模式")),
                     module("Arraylist", "功能列表", "Show currently enabled modules on the HUD.", "在HUD上显示当前启用的功能。", "arraylist",
-                            slider("arraylistColorRed", "R", "R", 0, 255, 1),
-                            slider("arraylistColorGreen", "G", "G", 0, 255, 1),
-                            slider("arraylistColorBlue", "B", "B", 0, 255, 1),
+                            color("arraylistColorValue", "Color", "颜色", false, null),
                             check("arraylistGradient", "Gradient", "渐变"),
-                            slider("arraylistGradientRed", "R2", "R2", 0, 255, 1, "arraylistGradient"),
-                            slider("arraylistGradientGreen", "G2", "G2", 0, 255, 1, "arraylistGradient"),
-                            slider("arraylistGradientBlue", "B2", "B2", 0, 255, 1, "arraylistGradient"),
+                            color("arraylistGradientColor", "Gradient Color", "渐变颜色", false, "arraylistGradient"),
                             slider("arraylistGradientSpeed", "Gradient Speed", "渐变速度", 0, 5, 0.1, "arraylistGradient"),
                             check("arraylistBorder", "Border", "边框"),
                             slider("arraylistBorderWidth", "Border Width", "边框粗细", 1, 4, 0.1, "arraylistBorder")),
                     module("Dynamic Island", "灵动岛", "Add a Dynamic Island component to the HUD.", "在界面上添加灵动岛组件", "dynamicIsland",
+                            select("dynamicIslandShape", "Shape", "形态"),
+                            check("dynamicIslandDoubleRow", "Two-row Mode", "双层模式"),
+                            select("dynamicIslandBackground", "Background", "背景模式"),
+                            color("dynamicIslandColor", "Background Color", "背景颜色", true, null),
+                            check("dynamicIslandShadow", "Soft Shadow", "柔和阴影"),
+                            slider("dynamicIslandShadowStrength", "Shadow Strength", "阴影强度", 0, 1, 0.01, "dynamicIslandShadow"),
                             check("dynamicIslandBlockCount", "Block Count Display", "方块数量显示"),
                             check("dynamicIslandBlockCountAltIcon", "???", "???", "dynamicIslandBlockCount"),
                             check("dynamicIslandItemUseStatus", "Item Use Status", "物品使用状态"),
-                            check("dynamicIslandLyrics", "Lyrics Display", "歌词显示"),
+                            check("dynamicIslandLyrics", "Music on Island", "音乐上岛"),
+                            select("dynamicIslandMusicMode", "Music Display", "音乐显示方式", "dynamicIslandLyrics"),
                             check("dynamicIslandLowHealthWarning", "Low Health Warning", "低血量提示")),
                     module("Item Physics", "物品物理掉落", "Make dropped items fall in a more physical way.", "让掉落物以更加物理的方式掉落", "itemPhysics",
                             slider("itemPhysicsRotationSpeed", "Rotation Speed", "旋转速度", 0, 3, 0.1)),
@@ -216,6 +210,12 @@ final class WebGUIModules {
                             slider("smoothHotbarAnimationSpeed", "Animation Speed", "动画速度", 0.05, 0.99, 0.01))
             )),
             new Category("Misc", "其他", List.of(
+                    module("Fake FPS", "假帧率", "Spoof the runtime frame rate", "伪装运行时帧数", "fakeFps",
+                            slider("fakeFpsMin", "Minimum FPS (fixed when random jumps are off)", "最小帧数（关闭随机跳变时固定使用）", 1, 99999, 1),
+                            slider("fakeFpsMax", "Maximum FPS", "最大帧数", 1, 99999, 1),
+                            check("fakeFpsRandom", "Random FPS Jumps", "随机帧数跳变"),
+                            slider("fakeFpsJumpMinSeconds", "Minimum Jump Interval (s)", "最小跳变时长（秒）", 0.1, 3, 0.1, "fakeFpsRandom"),
+                            slider("fakeFpsJumpMaxSeconds", "Maximum Jump Interval (s)", "最大跳变时长（秒）", 0.1, 3, 0.1, "fakeFpsRandom")),
                     module("Main UI", "主界面", "Use the custom PVPUtils main menu.", "使用 PVPUtils 自定义主界面", "useMainUI",
                             select("mainUIBackgroundMode", "Background Mode", "背景模式"),
                             select("mainUIGlslMode", "GLSL Mode", "GLSL 模式"),
@@ -328,7 +328,16 @@ final class WebGUIModules {
                         .append(',').append("\"step\":").append(setting.step);
             } else if (setting.type == SettingType.SELECTION) {
                 json.append(',').append("\"values\":").append(enumValuesJson(setting.field));
+                if (setting.field.equals("dynamicIslandShape")) {
+                    json.append(",\"valueLabels\":{\"CAPSULE\":\"")
+                            .append(Config.isChinese ? "极简胶囊" : "Minimal Capsule")
+                            .append("\",\"SPLIT\":\"")
+                            .append(Config.isChinese ? "分体悬浮岛" : "Split Floating Island").append("\"}");
+                }
+            } else if (setting.type == SettingType.COLOR) {
+                json.append(',').append("\"allowAlpha\":").append(setting.allowAlpha);
             }
+            if (setting.visibleField != null) json.append(',').append("\"parent\":\"").append(escape(setting.visibleField)).append('"');
             json.append('}');
         }
         return json.append("]}").toString();
@@ -350,6 +359,11 @@ final class WebGUIModules {
             return "{\"success\":false,\"reason\":\"Unknown setting\"}";
         }
         try {
+            if (setting.type == SettingType.COLOR) {
+                writeColor(setting, value);
+                Config.save();
+                return "{\"success\":true,\"result\":" + settingValueJson(setting) + "}";
+            }
             Field field = Config.class.getField(setting.field);
             if (setting.type == SettingType.CHECKBOX && field.getType() == boolean.class) {
                 setBooleanConfig(setting.field, Boolean.parseBoolean(value));
@@ -432,6 +446,9 @@ final class WebGUIModules {
     }
 
     private static boolean isVisible(Setting setting) {
+        if (setting.field.equals("dynamicIslandDoubleRow") && Config.dynamicIslandShape != Config.DynamicIslandShape.CAPSULE) {
+            return false;
+        }
         if (setting.visibleField == null || setting.visibleField.isBlank()) {
             return true;
         }
@@ -445,6 +462,10 @@ final class WebGUIModules {
 
     private static String settingValueJson(Setting setting) {
         try {
+            if (setting.type == SettingType.COLOR) {
+                int color = readColor(setting);
+                return '"' + String.format(java.util.Locale.ROOT, setting.allowAlpha ? "#%08X" : "#%06X", setting.allowAlpha ? color : color & 0xFFFFFF) + '"';
+            }
             Field field = Config.class.getField(setting.field);
             if (field.getType() == boolean.class) {
                 return Boolean.toString(field.getBoolean(null));
@@ -473,6 +494,7 @@ final class WebGUIModules {
             StringBuilder json = new StringBuilder("[");
             Object[] constants = field.getType().getEnumConstants();
             for (int i = 0; i < constants.length; i++) {
+                if (fieldName.equals("dynamicIslandBackground") && ((Enum<?>) constants[i]).name().equals("LIQUID_GLASS")) continue;
                 if (i > 0) json.append(',');
                 json.append('"').append(escape(((Enum<?>) constants[i]).name())).append('"');
             }
@@ -537,7 +559,7 @@ final class WebGUIModules {
     }
 
     private static Setting check(String field, String en, String zh, String visibleField) {
-        return new Setting(SettingType.CHECKBOX, field, en, zh, 0, 0, 0, visibleField);
+        return new Setting(SettingType.CHECKBOX, field, en, zh, 0, 0, 0, visibleField, false);
     }
 
     private static Setting slider(String field, String en, String zh, double min, double max, double step) {
@@ -545,11 +567,55 @@ final class WebGUIModules {
     }
 
     private static Setting slider(String field, String en, String zh, double min, double max, double step, String visibleField) {
-        return new Setting(SettingType.SLIDER, field, en, zh, min, max, step, visibleField);
+        return new Setting(SettingType.SLIDER, field, en, zh, min, max, step, visibleField, false);
     }
 
     private static Setting select(String field, String en, String zh) {
-        return new Setting(SettingType.SELECTION, field, en, zh, 0, 0, 0, null);
+        return select(field, en, zh, null);
+    }
+
+    private static Setting select(String field, String en, String zh, String visibleField) {
+        return new Setting(SettingType.SELECTION, field, en, zh, 0, 0, 0, visibleField, false);
+    }
+
+    private static Setting color(String field, String en, String zh, boolean allowAlpha, String visibleField) {
+        return new Setting(SettingType.COLOR, field, en, zh, 0, 0, 0, visibleField, allowAlpha);
+    }
+
+    private static String colorPrefix(String field) {
+        return switch (field) {
+            case "hitColorValue" -> "hitColor";
+            case "customBlockOutlineColor" -> "customBlockOutline";
+            case "customBlockOutlineFillColor" -> "customBlockOutlineFill";
+            case "arraylistColorValue" -> "arraylistColor";
+            case "arraylistGradientColor" -> "arraylistGradient";
+            default -> throw new IllegalArgumentException("Unknown color field");
+        };
+    }
+
+    private static int readColor(Setting setting) throws ReflectiveOperationException {
+        if (setting.field.equals("dynamicIslandColor")) return Config.dynamicIslandColor;
+        String prefix = colorPrefix(setting.field);
+        int red = Config.class.getField(prefix + "Red").getInt(null);
+        int green = Config.class.getField(prefix + "Green").getInt(null);
+        int blue = Config.class.getField(prefix + "Blue").getInt(null);
+        int alpha = setting.allowAlpha ? Config.class.getField(prefix + "Alpha").getInt(null) : 255;
+        return (Math.clamp(alpha, 0, 255) << 24) | (Math.clamp(red, 0, 255) << 16) | (Math.clamp(green, 0, 255) << 8) | Math.clamp(blue, 0, 255);
+    }
+
+    private static void writeColor(Setting setting, String value) throws ReflectiveOperationException {
+        if (value == null || !value.matches("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?")) throw new IllegalArgumentException("Invalid color");
+        int color = (int) Long.parseLong(value.substring(1), 16);
+        if (value.length() == 7 || !setting.allowAlpha) color |= 0xFF000000;
+        if (setting.field.equals("dynamicIslandColor")) {
+            Config.dynamicIslandColor = color;
+            return;
+        }
+        String prefix = colorPrefix(setting.field);
+        Config.class.getField(prefix + "Red").setInt(null, (color >>> 16) & 255);
+        Config.class.getField(prefix + "Green").setInt(null, (color >>> 8) & 255);
+        Config.class.getField(prefix + "Blue").setInt(null, color & 255);
+        if (setting.allowAlpha) Config.class.getField(prefix + "Alpha").setInt(null, color >>> 24);
     }
 
     private static String toId(String value) {
@@ -588,7 +654,8 @@ final class WebGUIModules {
     private enum SettingType {
         CHECKBOX("checkbox"),
         SLIDER("slider"),
-        SELECTION("selection");
+        SELECTION("selection"),
+        COLOR("color");
 
         private final String id;
 
@@ -602,7 +669,7 @@ final class WebGUIModules {
         }
     }
 
-    private record Setting(SettingType type, String field, String en, String zh, double min, double max, double step, String visibleField) {
+    private record Setting(SettingType type, String field, String en, String zh, double min, double max, double step, String visibleField, boolean allowAlpha) {
         String name() {
             return Config.isChinese ? zh : en;
         }

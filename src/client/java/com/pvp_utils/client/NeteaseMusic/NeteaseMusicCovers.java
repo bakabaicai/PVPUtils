@@ -65,6 +65,18 @@ public final class NeteaseMusicCovers {
         return CACHE.computeIfAbsent(url, NeteaseMusicCovers::request).skiaImage;
     }
 
+    public static int accentColor(String url, int fallback) {
+        if (url == null || url.isBlank()) {
+            return fallback | 0xFF000000;
+        }
+        CoverTexture cover = CACHE.computeIfAbsent(url, NeteaseMusicCovers::request);
+        if (!cover.accentResolved && !cover.failed) {
+            requestAccentColor(cover);
+        }
+        int color = cover.accentColor;
+        return color == 0 ? fallback | 0xFF000000 : color;
+    }
+
     public static void preload(String url) {
         if (url == null || url.isBlank()) {
             return;
@@ -110,6 +122,9 @@ public final class NeteaseMusicCovers {
             }
             cover.encoded = loaded.encoded();
             cover.skiaImage = loaded.skiaImage();
+            if (cover.accentRequested) {
+                requestAccentColor(cover);
+            }
             if (cover.minecraftTextureRequested) {
                 requestMinecraftTexture(cover);
             }
@@ -125,6 +140,25 @@ public final class NeteaseMusicCovers {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private static void requestAccentColor(CoverTexture cover) {
+        byte[] encoded;
+        synchronized (cover) {
+            cover.accentRequested = true;
+            if (cover.accentResolved || cover.accentLoading || cover.encoded == null) {
+                return;
+            }
+            cover.accentLoading = true;
+            encoded = cover.encoded;
+        }
+        CompletableFuture.supplyAsync(() -> MusicCoverColors.extract(encoded), IO).whenComplete((color, throwable) -> {
+            synchronized (cover) {
+                cover.accentColor = throwable == null && color != null ? color : 0;
+                cover.accentResolved = true;
+                cover.accentLoading = false;
+            }
+        });
     }
 
     private static void requestMinecraftTexture(CoverTexture cover) {
@@ -199,6 +233,10 @@ public final class NeteaseMusicCovers {
         private volatile Image skiaImage;
         private volatile byte[] encoded;
         private volatile boolean failed;
+        private volatile int accentColor;
+        private volatile boolean accentRequested;
+        private volatile boolean accentResolved;
+        private boolean accentLoading;
         private boolean minecraftTextureRequested;
         private boolean minecraftTextureLoading;
     }

@@ -39,6 +39,27 @@ public class MiscPage extends BasePage {
                                     () -> Config.fullMode ? 1 : 0,
                                     i -> { Config.termsRead = true; Config.fullMode = i == 1; Config.save(); })));
         }
+
+        SettingModule fakeFpsModule = new SettingModule(UiText.t("假帧率", "Fake FPS"), UiText.t("伪装运行时帧数", "Spoof the runtime frame rate"),
+                new SettingToggle(() -> Config.fakeFps, v -> { Config.fakeFps = v; Config.save(); }))
+                .addSub(UiText.t("最小帧数", "Minimum FPS"), UiText.t("关闭随机跳变时固定使用此值", "Used as a fixed value when random jumps are disabled"),
+                        new SettingSlider(1, 99999, "%.0f", () -> (double) Config.fakeFpsMin,
+                                v -> { Config.fakeFpsMin = Math.min(Config.fakeFpsMax, Config.clampFakeFps((int) Math.round(v))); Config.save(); }))
+                .addSub(UiText.t("最大帧数", "Maximum FPS"), UiText.t("随机跳变的帧数上限", "Upper frame-rate limit for random jumps"),
+                        new SettingSlider(1, 99999, "%.0f", () -> (double) Config.fakeFpsMax,
+                                v -> { Config.fakeFpsMax = Math.max(Config.fakeFpsMin, Config.clampFakeFps((int) Math.round(v))); Config.save(); }))
+                .addSub(UiText.t("随机帧数跳变", "Random FPS Jumps"), UiText.t("按随机间隔在帧数区间内切换", "Change FPS within the range at random intervals"),
+                        new SettingToggle(() -> Config.fakeFpsRandom, v -> { Config.fakeFpsRandom = v; Config.save(); }))
+                .addSub(UiText.t("最小跳变时长", "Minimum Jump Interval"), UiText.t("两次跳变间的最短时间", "Shortest time between changes"),
+                        new SettingSlider(0.1, 3.0, "%.1fs", () -> (double) Config.fakeFpsJumpMinSeconds,
+                                v -> { Config.fakeFpsJumpMinSeconds = Math.min(Config.fakeFpsJumpMaxSeconds, Config.clampFakeFpsJumpSeconds(v.floatValue())); Config.save(); }),
+                        () -> Config.fakeFpsRandom)
+                .addSub(UiText.t("最大跳变时长", "Maximum Jump Interval"), UiText.t("两次跳变间的最长时间", "Longest time between changes"),
+                        new SettingSlider(0.1, 3.0, "%.1fs", () -> (double) Config.fakeFpsJumpMaxSeconds,
+                                v -> { Config.fakeFpsJumpMaxSeconds = Math.max(Config.fakeFpsJumpMinSeconds, Config.clampFakeFpsJumpSeconds(v.floatValue())); Config.save(); }),
+                        () -> Config.fakeFpsRandom);
+        fakeFpsModule.setBindingId(getClass().getName() + ".fake_fps");
+        modules.add(fakeFpsModule);
     }
 
     @Override public String getTitle() { return UiText.t("其他设置", "Misc Settings"); }

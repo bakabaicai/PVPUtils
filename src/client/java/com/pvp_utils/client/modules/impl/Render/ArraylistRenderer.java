@@ -42,6 +42,7 @@ public class ArraylistRenderer {
             new Entry("Dynamic Motion Blur", () -> Config.dynamicMotionBlur),
             new Entry("Elytra Improvements", () -> Config.elytraAssist),
             new Entry("Fall Damage Predict", () -> Config.fallDamagePredict),
+            new Entry("Fake FPS", () -> Config.fakeFps),
             new Entry("Food Info", () -> Config.foodInfo),
             new Entry("Freelook", () -> Config.freelook),
             new Entry("Gamma Override", () -> Config.gammaOverride),

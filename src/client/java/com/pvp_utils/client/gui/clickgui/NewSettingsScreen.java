@@ -301,7 +301,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     @Override
     public void removed() {
         pendingFrame = false;
-
+        for (BasePage page : pages) page.releaseDrag();
         super.removed();
     }
 
@@ -401,6 +401,13 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             invalidateScrollLayout();
         }
         BasePage currentPage = activePage();
+        currentPage.setContentWidth(l[16] - 40f);
+        long debugUpdateStartNs = Version.DEBUG ? System.nanoTime() : 0L;
+        currentPage.update(dt);
+        if (Version.DEBUG) {
+            debugLastUpdateMs = (System.nanoTime() - debugUpdateStartNs) / 1_000_000.0;
+            updateDebugStats(currentPage);
+        }
         updateScrollCache(currentPage, l[17]);
         targetScrollOffset = Math.min(targetScrollOffset, cachedScrollMax);
         contentScrollOffset = lerp(contentScrollOffset, targetScrollOffset, dt * 18f);
@@ -438,13 +445,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         indicatorY = lerp(indicatorY, targetIndicatorY, dt * 12f);
 
         BasePage page = currentPage;
-        long debugUpdateStartNs = Version.DEBUG ? System.nanoTime() : 0L;
-        page.update(dt);
-        if (Version.DEBUG) {
-            debugLastUpdateMs = (System.nanoTime() - debugUpdateStartNs) / 1_000_000.0;
-            updateDebugStats(page);
-        }
-
         float alpha = animT;
         float cx = width / 2f;
         float cy = height / 2f;
@@ -1037,6 +1037,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
         if (layoutMx >= contentX && layoutMx <= contentX + contentW && layoutMy >= contentY && layoutMy <= contentY + contentH) {
             BasePage page = activePage();
+            if (page.onScroll(layoutMx, layoutMy, contentX + 10f, contentY + 54f,
+                    contentW - 40f, contentScrollOffset, (float) vScroll)) {
+                invalidateScrollLayout();
+                return true;
+            }
             updateScrollCache(page, contentH);
             targetScrollOffset = Math.max(0f, Math.min(cachedScrollMax, targetScrollOffset + (float)(-vScroll * 16f * Math.max(0.2f, Config.clickGuiScrollSpeed))));
             invalidateScrollLayout();

@@ -8,6 +8,7 @@ import com.goxr3plus.streamplayer.stream.StreamPlayerEvent;
 import com.goxr3plus.streamplayer.stream.StreamPlayerListener;
 import net.fabricmc.loader.api.FabricLoader;
 
+import javax.sound.sampled.SourceDataLine;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,6 +53,8 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     private volatile String status = "Idle";
     private volatile PlaybackMode playbackMode = PlaybackMode.LIST;
     private volatile int currentIndex;
+    private volatile SourceDataLine visualizerLine;
+    private volatile MusicPcmVisualizer.Snapshot visualizerSnapshot = MusicPcmVisualizer.EMPTY;
 
     private MusicPlaybackService() {
         player.addStreamPlayerListener(this);
@@ -138,6 +141,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         }
         long revision = playbackRevision.incrementAndGet();
         currentSong = song;
+        visualizerSnapshot = MusicPcmVisualizer.EMPTY;
         currentFile = null;
         basePositionMs = 0L;
         playStartedAtMs = 0L;
@@ -217,6 +221,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
             playStartedAtMs = 0L;
             playing = false;
             status = "Paused";
+            visualizerSnapshot = MusicPcmVisualizer.EMPTY;
             executor.execute(() -> {
                 try {
                     if (revision != playbackRevision.get()) return;
@@ -241,6 +246,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
 
     public void stop() {
         long revision = playbackRevision.incrementAndGet();
+        visualizerSnapshot = MusicPcmVisualizer.EMPTY;
         playing = false;
         changingSong = false;
         basePositionMs = 0L;
@@ -312,6 +318,13 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         return playing;
     }
 
+    public MusicPcmVisualizer.Snapshot visualizerSnapshot() {
+        MusicPcmVisualizer.Snapshot snapshot = visualizerSnapshot;
+        if (!playing || !Config.dynamicIsland || !Config.dynamicIslandLyrics
+                || System.currentTimeMillis() - snapshot.timestampMs() > 750L) return MusicPcmVisualizer.EMPTY;
+        return snapshot;
+    }
+
     public long positionMs() {
         if (!playing || playStartedAtMs <= 0L) {
             return Math.min(basePositionMs, Math.max(0L, totalDurationMs));
@@ -365,6 +378,7 @@ public final class MusicPlaybackService implements StreamPlayerListener {
     }
 
     public void seekToProgress(float progress) {
+        visualizerSnapshot = MusicPcmVisualizer.EMPTY;
         progress = Math.max(0.0F, Math.min(1.0F, progress));
         long targetMs = Math.round(totalDurationMs * progress);
         if (totalDurationMs > 0L) {
@@ -401,6 +415,9 @@ public final class MusicPlaybackService implements StreamPlayerListener {
 
     @Override
     public void opened(Object dataSource, java.util.Map<String, Object> properties) {
+        Object line = properties == null ? null : properties.get("basicplayer.sourcedataline");
+        visualizerLine = line instanceof SourceDataLine source ? source : null;
+        visualizerSnapshot = MusicPcmVisualizer.EMPTY;
     }
 
     @Override
@@ -408,6 +425,16 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         basePositionMs = Math.min(Math.max(0L, totalDurationMs), progressOffsetMs + microsecondPosition / 1000L);
         if (playing) {
             playStartedAtMs = System.currentTimeMillis();
+        }
+        if (!playing || !Config.dynamicIsland || !Config.dynamicIslandLyrics) {
+            visualizerSnapshot = MusicPcmVisualizer.EMPTY;
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - visualizerSnapshot.timestampMs() < 25L) return;
+        SourceDataLine line = visualizerLine;
+        if (line != null && line.isOpen()) {
+            visualizerSnapshot = MusicPcmVisualizer.analyze(pcmData, line.getFormat(), now);
         }
     }
 
@@ -421,7 +448,9 @@ public final class MusicPlaybackService implements StreamPlayerListener {
         } else if (playerStatus == Status.PAUSED) {
             playing = false;
             status = "Paused";
+            visualizerSnapshot = MusicPcmVisualizer.EMPTY;
         } else if (playerStatus == Status.STOPPED) {
+            visualizerSnapshot = MusicPcmVisualizer.EMPTY;
             long endToleranceMs = Math.min(1500L, Math.max(250L, totalDurationMs / 100L));
             boolean ended = totalDurationMs > 0L && basePositionMs >= totalDurationMs - endToleranceMs;
             playing = false;

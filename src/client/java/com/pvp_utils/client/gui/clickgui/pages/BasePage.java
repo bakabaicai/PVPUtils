@@ -13,6 +13,7 @@ public abstract class BasePage {
     private final List<SettingModule> visibleModules = new ArrayList<>();
     private final List<Float> visibleModuleHeights = new ArrayList<>();
     private float cachedTotalHeight = -1f;
+    private float contentWidth = 520f;
     private String searchQuery = "";
 
     public abstract String getTitle();
@@ -41,6 +42,14 @@ public abstract class BasePage {
         return !visibleModules.isEmpty();
     }
 
+    public void setContentWidth(float width) {
+        float next = Math.max(0f, width);
+        if (Math.abs(contentWidth - next) < 0.01f) return;
+        contentWidth = next;
+        for (SettingModule module : modules) module.setContentWidth(next);
+        cachedTotalHeight = -1f;
+    }
+
     public void update(float dt) {
         rebuildLayoutCache();
         for (SettingModule m : visibleModules) m.update(dt);
@@ -56,6 +65,7 @@ public abstract class BasePage {
     }
 
     public void draw(Canvas canvas, float x, float y, float contentW, float contentH, float alpha, float scrollOffset, float mouseX, float mouseY) {
+        setContentWidth(contentW);
         ensureLayoutCache();
         float cy = y - scrollOffset;
         float viewportTop = y;
@@ -71,6 +81,7 @@ public abstract class BasePage {
     }
 
     public boolean onClick(float mx, float my, float contentX, float contentY, float contentW, float scrollOffset, int button) {
+        setContentWidth(contentW);
         ensureLayoutCache();
         float cy = contentY - scrollOffset;
         for (int i = 0; i < visibleModules.size(); i++) {
@@ -85,6 +96,7 @@ public abstract class BasePage {
     }
 
     public boolean onDrag(float mx, float my, float contentX, float contentY, float contentW, float scrollOffset) {
+        setContentWidth(contentW);
         ensureLayoutCache();
         float cy = contentY - scrollOffset;
         for (int i = 0; i < visibleModules.size(); i++) {
@@ -97,8 +109,21 @@ public abstract class BasePage {
     }
 
     public void releaseDrag() {
+        for (SettingModule m : modules) m.releaseDrag();
+    }
+
+    public boolean onScroll(float mx, float my, float contentX, float contentY, float contentW,
+                            float scrollOffset, float amount) {
+        setContentWidth(contentW);
         ensureLayoutCache();
-        for (SettingModule m : visibleModules) m.releaseDrag();
+        float cy = contentY - scrollOffset;
+        for (int i = 0; i < visibleModules.size(); i++) {
+            float height = visibleModuleHeights.get(i);
+            if (my >= cy && my <= cy + height)
+                return visibleModules.get(i).onScroll(mx, my, contentX, cy, contentW, amount);
+            cy += height + 8f;
+        }
+        return false;
     }
 
     private void ensureLayoutCache() {
@@ -113,6 +138,7 @@ public abstract class BasePage {
         float totalHeight = 0f;
         for (SettingModule m : modules) {
             if (!m.isVisible() || !m.matchesSearch(searchQuery)) continue;
+            m.setContentWidth(contentWidth);
             float moduleHeight = m.getTotalHeight();
             visibleModules.add(m);
             visibleModuleHeights.add(moduleHeight);

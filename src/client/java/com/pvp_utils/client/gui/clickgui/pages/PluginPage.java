@@ -3,6 +3,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import com.pvp_utils.client.gui.clickgui.widget.SettingButton;
+import com.pvp_utils.client.gui.clickgui.widget.SettingColorPreview;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
@@ -58,21 +59,7 @@ public final class PluginPage extends BasePage {
                     case "bool" -> new SettingToggle(() -> (Boolean) setting.value(), value -> saveSetting(setting, value));
                     case "number" -> new SettingSlider(setting.min(), setting.max(), "%.2f",
                             () -> ((Number) setting.value()).doubleValue(), value -> saveSetting(setting, value));
-                    case "color" -> new SettingTextBox(() -> setting.value().toString(), value -> saveSetting(setting, value), 9) {
-                        private String draft = setting.value().toString();
-
-                        @Override
-                        protected String getValue() {
-                            if (focused != this) draft = setting.value().toString();
-                            return draft;
-                        }
-
-                        @Override
-                        protected void setValue(String value) {
-                            draft = value;
-                            if (value.matches("#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?")) saveSetting(setting, value);
-                        }
-                    };
+                    case "color" -> colorPicker(setting);
                     default -> new SettingTextBox(() -> setting.value().toString(), value -> saveSetting(setting, value), 512);
                 };
                 module.addSub(setting.name(), "", widget);
@@ -82,6 +69,17 @@ public final class PluginPage extends BasePage {
             modules.add(module);
         }
         super.update(0f);
+    }
+
+    private static SettingColorPreview colorPicker(PluginSetting setting) {
+        int[] draft = {parseColor(setting.value().toString())};
+        return new SettingColorPreview(() -> parseColor(setting.value().toString()), value -> draft[0] = value,
+                true, () -> saveSetting(setting, String.format(java.util.Locale.ROOT, "#%08X", draft[0])));
+    }
+
+    private static int parseColor(String value) {
+        long parsed = Long.parseLong(value.substring(1), 16);
+        return (int) (value.length() == 7 ? parsed | 0xFF000000L : parsed);
     }
 
     private static void saveSetting(PluginSetting setting, Object value) {
@@ -169,8 +167,15 @@ public final class PluginPage extends BasePage {
 
     @Override
     public boolean onDrag(float mx, float my, float contentX, float contentY, float contentW, float scrollOffset) {
-        return !modules.isEmpty() && my >= contentY + 40f
+        return !modules.isEmpty()
                 && super.onDrag(mx, my, contentX, contentY + 40f, contentW, scrollOffset);
+    }
+
+    @Override
+    public boolean onScroll(float mx, float my, float contentX, float contentY, float contentW,
+                            float scrollOffset, float amount) {
+        return !modules.isEmpty() && my >= contentY + 40f
+                && super.onScroll(mx, my, contentX, contentY + 40f, contentW, scrollOffset, amount);
     }
 
     @Override

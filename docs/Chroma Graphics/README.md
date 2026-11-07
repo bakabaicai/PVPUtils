@@ -4,7 +4,7 @@ English · [简体中文](README.zh-CN.md)
 
 ## 1. Introduction
 
-Chroma Graphics is the client rendering framework of PVPUtils. It provides rendering integration for 2D screens, HUD elements, shared typography, backdrop blur, liquid glass, and world markers. The framework manages the regular 2D Skia context, framebuffer wrappers, rendering order, and OpenGL state restoration so that features can submit their content through established interfaces.
+Chroma Graphics is a Skia-based client rendering framework providing interfaces for 2D graphics, text and icons, backdrop blur, liquid glass, and world geometry. It manages the regular 2D Skia context, framebuffer wrappers, rendering order, and OpenGL state restoration. This document describes the current interfaces, coordinate spaces, calling constraints, resource lifecycles, and performance practices. The current backend integrates with Minecraft and uses the dependencies below.
 
 Chroma Graphics is the system name. Existing Java types retain names such as `SkijaRenderer` and `SkijaUi`; there is no unified entry class named `ChromaGraphics`.
 
@@ -43,7 +43,7 @@ Regular 2D rendering shares one managed Skia context. Liquid glass uses a separa
 2. Minecraft collects GUI content. Calls to `draw()` outside an active Skia canvas during this stage enter the main-target queue.
 3. `GameRendererMixin` calls `renderMainSubmitted()` before `GuiRenderer.render(GpuBufferSlice)`, drawing that queue into the Minecraft main color target.
 4. After Minecraft calls `blitToScreen()`, `SkijaFrameRenderer.render()` starts the overlay pass. It skips rendering when the window is minimized or a Minecraft loading overlay is present.
-5. The overlay pass draws integrated HUDs and plugins, the current `SkijaScreen`, the `submit()` queue, and the HUD editor overlay, in that order.
+5. The overlay pass runs host-integrated HUD drawing, the current `SkijaScreen`, the `submit()` queue, and the host's final overlay drawing, in that order.
 6. At pass completion, Skia commands are submitted and external GL state is restored. Glass integration can introduce additional intermediate flushes.
 
 The main-target pass uses an FBO wrapping the Minecraft main color texture. The overlay pass uses the default framebuffer, FBO 0. Pass setup checks dimensions, reuses or recreates the Surface, synchronizes GL state, and applies GUI coordinate scaling.
@@ -104,7 +104,7 @@ The tables use compact call notation, not copyable Java declarations. `Canvas` d
 
 The callback in `glowLayer` produces the glow layer. Draw the sharp foreground separately when required. Shadow, glow, and gradient interfaces do not imply that their final pixels are cached.
 
-Lines and path strokes reuse the shared Paint, with a minimum width of 0.1. They restore fill mode, default width, cap, and join state after drawing. Music UI rounded rectangles, lines, and icon paths use these interfaces without allocating separate basic-shape Paint objects.
+Lines and path strokes reuse the shared Paint, with a minimum width of 0.1. They restore fill mode, default width, cap, and join state after drawing.
 
 ### 3.3 Text and icons: SkijaUi
 
@@ -199,6 +199,34 @@ Some methods below are `public`, but they are not standard entry points for new 
 
 `renderMainTarget()` reuses the current pass if the shared canvas is active; it does not force a target switch. `currentFramebuffer()` returns the framework's stored target state. Outside a pass, it cannot substitute for querying the actual GL binding. Do not call `flush()` per widget or create a new `DirectContext` for ordinary components.
 
+### 3.8 Component effects and shape transitions
+
+These utilities use the current shared Canvas. They do not create a rendering backend or advance animation clocks. Dimensions use the caller's current coordinate space; a deformation path used for backdrop sampling must be created in screen GUI coordinates.
+
+| Interface | Behavior and constraints |
+| --- | --- |
+| `SoftShadow.drawRounded(Canvas, x, y, width, height, radius, strength, color)` | Draws an even soft shadow outside a rounded shape; `strength` is 0–1, with 0 skipping drawing |
+| `SoftShadow.drawPath(Canvas, Path, strength, color)` | Generates an exterior shadow from the same fill path; neither modifies nor closes the supplied path |
+| `ContentTransition.draw(Canvas, Rect bounds, visibility, offsetY, Runnable drawing)` | Composites a fade and isotropic blur within `bounds`; `visibility` is 0–1 and `offsetY` is an optional explicit vertical displacement |
+| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, progress): Geometry` | Builds a shared fill path for a rounded main panel and a right-hand circle; progress 0 contains only the main panel, while 1 produces separate shapes with the specified gap |
+| The preceding signature plus a final `boolean alignTop` | The default overload centers the circle vertically; `true` anchors its center at `y + max(cornerRadius, satelliteRadius)` so it stays near the top as the main panel grows taller |
+| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, leftProgress, rightProgress, alignTop): Geometry` | Separates both circles with independent progress values and combines them into one fill path; single-progress overloads are equivalent to `leftProgress=0` |
+| `LiquidSeparation.Geometry.path(): Path`, `bounds(): Rect` | Returns the current path and tight bounds for same-frame fills, backdrop clipping, shadows, and input geometry |
+| `Geometry.satelliteCenterX()`, `satelliteCenterY()`, `satelliteRadius()` | Returns the right circle's current geometry; its visible radius is 0 when right progress is 0 |
+| `Geometry.leftSatelliteCenterX()`, `leftSatelliteCenterY()`, `leftSatelliteRadius()` | Returns the left circle's current geometry; its visible radius is 0 when left progress is 0 |
+| `Geometry.close()` | Releases the owned Path; repeated closure is allowed. Do not separately close the borrowed `path()` |
+| `AnimatedStatusIcon.draw(Canvas, success, x, y, size, progress, color)` | Reveals a success check by path length or draws the two failure-cross strokes over staggered progress intervals, using round caps and joins |
+
+Draw shadows before panel content and interior clipping. Strength affects both color opacity and blur width, and colors use ARGB. Shadows exclude the shape interior and add no outline. During deformation, shadow and fill the entire path once to avoid repeated translucent blending at the bridge.
+
+`ContentTransition` creates a bounded layer only during transitions. Paints and filters are released and Canvas state is restored before returning. Opacity is proportional to `visibility`; blur has equal strength in both directions and decreases as content appears, without adding directional trails based on displacement. When visibility is near 1 and displacement is 0, it invokes the drawing callback directly without adding a clip; the caller remains responsible for steady-state clipping. The supplied bounds form the transition's hard clip and should include any explicit movement. Do not wrap a single text line in full-screen bounds or enqueue further rendering from the callback. Keep font size fixed during transitions.
+
+`offsetY=0f` fades content in place with blur; a nonzero value applies vertical displacement only to this callback. The caller supplies visibility, displacement, and animation curves. The interface does not manage content changes or timing.
+
+Liquid separation uses a nonzero fill with matching contour directions for the panel, both circles, and their bridges, producing a merged silhouette in one draw. Do not fill, sample the backdrop, or shadow the two sides separately. Each bridge narrows and detaches late in its transition. The final circle radius is limited to half the main panel height. The right center moves from inside the panel to `x + width + gap + satelliteRadius`; the left center moves to `x - gap - satelliteRadius`. In these formulas, `gap` and `satelliteRadius` are the clamped values: the gap is at least 0, and the circle radius is no greater than half the panel height. Top alignment uses the size-constrained corner and circle radii; a zero circle radius adds neither a circle nor a bridge. `bounds()` includes both sides' actual extension, and layout and input bounds should use this same geometry. The creating component owns Geometry and closes it after the frame or when its geometry becomes invalid. Components may reuse identical geometry; the framework provides no global geometry or image cache.
+
+The caller calculates progress once per frame and reuses it across that frame's drawing calls. `AnimatedStatusIcon` draws from the supplied progress without retaining animation state.
+
 ## 4. Coordinates, Animation, and Resource Contracts
 
 ### 4.1 Coordinate spaces
@@ -208,8 +236,6 @@ The regular Canvas is already scaled into GUI logical coordinates. Complete scre
 Rectangle arguments are `x, y, width, height`, not bottom-right coordinates. Colors use `0xAARRGGBB`.
 
 Calculate layout from the current available dimensions. If a design coordinate system and local scaling are used, apply the inverse of the same transform to mouse input. For example, `screenX = originX + localX * scale` implies `localX = (mouseX - originX) / scale`. Drawing, clipping, and hit testing must share the same frame geometry.
-
-`MainUiScale` is specific to main-menu page layout. Changes to those pages should pair `applyPage`, `pageX/pageY/pageEvent`, and `pageScreenX/pageScreenY/pageScreenSize` with consistent scale and center values. Do not apply this policy to every HUD.
 
 ### 4.2 Text positioning and reuse
 
@@ -221,7 +247,9 @@ Calculate layout from the current available dimensions. If a design coordinate s
 
 `PreparedText` retains TextBlob glyph data and width to avoid repeating fallback segmentation, measurement, and glyph construction on every frame. It is not a bitmap cache and does not automatically provide wrapping, ellipsis, complex text layout, or font-revision updates. CJK and missing glyphs follow the existing fallback policy. CJK prefers the system fallback font; requesting bold does not guarantee bold fallback glyphs.
 
-Cache keys must include text, discrete font size, bold state, font revision, and any temporary font name. Wrapping or truncation caches must also include available width, translation-display mode, and other relevant layout conditions. Position and color changes do not require rebuilding a TextBlob.
+Cache keys must include text, discrete font size, bold state, font revision, and any temporary font name. Wrapping or truncation caches must also include available width, wrapping and truncation policies, and other relevant layout conditions. Position and color changes do not require rebuilding a TextBlob.
+
+Test whether the complete text fits using the actual available width before quantizing a cache key. Rounding the width down first must not add an ellipsis to text that already fits. Only text that exceeds the available width enters truncation; cache quantization must not change the display of complete text.
 
 ### 4.3 Animation and lifecycle
 
@@ -246,7 +274,7 @@ Pair `save()` with `restoreToCount()` to isolate local transforms and clipping, 
 
 ## 5. Usage Examples
 
-The four classes below can be placed separately in the client source set. They demonstrate interface composition and lifecycle management; they do not supply automatic registration, navigation, or input controls.
+The examples below can be placed separately in the client source set. They demonstrate interface composition and lifecycle management; registration, navigation, and input dispatch remain the responsibility of the existing host.
 
 ### 5.1 Responsive screen with reusable text
 
@@ -441,6 +469,45 @@ public final class ChromaTexturePainter {
 }
 ```
 
+### 5.5 Shared deformation geometry and bounded text transitions
+
+Call this from an existing HUD entry point with an active Canvas. The `x/y` coordinates are screen GUI coordinates, and the caller has already updated all progress values. The example draws the exterior shadow, samples the current backdrop, fills the panel, and finally fades text in place with blur. The caller retains ownership of the prepared text.
+
+```java
+package com.pvp_utils.client.render.examples;
+
+import com.pvp_utils.client.render.skia.ContentTransition;
+import com.pvp_utils.client.render.skia.LiquidSeparation;
+import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.skia.SoftShadow;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.types.Rect;
+
+public final class ChromaAnimatedCapsule {
+    public static void draw(Canvas canvas, float x, float y, float leftSeparation, float rightSeparation,
+                            float visibility, SkijaUi.PreparedText label) {
+        try (LiquidSeparation.Geometry shape = LiquidSeparation.create(
+                x, y, 240f, 32f, 16f, 14f, 7f, leftSeparation, rightSeparation, true)) {
+            Rect bounds = shape.bounds();
+            SoftShadow.drawPath(canvas, shape.path(), 0.45f, 0xB0000000);
+            SkijaRenderer.drawBlurredBackdrop(canvas, shape.path(),
+                    bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), 10f);
+            SkijaUi.fillPath(canvas, shape.path(), 0xD91B1F26);
+            int save = canvas.save();
+            try {
+                canvas.clipRect(Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f));
+                ContentTransition.draw(canvas, Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f),
+                        visibility, 0f,
+                        () -> label.drawTop(canvas, x + 14f, y + 8f, 0xFFF3F6FC));
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+}
+```
+
 ## 6. Performance Practices
 
 These practices reduce avoidable CPU, GPU, and native-resource overhead. They do not guarantee a frame rate on a particular device.
@@ -465,13 +532,13 @@ Drawing, measurement, and cache keys must use this same result. The 0.25 increme
 | Data | Recommended cache policy | Invalidation |
 | --- | --- | --- |
 | Single fixed label | One `PreparedText` | Text, size, weight, font selection, or font revision changes |
-| Lyrics and multiline lists | Feature-scoped, bounded text and layout cache | Track, text, layout width, display mode, or font changes; close evicted entries |
+| Multiline text and lists | Caller-owned, bounded text and layout cache | Content revision, text, layout width, layout policy, or font changes; close evicted resources |
 | Static images | Feature-owned image cache with a total pixel budget | Image identity, target dimensions, or resource revision changes |
 | Blurred static images | Generate only when image or effect parameters change | Image, resolution, or blur parameters change |
 | Live world background | Use the framework's current-pass snapshot | An old image cannot remain a substitute for the current world |
 | Glass slots | Reuse allocated offscreen targets | Required size growth or framework destruction |
 
-The music module's `MusicBlurredCover` is a feature cache for blurred cover backgrounds. Its 256-pixel working size is specific to that low-detail background. Do not extend it to body text, icons, ordinary covers, or all UI rendering.
+The caller owns static-image blur caches and chooses their working resolution according to display dimensions and required detail. Reduced-resolution effect caches apply only to the corresponding image effect and do not change the drawing quality of text, icons, or other images.
 
 ### 6.3 Backdrop and effect costs
 
@@ -485,22 +552,22 @@ Glass requires capture, context transitions, offscreen drawing, and filtering, a
 
 Check client compilation, geometry at different GUI scales and window sizes, first entry and return, font-change invalidation, cache counts during sustained animation, and native-resource cleanup. Performance evidence should distinguish CPU time, GPU time, allocations, and cache hits. A single FPS reading does not identify a bottleneck.
 
-Follow the root `AGENTS.md` instructions for the project-local temporary directory and run compilation that includes `compileClientJava`. Do not launch Minecraft for runtime testing unless the user explicitly requests it.
+Source validation for the current Minecraft backend should include `compileClientJava`. Static checks and compilation do not replace visual or performance validation in the running environment.
 
 ## 7. Instructions for AI Contributors
 
-Before working on UI, HUDs, typography, blur, glass, or rendering internals, read this section, the relevant interface sections, and the corresponding implementation.
+Before using Chroma Graphics, read this section, the relevant interface sections, and the corresponding implementation.
 
-1. **Verify the environment and API.** Use the current repository, Minecraft 1.21.11 sources with official mappings, and actual dependencies. Read affected Minecraft classes before writing calls. Do not guess signatures or invent Chroma Graphics APIs.
-2. **Identify the stage.** Classify the content as a Screen, main-target GUI, HUD overlay, or world Gizmo. Confirm submission precedes the relevant queue drain. Use an established entry point without registering the same content twice.
-3. **Reuse shared typography.** Use `SkijaUi` for ordinary text and explicitly owned `PreparedText` for repeated text. Do not introduce another font manager or pass continuous animated float sizes directly into shared caches.
-4. **Unify geometry.** Advance animation once per frame. Drawing, blur, clipping, and hit testing must read the same result. Distinguish physical pixels, GUI coordinates, and local design coordinates.
-5. **Bound the work.** Cull invisible content before processing visible layout. Define cache keys, capacity, invalidation, and release. A feature's reduced-resolution cache must not change global image-quality policy.
-6. **Preserve ownership.** Do not retain or close borrowed Canvas objects. Close owned native resources and keep GPU operations in the client rendering stage. Feature modules must not invoke global shared-resource shutdown.
-7. **Respect backend boundaries.** Ordinary widgets do not need new contexts, capture pipelines, font paths, or fullscreen offscreen passes. If backend changes are necessary, verify GL state, resource ownership, and ordering for every affected caller.
-8. **Handle failure and return paths.** Account for missing blur or textures, window changes, font reloads, screen re-entry, and resource recreation. Asynchronous results update data without retriggering entrance animations.
-9. **Perform required validation.** Apply the process-local temporary-directory setup in `AGENTS.md` and include client compilation. Launch the game only when explicitly requested. Do not report static or offline checks as runtime frame-rate measurements.
-10. **Keep documentation aligned.** Update both language versions and examples when public interfaces or behavior change. Follow the project's prohibition on adding code comments; place explanations in document prose.
+1. **Verify interfaces and dependencies.** Confirm types, signatures, and calling behavior against the current implementation and actual dependencies. For the Minecraft backend, check sources matching its version and mappings. Do not guess methods or invent framework APIs.
+2. **Identify the rendering stage.** Classify the content as a Screen, main-target GUI, HUD overlay, or world Gizmo. Confirm submission precedes the relevant queue drain. Reuse an established entry point and connect each piece of content only once.
+3. **Reuse typography interfaces.** Use `SkijaUi` for ordinary text and caller-owned `PreparedText` for repeated text. Keep font sizes fixed or discrete, use the same font selection for measurement and drawing, and include font revision and any temporary font name in cache keys.
+4. **Unify coordinates and geometry.** Advance animation once per frame. Drawing, backdrop sampling, clipping, and hit testing must read the same result. Distinguish physical pixels, GUI coordinates, and local coordinates, and apply the corresponding inverse transform to input.
+5. **Bound caches and work.** Cull invisible content before processing visible layout. Define cache keys, capacity, invalidation, and release. Local cache policies apply only to the content they own.
+6. **Preserve resource ownership.** Do not retain borrowed Canvas objects across frames or close them. Close owned native resources and keep GPU operations in the appropriate client rendering stage. Callers must not close framework-shared resources.
+7. **Respect backend boundaries.** Use the existing context, backdrop sampling, and typography interfaces for regular drawing. When changing a backend, verify GL state, target framebuffers, resource ownership, and submission order for affected passes.
+8. **Handle invalidation and recreation.** Account for unavailable backdrops or textures, window-size changes, font reloads, and recreation after resource release. Manage asynchronous data updates separately from animation lifecycles.
+9. **Validate actual behavior.** Check compilation, coordinate calculations, drawing order, cache invalidation, and resource cleanup. Separate CPU, GPU, and allocation costs in performance measurements. Static checks and compilation are not runtime performance evidence.
+10. **Keep documentation aligned.** When public interfaces or behavior change, update both language versions and affected examples. Keep names, parameters, coordinate spaces, and ownership descriptions consistent with the implementation.
 
 Change reports should identify the rendering stage used, cache and resource lifecycles, checks actually performed, and any runtime behavior left unverified.
 
@@ -508,12 +575,8 @@ Change reports should identify the rendering stage used, cache and resource life
 
 - [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java), [SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java), [SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java), [SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
+- [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java), [ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java), [LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java), [AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
 - [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java), [GlassCaptureRenderer](../../src/client/java/com/pvp_utils/client/render/skia/GlassCaptureRenderer.java), [GlassGlBackend](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlBackend.java), [GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)
 - [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java), [WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java), [GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
-- [MainUiScale](../../src/client/java/com/pvp_utils/client/render/MainUI/MainUiScale.java), [MainUIFlipAnimation](../../src/client/java/com/pvp_utils/client/render/MainUI/MainUIFlipAnimation.java)
-- [Shared typography in use: LyricsDisplayRenderer](../../src/client/java/com/pvp_utils/client/modules/impl/Render/LyricsDisplayRenderer.java), [Local image cache: MusicBlurredCover](../../src/client/java/com/pvp_utils/client/NeteaseMusic/MusicBlurredCover.java)
-- [Build definition](../../build.gradle), [Project collaboration rules](../../AGENTS.md)
-- [Plugin interfaces](../PLUGINS.md), [Plugin tutorial](../PLUGIN_TUTORIAL.md), [Shader documentation](../SHADERS.md)
-
-JavaScript plugins use the rendering facade exposed by the plugin system. Its parameters and lifecycle are defined in the plugin documentation. Main-menu backgrounds, page flips, music background caches, and shaders are specialized features built on their respective rendering paths, not mandatory policies for every component.
+- [Build definition](../../build.gradle)

@@ -10,9 +10,12 @@ public abstract class SettingWidget {
 
     public abstract float getWidth();
     public abstract float getHeight();
+    public float getControlHeight() { return getHeight(); }
     public abstract void draw(Canvas canvas, float x, float y, float alpha);
     public void update(float dt) { }
     public boolean isAnimating() { return false; }
+    public boolean isDragging() { return false; }
+    public void releaseDrag() { }
     public boolean onClick(float mx, float my, float x, float y, int button) { return false; }
     public boolean onDrag(float mx, float my, float x, float y) { return false; }
     public boolean onScroll(float mx, float my, float x, float y, float amount) { return false; }
