@@ -14,7 +14,13 @@ public final class HudPanel {
     public static void draw(Canvas canvas, float x, float y, float width, float height,
                             float radius, HudAppearance appearance, float alpha) {
         if (width <= 0f || height <= 0f || alpha <= 0f) return;
-        int color = opacity(appearance.background(), alpha);
+        draw(canvas, x, y, width, height, radius, appearance, appearance.background(), alpha);
+    }
+
+    public static void draw(Canvas canvas, float x, float y, float width, float height,
+                            float radius, HudAppearance appearance, int backgroundColor, float alpha) {
+        if (width <= 0f || height <= 0f || alpha <= 0f) return;
+        int color = opacity(backgroundColor, alpha);
         if (appearance.shadow) {
             SoftShadow.drawRounded(canvas, x, y, width, height, radius,
                     appearance.shadowStrength, opacity(0xB0000000, alpha));

@@ -9,6 +9,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.alt.AltManagerScreen;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import com.pvp_utils.client.Version;
@@ -67,7 +68,9 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private final List<MenuButton> buttons = new ArrayList<>();
     private TitleHitBox titleHitBox = new TitleHitBox(0f, 0f, 0f, 0f);
     private DynamicTexture backgroundTexture;
-    private MainUIVideoBackground videoBackground;
+    private java.util.concurrent.CompletableFuture<List<String>> videoFiles;
+    private boolean videoFilesApplied;
+    private int pendingVideoCycles;
 
     private int pressedIndex = -1;
     private boolean titlePressed;
@@ -138,34 +141,38 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         String sharedShaderPath = initialShaderPath();
         shader = sharedShaderPath == null ? MainUIShader.random() : MainUIShader.named(sharedShaderPath);
         MainUISharedBackground.setActiveShader(shader.fragmentPath());
+        if (isVideoBackground()) {
+            ensureSelectedVideo();
+            MainUISharedBackground.prepareVideo();
+        }
         hintStartMs = showEntryHint ? System.currentTimeMillis() : 0L;
         entryFadeStartMs = entryFade ? System.currentTimeMillis() : 0L;
         returnTransitionStartMs = returnTransition ? animationNowNanos() : 0L;
 
         refreshThemeFromBackground();
         buttons.clear();
-        buttons.add(new MenuButton("Single player", "\uE7FD", this::startSingleplayerTransition));
-        buttons.add(new MenuButton("Multi player", "\uE7EF", () -> {
+        buttons.add(new MenuButton(UiText.t("单人游戏", "Single player"), "\uE7FD", this::startSingleplayerTransition));
+        buttons.add(new MenuButton(UiText.t("多人游戏", "Multi player"), "\uE7EF", () -> {
             if (this.minecraft == null) return;
             startMultiplayerTransition();
         }));
-        buttons.add(new MenuButton("Alt Manager", "\uE853", () -> {
+        buttons.add(new MenuButton(UiText.t("账户管理", "Alt Manager"), "\uE853", () -> {
             startAltManagerTransition();
         }));
         if (ViaFabricPlusBridge.isInstalled()) {
             buttons.add(new MenuButton("ViaFabricPlus", "\uE64C", this::startViaFabricPlusTransition));
         }
         if (ViaFabricPlusBridge.isModMenuInstalled()) {
-            buttons.add(new MenuButton("Mod Menu", "\uE241", () -> {
+            buttons.add(new MenuButton(UiText.t("模组菜单", "Mod Menu"), "\uE241", () -> {
                 if (this.minecraft != null) {
                     ViaFabricPlusBridge.openModMenu(returnParent());
                 }
             }));
         }
-        buttons.add(new MenuButton("Options", "\uE8B8", () -> {
+        buttons.add(new MenuButton(UiText.t("选项", "Options"), "\uE8B8", () -> {
             if (this.minecraft != null) this.minecraft.setScreen(new OptionsScreen(returnParent(), this.minecraft.options));
         }));
-        buttons.add(new MenuButton("Shutdown", "\uE8AC", () -> {
+        buttons.add(new MenuButton(UiText.t("退出游戏", "Shutdown"), "\uE8AC", () -> {
             if (this.minecraft != null) this.minecraft.stop();
         }));
         updateButtonPositions();
@@ -605,19 +612,21 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private void renderMainBackground(GuiGraphics graphics, int mouseX, int mouseY) {
         if (isVideoBackground()) {
             ensureSelectedVideo();
-            ensureVideoBackground();
-            if (videoBackground.render(graphics, Config.mainUIVideoBackground)) {
+            if (MainUISharedBackground.renderVideo(graphics)) {
+                destroyBackgroundTexture();
                 return;
             }
-            renderVideoUnavailable(graphics);
-            return;
+            if (!MainUISharedBackground.getVideoError().isBlank()) {
+                renderVideoUnavailable(graphics);
+                return;
+            }
         }
-        if (!isImageBackground()) {
+        if (!isImageBackground() && !isVideoBackground()) {
             ensureShaderReady();
             shader.render(graphics, mouseX, mouseY);
             return;
         }
-        ensureBackgroundTexture();
+        if (isImageBackground()) ensureBackgroundTexture();
         if (backgroundTexture == null || backgroundTextureW <= 0 || backgroundTextureH <= 0) {
             ensureShaderReady();
             shader.render(graphics, mouseX, mouseY);
@@ -660,18 +669,12 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         graphics.blit(RenderPipelines.GUI_TEXTURED, BACKGROUND_TEXTURE_ID, x, y, 0f, 0f, Math.round(drawW), Math.round(drawH), backgroundTextureW, backgroundTextureH, backgroundTextureW, backgroundTextureH);
     }
 
-    private void ensureVideoBackground() {
-        if (videoBackground == null) {
-            videoBackground = new MainUIVideoBackground();
-        }
-    }
-
     private void renderVideoUnavailable(GuiGraphics graphics) {
         graphics.fill(0, 0, this.width, this.height, 0xFF05070A);
         String title = Config.isChinese ? "视频背景不可用" : "Video background unavailable";
-        String reason = videoBackground == null || videoBackground.getLastError().isBlank()
+        String reason = MainUISharedBackground.getVideoError().isBlank()
         ? (Config.isChinese ? "视频文件无法解码" : "Video file could not be decoded")
-        : videoBackground.getLastError();
+        : MainUISharedBackground.getVideoError();
         int titleW = this.minecraft.font.width(title);
         int reasonW = this.minecraft.font.width(reason);
         int cx = this.width / 2;
@@ -825,7 +828,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         }
 
         destroyBackgroundTexture();
-        closeVideoBackground();
+        if (!Config.useMainUI) MainUISharedBackground.closeVideoBackground();
 
         lastWindowPixelW = -1;
         lastWindowPixelH = -1;
@@ -1110,29 +1113,38 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     private void cycleBackgroundVideo() {
-        List<String> files = MainUIBackgrounds.listMp4s();
-        if (files.isEmpty()) {
-            Config.mainUIVideoBackground = "";
-            Config.save();
-            closeVideoBackground();
-            return;
+        pendingVideoCycles++;
+        if (videoFiles == null || videoFiles.isDone()) {
+            videoFiles = MainUIBackgrounds.listMp4sAsync();
+            videoFilesApplied = false;
         }
-        int index = files.indexOf(Config.mainUIVideoBackground);
-        Config.mainUIVideoBackground = files.get((index + 1 + files.size()) % files.size());
-        Config.save();
-        closeVideoBackground();
+        ensureSelectedVideo();
     }
 
     private void ensureSelectedVideo() {
-        List<String> files = MainUIBackgrounds.listMp4s();
-        if (files.isEmpty()) {
-            Config.mainUIVideoBackground = "";
+        if (videoFiles == null) videoFiles = MainUIBackgrounds.listMp4sAsync();
+        if (videoFilesApplied || !videoFiles.isDone()) return;
+        videoFilesApplied = true;
+        if (videoFiles.isCompletedExceptionally()) {
+            pendingVideoCycles = 0;
             return;
         }
-        if (Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank() || !files.contains(Config.mainUIVideoBackground)) {
-            Config.mainUIVideoBackground = files.get(0);
+        List<String> files = videoFiles.getNow(List.of());
+        String selected = Config.mainUIVideoBackground;
+        if (files.isEmpty()) {
+            selected = "";
+        } else if (pendingVideoCycles > 0) {
+            int index = files.indexOf(selected);
+            selected = files.get(Math.floorMod(index + pendingVideoCycles, files.size()));
+        } else if (selected == null || selected.isBlank() || !files.contains(selected)) {
+            selected = files.get(0);
+        }
+        pendingVideoCycles = 0;
+        if (!java.util.Objects.equals(Config.mainUIVideoBackground, selected)) {
+            Config.mainUIVideoBackground = selected;
             Config.save();
         }
+        MainUISharedBackground.prepareVideo();
     }
 
     private void refreshThemeFromBackground() {
@@ -1507,15 +1519,17 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     private void setBackgroundMode(Config.MainUIBackgroundMode mode) {
-        Config.mainUIBackgroundMode = mode == null ? Config.MainUIBackgroundMode.GLSL : mode;
+        Config.mainUIBackgroundMode = mode == null ? Config.MainUIBackgroundMode.VIDEO : mode;
         Config.mainUICustomBackground = Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE;
         if (isGlslBackground()) {
             reloadConfiguredShader();
         }
-        if (!isVideoBackground()) {
-            closeVideoBackground();
+        if (isVideoBackground()) {
+            MainUISharedBackground.prepareVideo();
+        } else {
+            MainUISharedBackground.closeVideoBackground();
         }
-        if (!isImageBackground()) {
+        if (!isImageBackground() && !isVideoBackground()) {
             destroyBackgroundTexture();
         }
     }
@@ -1545,13 +1559,6 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         backgroundTextureW = -1;
         backgroundTextureH = -1;
         loadedBackground = "";
-    }
-
-    private void closeVideoBackground() {
-        if (videoBackground != null) {
-            videoBackground.close();
-            videoBackground = null;
-        }
     }
 
     private class MenuButton {

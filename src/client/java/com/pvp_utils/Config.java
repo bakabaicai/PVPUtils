@@ -223,7 +223,7 @@ public class Config {
     public static int betterChatInputFadeTime = 170;
     public static int hotbarRollover = 0;
     public static boolean useMainUI = false;
-    public static MainUIBackgroundMode mainUIBackgroundMode = MainUIBackgroundMode.GLSL;
+    public static MainUIBackgroundMode mainUIBackgroundMode = MainUIBackgroundMode.VIDEO;
     public static MainUIGlslMode mainUIGlslMode = MainUIGlslMode.RANDOM;
     public static boolean mainUICustomBackground = false;
     public static boolean mainUIMouseEffect = false;
@@ -640,6 +640,7 @@ public class Config {
     }
 
     private static void normalizeDynamicIslandAppearance() {
+        if (!com.pvp_utils.client.AntiCheat.isDetected()) dynamicIslandBlockCountAltIcon = false;
         if (dynamicIslandShape == null) dynamicIslandShape = DynamicIslandShape.CAPSULE;
         if (dynamicIslandBackground == null) {
             dynamicIslandBackground = DynamicIslandBackground.BLUR;

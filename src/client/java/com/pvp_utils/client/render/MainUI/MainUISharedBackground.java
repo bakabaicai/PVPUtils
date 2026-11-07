@@ -48,6 +48,37 @@ public final class MainUISharedBackground {
         return activeShaderPath;
     }
 
+    public static void preloadVideo() {
+        getVideoBackground().prepare(Config.mainUIVideoBackground, 1280, 720);
+    }
+
+    public static void prepareVideo() {
+        Minecraft client = Minecraft.getInstance();
+        getVideoBackground().prepare(Config.mainUIVideoBackground,
+                Math.max(1, client.getWindow().getWidth()), Math.max(1, client.getWindow().getHeight()));
+    }
+
+    public static boolean renderVideo(GuiGraphics graphics) {
+        boolean rendered = getVideoBackground().render(graphics, Config.mainUIVideoBackground);
+        if (rendered) destroyBackgroundTexture();
+        return rendered;
+    }
+
+    public static String getVideoError() {
+        return videoBackground == null ? "" : videoBackground.getLastError();
+    }
+
+    private static MainUIVideoBackground getVideoBackground() {
+        if (videoBackground == null) videoBackground = new MainUIVideoBackground();
+        return videoBackground;
+    }
+
+    public static void closeVideoBackground() {
+        if (videoBackground == null) return;
+        videoBackground.close();
+        videoBackground = null;
+    }
+
     public static boolean shouldReplace(Screen screen) {
         Minecraft client = Minecraft.getInstance();
         return Config.useMainUI
@@ -78,7 +109,7 @@ public final class MainUISharedBackground {
 
     private static DynamicTexture getBackgroundTexture() {
         if (Config.mainUIBackgroundMode != Config.MainUIBackgroundMode.IMAGE) {
-            return null;
+            return Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO ? backgroundTexture : null;
         }
         Minecraft client = Minecraft.getInstance();
         int windowPixelW = client.getWindow().getWidth();
@@ -152,16 +183,19 @@ public final class MainUISharedBackground {
         Minecraft client = Minecraft.getInstance();
         graphics.fill(0, 0, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight(), 0xFF000000);
         if (Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO) {
-            if (videoBackground == null) {
-                videoBackground = new MainUIVideoBackground();
-            }
-            if (videoBackground.render(graphics, Config.mainUIVideoBackground)) {
+            if (renderVideo(graphics)) {
                 return;
             }
-            renderVideoUnavailable(graphics, client);
-            return;
+            if (!getVideoError().isBlank()) {
+                renderVideoUnavailable(graphics, client);
+                return;
+            }
+        } else {
+            closeVideoBackground();
         }
-        if (Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE && backgroundTexture != null && backgroundTextureW > 0 && backgroundTextureH > 0) {
+        if ((Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.IMAGE
+                || Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO)
+                && backgroundTexture != null && backgroundTextureW > 0 && backgroundTextureH > 0) {
             float coverScale = Math.max(client.getWindow().getGuiScaledWidth() / (float) backgroundTextureW, client.getWindow().getGuiScaledHeight() / (float) backgroundTextureH);
             if (Config.mainUIMouseEffect) {
                 coverScale *= 1.18f;
@@ -239,9 +273,7 @@ public final class MainUISharedBackground {
             shader.close();
             shader = null;
         }
-        if (videoBackground != null) {
-            videoBackground.close();
-            videoBackground = null;
-        }
+        closeVideoBackground();
+        destroyBackgroundTexture();
     }
 }

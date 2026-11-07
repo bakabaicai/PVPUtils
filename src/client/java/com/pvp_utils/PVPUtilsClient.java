@@ -8,6 +8,7 @@ import com.pvp_utils.client.VersionWarningManager;
 import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
+import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
 import com.pvp_utils.client.startup.StartupProgress;
 import com.pvp_utils.client.modules.impl.Combat.ElytraAssistManager;
@@ -33,13 +34,16 @@ public class PVPUtilsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         StartupProgress.advance(StartupProgress.Stage.MODULES);
+        AntiCheat.verifyEnvironment();
         Config.load();
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
         com.pvp_utils.client.plugin.PluginManager.INSTANCE.initialize();
         ClickGuiThemeManager.applyConfig();
-        AntiCheat.verifyEnvironment();
         VictorySound.init();
-        MainUIBackgrounds.init();
+        MainUIBackgrounds.initAsync();
+        if (Config.useMainUI && Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO) {
+            MainUISharedBackground.preloadVideo();
+        }
         TermsManager.ensure();
         CustomCapeManager.init();
         ModuleKeybindManager.initialize();
@@ -49,6 +53,7 @@ public class PVPUtilsClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
                 client -> {
                     com.pvp_utils.client.modules.impl.Combat.HitSoundPlayer.close();
+                    MainUISharedBackground.close();
                     PseudoCreativeManager.setEnabled(false);
                     com.pvp_utils.client.plugin.PluginManager.INSTANCE.close();
                     com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();

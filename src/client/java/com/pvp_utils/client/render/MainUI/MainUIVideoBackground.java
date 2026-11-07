@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 
@@ -26,8 +27,10 @@ public final class MainUIVideoBackground {
     private final Identifier textureId = Identifier.fromNamespaceAndPath("pvp_utils", "mainui_video_" + nextTextureId++);
     private DynamicTexture texture;
     private volatile DecoderSession decoder;
-    private volatile String lastError = "";
-    private volatile String failedVideo = "";
+    private volatile DecoderSession pendingDecoder;
+    private String lastError = "";
+    private String failedVideo = "";
+    private String requestedVideo = "";
     private String loadedVideo = "";
     private int textureW = -1;
     private int textureH = -1;
@@ -36,67 +39,116 @@ public final class MainUIVideoBackground {
         Minecraft client = Minecraft.getInstance();
         int screenW = Math.max(1, client.getWindow().getGuiScaledWidth());
         int screenH = Math.max(1, client.getWindow().getGuiScaledHeight());
-        if (!ensureVideo(selectedVideo)) return false;
+        int width = Math.max(1, client.getWindow().getWidth());
+        int height = Math.max(1, client.getWindow().getHeight());
+        prepare(selectedVideo, width, height);
         DecoderSession session = decoder;
+        DecoderSession next = pendingDecoder;
         if (session != null) {
-            session.lastUseNanos = System.nanoTime();
-            session.targetWidth = Math.max(1, client.getWindow().getWidth());
-            session.targetHeight = Math.max(1, client.getWindow().getHeight());
-            uploadPendingFrame(session);
+            session.touch(width, height);
         }
-        if (texture == null || textureW <= 0 || textureH <= 0) {
-            graphics.fill(0, 0, screenW, screenH, 0xFF000000);
-            return true;
+        if (next != null) next.touch(width, height);
+        if (next == null || !uploadPendingFrame(next, true)) {
+            if (session != null) uploadPendingFrame(session, false);
         }
+        if (texture == null || textureW <= 0 || textureH <= 0) return false;
         drawCover(graphics, screenW, screenH);
         return true;
     }
 
-    private boolean ensureVideo(String selectedVideo) {
-        String safeName = selectedVideo == null || selectedVideo.isBlank() ? "" : Path.of(selectedVideo).getFileName().toString();
+    public void prepare(String selectedVideo, int width, int height) {
+        String safeName;
+        try {
+            Path fileName = selectedVideo == null || selectedVideo.isBlank() ? null : Path.of(selectedVideo).getFileName();
+            safeName = fileName == null ? "" : fileName.toString();
+        } catch (InvalidPathException failure) {
+            if (pendingDecoder != null) pendingDecoder.cancel();
+            pendingDecoder = null;
+            lastError = "Invalid video file name";
+            return;
+        }
+        boolean changed = !safeName.equals(requestedVideo);
+        if (changed) {
+            requestedVideo = safeName;
+            lastError = "";
+            failedVideo = "";
+            if (pendingDecoder != null) pendingDecoder.cancel();
+            pendingDecoder = null;
+        }
         if (safeName.isBlank()) {
-            close();
             lastError = "No video selected";
-            return false;
+            return;
+        }
+        DecoderSession next = pendingDecoder;
+        if (next != null) {
+            if (!next.error.isBlank()) {
+                failedVideo = safeName;
+                lastError = next.error;
+                next.cancel();
+                pendingDecoder = null;
+            } else if (next.active) {
+                return;
+            }
         }
         DecoderSession current = decoder;
-        if (safeName.equals(loadedVideo) && current != null && current.active) return true;
-        if (safeName.equals(failedVideo)) return false;
-        close();
-        Path videoPath = MainUIBackgrounds.resolveVideo(safeName);
-        if (!Files.isRegularFile(videoPath)) {
-            lastError = "Video file not found: " + safeName;
-            return false;
+        if (safeName.equals(loadedVideo) && current != null && current.active) return;
+        if (!changed && current != null && safeName.equals(current.name) && !current.error.isBlank()) {
+            failedVideo = safeName;
+            lastError = current.error;
         }
-        loadedVideo = safeName;
-        lastError = "";
-        Minecraft client = Minecraft.getInstance();
-        DecoderSession session = new DecoderSession(videoPath, safeName,
-                Math.max(1, client.getWindow().getWidth()), Math.max(1, client.getWindow().getHeight()));
-        decoder = session;
+        if (safeName.equals(failedVideo)) return;
+        DecoderSession session = new DecoderSession(safeName, Math.max(1, width), Math.max(1, height));
+        pendingDecoder = session;
         session.worker.start();
-        return true;
     }
 
-    private void uploadPendingFrame(DecoderSession session) {
+    private boolean uploadPendingFrame(DecoderSession session, boolean replacement) {
         DecodedFrame frame = session.take();
-        if (frame == null) return;
+        if (frame == null) return false;
         try {
-            ensureTexture(frame.width(), frame.height());
-            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture.getTexture(),
-                    frame.pixels(), NativeImage.Format.RGBA, 0, 0, 0, 0, frame.width(), frame.height());
+            uploadFrame(frame, replacement);
+            if (replacement) {
+                DecoderSession previous = decoder;
+                decoder = session;
+                loadedVideo = session.name;
+                pendingDecoder = null;
+                session.startPresentation();
+                if (previous != null) previous.cancel();
+            }
+            return true;
+        } catch (RuntimeException | LinkageError failure) {
+            session.error = "Unable to upload video frame: " + session.name;
+            if (session.name.equals(requestedVideo)) {
+                failedVideo = session.name;
+                lastError = session.error;
+            }
+            if (pendingDecoder == session) pendingDecoder = null;
+            session.cancel();
+            LOGGER.error("Unable to upload main-menu video {}", session.name, failure);
+            return false;
         } finally {
             session.recycle(frame.pixels());
         }
     }
 
-    private void ensureTexture(int width, int height) {
-        if (texture != null && textureW == width && textureH == height) return;
-        if (texture != null) Minecraft.getInstance().getTextureManager().release(textureId);
-        texture = new DynamicTexture("pvp_utils:mainui_video", width, height, false);
-        Minecraft.getInstance().getTextureManager().register(textureId, texture);
-        textureW = width;
-        textureH = height;
+    private void uploadFrame(DecodedFrame frame, boolean replacement) {
+        if (!replacement && texture != null && textureW == frame.width() && textureH == frame.height()) {
+            RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture.getTexture(),
+                    frame.pixels(), NativeImage.Format.RGBA, 0, 0, 0, 0, frame.width(), frame.height());
+            return;
+        }
+        DynamicTexture next = new DynamicTexture("pvp_utils:mainui_video", frame.width(), frame.height(), false);
+        try {
+            RenderSystem.getDevice().createCommandEncoder().writeToTexture(next.getTexture(),
+                    frame.pixels(), NativeImage.Format.RGBA, 0, 0, 0, 0, frame.width(), frame.height());
+            Minecraft.getInstance().getTextureManager().register(textureId, next);
+            texture = next;
+            textureW = frame.width();
+            textureH = frame.height();
+        } catch (RuntimeException | LinkageError failure) {
+            next.close();
+            throw failure;
+        }
     }
 
     private void drawCover(GuiGraphics graphics, int screenW, int screenH) {
@@ -125,13 +177,19 @@ public final class MainUIVideoBackground {
 
     public void close() {
         DecoderSession session = decoder;
+        DecoderSession next = pendingDecoder;
         decoder = null;
+        pendingDecoder = null;
         if (session != null) session.cancel();
+        if (next != null) next.cancel();
         if (texture != null) {
             Minecraft.getInstance().getTextureManager().release(textureId);
             texture = null;
         }
         loadedVideo = "";
+        requestedVideo = "";
+        failedVideo = "";
+        lastError = "";
         textureW = -1;
         textureH = -1;
     }
@@ -140,18 +198,19 @@ public final class MainUIVideoBackground {
     }
 
     private final class DecoderSession {
-        private final Path path;
         private final String name;
         private final Thread worker;
         private final ArrayDeque<ByteBuffer> reusable = new ArrayDeque<>(3);
         private volatile boolean active = true;
+        private volatile boolean presenting;
+        private volatile String error = "";
         private volatile long lastUseNanos = System.nanoTime();
+        private long presentationStartedNanos;
         private volatile int targetWidth;
         private volatile int targetHeight;
         private DecodedFrame pending;
 
-        private DecoderSession(Path path, String name, int width, int height) {
-            this.path = path;
+        private DecoderSession(String name, int width, int height) {
             this.name = name;
             targetWidth = width;
             targetHeight = height;
@@ -161,20 +220,24 @@ public final class MainUIVideoBackground {
 
         private void decode() {
             try {
+                Path path = MainUIBackgrounds.resolveVideo(name);
+                if (!active) return;
+                if (!Files.isRegularFile(path)) {
+                    error = "Video file not found: " + name;
+                    return;
+                }
                 MainUIFfmpegRuntime.ensureLoaded();
                 if (!active) return;
-                decodeVideo();
+                decodeVideo(path);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (MainUIFfmpegRuntime.InitializationException e) {
-                if (active && decoder == this) {
-                    failedVideo = name;
-                    lastError = "FFmpeg initialization failed; restart the client after checking the log";
+                if (active) {
+                    error = "FFmpeg initialization failed; restart the client after checking the log";
                 }
             } catch (Exception | LinkageError e) {
-                if (active && decoder == this) {
-                    failedVideo = name;
-                    lastError = "Unable to decode video: " + name;
+                if (active) {
+                    error = "Unable to decode video: " + name;
                     LOGGER.error("Unable to decode main-menu video {}", name, e);
                 }
             } finally {
@@ -182,7 +245,7 @@ public final class MainUIVideoBackground {
             }
         }
 
-        private void decodeVideo() throws Exception {
+        private void decodeVideo(Path path) throws Exception {
             try (FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(path.toFile())) {
                 grabber.setPixelFormat(AV_PIX_FMT_RGBA);
                 grabber.setVideoOption("threads", "2");
@@ -193,7 +256,8 @@ public final class MainUIVideoBackground {
                 long baseTime = 0L;
                 long firstTimestamp = -1L;
                 boolean emptyLoop = false;
-                while (active && System.nanoTime() - lastUseNanos < 2_000_000_000L) {
+                boolean presentationStarted = false;
+                while (active && (!presenting || System.nanoTime() - lastUseNanos < 2_000_000_000L)) {
                     float reduction = Math.min(1f, Math.max(targetWidth / (float) sourceWidth, targetHeight / (float) sourceHeight));
                     grabber.setImageWidth(Math.max(1, Math.round(sourceWidth * reduction)));
                     grabber.setImageHeight(Math.max(1, Math.round(sourceHeight * reduction)));
@@ -239,13 +303,17 @@ public final class MainUIVideoBackground {
                     } finally {
                         if (pixels != null) recycle(pixels);
                     }
+                    if (!presentationStarted) {
+                        baseTime = awaitPresentation();
+                        presentationStarted = true;
+                    }
                 }
             }
         }
 
         private void await(long deadline) throws InterruptedException {
             while (active) {
-                if (System.nanoTime() - lastUseNanos >= 2_000_000_000L) {
+                if (presenting && System.nanoTime() - lastUseNanos >= 2_000_000_000L) {
                     active = false;
                     return;
                 }
@@ -253,6 +321,24 @@ public final class MainUIVideoBackground {
                 if (remaining <= 0L) return;
                 Thread.sleep(Math.min(remaining / 1_000_000L, 100L), (int) (remaining % 1_000_000L));
             }
+        }
+
+        private void touch(int width, int height) {
+            lastUseNanos = System.nanoTime();
+            targetWidth = width;
+            targetHeight = height;
+        }
+
+        private synchronized void startPresentation() {
+            presentationStartedNanos = System.nanoTime();
+            lastUseNanos = presentationStartedNanos;
+            presenting = true;
+            notifyAll();
+        }
+
+        private synchronized long awaitPresentation() throws InterruptedException {
+            while (active && !presenting) wait();
+            return presentationStartedNanos;
         }
 
         private synchronized ByteBuffer acquire(int size) {
@@ -287,6 +373,7 @@ public final class MainUIVideoBackground {
 
         private synchronized void cancel() {
             active = false;
+            notifyAll();
             if (Thread.currentThread() != worker) worker.interrupt();
             if (pending != null) {
                 MemoryUtil.memFree(pending.pixels());

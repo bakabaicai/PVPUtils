@@ -3,6 +3,7 @@ package com.pvp_utils.client.alt;
 import io.github.humbleui.types.RRect;
 
 import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.gui.clickgui.UiText;
 
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUIFlipAnimation;
@@ -49,7 +50,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     private String input = "";
     private String status = "";
     private String deviceCode = "";
-    private String microsoftStatus = "Preparing Microsoft login...";
+    private String microsoftStatus = UiText.t("正在准备 Microsoft 登录…", "Preparing Microsoft login...");
     private int microsoftStatusColor = 0xFFFFFFFF;
     private long deviceExpiresAt;
     private long deviceCodeCopiedAt;
@@ -78,7 +79,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     public AltManagerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
-        super(Component.literal("Alt Manager"));
+        super(Component.literal(UiText.t("账户管理", "Alt Manager")));
         this.parent = parent;
         this.shaderPath = shaderPath;
         this.embeddedBack = embeddedBack;
@@ -100,7 +101,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         input = "";
         status = "";
         deviceCode = "";
-        microsoftStatus = "Preparing Microsoft login...";
+        microsoftStatus = UiText.t("正在准备 Microsoft 登录…", "Preparing Microsoft login...");
         microsoftStatusColor = 0xFFFFFFFF;
         deviceCodeCopiedAt = 0L;
         microsoftSuccessAt = 0L;
@@ -123,7 +124,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         super.tick();
         if (microsoftWaiting && deviceExpiresAt > 0L && System.currentTimeMillis() >= deviceExpiresAt) {
             deviceExpiresAt = 0L;
-            microsoftStatus = "Microsoft login expired.";
+            microsoftStatus = UiText.t("Microsoft 登录已过期。", "Microsoft login expired.");
             microsoftStatusColor = 0xFFFF7777;
         }
         if (microsoftWaiting && microsoftSuccessAt > 0L && System.currentTimeMillis() - microsoftSuccessAt >= 1800L) {
@@ -235,7 +236,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float w = cardW();
         float h = cardH();
         drawMainCard(canvas, x, y, w, h);
-        String title = "Alt Manager";
+        String title = UiText.t("账户管理", "Alt Manager");
         float pageW = layoutWidth();
         SkijaUi.text(canvas, title, pageW * .5f - SkijaUi.textWidth(title, 30f) * .5f, (titleY()) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawAccounts(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
@@ -246,12 +247,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         (Math.round(alpha * .82f) << 24) | 0xFFFFFF);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
-        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Login", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, "Delete", alpha,
+        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, UiText.t("登录", "Login"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, UiText.t("删除", "Delete"), alpha,
         selected == null || !selected.isCurrent());
-        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Add", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Offline", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, UiText.t("添加", "Add"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, UiText.t("离线", "Offline"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, UiText.t("返回", "Back"), alpha);
     }
 
     private void drawDialogs(Canvas canvas) {
@@ -286,7 +287,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
         if (accounts.isEmpty()) {
-            drawCentered(canvas, "No accounts", x + w * .5f, y + h * .5f, 14f, (Math.round(alpha * .8f) << 24) | 0xFFFFFF);
+            drawCentered(canvas, UiText.t("暂无账户", "No accounts"), x + w * .5f, y + h * .5f, 14f, (Math.round(alpha * .8f) << 24) | 0xFFFFFF);
         } else {
             float itemY = y - scroll;
             for (int i = 0; i < accounts.size(); i++) {
@@ -331,7 +332,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             SkijaUi.icon(canvas, symbol, x + 32f - symbolWidth * .5f, (y + 39f) + SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         }
         SkijaUi.text(canvas, account.name(), x + 66f, (y + 26f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
-        String detail = account.typeName() + (account.isCurrent() ? "  |  Active" : "");
+        String detail = accountTypeText(account) + (account.isCurrent() ? UiText.t("  |  当前账户", "  |  Active") : "");
         SkijaUi.text(canvas, detail, x + 66f, (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
     }
 
@@ -341,12 +342,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float x = layoutCenterX() - w * .5f;
         float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Add Offline", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
-        SkijaUi.text(canvas, "Username", x + 24f, (y + 72f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
+        drawCentered(canvas, UiText.t("添加离线账户", "Add Offline"), layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
+        SkijaUi.text(canvas, UiText.t("用户名", "Username"), x + 24f, (y + 72f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
         drawInput(canvas, x + 24f, y + 84f, w - 48f, 34f);
         float buttonW = (w - 56f) * .5f;
-        drawButton(canvas, x + 24f, y + 136f, buttonW, 30f, "Confirm", 255);
-        drawButton(canvas, x + 32f + buttonW, y + 136f, buttonW, 30f, "Cancel", 255);
+        drawButton(canvas, x + 24f, y + 136f, buttonW, 30f, UiText.t("确认", "Confirm"), 255);
+        drawButton(canvas, x + 32f + buttonW, y + 136f, buttonW, 30f, UiText.t("取消", "Cancel"), 255);
     }
 
     private void drawDeleteDialog(Canvas canvas) {
@@ -355,12 +356,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float x = layoutCenterX() - w * .5f;
         float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Delete Account", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
-        String accountName = deleteTarget == null ? "this account" : deleteTarget.name();
-        drawCentered(canvas, "Delete " + accountName + "?", layoutCenterX(), y + 82f, 13f, 0xCFFFFFFF);
+        drawCentered(canvas, UiText.t("删除账户", "Delete Account"), layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
+        String accountName = deleteTarget == null ? UiText.t("此账户", "this account") : deleteTarget.name();
+        drawCentered(canvas, UiText.t("确认删除 " + accountName + "？", "Delete " + accountName + "?"), layoutCenterX(), y + 82f, 13f, 0xCFFFFFFF);
         float buttonW = (w - 56f) * .5f;
-        drawButton(canvas, x + 24f, y + 112f, buttonW, 30f, "Delete", 255);
-        drawButton(canvas, x + 32f + buttonW, y + 112f, buttonW, 30f, "Cancel", 255);
+        drawButton(canvas, x + 24f, y + 112f, buttonW, 30f, UiText.t("删除", "Delete"), 255);
+        drawButton(canvas, x + 32f + buttonW, y + 112f, buttonW, 30f, UiText.t("取消", "Cancel"), 255);
     }
 
     private void drawMicrosoftDialog(Canvas canvas) {
@@ -369,7 +370,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float x = layoutCenterX() - w * .5f;
         float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
-        drawCentered(canvas, "Microsoft Login", layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
+        drawCentered(canvas, UiText.t("Microsoft 登录", "Microsoft Login"), layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
         if (microsoftSuccessAt > 0L) {
             SkijaUi.icon(canvas, "\uE876", x + 24f, (y + 83f) + SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFF62E58B, 24f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
         } else {
@@ -377,12 +378,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         }
         SkijaUi.text(canvas, microsoftStatus, x + 66f, (y + 80f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), microsoftStatusColor, 13f);
         if (!deviceCode.isBlank()) {
-            SkijaUi.text(canvas, "Code: " + deviceCode, x + 24f, (y + 112f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xB8FFFFFF, 11f);
+            SkijaUi.text(canvas, UiText.t("验证码：", "Code: ") + deviceCode, x + 24f, (y + 112f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xB8FFFFFF, 11f);
         }
         float buttonW = (w - 56f) * .5f;
-        String copyLabel = System.currentTimeMillis() - deviceCodeCopiedAt < 1500L ? "Copied" : "Copy Code";
+        String copyLabel = System.currentTimeMillis() - deviceCodeCopiedAt < 1500L ? UiText.t("已复制", "Copied") : UiText.t("复制验证码", "Copy Code");
         drawButton(canvas, x + 24f, y + 124f, buttonW, 26f, copyLabel, 255);
-        drawButton(canvas, x + 32f + buttonW, y + 124f, buttonW, 26f, "Cancel", 255);
+        drawButton(canvas, x + 32f + buttonW, y + 124f, buttonW, 26f, UiText.t("取消", "Cancel"), 255);
     }
 
     private void drawDialogCard(Canvas canvas, float x, float y, float w, float h) {
@@ -418,7 +419,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             stroke.setColor(0x22FFFFFF);
             canvas.drawRRect(RRect.makeXYWH(x + .5f, y + .5f, w - 1f, h - 1f, 10f), stroke);
         }
-        String shown = input.isBlank() ? "Enter username" : input;
+        String shown = input.isBlank() ? UiText.t("输入用户名", "Enter username") : input;
         int color = input.isBlank() ? 0x8AFFFFFF : 0xFFFFFFFF;
         SkijaUi.text(canvas, shown, x + 12f, (y + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), color, 12f);
         if ((System.currentTimeMillis() / 500L) % 2L == 0L) {
@@ -483,7 +484,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
                 if (deleteTarget != null && !deleteTarget.isCurrent()) {
                     AltManager.remove(deleteTarget);
                     selected = currentAccount();
-                    showStatus("Account deleted.");
+                    showStatus(UiText.t("账户已删除。", "Account deleted."));
                     syncAccountHover();
                     clampScroll();
                 }
@@ -513,7 +514,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             if (inside(mx, my, x + 32f + buttonW, y + 124f, buttonW, 26f)) {
                 playClick();
                 microsoftWaiting = false;
-                showStatus("Microsoft login cancelled.");
+                showStatus(UiText.t("Microsoft 登录已取消。", "Microsoft login cancelled."));
             }
             return true;
         }
@@ -527,7 +528,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         if (inside(mx, my, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f)) {
             playClick();
             if (selected != null) {
-                showStatus(AltManager.login(selected) ? "Logged in as " + selected.name() : "Login failed.");
+                showStatus(AltManager.login(selected) ? UiText.t("当前账户：", "Logged in as ") + selected.name() : UiText.t("登录失败。", "Login failed."));
             }
             return true;
         }
@@ -535,7 +536,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             playClick();
             if (selected != null) {
                 if (selected.isCurrent()) {
-                    showStatus("The current account cannot be deleted.");
+                    showStatus(UiText.t("无法删除当前使用的账户。", "The current account cannot be deleted."));
                 } else {
                     deleteTarget = selected;
                     deleteConfirmOpen = true;
@@ -566,7 +567,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             selected = account;
             if (lastAccountClick == hit && now - lastAccountClickMs <= 350L) {
                 playClick();
-                showStatus(AltManager.login(account) ? "Logged in as " + account.name() : "Login failed.");
+                showStatus(AltManager.login(account) ? UiText.t("当前账户：", "Logged in as ") + account.name() : UiText.t("登录失败。", "Login failed."));
                 lastAccountClick = -1;
                 lastAccountClickMs = 0L;
             } else {
@@ -587,10 +588,10 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             playClick();
             AltManager.Account account = AltManager.addOffline(input);
             if (account == null) {
-                showStatus("Invalid account name.");
+                showStatus(UiText.t("账户名称无效。", "Invalid account name."));
             } else {
                 selected = account;
-                showStatus("Account added.");
+                showStatus(UiText.t("账户已添加。", "Account added."));
                 offlineOpen = false;
                 input = "";
                 syncAccountHover();
@@ -607,9 +608,9 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
 
     private void startMicrosoftLogin() {
         microsoftWaiting = true;
-        showStatus("Waiting for Microsoft authorization.");
+        showStatus(UiText.t("等待 Microsoft 授权。", "Waiting for Microsoft authorization."));
         deviceCode = "";
-        microsoftStatus = "Requesting device code...";
+        microsoftStatus = UiText.t("正在请求设备验证码…", "Requesting device code...");
         microsoftStatusColor = 0xFFFFFFFF;
         deviceExpiresAt = 0L;
         deviceCodeCopiedAt = 0L;
@@ -636,14 +637,14 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         }, account -> Minecraft.getInstance().execute(() -> {
             AltManager.add(account);
             selected = account;
-            microsoftStatus = "Microsoft login successful.";
+            microsoftStatus = UiText.t("Microsoft 登录成功。", "Microsoft login successful.");
             microsoftStatusColor = 0xFF62E58B;
             microsoftSuccessAt = System.currentTimeMillis();
-            showStatus("Microsoft login succeeded: " + account.name());
+            showStatus(UiText.t("Microsoft 登录成功：", "Microsoft login succeeded: ") + account.name());
             syncAccountHover();
             clampScroll();
         }), error -> Minecraft.getInstance().execute(() -> {
-            microsoftStatus = error == null || error.isBlank() ? "Microsoft login failed." : error;
+            microsoftStatus = error == null || error.isBlank() ? UiText.t("Microsoft 登录失败。", "Microsoft login failed.") : error;
             microsoftStatusColor = 0xFFFF7777;
             showStatus(microsoftStatus);
         }));
@@ -665,7 +666,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
                 input = "";
             } else if (microsoftWaiting) {
                 microsoftWaiting = false;
-                showStatus("Microsoft login cancelled.");
+                showStatus(UiText.t("Microsoft 登录已取消。", "Microsoft login cancelled."));
             } else if (deleteConfirmOpen) {
                 deleteConfirmOpen = false;
             } else {
@@ -680,10 +681,10 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         if (offlineOpen && event.key() == 257) {
             AltManager.Account account = AltManager.addOffline(input);
             if (account == null) {
-                showStatus("Invalid account name.");
+                showStatus(UiText.t("账户名称无效。", "Invalid account name."));
             } else {
                 selected = account;
-                showStatus("Account added.");
+                showStatus(UiText.t("账户已添加。", "Account added."));
                 offlineOpen = false;
                 input = "";
                 syncAccountHover();
@@ -711,7 +712,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         }
         if (microsoftWaiting) {
             microsoftWaiting = false;
-            showStatus("Microsoft login cancelled.");
+            showStatus(UiText.t("Microsoft 登录已取消。", "Microsoft login cancelled."));
             return;
         }
         if (deleteConfirmOpen) {
@@ -856,18 +857,22 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         return null;
     }
 
+    private static String accountTypeText(AltManager.Account account) {
+        return account.microsoft() ? "Microsoft" : UiText.t("离线", "Offline");
+    }
+
     private String currentLoginText() {
         AltManager.Account account = currentAccount();
         if (account != null) {
-            return "Logged in as " + account.name() + " (" + account.typeName() + ")";
+            return UiText.t("当前账户：", "Logged in as ") + account.name() + " (" + accountTypeText(account) + ")";
         }
         if (minecraft != null && minecraft.getUser() != null) {
             String type = minecraft.getUser().getXuid().isPresent() || minecraft.getUser().getClientId().isPresent()
             ? "Microsoft"
-            : "Offline";
-            return "Logged in as " + minecraft.getUser().getName() + " (" + type + ")";
+            : UiText.t("离线", "Offline");
+            return UiText.t("当前账户：", "Logged in as ") + minecraft.getUser().getName() + " (" + type + ")";
         }
-        return "No account is currently logged in";
+        return UiText.t("当前未登录账户", "No account is currently logged in");
     }
 
     private void clampScroll() {

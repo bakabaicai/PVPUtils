@@ -55,15 +55,19 @@ public final class HudAppearanceSettings {
         add(module, source, () -> true, false, UiText.t("选中框颜色", "Selection Color"), () -> true);
     }
 
-    private static void add(SettingModule module, Supplier<HudAppearance> source,
-                            BooleanSupplier visible, boolean text, String accentLabel, BooleanSupplier opacityVisible) {
+    public static void shadow(SettingModule module, Supplier<HudAppearance> source, BooleanSupplier visible) {
         module.addSubVisible(UiText.t("阴影", "Shadow"), "",
                         new SettingToggle(() -> source.get().shadow, value -> { source.get().shadow = value; Config.save(); }), visible)
                 .addSubChildWhen(() -> visible.getAsBoolean() && source.get().shadow,
                         UiText.t("阴影强度", "Shadow Strength"), "",
                         new SettingSlider(0, 1, "%.2f", () -> (double) source.get().shadowStrength,
-                                value -> { source.get().shadowStrength = value.floatValue(); Config.save(); }))
-                .addSubVisible(UiText.t("跟随主题", "Use Theme Color"), "",
+                                value -> { source.get().shadowStrength = value.floatValue(); Config.save(); }));
+    }
+
+    private static void add(SettingModule module, Supplier<HudAppearance> source,
+                            BooleanSupplier visible, boolean text, String accentLabel, BooleanSupplier opacityVisible) {
+        shadow(module, source, visible);
+        module.addSubVisible(UiText.t("跟随主题", "Use Theme Color"), "",
                         new SettingToggle(() -> source.get().useTheme, value -> { source.get().useTheme = value; Config.save(); }), visible)
                 .addSubChildWhen(() -> visible.getAsBoolean() && !source.get().useTheme,
                         accentLabel, "",

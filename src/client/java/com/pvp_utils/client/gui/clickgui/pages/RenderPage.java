@@ -1,6 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.skin.SkinManager;
 import com.pvp_utils.client.skin.McbiServerGate;
 import com.pvp_utils.client.gui.clickgui.UiText;
@@ -202,12 +203,12 @@ public class RenderPage extends BasePage {
                             Config.setDynamicIslandBlockCount(v);
                             Config.save();
                         }))
-                .addSub("???", "",
-                        new SettingToggle(() -> Config.dynamicIslandBlockCountAltIcon, v -> {
-                            Config.dynamicIslandBlockCountAltIcon = v;
+                .addSub("Scaffold Disabled People", "",
+                        new SettingToggle(() -> AntiCheat.isDetected() && Config.dynamicIslandBlockCountAltIcon, v -> {
+                            Config.dynamicIslandBlockCountAltIcon = v && AntiCheat.isDetected();
                             Config.save();
                         }),
-                        () -> Config.dynamicIslandBlockCount)
+                        () -> Config.dynamicIslandBlockCount && AntiCheat.isDetected())
                 .addSub(UiText.t("物品使用状态", "Item Use Status"), "",
                         new SettingToggle(() -> Config.dynamicIslandItemUseStatus, v -> {
                             Config.setDynamicIslandItemUseStatus(v);
@@ -437,7 +438,7 @@ public class RenderPage extends BasePage {
         SettingModule potion = HudAppearanceSettings.module(modules, "药水状态", "Potion Status");
         HudAppearanceSettings.style(potion, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR),
                 () -> Config.potionStatusStyle, value -> Config.potionStatusStyle = value);
-        HudAppearanceSettings.add(potion, () -> Config.potionAppearance,
+        HudAppearanceSettings.shadow(potion, () -> Config.potionAppearance,
                 () -> Config.potionStatusStyle != Config.HudStyle.LITE);
         SettingModule keys = HudAppearanceSettings.module(modules, "按键显示", "Keystrokes");
         HudAppearanceSettings.style(keys, List.of(Config.KeystrokesMode.LITE, Config.KeystrokesMode.BLUR),

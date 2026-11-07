@@ -174,7 +174,9 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
         if (!playbackStatus.equals(lastPlaybackStatus)) {
             lastPlaybackStatus = playbackStatus;
             if (playbackStatus.startsWith("Load failed") || playbackStatus.startsWith("Replay failed")
-                    || playbackStatus.equals("Song is unavailable")) notify(playbackStatus);
+                    || playbackStatus.startsWith("Seek failed") || playbackStatus.equals("Song is unavailable")) {
+                notify(MusicFeedback.playbackStatus(playbackStatus));
+            }
         }
         pendingFrame = true;
     }
@@ -555,6 +557,7 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
             canvas.translate(panelW * 0.5f, panelH * 0.5f);
             canvas.scale(zoom, zoom);
             canvas.translate(-panelW * 0.5f, -panelH * 0.5f);
+            lyrics.setTranslationVisible(Config.lyricsDisplayTranslation);
             lyrics.render(canvas, panelW, panelH, mouseX, mouseY, 1f);
         } finally {
             canvas.restoreToCount(save);
@@ -1194,10 +1197,7 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
     }
 
     private static String message(Throwable error) {
-        Throwable cause = error;
-        while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
-        String text = cause.getMessage();
-        return text == null || text.isBlank() ? tr("请求失败，请稍后重试", "Request failed. Please try again") : text;
+        return MusicFeedback.error(error);
     }
 
     private static float elapsed(long start) {

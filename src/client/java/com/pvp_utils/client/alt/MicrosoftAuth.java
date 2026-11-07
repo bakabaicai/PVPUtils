@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.pvp_utils.client.gui.clickgui.UiText;
 import net.minecraft.client.Minecraft;
 
 import java.awt.Desktop;
@@ -27,7 +28,7 @@ public final class MicrosoftAuth {
     public static CompletableFuture<Void> login(Consumer<String> onCode, Consumer<String> onStatus, Consumer<AltManager.Account> onSuccess, Consumer<String> onError) {
         return CompletableFuture.runAsync(() -> {
             try {
-                status(onStatus, "Requesting device code...");
+                status(onStatus, UiText.t("正在请求设备验证码…", "Requesting device code..."));
                 JsonObject device = postForm("https://login.live.com/oauth20_connect.srf",
                         "client_id=" + enc(CLIENT_ID) + "&scope=" + enc("XboxLive.signin offline_access") + "&response_type=device_code");
                 String deviceCode = required(device, "device_code");
@@ -35,7 +36,7 @@ public final class MicrosoftAuth {
                 String url = value(device, "verification_uri_complete", value(device, "verification_uri", "https://microsoft.com/devicelogin"));
                 run(() -> {
                     onCode.accept(userCode + "\n" + url + "\n" + number(device, "expires_in", 900));
-                    onStatus.accept("Waiting for browser authorization...");
+                    onStatus.accept(UiText.t("等待浏览器授权…", "Waiting for browser authorization..."));
                     open(url);
                 });
 
@@ -55,23 +56,23 @@ public final class MicrosoftAuth {
                 }
                 if (microsoftToken == null) throw new Exception("Microsoft login timed out.");
 
-                status(onStatus, "Signing in to Xbox Live...");
+                status(onStatus, UiText.t("正在登录 Xbox Live…", "Signing in to Xbox Live..."));
                 JsonObject xbox = postJson("https://user.auth.xboxlive.com/user/authenticate",
                         "{\"Properties\":{\"AuthMethod\":\"RPS\",\"SiteName\":\"user.auth.xboxlive.com\",\"RpsTicket\":\"d=" + microsoftToken
                                 + "\"},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}");
                 String xboxToken = required(xbox, "Token");
-                status(onStatus, "Authorizing Xbox services...");
+                status(onStatus, UiText.t("正在验证 Xbox 服务…", "Authorizing Xbox services..."));
                 JsonObject xsts = postJson("https://xsts.auth.xboxlive.com/xsts/authorize",
                         "{\"Properties\":{\"SandboxId\":\"RETAIL\",\"UserTokens\":[\"" + xboxToken
                                 + "\"]},\"RelyingParty\":\"rp://api.minecraftservices.com/\",\"TokenType\":\"JWT\"}");
                 String xstsToken = required(xsts, "Token");
                 JsonObject xui = xui(xsts);
                 String hash = required(xui, "uhs");
-                status(onStatus, "Signing in to Minecraft...");
+                status(onStatus, UiText.t("正在登录 Minecraft…", "Signing in to Minecraft..."));
                 JsonObject minecraft = postJson("https://api.minecraftservices.com/authentication/login_with_xbox",
                         "{\"identityToken\":\"XBL3.0 x=" + hash + ";" + xstsToken + "\"}");
                 String minecraftToken = required(minecraft, "access_token");
-                status(onStatus, "Loading Minecraft profile...");
+                status(onStatus, UiText.t("正在加载 Minecraft 账户资料…", "Loading Minecraft profile..."));
                 HttpResponse<String> profileResponse = HTTP.send(HttpRequest.newBuilder(URI.create("https://api.minecraftservices.com/minecraft/profile"))
                         .header("Authorization", "Bearer " + minecraftToken).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
                 JsonObject profile = object(profileResponse.body());
@@ -79,7 +80,7 @@ public final class MicrosoftAuth {
                 AltManager.Account account = AltManager.Account.microsoft(required(profile, "name"), uuid, minecraftToken, value(xui, "xid", ""));
                 run(() -> onSuccess.accept(account));
             } catch (Exception exception) {
-                run(() -> onError.accept(exception.getMessage() == null ? "Microsoft login failed." : exception.getMessage()));
+                run(() -> onError.accept(failureMessage(exception)));
             }
         });
     }
@@ -89,6 +90,30 @@ public final class MicrosoftAuth {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build();
         return response(request);
+    }
+
+    private static String failureMessage(Exception error) {
+        if (error instanceof java.net.http.HttpTimeoutException || error instanceof java.net.SocketTimeoutException) {
+            return UiText.t("Microsoft 登录请求超时。", "Microsoft login request timed out.");
+        }
+        if (error instanceof java.net.ConnectException || error instanceof java.net.UnknownHostException) {
+            return UiText.t("无法连接 Microsoft 登录服务。", "Unable to connect to the Microsoft login service.");
+        }
+        String detail = error.getMessage();
+        if (detail == null || detail.isBlank() || detail.equals("Microsoft login failed.")) {
+            return UiText.t("Microsoft 登录失败。", "Microsoft login failed.");
+        }
+        if (detail.equals("Microsoft login timed out.")) {
+            return UiText.t("Microsoft 授权已超时，请重新登录。", "Microsoft authorization timed out. Please sign in again.");
+        }
+        if (detail.equals("Authentication request failed.")) {
+            return UiText.t("身份验证请求失败。", "Authentication request failed.");
+        }
+        if (detail.startsWith("Missing ") && detail.endsWith(".")) {
+            return UiText.t("登录响应缺少字段：", "Missing field in login response: ")
+                    + detail.substring(8, detail.length() - 1);
+        }
+        return UiText.t("Microsoft 登录失败：", "Microsoft login failed: ") + detail;
     }
 
     private static JsonObject postFormResult(String url, String body) throws Exception {
