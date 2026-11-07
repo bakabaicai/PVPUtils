@@ -145,8 +145,7 @@ public class ArmorHudRenderer {
         float drawH = CARD_H * scale;
         SkijaRenderer.draw(canvas -> {
             HudPanel.draw(canvas, x, y, newCardWidth() * scale, newCardHeight() * scale,
-                    5f * scale, Config.armorAppearance,
-                    Config.armorHudMode == Config.ArmorHudMode.LIQUID_GLASS, 1f);
+                    5f * scale, Config.armorAppearance, 1f);
             canvas.translate(x, y);
             canvas.scale(scale, scale);
             drawNewCard(canvas, stack);

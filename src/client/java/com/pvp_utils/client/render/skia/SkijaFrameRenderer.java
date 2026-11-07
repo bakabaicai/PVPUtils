@@ -10,6 +10,7 @@ import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Overlay;
 
 public final class SkijaFrameRenderer {
     private SkijaFrameRenderer() {
@@ -17,7 +18,19 @@ public final class SkijaFrameRenderer {
 
     public static void render() {
         Minecraft client = Minecraft.getInstance();
-        if (client.getWindow().isMinimized() || client.getOverlay() != null) return;
+        if (client.getWindow().isMinimized()) return;
+        Overlay overlay = client.getOverlay();
+        if (overlay != null) {
+            if (!(overlay instanceof SkijaOverlay skijaOverlay) || !skijaOverlay.isSkijaOverlayActive()) return;
+            SkijaRenderer.renderOverlay(canvas -> {
+                if (skijaOverlay.rendersScreenBehind()) {
+                    if (client.screen instanceof SkijaScreen screen) SkijaRenderer.draw(screen::renderSkija);
+                    SkijaRenderer.renderSubmitted();
+                }
+                SkijaRenderer.draw(skijaOverlay::renderSkija);
+            });
+            return;
+        }
         SkijaRenderer.renderOverlay(canvas -> {
             if (client.level != null && !client.options.hideGui) {
                 SkijaRenderer.draw(PotionStatusRenderer.getInstance()::renderSkija);
@@ -38,8 +51,10 @@ public final class SkijaFrameRenderer {
     }
 
     public static void close() {
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.getOverlay() instanceof SkijaOverlay overlay) overlay.close();
         DynamicIslandRenderer.getInstance().close();
-        LiquidGlassRenderer.getInstance().destroy();
+        ClockHudRenderer.getInstance().close();
         SkijaRenderer.close();
     }
 }

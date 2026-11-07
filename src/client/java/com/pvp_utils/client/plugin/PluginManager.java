@@ -9,9 +9,6 @@ import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
 import com.pvp_utils.client.render.skia.SkijaUi;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
-import com.pvp_utils.client.render.skia.GlassStyle;
-import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
@@ -819,22 +816,6 @@ public final class PluginManager {
                     float x = number(args, 0), y = number(args, 1), w = size(args, 2), h = size(args, 3);
                     SkijaRenderer.drawBlurredBackdrop(currentCanvas, RRect.makeXYWH(x, y, w, h, size(args, 4)), x, y, w, h, effect(args, 5));
                 }
-                case "glass" -> {
-                    float x = number(args, 0), y = number(args, 1), w = size(args, 2), h = size(args, 3), r = size(args, 4);
-                    int tint = args.length > 5 ? color(args, 5) : LiquidGlassRenderer.panelTint();
-                    boolean shadow = args.length < 7 || Context.toBoolean(args[6]);
-                    GlassStyle glass = glassStyle(args);
-                    int save = currentCanvas.save();
-                    try {
-                        currentCanvas.setMatrix(baseMatrix);
-                        if (shadow) SoftShadow.drawRounded(currentCanvas, x, y, w, h, r, 0.35f, 0xB0000000);
-                        if (!LiquidGlassRenderer.getInstance().renderPanel(Minecraft.getInstance(), x, y, w, h, r, tint, glass)) {
-                            SkijaUi.rounded(currentCanvas, x, y, w, h, r, tint);
-                        }
-                    } finally {
-                        currentCanvas.restoreToCount(save);
-                    }
-                }
                 case "circle" -> {
                     try (Paint paint = new Paint().setAntiAlias(true).setColor(color(args, 3))) {
                         currentCanvas.drawCircle(number(args, 0), number(args, 1), size(args, 2), paint);
@@ -869,27 +850,6 @@ public final class PluginManager {
                 default -> throw new IllegalArgumentException("Unknown draw operation");
             }
         }
-    }
-
-    private static GlassStyle glassStyle(Object[] args) {
-        GlassStyle style = new GlassStyle();
-        if (args.length <= 7 || !(args[7] instanceof Scriptable options)) return style;
-        style.blur = glassOption(options, "blur", style.blur, 0f, 30f);
-        style.refraction = glassOption(options, "refraction", style.refraction, 1f, 5f);
-        style.dispersion = glassOption(options, "dispersion", style.dispersion, 0f, 3f);
-        style.rim = glassOption(options, "rim", style.rim, 0f, 1f);
-        style.alpha = glassOption(options, "alpha", style.alpha, 0f, 1f);
-        style.glow = glassOption(options, "glow", style.glow, 0f, 1f);
-        style.thickness = glassOption(options, "thickness", style.thickness, 1f, 120f);
-        return style;
-    }
-
-    private static float glassOption(Scriptable options, String key, float fallback, float min, float max) {
-        Object value = ScriptableObject.getProperty(options, key);
-        if (value == Scriptable.NOT_FOUND) return fallback;
-        double number = Context.toNumber(value);
-        if (!Double.isFinite(number) || number < min || number > max) throw new IllegalArgumentException("Invalid glass parameter: " + key);
-        return (float) number;
     }
 
     private static float number(Object[] args, int index) {

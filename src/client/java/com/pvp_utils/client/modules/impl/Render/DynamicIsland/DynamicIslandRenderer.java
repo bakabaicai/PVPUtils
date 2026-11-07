@@ -1,7 +1,6 @@
 package com.pvp_utils.client.modules.impl.Render.DynamicIsland;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
@@ -163,27 +162,11 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         }
         Rect bounds = geometry.bounds();
         if (Config.dynamicIslandShadow) SoftShadow.drawPath(canvas, geometry.path(), Config.dynamicIslandShadowStrength, 0xA0000000);
-        boolean glass = false;
-        if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS) {
-            List<LiquidGlassRenderer.GlassShape> shapes = new ArrayList<>(3);
-            shapes.add(LiquidGlassRenderer.GlassShape.rounded(x, y, next.width, next.height, next.radius, Config.dynamicIslandColor));
-            float leftRadius = geometry.leftSatelliteRadius();
-            float rightRadius = geometry.satelliteRadius();
-            if (leftRadius > 0.01f) shapes.add(LiquidGlassRenderer.GlassShape.rounded(
-                    geometry.leftSatelliteCenterX() - leftRadius, geometry.leftSatelliteCenterY() - leftRadius,
-                    leftRadius * 2f, leftRadius * 2f, leftRadius, Config.dynamicIslandColor));
-            if (rightRadius > 0.01f) shapes.add(LiquidGlassRenderer.GlassShape.rounded(
-                    geometry.satelliteCenterX() - rightRadius, geometry.satelliteCenterY() - rightRadius,
-                    rightRadius * 2f, rightRadius * 2f, rightRadius, Config.dynamicIslandColor));
-            glass = LiquidGlassRenderer.getInstance().renderShapes(client, shapes, Config.dynamicIslandAppearance.glass);
+        if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.BLUR) {
+            SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(),
+                    bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
         }
-        if (!glass) {
-            if (Config.dynamicIslandBackground != Config.DynamicIslandBackground.SOLID) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(),
-                        bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
-            }
-            SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
-        }
+        SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
         int save = canvas.save();
         try {
             canvas.translate(x, y);

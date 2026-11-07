@@ -6,7 +6,9 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
+import com.pvp_utils.client.render.skia.SkijaOverlay;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Overlay;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -30,6 +32,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
+    @Inject(method = "setOverlay", at = @At("HEAD"))
+    private void pvp_utils$closePreviousSkijaOverlay(Overlay overlay, CallbackInfo ci) {
+        Overlay previous = ((Minecraft) (Object) this).getOverlay();
+        if (previous != overlay && previous instanceof SkijaOverlay skijaOverlay) skijaOverlay.close();
+    }
+
     @Inject(method = "tick", at = @At("TAIL"))
     private void pvp_utils$tickToolOverrides(CallbackInfo ci) {
         TimeWeatherChanger.tick((Minecraft) (Object) this);

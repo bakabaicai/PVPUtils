@@ -7,10 +7,8 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudAppearance;
 import com.pvp_utils.client.render.HudPanel;
-import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkijaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
@@ -244,25 +242,8 @@ public class KeystrokesRenderer {
                 blurRegion(x, y, scale, leftMouseW + GAP, bottomY, rightMouseW, KEY_SIZE));
         HudAppearance appearance = Config.keystrokesAppearance;
         float radius = 7f * scale;
-        if (Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS) {
-            if (appearance.shadow) {
-                for (RRect region : regions) {
-                    SoftShadow.drawRounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(),
-                            radius, appearance.shadowStrength, 0xB0000000);
-                }
-            }
-            List<LiquidGlassRenderer.GlassShape> shapes = regions.stream().map(region -> LiquidGlassRenderer.GlassShape.rounded(
-                    region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance.background())).toList();
-            if (LiquidGlassRenderer.getInstance().renderShapes(client, shapes, appearance.glass)) return;
-            for (RRect region : regions) {
-                SkijaRenderer.drawBlurredBackdrop(canvas, region, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(),
-                        Math.clamp(Config.skiaBlurStrength, 0f, 2f) * 10.5f);
-                SkijaUi.rounded(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance.background());
-            }
-        } else {
-            for (RRect region : regions) {
-                HudPanel.draw(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance, false, 1f);
-            }
+        for (RRect region : regions) {
+            HudPanel.draw(canvas, region.getLeft(), region.getTop(), region.getWidth(), region.getHeight(), radius, appearance, 1f);
         }
     }
 

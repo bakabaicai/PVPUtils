@@ -40,8 +40,7 @@ public final class BetterScoreboardRenderer {
                         + (BetterScoreboardManager.VISUAL_OFFSET_Y - padding) * scale,
                 0f, Math.max(0f, graphics.guiHeight() - height));
         HudAppearance appearance = Config.scoreboardAppearance;
-        boolean liquid = Config.betterScoreboardLiquidGlass;
-        SkijaRenderer.draw(canvas -> HudPanel.draw(canvas, x, y, width, height, 9f * scale, appearance, liquid, 1f));
+        SkijaRenderer.draw(canvas -> HudPanel.draw(canvas, x, y, width, height, 9f * scale, appearance, 1f));
         graphics.pose().pushMatrix();
         try {
             graphics.pose().translate(x, y);

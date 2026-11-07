@@ -266,8 +266,7 @@ public class PotionStatusRenderer {
             if (Config.potionStatusBackground && Config.potionStatusStyle != Config.HudStyle.LITE) {
                 float scale = userScale * easedBg;
                 HudPanel.draw(canvas, x, y, WIDTH * scale, baseH * scale, BG_RADIUS * scale,
-                        Config.potionAppearance, Config.potionStatusStyle == Config.HudStyle.LIQUID_GLASS,
-                        bgProgress);
+                        Config.potionAppearance, bgProgress);
             }
             canvas.save();
             canvas.translate(x, y);

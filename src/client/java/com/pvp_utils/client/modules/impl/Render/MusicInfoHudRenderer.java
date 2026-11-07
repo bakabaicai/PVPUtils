@@ -10,7 +10,6 @@ import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
@@ -86,11 +85,10 @@ public class MusicInfoHudRenderer {
         if (song == null) {
             return;
         }
-        boolean glassy = Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR || Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS;
-        renderCard(canvas, client, player, song, glassy, Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
+        renderCard(canvas, client, player, song, true);
     }
 
-    private void renderCard(Canvas canvas, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode, boolean liquid) {
+    private void renderCard(Canvas canvas, Minecraft client, MusicPlaybackService player, Song song, boolean blurMode) {
         int save = canvas.save();
         try {
             int screenW = client.getWindow().getGuiScaledWidth();
@@ -102,7 +100,7 @@ public class MusicInfoHudRenderer {
             float scaledH = CARD_H * userScale;
 
             HudPanel.draw(canvas, x, y, scaledW, scaledH, RADIUS * userScale,
-                    Config.musicInfoAppearance, liquid, 1f);
+                    Config.musicInfoAppearance, 1f);
             canvas.translate(x, y);
             canvas.scale(userScale, userScale);
 
@@ -121,12 +119,8 @@ public class MusicInfoHudRenderer {
             if (Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE) {
                 drawLiteCard(new SkiaLitePainter(canvas), song, positionMs, totalMs, playbackMode);
             } else {
-                boolean blurMode = Config.musicInfoHudMode == Config.MusicInfoHudMode.BLUR
-                        || Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS;
-                int background = Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS
-                        ? Config.musicInfoAppearance.background() : Config.musicInfoAppearance.background();
-                SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, background);
-                drawCardContent(canvas, song, positionMs, totalMs, playbackMode, blurMode);
+                SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, Config.musicInfoAppearance.background());
+                drawCardContent(canvas, song, positionMs, totalMs, playbackMode, true);
             }
         } finally {
             canvas.restoreToCount(save);

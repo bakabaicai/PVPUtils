@@ -97,7 +97,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | 设置数 | 64 |
 | HUD 数 | 16 |
 | 每轮绘制与测量调用 | 2048 |
-| 每轮阴影、背景模糊和液态玻璃合计 | 8 |
+| 每轮阴影与背景模糊合计 | 8 |
 | 绘制状态栈深度 | 32 |
 | 每插件自定义 Screen / 每 Screen 每帧按钮 | 8 / 128 |
 | 每轮事件的界面切换请求 | 8 |
@@ -122,7 +122,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | `pvputils.storage` | `get(key, fallback?)`、`set(key, value)` |
 | `pvputils.hud` | `register({id, render})` |
 | `pvputils.ui` | `screen(definition)`、`open(id)`、`close()` |
-| 绘制上下文 | `width`、`height`、`screenWidth`、`screenHeight`、`mouseX`、`mouseY`、`text`、`textWidth`、`textShadow`、`rect`、`roundedRect`、`line`、`outline`、`gradient`、`gradientDiagonal`、`shadow`、`circle`、`icon`、`texture`、`blur`、`glass`、`save`、`restore`、`translate`、`scale`、`rotate`、`clip`、`clipRounded`、`button` |
+| 绘制上下文 | `width`、`height`、`screenWidth`、`screenHeight`、`mouseX`、`mouseY`、`text`、`textWidth`、`textShadow`、`rect`、`roundedRect`、`line`、`outline`、`gradient`、`gradientDiagonal`、`shadow`、`circle`、`icon`、`texture`、`blur`、`save`、`restore`、`translate`、`scale`、`rotate`、`clip`、`clipRounded`、`button` |
 
 ## 4. 基础与通知
 
@@ -463,7 +463,7 @@ ID 格式与插件 ID 一致，插件内唯一，最多 16 个 HUD。
 
 使用 PVPUtils 已有 Skija 帧与字体 fallback，不创建额外 GPU context/framebuffer。
 框架保存并恢复每个插件的 Canvas 状态。不要把 ctx 留到 Tick 或卸载回调中使用。
-HUD 可通过 `layout` 接入现有拖动编辑器；纹理、液态玻璃与直接绘制接口见第 12 节。
+HUD 可通过 `layout` 接入现有拖动编辑器；纹理、背景模糊与直接绘制接口见第 12 节。
 
 ```js
 pvputils.hud.register({
@@ -499,8 +499,7 @@ HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接�
 
 ## 12. 高级 UI：直接复用项目绘制接口
 
-这一层不是固定模板：JS 直接调用已有 `SkijaUi`、`SkijaRenderer` 与
-`LiquidGlassRenderer` 的绘制桥接，在同一个客户端 Skija 帧中组合自己的 UI。
+这一层不是固定模板：JS 直接调用已有 `SkijaUi` 与 `SkijaRenderer` 的绘制桥接，在同一个客户端 Skija 帧中组合自己的 UI。
 原始 Canvas、GPU 对象和 Minecraft Screen 对象仍留在 Java 端。
 所有以下绘制方法仅在 render 回调中有效，返回 `undefined`，除非另行说明。
 
@@ -551,19 +550,17 @@ pvputils.events.on("render", ctx => {
 });
 ```
 
-### 12.3 背景模糊与液态玻璃
+### 12.3 背景模糊
 
 | 方法 | 行为 |
 |---|---|
 | `ctx.blur(x,y,w,h,radius,strength)` | 复用项目 framebuffer 背景模糊；strength 0–64 |
-| `ctx.glass(x,y,w,h,radius,tint?,shadow?,options?)` | 绘制液态玻璃；默认基础着色、开启阴影，`options` 为局部效果参数 |
 
-`options` 支持 `blur`（6，0–30）、`refraction`（1.35，1–5）、`dispersion`（1，0–3）、`rim`（0.6，0–1）、`alpha`（0.9，0–1）、`glow`（0.4，0–1）与 `thickness`（10，1–120）。括号内依次为默认值与范围；模糊半径和折射带厚度以帧缓冲像素为单位。参数只作用于本次调用，不修改客户端配置。第八个参数仍接受旧脚本传入的布尔值，该值不再控制效果；前七个位置参数保持兼容。
-若液态玻璃渲染失败，则绘制同色圆角背景；模糊快照首帧可能还未准备好。
-这些效果采样屏幕背景，仅支持回调的基础坐标；
-在调用 save、手动变换或裁剪后使用它们会抛出错误。
+模糊快照首帧可能尚未准备好，调用方应提供基础背景填充。
+背景模糊采样屏幕背景，仅支持回调的基础坐标；
+在调用 save、手动变换或裁剪后使用会抛出错误。
 对于带 `layout` 的 HUD，框架会自动换算其位置与缩放。
-同一插件每帧阴影、背景模糊、液态玻璃合计最多 8 次，避免无界滤镜成本。
+同一插件每帧阴影与背景模糊合计最多 8 次，避免无界滤镜成本。
 图形效果的真实视觉效果仍需在游戏内检验。
 
 ### 12.4 HUD 布局与现有拖动编辑器
@@ -572,11 +569,12 @@ pvputils.events.on("render", ctx => {
 
 ```js
 pvputils.hud.register({
-    id: "glass-status",
-    label: "我的玻璃 HUD",
+    id: "blur-status",
+    label: "我的 HUD",
     layout: { x: 20, y: 20, width: 190, height: 48, draggable: true },
     render(ctx) {
-        ctx.glass(0, 0, ctx.width, ctx.height, 10, "#40182030");
+        ctx.blur(0, 0, ctx.width, ctx.height, 10, 6);
+        ctx.roundedRect(0, 0, ctx.width, ctx.height, 10, "#40182030");
         const state = pvputils.player.snapshot();
         ctx.text(state ? state.name : "等待玩家", 12, 16, 14, "#FFFFFF");
     }

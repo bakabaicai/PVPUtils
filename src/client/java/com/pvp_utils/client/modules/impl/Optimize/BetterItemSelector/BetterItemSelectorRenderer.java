@@ -18,7 +18,7 @@ public final class BetterItemSelectorRenderer {
 
     public void renderBackground(Minecraft client, float x, float y) {
         SkijaRenderer.draw(canvas -> HudPanel.draw(canvas, x, y, 182f, 22f, 7f,
-                Config.hotbarAppearance, Config.betterItemSelectorLiquidGlass, 1f));
+                Config.hotbarAppearance, 1f));
     }
 
     public void renderSelector(Minecraft client, float x, float y, float slotOffset) {

@@ -4,7 +4,7 @@ English · [简体中文](README.zh-CN.md)
 
 ## 1. Introduction
 
-Chroma Graphics is a Skia-based client rendering framework providing interfaces for 2D graphics, text and icons, backdrop blur, liquid glass, and world geometry. It manages the regular 2D Skia context, framebuffer wrappers, rendering order, and OpenGL state restoration. This document describes the current interfaces, coordinate spaces, calling constraints, resource lifecycles, and performance practices. The current backend integrates with Minecraft and uses the dependencies below.
+Chroma Graphics is a Skia-based client rendering framework providing interfaces for 2D graphics, text and icons, backdrop blur and world geometry. It manages the regular 2D Skia context, framebuffer wrappers, rendering order, and OpenGL state restoration. This document describes the current interfaces, coordinate spaces, calling constraints, resource lifecycles, and performance practices. The current backend integrates with Minecraft and uses the dependencies below.
 
 Chroma Graphics is the system name. Existing Java types retain names such as `SkijaRenderer` and `SkijaUi`; there is no unified entry class named `ChromaGraphics`.
 
@@ -25,15 +25,14 @@ The framework supplies drawing facilities. It does not automatically register co
 | Component | Responsibility | Intended callers |
 | --- | --- | --- |
 | `SkijaScreen` | 2D rendering entry for a screen | Custom `Screen` implementations |
+| `SkijaOverlay` | 2D rendering entry and resource lifecycle for loading overlays | Custom `Overlay` implementations |
 | `SkijaRenderer` | Active canvas, main-target and overlay queues, texture borrowing, backdrop blur | Features use designated entry points; the framework owns frame scheduling |
 | `SkijaUi` | Shapes, text, icons, shared fonts, prepared text | Preferred interface for regular UI and HUD rendering |
-| `SkijaFrameRenderer` | Frame-level scheduling of HUDs, screens, and queues | Framework internals |
-| `LiquidGlassRenderer` | Liquid-glass panels | Components that explicitly require this effect |
-| `GlassStyle`, `GlassShape` | Glass parameters and shape descriptions | Caller-owned |
-| `SkijaBackdrop`, `GlassGlState` | Backdrop sampling and GL state preservation | Package-private implementation |
+| `SkijaFrameRenderer` | Frame-level scheduling of HUDs, screens, loading overlays, and queues | Framework internals |
+| `SkijaBackdrop` | Backdrop sampling and GL state preservation | Package-private implementation |
 | `WorldRender` | World geometry and world-to-screen projection | World feature modules |
 
-Regular 2D rendering shares one managed Skia context. Liquid glass uses a dedicated OpenGL pass with explicit flush and state-restoration boundaries. World geometry uses Minecraft Gizmos rather than the 2D Canvas.
+Regular 2D rendering shares one managed Skia context. World geometry uses Minecraft Gizmos rather than the 2D Canvas.
 
 ## 2. Rendering Order and Integration
 
@@ -42,9 +41,9 @@ Regular 2D rendering shares one managed Skia context. Liquid glass uses a dedica
 1. `MinecraftMixin` calls `SkijaRenderer.beginFrame()` at the start of `Minecraft.runTick`, clearing both submission queues.
 2. Minecraft collects GUI content. Calls to `draw()` outside an active Skia canvas during this stage enter the main-target queue.
 3. `GameRendererMixin` calls `renderMainSubmitted()` before `GuiRenderer.render(GpuBufferSlice)`, drawing that queue into the Minecraft main color target.
-4. After Minecraft calls `blitToScreen()`, `SkijaFrameRenderer.render()` starts the overlay pass. It skips rendering when the window is minimized or a Minecraft loading overlay is present.
-5. The overlay pass runs host-integrated HUD drawing, the current `SkijaScreen`, the `submit()` queue, and the host's final overlay drawing, in that order.
-6. At pass completion, Skia commands are submitted and external GL state is restored. Glass integration can introduce additional intermediate flushes.
+4. After Minecraft calls `blitToScreen()`, `SkijaFrameRenderer.render()` starts the overlay pass. It skips minimized windows. When a loading overlay is present, it only handles an enabled `SkijaOverlay`.
+5. Without a loading overlay, the pass runs host-integrated HUD drawing, the current `SkijaScreen`, the `submit()` queue, and the host's final overlay drawing, in that order. An enabled `SkijaOverlay` instead controls whether the screen and queue render behind it; the loading overlay renders last, without regular HUD scheduling.
+6. At pass completion, Skia commands are submitted and external GL state is restored.
 
 The main-target pass uses an FBO wrapping the Minecraft main color texture. The overlay pass uses the default framebuffer, FBO 0. Pass setup checks dimensions, reuses or recreates the Surface, synchronizes GL state, and applies GUI coordinate scaling.
 
@@ -53,18 +52,26 @@ The main-target pass uses an FBO wrapping the Minecraft main color texture. The 
 | Scenario | Standard approach |
 | --- | --- |
 | New complete Skia screen | Implement `Screen implements SkijaScreen`; draw directly in `renderSkija(Canvas)` |
+| New Skia loading overlay | Implement `Overlay implements SkijaOverlay`; collect frame state in regular `render(...)` and draw in `renderSkija(Canvas)` |
 | A framework Canvas is already available | Call `SkijaUi`, `PreparedText`, or necessary Skija Canvas methods directly |
 | Encapsulated local drawing callback | Use `SkijaRenderer.draw(painter)`; it executes immediately and protects Canvas state inside an active pass |
 | Main-target content during GUI collection | Call `draw(painter)` before the main-target queue is drained |
 | Overlay content from an existing per-frame HUD collection hook | Call `SkijaRenderer.submit(painter)` before the overlay queue is drained |
 | World lines or markers | Call `WorldRender` in the existing world Gizmos collection stage |
-| Liquid glass | Call `LiquidGlassRenderer.getInstance().renderPanel(...)` |
 
 `draw()` and `submit()` have different semantics: without an active Canvas, the former queues main-target work; the latter always queues overlay work. The overlay queue runs after the screen. HUDs that must not cover menus must check visibility conditions such as `client.screen` themselves.
 
 Queues serve the current frame only. They are neither persistent task queues nor thread-safe dispatchers. Do not submit Canvas operations from networking threads or enqueue during queue draining with the expectation of execution in the next frame. Asynchronous work publishes data; the client thread reads it and submits drawing in the appropriate stage.
 
 Integrate each piece of content through one entry point. A screen or HUD already invoked by `SkijaFrameRenderer` must not submit duplicate drawing. Merely implementing a HUD class does not register it with the frame scheduler.
+
+### 2.3 Loading overlays
+
+`SkijaOverlay` shares the existing overlay pass rather than creating another context. `isSkijaOverlayActive()` defaults to `true`; returning `false` preserves the instance's vanilla rendering behavior. Regular `render(...)` updates layout and animation once per frame, and `renderSkija(...)` consumes that same state.
+
+`rendersScreenBehind()` defaults to `false`. When it returns `true`, the overlay's regular `render(...)` must first invoke the underlying screen's vanilla rendering entry. The framework then draws the screen's Skia content, the `submit()` queue, and the loading overlay, in that order. The queue is consumed only in this branch; regular HUDs are excluded from the loading overlay pass. A full-screen fade should cover the underlying content from the last overlay draw to preserve ordering across vanilla controls and Skia content.
+
+Replacing an instance through `Minecraft.setOverlay(...)` closes the previous `SkijaOverlay`. Renderer shutdown also closes the current instance. Implementations release their owned text, paths, images, and filters in an idempotent `close()`. Vanilla `Overlay` does not have a screen's `removed()` lifecycle; overlay resource cleanup must not depend on it.
 
 ## 3. Interface Reference
 
@@ -75,6 +82,10 @@ The tables use compact call notation, not copyable Java declarations. `Canvas` d
 | Interface | Behavior and constraints |
 | --- | --- |
 | `SkijaScreen.renderSkija(Canvas)` | Actual Skia rendering for the current screen; Canvas is borrowed from the framework |
+| `SkijaOverlay.renderSkija(Canvas)` | Actual Skia rendering for a loading overlay; inherits `SkijaScreen` and uses the same shared Canvas |
+| `SkijaOverlay.isSkijaOverlayActive(): boolean` | Enable Skia overlay drawing for this instance; defaults to `true` |
+| `SkijaOverlay.rendersScreenBehind(): boolean` | Draw the underlying screen and submission queue first; defaults to `false` |
+| `SkijaOverlay.close()` | Release instance-owned resources on overlay replacement and client shutdown |
 | `SkijaRenderer.draw(Consumer<Canvas>)` | Draw immediately on the active canvas, or enqueue main-target work |
 | `SkijaRenderer.submit(Consumer<Canvas>)` | Enqueue current-frame overlay work |
 | `SkijaRenderer.isDrawing(): boolean` | Whether the shared canvas is active |
@@ -137,6 +148,8 @@ Overloads without a font size use 9. Regular `text` and `boldText` already use s
 | Interface | Purpose |
 | --- | --- |
 | `CLIENT_FONT` | Built-in font name, `"harmony"` |
+| `PRODUCT_SANS_REGULAR` | Built-in Product Sans Regular font name, `"product_sans_regular"` |
+| `PRODUCT_SANS_LIGHT` | Built-in Product Sans Light font name, `"product_sans_light"` |
 | `availableFontNames(): List<String>` | List built-in and imported font names |
 | `selectFont(String)` | Change the global font selection |
 | `withFont(String, Runnable)` | Temporarily override font selection on the current thread; restore it after the callback |
@@ -150,41 +163,9 @@ Font import and reload perform synchronous file operations. Run them as explicit
 
 `textFontRevision()` does not change for temporary `withFont()` overrides. Caches using temporary fonts must also include the font name. Measurement and drawing must use the same font selection.
 
-### 3.5 Liquid glass
+Product Sans uses separate names for Regular and Light. Select the weight with `withFont()` for local drawing, and prepare text and measure font metrics within the same override scope. The resulting `PreparedText` retains the selected glyphs and can be drawn later without another font override. The framework owns built-in Typefaces and Fonts; callers release only their owned prepared text.
 
-The entry point is `LiquidGlassRenderer.getInstance()`. A dedicated OpenGL pass evaluates rounded-rectangle distance fields, smooth unions, refraction, dispersion, and radial blur sampling.
-
-| Interface | Behavior and constraints |
-| --- | --- |
-| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, GlassStyle): boolean` | Draws one rounded panel; colors use ARGB |
-| `renderShapes(Minecraft, List<GlassShape>, GlassStyle): boolean` | Draws multiple shapes with one background snapshot; each call processes at most the first 16 shapes |
-| The preceding signature plus a final `GlassShadow` | Adds distance-field shadow parameters; the default is `GlassShadow.NONE` |
-| `GlassShape(x, y, width, height, topLeft, topRight, bottomRight, bottomLeft, smoothness, opacity, int tint)` | Immutable shape description; geometry uses GUI units, while `smoothness` is the distance-field union width in framebuffer pixels |
-| `GlassShape.rounded(x, y, width, height, radius, int tint)` | Uses equal corner radii, a union width of 0.3, and shape opacity 1 |
-| `GlassShadow(expand, strength, offsetX, offsetY, int color)` | Expansion and offsets use framebuffer pixels; ranges are 0–80, 0–1, −60–60, and −60–60 respectively |
-| `GlassStyle.sanitize()` | Replaces non-finite parameters with defaults and clamps values to valid ranges |
-| `panelTint(): int` | Returns the host's default glass tint |
-| `destroy()` | Releases the shader program, vertex array, and background texture; framework lifecycle use only |
-
-The caller owns `GlassStyle`, which exposes these fields:
-
-| Field | Default | Range | Unit or meaning |
-| --- | --- | --- | --- |
-| `blur` | 6 | 0–30 | Framebuffer pixels; radial sampling radius |
-| `refraction` | 1.35 | 1–5 | Refractive index |
-| `dispersion` | 1 | 0–3 | Separation strength of RGB sampling positions |
-| `rim` | 0.6 | 0–1 | Edge tint strength |
-| `alpha` | 0.9 | 0–1 | Blend proportion between the glass result and the background |
-| `glow` | 0.4 | 0–1 | Edge glow strength |
-| `thickness` | 10 | 1–120 | Framebuffer pixels; refraction-band thickness |
-
-Panel positions, dimensions, and corner radii use screen GUI coordinates and do not inherit local Canvas transforms or clips. Positions and dimensions convert to framebuffer pixels using the current target's width and height independently, matching the 2D Canvas screen-coordinate scale. Corner radii are limited to half the shorter side and use the smaller axis scale to preserve circular corners; shape opacity is clamped to 0–1. Blur and thickness do not automatically increase with GUI scale; callers must distinguish physical pixels from GUI units.
-
-Inside an active Skia pass, the framework flushes recorded commands and captures that pass's current target. Outside a pass, it uses the Minecraft main color target. The capture texture reuses allocation only: pixels refresh on every call, without caching effects across frames. After drawing, GL state is restored and the shared Skia context is resynchronized. No second Skia context or panel-slot allocation is created.
-
-A `false` result means the call did not draw; callers should provide a base-fill fallback. Shader compilation or execution exceptions are logged and disable the effect until framework destruction resets it. Exterior soft shadows may use `SoftShadow` before glass capture. When using `GlassShadow`, avoid adding another shadow to the same outline. Shapes requiring a smooth union must be submitted in the same `renderShapes` call.
-
-### 3.6 World rendering: WorldRender
+### 3.5 World rendering: WorldRender
 
 Positions use world coordinates. Commands are submitted within Minecraft's Gizmos collection scope, and the host batches fills and lines. `throughWalls=false` retains depth occlusion; `true` uses always-on-top drawing.
 
@@ -230,7 +211,7 @@ Positions use world coordinates. Commands are submitted within Minecraft's Gizmo
 
 The collection does not register a callback or simulation clock automatically. Callers own updates, registration, and cleanup, and must clear old particles when the world changes. Per-frame drawing interpolates position and rotation, fades opacity and size by lifetime, and culls distant or nearly transparent particles.
 
-### 3.7 Framework internals
+### 3.6 Framework internals
 
 Some methods below are `public`, but they are not standard entry points for new features.
 
@@ -239,11 +220,11 @@ Some methods below are `public`, but they are not standard entry points for new 
 | `SkijaFrameRenderer` | `render()`, `close()` |
 | `SkijaRenderer` | `beginFrame()`, `renderMainSubmitted()`, `renderSubmitted()` |
 | `SkijaRenderer` | `renderOverlay(Consumer<Canvas>)`, `renderMainTarget(Consumer<Canvas>)` |
-| `SkijaRenderer` | `currentFramebuffer()`, `flush()`, `restoreContext()`, `close()` |
+| `SkijaRenderer` | `close()` |
 
-`renderMainTarget()` reuses the current pass if the shared canvas is active; it does not force a target switch. `currentFramebuffer()` returns the framework's stored target state. Outside a pass, it cannot substitute for querying the actual GL binding. Do not call `flush()` per widget or create a new `DirectContext` for ordinary components.
+`renderMainTarget()` reuses the current pass if the shared canvas is active; it does not force a target switch. Do not create a new `DirectContext` for ordinary components.
 
-### 3.8 Component effects and shape transitions
+### 3.7 Component effects and shape transitions
 
 These utilities use the current shared Canvas. They do not create a rendering backend or advance animation clocks. Dimensions use the caller's current coordinate space; a deformation path used for backdrop sampling must be created in screen GUI coordinates.
 
@@ -312,7 +293,7 @@ Draw backdrop blur before local `translate/scale`, using screen GUI coordinates.
 | Feature-created `PreparedText`, Paint, Path, Image, Surface, filters, and similar objects | Owned by the feature; release on invalidation, replacement, or shutdown |
 | `BorrowedImage` | Borrow inside an active Skia callback and close the wrapper with try-with-resources |
 | Minecraft texture | Owned by the Minecraft texture system, not the borrower |
-| Framework contexts, Surface caches, glass shaders, and capture textures | Managed by the framework during recreation or client shutdown |
+| Framework contexts, Surface caches, and backdrop textures | Managed by the framework during recreation or client shutdown |
 
 Pair `save()` with `restoreToCount()` to isolate local transforms and clipping, using `try/finally` to ensure restoration. Use `saveLayer()` only when group opacity or filtering requires it. Do not promote a feature cache into a global policy without evaluating every affected caller.
 
@@ -561,7 +542,7 @@ These practices reduce avoidable CPU, GPU, and native-resource overhead. They do
 1. Skip invisible content, zero-opacity content, offscreen content, and content covered by a complete page. For long lists, visit only visible rows and a small required buffer. Canvas clipping does not eliminate CPU-side iteration, measurement, or layout work.
 2. Use the existing 2D pass and group a component's drawing. Avoid duplicate submissions, additional GL state queries, and per-widget flushes.
 3. Perform static layout, truncation, text measurement, and TextBlob construction when content or layout becomes invalid. Per-frame work should handle only necessary position, color, and clipping changes.
-4. Prefer fills, rounded rectangles, and gradients. Apply blur, shadows, glow, and glass only to necessary regions.
+4. Prefer fills, rounded rectangles, and gradients. Apply blur, shadows, and glow only to necessary regions.
 5. Draw stable pages directly. Use bounded layers during transitions only when group composition requires them; do not wrap every interface in a fullscreen `saveLayer`.
 6. Keep networking, file reads, and image decoding out of drawing callbacks. Workers process ordinary data; GPU resource creation, updates, and release remain in the appropriate client rendering stage.
 
@@ -580,7 +561,6 @@ Drawing, measurement, and cache keys must use this same result. The 0.25 increme
 | Static images | Feature-owned image cache with a total pixel budget | Image identity, target dimensions, or resource revision changes |
 | Blurred static images | Generate only when image or effect parameters change | Image, resolution, or blur parameters change |
 | Live world background | Use the framework's current-pass snapshot | An old image cannot remain a substitute for the current world |
-| Glass background texture | Reuse allocation at the same dimensions and refresh pixels on every call | Target-size changes or framework destruction |
 
 The caller owns static-image blur caches and chooses their working resolution according to display dimensions and required detail. Reduced-resolution effect caches apply only to the corresponding image effect and do not change the drawing quality of text, icons, or other images.
 
@@ -589,8 +569,6 @@ The caller owns static-image blur caches and chooses their working resolution ac
 The regular overlay pass reads the recorded blur-request flag at pass start, usually from the previous frame. A first request made inside the pass may therefore have no snapshot. Requested passes refresh the snapshot; it is not a cache of blurred output across frames. Capture retains a full framebuffer image, while each blur draw crops the required region. Local blur therefore does not eliminate the full-frame snapshot cost.
 
 Do not capture the screen separately for every widget or sample the component's already-rendered content back into its background. Provide a base-fill fallback. A shared renderer failure is logged and disables rendering for the session; backdrop blur has a separate failure-disable state. Diagnose the first logged exception instead of hiding drawing errors with empty catch blocks.
-
-Glass requires a full-target capture, GL state transitions, and multiple background samples, and generally costs more than basic shapes. A single `renderShapes` call shares one snapshot; group shapes using the same effect to reduce captures and state transitions. Apply it to visible panels and avoid capturing the background separately for every item in a long list.
 
 ### 6.4 Validation
 
@@ -603,7 +581,7 @@ Source validation for the current Minecraft backend should include `compileClien
 Before using Chroma Graphics, read this section, the relevant interface sections, and the corresponding implementation.
 
 1. **Verify interfaces and dependencies.** Confirm types, signatures, and calling behavior against the current implementation and actual dependencies. For the Minecraft backend, check sources matching its version and mappings. Do not guess methods or invent framework APIs.
-2. **Identify the rendering stage.** Classify the content as a Screen, main-target GUI, HUD overlay, or world Gizmo. Confirm submission precedes the relevant queue drain. Reuse an established entry point and connect each piece of content only once.
+2. **Identify the rendering stage.** Classify the content as a Screen, loading overlay, main-target GUI, HUD overlay, or world Gizmo. Confirm submission precedes the relevant queue drain. Reuse an established entry point and connect each piece of content only once.
 3. **Reuse typography interfaces.** Use `SkijaUi` for ordinary text and caller-owned `PreparedText` for repeated text. Keep font sizes fixed or discrete, use the same font selection for measurement and drawing, and include font revision and any temporary font name in cache keys.
 4. **Unify coordinates and geometry.** Advance animation once per frame. Drawing, backdrop sampling, clipping, and hit testing must read the same result. Distinguish physical pixels, GUI coordinates, and local coordinates, and apply the corresponding inverse transform to input.
 5. **Bound caches and work.** Cull invisible content before processing visible layout. Define cache keys, capacity, invalidation, and release. Local cache policies apply only to the content they own.
@@ -617,10 +595,9 @@ Change reports should identify the rendering stage used, cache and resource life
 
 ## 8. Implementation Index
 
-- [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java), [SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
+- [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java), [SkijaOverlay](../../src/client/java/com/pvp_utils/client/render/skia/SkijaOverlay.java), [SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java), [SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java), [SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
 - [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java), [ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java), [LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java), [AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
-- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java), [GlassStyle](../../src/client/java/com/pvp_utils/client/render/skia/GlassStyle.java), [GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java), [liquid_glass.fsh](../../src/client/resources/assets/pvp_utils/shaders/liquid_glass.fsh)
 - [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java), [WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java), [WorldParticles](../../src/client/java/com/pvp_utils/client/render/world/WorldParticles.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java), [GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
 - [Build definition](../../build.gradle)

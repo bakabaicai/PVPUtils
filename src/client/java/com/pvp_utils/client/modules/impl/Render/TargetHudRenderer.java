@@ -9,7 +9,6 @@ import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
@@ -209,7 +208,7 @@ public class TargetHudRenderer {
 
         updateAttackDistance(client, now);
 
-        if (Config.targetHudMode == Config.TargetHudMode.BLUR || Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS) {
+        if (Config.targetHudMode == Config.TargetHudMode.BLUR) {
             renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
             return;
         }
@@ -387,7 +386,6 @@ public class TargetHudRenderer {
         float drawRadius = 16f * hudScale * drawScale;
 
         boolean transparentMode = true;
-        boolean liquid = Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS;
 
         Identifier avatarTexture = target instanceof Player player
                 ? resolvePlayerSkin(client, player).body().texturePath()
@@ -408,7 +406,7 @@ public class TargetHudRenderer {
         if (avatarTexture != null) client.getTextureManager().getTexture(avatarTexture);
         java.util.function.Consumer<Canvas> painter = c -> {
             HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius,
-                    Config.targetAppearance, liquid, alpha);
+                    Config.targetAppearance, alpha);
             int save = c.save();
             try {
                 c.translate(drawX, drawY);

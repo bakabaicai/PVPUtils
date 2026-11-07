@@ -371,7 +371,7 @@ public final class ItemUseStatusRenderer {
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
         SkijaRenderer.draw(c -> {
             HudPanel.draw(c, x, y, NEW_W * scale, NEW_H * scale, 8f * scale,
-                    Config.itemUseAppearance, false, alpha);
+                    Config.itemUseAppearance, alpha);
             c.translate(x, y);
             c.scale(scale, scale);
             int alphaInt = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 255f);

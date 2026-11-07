@@ -41,6 +41,8 @@ import java.util.stream.Stream;
 
 public final class SkijaUi {
     public static final String CLIENT_FONT = "harmony";
+    public static final String PRODUCT_SANS_REGULAR = "product_sans_regular";
+    public static final String PRODUCT_SANS_LIGHT = "product_sans_light";
     private static final float FONT_SIZE = 9.0F;
     private static final long MAX_IMPORTED_FONT_BYTES = 64L * 1024L * 1024L;
     private static final String[] FONT_FAMILIES = {
@@ -55,6 +57,8 @@ public final class SkijaUi {
 
     private static final Typeface REGULAR_TYPEFACE = loadTypeface("/fonts/harmony.ttf", FontStyle.NORMAL);
     private static final Typeface BOLD_TYPEFACE = loadTypeface("/fonts/harmony_bold.ttf", FontStyle.BOLD);
+    private static final Typeface PRODUCT_SANS_REGULAR_TYPEFACE = loadTypeface("/fonts/product_sans_regular.ttf", FontStyle.NORMAL);
+    private static final Typeface PRODUCT_SANS_LIGHT_TYPEFACE = loadTypeface("/fonts/product_sans_light.ttf", FontStyle.NORMAL);
     private static final Typeface TEXT_FALLBACK_TYPEFACE = findTypeface(FontStyle.NORMAL);
     private static final Typeface PVP_CONTROLS_TYPEFACE = loadTypeface("/fonts/icon.ttf", FontStyle.NORMAL);
     private static final Typeface MATERIAL_SYMBOLS_TYPEFACE = loadTypeface("/fonts/MaterialSymbolsRounded.ttf", FontStyle.NORMAL);
@@ -407,8 +411,10 @@ public final class SkijaUi {
 
     public static synchronized List<String> availableFontNames() {
         ensureImportedFontsLoaded();
-        List<String> names = new ArrayList<>(IMPORTED_TYPEFACES.size() + 1);
+        List<String> names = new ArrayList<>(IMPORTED_TYPEFACES.size() + 3);
         names.add(CLIENT_FONT);
+        names.add(PRODUCT_SANS_REGULAR);
+        names.add(PRODUCT_SANS_LIGHT);
         names.addAll(IMPORTED_TYPEFACES.keySet());
         return List.copyOf(names);
     }
@@ -529,6 +535,12 @@ public final class SkijaUi {
         if (BOLD_TYPEFACE != null) {
             BOLD_TYPEFACE.close();
         }
+        if (PRODUCT_SANS_REGULAR_TYPEFACE != null) {
+            PRODUCT_SANS_REGULAR_TYPEFACE.close();
+        }
+        if (PRODUCT_SANS_LIGHT_TYPEFACE != null) {
+            PRODUCT_SANS_LIGHT_TYPEFACE.close();
+        }
         if (TEXT_FALLBACK_TYPEFACE != null) {
             TEXT_FALLBACK_TYPEFACE.close();
         }
@@ -641,7 +653,11 @@ public final class SkijaUi {
         FontKey key = new FontKey(resolved, bold, Float.floatToIntBits(safeSize));
         return TEXT_FONTS.computeIfAbsent(key, ignored -> {
             Typeface imported = IMPORTED_TYPEFACES.get(resolved);
-            Typeface typeface = imported != null ? imported : bold ? BOLD_TYPEFACE : REGULAR_TYPEFACE;
+            Typeface typeface = switch (resolved) {
+                case PRODUCT_SANS_REGULAR -> PRODUCT_SANS_REGULAR_TYPEFACE;
+                case PRODUCT_SANS_LIGHT -> PRODUCT_SANS_LIGHT_TYPEFACE;
+                default -> imported != null ? imported : bold ? BOLD_TYPEFACE : REGULAR_TYPEFACE;
+            };
             return createFont(typeface, safeSize);
         });
     }
@@ -653,6 +669,8 @@ public final class SkijaUi {
     private static String resolveFontName(String requested) {
         if (requested != null) {
             if (CLIENT_FONT.equalsIgnoreCase(requested)) return CLIENT_FONT;
+            if (PRODUCT_SANS_REGULAR.equalsIgnoreCase(requested)) return PRODUCT_SANS_REGULAR;
+            if (PRODUCT_SANS_LIGHT.equalsIgnoreCase(requested)) return PRODUCT_SANS_LIGHT;
             for (String name : IMPORTED_TYPEFACES.keySet()) {
                 if (name.equalsIgnoreCase(requested)) return name;
             }

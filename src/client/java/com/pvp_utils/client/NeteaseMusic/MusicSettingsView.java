@@ -272,7 +272,6 @@ public final class MusicSettingsView {
                     case "mode" -> {
                         Config.musicInfoHudMode = switch (Config.musicInfoHudMode) {
                             case LITE -> Config.MusicInfoHudMode.BLUR;
-                            case BLUR -> Config.MusicInfoHudMode.LIQUID_GLASS;
                             default -> Config.MusicInfoHudMode.LITE;
                         };
                     }
@@ -337,7 +336,6 @@ public final class MusicSettingsView {
         return switch (Config.musicInfoHudMode) {
             case LITE -> "Lite";
             default -> "Blur";
-            case LIQUID_GLASS -> "Liquid";
         };
     }
 

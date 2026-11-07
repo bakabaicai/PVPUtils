@@ -3,9 +3,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
-import com.pvp_utils.client.gui.clickgui.widget.SettingCycle;
 import com.pvp_utils.client.gui.clickgui.widget.HudAppearanceSettings;
-import java.util.List;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
 
@@ -55,17 +53,10 @@ public class OptimizePage extends BasePage {
                 .addSub(UiText.t("动画速度", "Animation Speed"), "",
                         new SettingSlider(0.05, 0.99, "%.2f", () -> (double) Config.smoothHotbarAnimationSpeed, v -> { Config.smoothHotbarAnimationSpeed = v.floatValue(); Config.save(); })));
         SettingModule scoreboard = HudAppearanceSettings.module(modules, "更好的计分板", "Better Scoreboard");
-        scoreboard.addSubVisible(UiText.t("背景样式", "Background Style"), "",
-                new SettingCycle(List.of("Blur", "Liquid"), () -> Config.betterScoreboardLiquidGlass ? 1 : 0,
-                        value -> { Config.betterScoreboardLiquidGlass = value == 1; Config.save(); }),
-                () -> Config.betterScoreboardVisualImprovement);
         HudAppearanceSettings.add(scoreboard, () -> Config.scoreboardAppearance,
-                () -> Config.betterScoreboardVisualImprovement, () -> Config.betterScoreboardLiquidGlass);
+                () -> Config.betterScoreboardVisualImprovement);
         SettingModule hotbar = HudAppearanceSettings.module(modules, "更好的物品栏", "Better Item Selector");
-        hotbar.addSub(UiText.t("背景样式", "Background Style"), "",
-                new SettingCycle(List.of("Blur", "Liquid"), () -> Config.betterItemSelectorLiquidGlass ? 1 : 0,
-                        value -> { Config.betterItemSelectorLiquidGlass = value == 1; Config.save(); }));
-        HudAppearanceSettings.hotbar(hotbar, () -> Config.hotbarAppearance, () -> Config.betterItemSelectorLiquidGlass);
+        HudAppearanceSettings.hotbar(hotbar, () -> Config.hotbarAppearance);
 
     }
 

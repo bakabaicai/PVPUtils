@@ -13,6 +13,7 @@ import com.pvp_utils.client.alt.AltManagerScreen;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.startup.StartupProgress;
 import io.github.humbleui.skija.*;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -116,8 +117,8 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         super(Component.literal("Minecraft"));
         this.showEntryHint = showEntryHint;
         this.fixedShaderPath = fixedShaderPath;
-        this.entryFade = showEntryHint || parent instanceof TitleScreen || entryFadeDelay;
-        this.entryFadeDelay = entryFadeDelay;
+        this.entryFade = !StartupProgress.isRunning() && (showEntryHint || parent instanceof TitleScreen || entryFadeDelay);
+        this.entryFadeDelay = this.entryFade && entryFadeDelay;
         this.returnTransition = returnTransition;
     }
 

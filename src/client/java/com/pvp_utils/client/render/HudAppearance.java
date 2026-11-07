@@ -2,7 +2,6 @@ package com.pvp_utils.client.render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
-import com.pvp_utils.client.render.skia.GlassStyle;
 
 public final class HudAppearance {
     public boolean shadow = true;
@@ -14,7 +13,6 @@ public final class HudAppearance {
     public boolean customBackground;
     public int backgroundColor = 0xFF111827;
     public float backgroundOpacity = 0.4f;
-    public GlassStyle glass = new GlassStyle();
 
     public int accent() {
         return useTheme ? ThemeColors.accent() : accentColor;
@@ -41,7 +39,5 @@ public final class HudAppearance {
     public void normalize() {
         shadowStrength = Float.isFinite(shadowStrength) ? Math.clamp(shadowStrength, 0f, 1f) : 0.35f;
         backgroundOpacity = Float.isFinite(backgroundOpacity) ? Math.clamp(backgroundOpacity, 0f, 1f) : 0.4f;
-        if (glass == null) glass = new GlassStyle();
-        glass.sanitize();
     }
 }

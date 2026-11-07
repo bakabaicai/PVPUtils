@@ -6,7 +6,8 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingCycle;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
-import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
+import com.pvp_utils.client.gui.clickgui.widget.SettingButton;
+import com.pvp_utils.client.modules.impl.Combat.HitSoundFilePicker;
 
 import java.util.List;
 
@@ -51,7 +52,8 @@ public class CombatPage extends BasePage {
                                 value -> { Config.hitSoundMeleeType = Config.HitSoundType.values()[value]; Config.save(); }))
                 .addSubWhen(() -> Config.hitSoundMeleeEnabled && Config.hitSoundMeleeType == Config.HitSoundType.CUSTOM,
                         UiText.t("音频文件", "Audio File"), "WAV / AIFF / AU",
-                        new SettingTextBox(() -> Config.hitSoundMeleeFile, value -> { Config.hitSoundMeleeFile = value; Config.save(); }, 1024))
+                        new SettingButton(() -> Config.hitSoundMeleeFile.isBlank() ? UiText.t("选择文件", "Choose File")
+                                : UiText.t("更换文件", "Change File"), () -> HitSoundFilePicker.select(false)))
                 .addSub(UiText.t("远程音效", "Ranged Sound"), "",
                         new SettingToggle(() -> Config.hitSoundRangedEnabled, value -> { Config.hitSoundRangedEnabled = value; Config.save(); }))
                 .addSubWhen(() -> Config.hitSoundRangedEnabled, UiText.t("音效", "Sound"), "",
@@ -59,7 +61,8 @@ public class CombatPage extends BasePage {
                                 value -> { Config.hitSoundRangedType = Config.HitSoundType.values()[value]; Config.save(); }))
                 .addSubWhen(() -> Config.hitSoundRangedEnabled && Config.hitSoundRangedType == Config.HitSoundType.CUSTOM,
                         UiText.t("音频文件", "Audio File"), "WAV / AIFF / AU",
-                        new SettingTextBox(() -> Config.hitSoundRangedFile, value -> { Config.hitSoundRangedFile = value; Config.save(); }, 1024)));
+                        new SettingButton(() -> Config.hitSoundRangedFile.isBlank() ? UiText.t("选择文件", "Choose File")
+                                : UiText.t("更换文件", "Change File"), () -> HitSoundFilePicker.select(true))));
 
     }
 

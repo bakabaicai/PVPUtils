@@ -187,9 +187,9 @@ public class RenderPage extends BasePage {
                         UiText.t("双层模式", "Two-row Mode"), UiText.t("显示更多信息", "Show more information"),
                         new SettingToggle(() -> Config.dynamicIslandDoubleRow, v -> { Config.dynamicIslandDoubleRow = v; Config.save(); }))
                 .addSub(UiText.t("背景模式", "Background"), "",
-                        new SettingCycle(List.of("Blur", UiText.t("纯色", "Solid"), "Liquid"),
-                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS ? 2 : 0,
-                                i -> { Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : i == 2 ? Config.DynamicIslandBackground.LIQUID_GLASS : Config.DynamicIslandBackground.BLUR; Config.save(); }))
+                        new SettingCycle(List.of("Blur", UiText.t("纯色", "Solid")),
+                                () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.SOLID ? 1 : 0,
+                                i -> { Config.dynamicIslandBackground = i == 1 ? Config.DynamicIslandBackground.SOLID : Config.DynamicIslandBackground.BLUR; Config.save(); }))
                 .addSub(UiText.t("背景颜色", "Background Color"), "",
                         new SettingColorPreview(() -> Config.dynamicIslandColor, v -> Config.dynamicIslandColor = v, true, Config::save))
                 .addSub(UiText.t("阴影", "Shadow"), "",
@@ -387,12 +387,12 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("显示自身名称标签", "Show Own Name Tag"), UiText.t("在第三人称视角显示自己头顶的名称标签", "Show your own overhead name tag in third-person view"),
                         new SettingToggle(() -> Config.nameTagShowSelf, v -> { Config.nameTagShowSelf = v; Config.save(); })));
         SettingModule target = HudAppearanceSettings.module(modules, "目标信息显示", "Target Information");
-        HudAppearanceSettings.style(target, List.of(Config.TargetHudMode.LITE, Config.TargetHudMode.BLUR, Config.TargetHudMode.LIQUID_GLASS),
+        HudAppearanceSettings.style(target, List.of(Config.TargetHudMode.LITE, Config.TargetHudMode.BLUR),
                 () -> Config.targetHudMode, value -> Config.targetHudMode = value);
         HudAppearanceSettings.add(target, () -> Config.targetAppearance,
-                () -> Config.targetHudMode != Config.TargetHudMode.LITE, () -> Config.targetHudMode == Config.TargetHudMode.LIQUID_GLASS);
+                () -> Config.targetHudMode != Config.TargetHudMode.LITE);
         SettingModule armor = HudAppearanceSettings.module(modules, "护甲信息显示", "Armor Information");
-        HudAppearanceSettings.style(armor, List.of(Config.ArmorHudMode.LITE, Config.ArmorHudMode.BLUR, Config.ArmorHudMode.LIQUID_GLASS),
+        HudAppearanceSettings.style(armor, List.of(Config.ArmorHudMode.LITE, Config.ArmorHudMode.BLUR),
                 () -> Config.armorHudMode, value -> {
                     Config.armorHudMode = value;
                     if (value == Config.ArmorHudMode.LITE && Config.armorHudLayout == Config.ArmorHudLayout.SEPARATED) {
@@ -400,44 +400,56 @@ public class RenderPage extends BasePage {
                     }
                 });
         HudAppearanceSettings.add(armor, () -> Config.armorAppearance,
-                () -> Config.armorHudMode != Config.ArmorHudMode.LITE, () -> Config.armorHudMode == Config.ArmorHudMode.LIQUID_GLASS);
+                () -> Config.armorHudMode != Config.ArmorHudMode.LITE);
         SettingModule music = HudAppearanceSettings.module(modules, "音乐信息显示", "Music Info HUD");
-        HudAppearanceSettings.style(music, List.of(Config.MusicInfoHudMode.LITE, Config.MusicInfoHudMode.BLUR, Config.MusicInfoHudMode.LIQUID_GLASS),
+        HudAppearanceSettings.style(music, List.of(Config.MusicInfoHudMode.LITE, Config.MusicInfoHudMode.BLUR),
                 () -> Config.musicInfoHudMode, value -> Config.musicInfoHudMode = value);
         HudAppearanceSettings.add(music, () -> Config.musicInfoAppearance,
-                () -> true, () -> Config.musicInfoHudMode == Config.MusicInfoHudMode.LIQUID_GLASS);
+                () -> true);
         SettingModule ping = HudAppearanceSettings.module(modules, "Ping 显示", "Ping HUD");
-        HudAppearanceSettings.style(ping, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+        HudAppearanceSettings.style(ping, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR),
                 () -> Config.pingHudStyle, value -> Config.pingHudStyle = value);
         HudAppearanceSettings.add(ping, () -> Config.pingAppearance,
-                () -> Config.pingHudStyle != Config.HudStyle.LITE, () -> Config.pingHudStyle == Config.HudStyle.LIQUID_GLASS);
+                () -> Config.pingHudStyle != Config.HudStyle.LITE);
         SettingModule tps = HudAppearanceSettings.module(modules, "TPS 显示", "TPS HUD");
-        HudAppearanceSettings.style(tps, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+        HudAppearanceSettings.style(tps, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR),
                 () -> Config.tpsHudStyle, value -> Config.tpsHudStyle = value);
         HudAppearanceSettings.add(tps, () -> Config.tpsAppearance,
-                () -> Config.tpsHudStyle != Config.HudStyle.LITE, () -> Config.tpsHudStyle == Config.HudStyle.LIQUID_GLASS);
+                () -> Config.tpsHudStyle != Config.HudStyle.LITE);
         SettingModule clock = HudAppearanceSettings.module(modules, "现实时钟显示", "Real-Time Clock");
-        HudAppearanceSettings.style(clock, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS, Config.HudStyle.MATERIAL),
+        HudAppearanceSettings.style(clock, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.MATERIAL),
                 () -> Config.clockHudStyle, value -> Config.clockHudStyle = value);
-        HudAppearanceSettings.add(clock, () -> Config.clockAppearance, () -> true, () -> Config.clockHudStyle == Config.HudStyle.LIQUID_GLASS);
+        clock.addSubWhen(() -> Config.clockHudStyle == Config.HudStyle.MATERIAL && Config.clockHudBackground,
+                        UiText.t("不透明背景", "Opaque Background"), "",
+                        new SettingToggle(() -> Config.clockHudOpaqueBackground,
+                                value -> { Config.clockHudOpaqueBackground = value; Config.save(); }))
+                .addSubChildWhen(() -> Config.clockHudStyle == Config.HudStyle.MATERIAL
+                                && Config.clockHudBackground && Config.clockHudOpaqueBackground,
+                        UiText.t("背景不透明度", "Background Opacity"), "",
+                        new SettingSlider(0, 100, "%.0f%%", () -> (double) Config.clockHudBackgroundOpacity * 100,
+                                value -> { Config.clockHudBackgroundOpacity = value.floatValue() / 100f; Config.save(); }))
+                .addSubWhen(() -> Config.clockHudStyle == Config.HudStyle.MATERIAL && Config.clockHudBackground,
+                        "Blur", "",
+                        new SettingToggle(() -> Config.clockHudBlurBackground,
+                                value -> { Config.clockHudBlurBackground = value; Config.save(); }));
+        HudAppearanceSettings.add(clock, () -> Config.clockAppearance, () -> true,
+                () -> Config.clockHudStyle != Config.HudStyle.MATERIAL);
         SettingModule potion = HudAppearanceSettings.module(modules, "药水状态", "Potion Status");
-        HudAppearanceSettings.style(potion, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR, Config.HudStyle.LIQUID_GLASS),
+        HudAppearanceSettings.style(potion, List.of(Config.HudStyle.LITE, Config.HudStyle.BLUR),
                 () -> Config.potionStatusStyle, value -> Config.potionStatusStyle = value);
         HudAppearanceSettings.add(potion, () -> Config.potionAppearance,
-                () -> Config.potionStatusStyle != Config.HudStyle.LITE, () -> Config.potionStatusStyle == Config.HudStyle.LIQUID_GLASS);
+                () -> Config.potionStatusStyle != Config.HudStyle.LITE);
         SettingModule keys = HudAppearanceSettings.module(modules, "按键显示", "Keystrokes");
-        HudAppearanceSettings.style(keys, List.of(Config.KeystrokesMode.LITE, Config.KeystrokesMode.BLUR, Config.KeystrokesMode.LIQUID_GLASS),
+        HudAppearanceSettings.style(keys, List.of(Config.KeystrokesMode.LITE, Config.KeystrokesMode.BLUR),
                 () -> Config.keystrokesMode, value -> Config.keystrokesMode = value);
         HudAppearanceSettings.add(keys, () -> Config.keystrokesAppearance,
-                () -> Config.keystrokesMode != Config.KeystrokesMode.LITE, () -> Config.keystrokesMode == Config.KeystrokesMode.LIQUID_GLASS);
+                () -> Config.keystrokesMode != Config.KeystrokesMode.LITE);
         SettingModule itemUse = HudAppearanceSettings.module(modules, "物品使用状态显示", "Item Use Status");
         HudAppearanceSettings.style(itemUse, List.of(Config.ItemUseStatusMode.LITE, Config.ItemUseStatusMode.BLUR),
                 () -> Config.itemUseStatusMode, value -> Config.itemUseStatusMode = value);
         HudAppearanceSettings.add(itemUse, () -> Config.itemUseAppearance,
-                () -> Config.itemUseStatusMode != Config.ItemUseStatusMode.LITE, () -> false);
+                () -> Config.itemUseStatusMode != Config.ItemUseStatusMode.LITE);
         HudAppearanceSettings.colors(HudAppearanceSettings.module(modules, "灵动岛", "Dynamic Island"), () -> Config.dynamicIslandAppearance);
-        HudAppearanceSettings.glass(HudAppearanceSettings.module(modules, "灵动岛", "Dynamic Island"),
-                () -> Config.dynamicIslandAppearance, () -> Config.dynamicIslandBackground == Config.DynamicIslandBackground.LIQUID_GLASS);
 
     }
 

@@ -215,9 +215,7 @@ public class Config {
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
-    public static boolean betterScoreboardLiquidGlass = false;
     public static boolean betterItemSelector = false;
-    public static boolean betterItemSelectorLiquidGlass = false;
     public static boolean betterMouseLogic = false;
     public static boolean smoothHotbarScrolling = false;
     public static float smoothHotbarAnimationSpeed = 0.55f;
@@ -277,6 +275,9 @@ public class Config {
     public static boolean pingHudBackground = true;
     public static boolean tpsHudBackground = true;
     public static boolean clockHudBackground = true;
+    public static boolean clockHudOpaqueBackground = true;
+    public static float clockHudBackgroundOpacity = 1.0f;
+    public static boolean clockHudBlurBackground = false;
     public static boolean nameTag = false;
     public static float nameTagScale = 1.0f;
     public static boolean nameTagDynamicScale = false;
@@ -389,23 +390,23 @@ public class Config {
     public enum AnimMode { MODE_1_7, MODE_PUSH, MODE_1_7_PLUS, MODE_NEW }
     public enum HitSoundType { NETHERITE, EXPERIENCE, CUSTOM }
     public enum HitSoundCondition { BOTH, MELEE, RANGED }
-    public enum TargetHudMode { LITE, BLUR, LIQUID_GLASS }
+    public enum TargetHudMode { LITE, BLUR }
     public enum BlockCountDisplayMode { BLUR }
-    public enum KeystrokesMode { LITE, BLUR, LIQUID_GLASS }
-    public enum ArmorHudMode { LITE, BLUR, LIQUID_GLASS }
+    public enum KeystrokesMode { LITE, BLUR }
+    public enum ArmorHudMode { LITE, BLUR }
     public enum ArmorHudLayout { SEPARATED, VERTICAL, HORIZONTAL }
     public enum ArmorHudDisplayMode { PERCENTAGE, BAR, BOTH }
-    public enum MusicInfoHudMode { LITE, BLUR, LIQUID_GLASS }
+    public enum MusicInfoHudMode { LITE, BLUR }
 
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
     public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, BLUR }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
-    public enum HudStyle { LITE, BLUR, LIQUID_GLASS, MATERIAL }
+    public enum HudStyle { LITE, BLUR, MATERIAL }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
-    public enum DynamicIslandBackground { BLUR, SOLID, LIQUID_GLASS }
+    public enum DynamicIslandBackground { BLUR, SOLID }
     public enum DynamicIslandMusicMode { LYRICS, MINIMIZED }
     public enum DynamicIslandShape { CAPSULE, SPLIT }
 
@@ -824,10 +825,11 @@ public class Config {
                 field.set(null, appearance);
             } else if (type.isEnum()) {
                 String name = value.getAsString();
-                if ("NEW".equals(name) && (type == TargetHudMode.class || type == KeystrokesMode.class
+                if (("NEW".equals(name) || "LIQUID_GLASS".equals(name) || "LIQUID".equals(name))
+                        && (type == TargetHudMode.class || type == KeystrokesMode.class
                         || type == ArmorHudMode.class || type == MusicInfoHudMode.class
                         || type == BlockCountDisplayMode.class || type == ItemUseStatusMode.class
-                        || type == HudStyle.class)) name = "BLUR";
+                        || type == HudStyle.class || type == DynamicIslandBackground.class)) name = "BLUR";
                 field.set(null, Enum.valueOf((Class<? extends Enum>) type, name));
             }
         } catch (Exception e) {
@@ -1008,7 +1010,7 @@ public class Config {
             new HudComponent("Keystrokes", "keystrokes", "keystrokesX", "keystrokesY", "keystrokesScale"),
             new HudComponent("PingHUD", "pingHud", "pingHudStyle", "pingHudBackground", "pingHudX", "pingHudY", "pingHudScale"),
             new HudComponent("TpsHUD", "tpsHud", "tpsHudStyle", "tpsHudBackground", "tpsHudX", "tpsHudY", "tpsHudScale"),
-            new HudComponent("ClockHUD", "clockHud", "clockHudStyle", "clockHudBackground", "clockHudX", "clockHudY", "clockHudScale"),
+            new HudComponent("ClockHUD", "clockHud", "clockHudStyle", "clockHudBackground", "clockHudOpaqueBackground", "clockHudBackgroundOpacity", "clockHudBlurBackground", "clockHudX", "clockHudY", "clockHudScale"),
             new HudComponent("BlockCountDisplay", "blockCountDisplay", "blockCountDisplayX", "blockCountDisplayY", "blockCountDisplayScale"),
             new HudComponent("ArmorHUD", "armorHud", "armorHudX", "armorHudY", "armorHudScale"),
             new HudComponent("ItemUseStatus", "itemUseStatus", "itemUseStatusX", "itemUseStatusY", "itemUseStatusScale"),

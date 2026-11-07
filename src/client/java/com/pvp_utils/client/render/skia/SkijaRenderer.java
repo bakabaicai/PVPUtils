@@ -215,28 +215,8 @@ public final class SkijaRenderer {
         submitted.clear();
     }
 
-    public static int currentFramebuffer() {
-        return targetFramebuffer;
-    }
-
-    static int currentTargetWidth() {
-        return targetWidth;
-    }
-
-    static int currentTargetHeight() {
-        return targetHeight;
-    }
-
-    public static void flush() {
-        if (context != null && surface != null) context.flushAndSubmit(surface);
-    }
-
     public static boolean isDrawing() {
         return activeCanvas != null;
-    }
-
-    public static void restoreContext() {
-        if (context != null) context.resetGLAll();
     }
 
     public static boolean hasFailed() {

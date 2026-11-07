@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、文字与图标、背景模糊、液态玻璃及世界空间图形接口。框架统一管理常规二维绘制的 Skia 上下文、帧缓冲包装、绘制时序和 OpenGL 状态恢复。本文说明当前实现的接口、坐标空间、调用约束、资源生命周期与性能使用方法。当前后端接入 Minecraft，依赖如下。
+Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、文字与图标、背景模糊及世界空间图形接口。框架统一管理常规二维绘制的 Skia 上下文、帧缓冲包装、绘制时序和 OpenGL 状态恢复。本文说明当前实现的接口、坐标空间、调用约束、资源生命周期与性能使用方法。当前后端接入 Minecraft，依赖如下。
 
 Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、`SkijaUi` 等名称；不存在名为 `ChromaGraphics` 的统一入口类。
 
@@ -25,15 +25,14 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | 模块 | 职责 | 使用范围 |
 | --- | --- | --- |
 | `SkijaScreen` | 屏幕的二维绘制入口 | 自定义 `Screen` |
+| `SkijaOverlay` | 加载叠加层的二维绘制入口及资源生命周期 | 自定义 `Overlay` |
 | `SkijaRenderer` | 活动画布、主目标与叠加队列、纹理借用、背景模糊 | 功能代码使用指定入口；帧调度由框架维护 |
 | `SkijaUi` | 图形、文字、图标、共享字体及预备文本 | 常规 UI/HUD 首选 |
-| `SkijaFrameRenderer` | HUD、屏幕和队列的帧级调度 | 框架内部 |
-| `LiquidGlassRenderer` | 液态玻璃面板 | 明确需要该效果的组件 |
-| `GlassStyle`、`GlassShape` | 玻璃参数与形状描述 | 调用方持有 |
-| `SkijaBackdrop`、`GlassGlState` | 背景采样、GL 状态保存与恢复 | 包内实现 |
+| `SkijaFrameRenderer` | HUD、屏幕、加载叠加层和队列的帧级调度 | 框架内部 |
+| `SkijaBackdrop` | 背景采样、GL 状态保存与恢复 | 包内实现 |
 | `WorldRender` | 世界空间图形及世界坐标投影 | 三维功能模块 |
 
-常规二维绘制复用一个受管理的 Skia 上下文。液态玻璃通过专用 OpenGL 通道执行，前后显式提交并恢复状态。三维图形走 Minecraft Gizmos，不经过二维 Canvas。
+常规二维绘制复用一个受管理的 Skia 上下文。三维图形走 Minecraft Gizmos，不经过二维 Canvas。
 
 ## 2. 绘制时序与接入方式
 
@@ -42,9 +41,9 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 1. `MinecraftMixin` 在 `Minecraft.runTick` 开始时调用 `SkijaRenderer.beginFrame()`，清空两条提交队列。
 2. Minecraft 收集 GUI 绘制内容。此期间在活动 Skia 画布之外调用 `draw()`，会进入主目标队列。
 3. `GameRendererMixin` 在 `GuiRenderer.render(GpuBufferSlice)` 之前调用 `renderMainSubmitted()`，将主目标队列绘制到 Minecraft 主颜色目标。
-4. Minecraft 将主目标 `blitToScreen()` 后，`SkijaFrameRenderer.render()` 开始叠加绘制。窗口最小化或存在 Minecraft 加载叠加层时跳过。
-5. 叠加通道依次执行宿主接入的 HUD 绘制、当前 `SkijaScreen`、`submit()` 队列和宿主的末尾叠加绘制。
-6. 通道结束时提交 Skia 命令并恢复外部 GL 状态。玻璃效果的中间衔接可能产生额外提交。
+4. Minecraft 将主目标 `blitToScreen()` 后，`SkijaFrameRenderer.render()` 开始叠加绘制。窗口最小化时跳过；存在加载叠加层时，仅处理已启用的 `SkijaOverlay`。
+5. 无加载叠加层时，叠加通道依次执行宿主接入的 HUD 绘制、当前 `SkijaScreen`、`submit()` 队列和宿主的末尾叠加绘制。有已启用的 `SkijaOverlay` 时，按其显示策略绘制后方屏幕与队列，最后绘制该叠加层，不调度常规 HUD。
+6. 通道结束时提交 Skia 命令并恢复外部 GL 状态。
 
 主目标通道使用包装 Minecraft 主颜色纹理的 FBO；叠加通道使用默认帧缓冲 FBO 0。通道开始时完成尺寸检查、Surface 复用或重建、GL 状态同步及 GUI 坐标缩放。
 
@@ -53,18 +52,26 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | 场景 | 标准方式 |
 | --- | --- |
 | 新建完整 Skia 屏幕 | `Screen implements SkijaScreen`，在 `renderSkija(Canvas)` 中直接绘制 |
+| 新建 Skia 加载叠加层 | `Overlay implements SkijaOverlay`，在常规 `render(...)` 中收集帧状态，在 `renderSkija(Canvas)` 中绘制 |
 | 已持有框架提供的 Canvas | 直接调用 `SkijaUi`、`PreparedText` 或必要的 Skija Canvas 方法 |
 | 将局部绘制封装为回调 | `SkijaRenderer.draw(painter)`；活动通道内立即执行并保护 Canvas 状态 |
 | 在 GUI 收集阶段绘制主目标内容 | 在主目标队列消费前调用 `draw(painter)` |
 | 从已有的当前帧 HUD 收集入口提交叠加内容 | `SkijaRenderer.submit(painter)`，在叠加队列消费前提交 |
 | 世界空间线框或标记 | 在现有世界渲染 Gizmos 收集阶段调用 `WorldRender` |
-| 液态玻璃 | `LiquidGlassRenderer.getInstance().renderPanel(...)` |
 
 `draw()` 与 `submit()` 不能互换：前者没有活动 Canvas 时进入主目标队列，后者始终进入叠加队列。叠加队列在屏幕之后绘制；不应覆盖菜单的 HUD 必须自行检查 `client.screen` 等显示条件。
 
 队列仅服务当前帧，不是持久任务队列，也不具备线程安全保证。不得从网络线程提交 Canvas 操作，不得在队列消费过程中继续入队并依赖下一帧执行。异步工作只发布数据；客户端线程在正确阶段读取数据并提交绘制。
 
 同一内容只能接入一个绘制入口。已由 `SkijaFrameRenderer` 调用的屏幕或 HUD，不应再额外提交相同内容。实现 HUD 类本身不会自动注册到帧调度器。
+
+### 2.3 加载叠加层
+
+`SkijaOverlay` 复用现有叠加通道，不创建独立上下文。`isSkijaOverlayActive()` 默认返回 `true`；返回 `false` 时，框架保留该叠加层的原版绘制行为。常规 `render(...)` 每帧只更新一次布局和动画状态，`renderSkija(...)` 消费同一份状态。
+
+`rendersScreenBehind()` 默认返回 `false`。返回 `true` 时，叠加层的常规 `render(...)` 必须先调用后方屏幕的原版绘制入口；框架随后依次绘制该屏幕的 Skia 部分、`submit()` 队列和叠加层。仅在这个分支消费叠加队列，常规 HUD 不参与加载叠加层通道。全屏渐隐应由最后绘制的叠加层覆盖后方内容，避免混合原版控件与 Skia 内容时产生时序差异。
+
+调用 `Minecraft.setOverlay(...)` 替换实例时，框架关闭前一个 `SkijaOverlay`；客户端渲染器关闭时也关闭仍在使用的实例。实现方在 `close()` 中释放自己持有的文字、路径、图像及滤镜，保持重复关闭安全。原版 `Overlay` 没有屏幕的 `removed()` 生命周期，不能依赖该方法释放叠加层资源。
 
 ## 3. 接口列表
 
@@ -75,6 +82,10 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | 接口 | 行为与约束 |
 | --- | --- |
 | `SkijaScreen.renderSkija(Canvas)` | 当前屏幕的实际 Skia 绘制；Canvas 由框架借出 |
+| `SkijaOverlay.renderSkija(Canvas)` | 加载叠加层的实际 Skia 绘制；继承 `SkijaScreen`，使用同一共享 Canvas |
+| `SkijaOverlay.isSkijaOverlayActive(): boolean` | 是否启用该实例的 Skia 叠加绘制；默认 `true` |
+| `SkijaOverlay.rendersScreenBehind(): boolean` | 是否先绘制后方屏幕及提交队列；默认 `false` |
+| `SkijaOverlay.close()` | 释放该实例所属资源；由叠加层替换与客户端关闭触发 |
 | `SkijaRenderer.draw(Consumer<Canvas>)` | 活动画布内立即绘制；否则加入主目标队列 |
 | `SkijaRenderer.submit(Consumer<Canvas>)` | 加入当前帧叠加队列 |
 | `SkijaRenderer.isDrawing(): boolean` | 是否存在活动的共享画布 |
@@ -137,6 +148,8 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | 接口 | 用途 |
 | --- | --- |
 | `CLIENT_FONT` | 内置字体名 `"harmony"` |
+| `PRODUCT_SANS_REGULAR` | 内置 Product Sans Regular 字体名 `"product_sans_regular"` |
+| `PRODUCT_SANS_LIGHT` | 内置 Product Sans Light 字体名 `"product_sans_light"` |
 | `availableFontNames(): List<String>` | 获取内置和导入字体名 |
 | `selectFont(String)` | 切换全局字体 |
 | `withFont(String, Runnable)` | 临时覆盖当前线程的字体选择，回调结束后恢复 |
@@ -150,41 +163,9 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 `textFontRevision()` 不随 `withFont()` 的临时覆盖变化。使用临时字体的缓存必须额外包含字体名，测量与绘制必须使用相同的字体选择。
 
-### 3.5 液态玻璃
+Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont()` 选择字重，预备文本和字体度量应在同一字体覆盖范围内计算。生成的 `PreparedText` 已保存所选字体的字形，后续绘制无需再次切换字体。内置 Typeface 与 Font 由框架管理，调用方仅释放自己持有的预备文本。
 
-入口为 `LiquidGlassRenderer.getInstance()`。效果通过一个 OpenGL 绘制通道执行圆角矩形距离场、平滑联合、折射、色散和径向模糊采样。
-
-| 接口 | 行为与约束 |
-| --- | --- |
-| `renderPanel(Minecraft, x, y, width, height, radius, int tintColor, GlassStyle): boolean` | 绘制单个圆角面板，颜色使用 ARGB |
-| `renderShapes(Minecraft, List<GlassShape>, GlassStyle): boolean` | 一次绘制多个形状，单次最多处理前 16 个形状，共用一次背景快照 |
-| 上述接口末尾增加 `GlassShadow` | 使用距离场计算阴影；默认 `GlassShadow.NONE` |
-| `GlassShape(x, y, width, height, topLeft, topRight, bottomRight, bottomLeft, smoothness, opacity, int tint)` | 不可变形状描述；几何尺寸为 GUI 单位，`smoothness` 为距离场联合宽度，单位为帧缓冲像素 |
-| `GlassShape.rounded(x, y, width, height, radius, int tint)` | 四角使用相同半径，联合宽度为 0.3，形状透明度为 1 |
-| `GlassShadow(expand, strength, offsetX, offsetY, int color)` | 阴影扩展及偏移使用帧缓冲像素；范围分别为 0–80、0–1、−60–60、−60–60 |
-| `GlassStyle.sanitize()` | 将非有限参数恢复为默认值，并限制在有效范围内 |
-| `panelTint(): int` | 返回宿主的默认玻璃着色 |
-| `destroy()` | 释放着色器、顶点数组与背景纹理，仅由框架生命周期调用 |
-
-`GlassStyle` 为调用方持有的参数对象，包含以下公开字段：
-
-| 字段 | 默认值 | 范围 | 单位或含义 |
-| --- | --- | --- | --- |
-| `blur` | 6 | 0–30 | 帧缓冲像素；径向采样半径 |
-| `refraction` | 1.35 | 1–5 | 折射率 |
-| `dispersion` | 1 | 0–3 | RGB 采样位置的分离强度 |
-| `rim` | 0.6 | 0–1 | 边缘着色强度 |
-| `alpha` | 0.9 | 0–1 | 玻璃结果与背景的混合比例 |
-| `glow` | 0.4 | 0–1 | 边缘辉光强度 |
-| `thickness` | 10 | 1–120 | 帧缓冲像素；折射带厚度 |
-
-面板位置、尺寸与圆角使用屏幕 GUI 坐标，不继承 Canvas 的局部变换或裁剪。位置与尺寸按当前目标的宽高分别换算为帧缓冲像素，与二维 Canvas 的屏幕坐标比例一致。四角半径被限制在较短边的一半以内，并使用两轴比例的较小值保持圆形圆角；形状透明度被限制为 0–1。玻璃参数中的模糊和厚度不随 GUI 缩放自动增大；调用方需区分物理像素与 GUI 单位。
-
-活动 Skia 通道内，框架先提交已记录命令，再捕获该通道的当前目标；通道外使用 Minecraft 主颜色目标。捕获纹理仅复用分配，每次调用更新像素，不是跨帧效果缓存。完成绘制后恢复 GL 状态并使共享 Skia 上下文重新同步；不再创建第二个 Skia 上下文或面板槽位。
-
-`false` 表示当前调用未绘制，调用方应提供基础填充降级。着色器编译或执行异常记录后禁用该效果，框架销毁时重置。外围柔和阴影可使用 `SoftShadow`，应在玻璃捕获前绘制；使用 `GlassShadow` 时避免再为同一轮廓叠加另一份阴影。多个需要平滑联合的形状必须在同一次 `renderShapes` 中提交。
-
-### 3.6 世界绘制：WorldRender
+### 3.5 世界绘制：WorldRender
 
 所有位置均为世界坐标。绘制在 Minecraft Gizmos 收集区间内提交，填充与线条由宿主批量处理；`throughWalls=false` 保留深度遮挡，`true` 使用始终置顶绘制。
 
@@ -230,7 +211,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 粒子集合不自动注册回调或模拟时钟。调用方负责更新、注册和注销，并在世界切换时清空旧粒子。每帧绘制只插值位置与旋转，按寿命衰减透明度和尺寸，并剔除距离过远或近乎透明的粒子。
 
-### 3.7 框架内部接口
+### 3.6 框架内部接口
 
 下列方法虽然部分为 `public`，但不属于新功能的常规接入接口。
 
@@ -239,11 +220,11 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | `SkijaFrameRenderer` | `render()`、`close()` |
 | `SkijaRenderer` | `beginFrame()`、`renderMainSubmitted()`、`renderSubmitted()` |
 | `SkijaRenderer` | `renderOverlay(Consumer<Canvas>)`、`renderMainTarget(Consumer<Canvas>)` |
-| `SkijaRenderer` | `currentFramebuffer()`、`flush()`、`restoreContext()`、`close()` |
+| `SkijaRenderer` | `close()` |
 
-`renderMainTarget()` 在共享画布已活动时复用当前通道，不强制切换目标。`currentFramebuffer()` 返回框架保存的目标状态，通道之外不能用它代替真实 GL 绑定查询。不要为每个控件调用 `flush()` 或创建新的 `DirectContext`。
+`renderMainTarget()` 在共享画布已活动时复用当前通道，不强制切换目标。常规组件不得创建新的 `DirectContext`。
 
-### 3.8 组件效果与形变
+### 3.7 组件效果与形变
 
 以下工具使用当前共享 Canvas，不创建渲染后端，也不推进动画时钟。所有尺寸均属于调用方的当前坐标空间；用于背景采样的形变路径必须在屏幕 GUI 坐标中生成。
 
@@ -312,7 +293,7 @@ Minecraft 返回既有 Screen 实例时，`added()` 会执行，但受保护的 
 | 功能创建的 `PreparedText`、Paint、Path、Image、Surface、滤镜等 | 功能持有并在失效、替换、关闭时释放 |
 | `BorrowedImage` | 在活动 Skia 回调中借用并用 try-with-resources 关闭包装 |
 | Minecraft 纹理 | 由 Minecraft 纹理系统管理，不由借用者销毁 |
-| 框架上下文、Surface 缓存、玻璃着色器与捕获纹理 | 由框架在重建或客户端关闭时管理 |
+| 框架上下文、Surface 缓存与背景纹理 | 由框架在重建或客户端关闭时管理 |
 
 使用 `save()` 与 `restoreToCount()` 成对保护局部变换和裁剪，并使用 `try/finally` 保证恢复。只有确实需要整体透明度或滤镜时才使用 `saveLayer()`。不能把功能缓存提升为全局策略而不评估所有调用方。
 
@@ -561,7 +542,7 @@ public final class ChromaAnimatedCapsule {
 1. 先停止不可见、透明度为零、位于视口外或被完整页面遮挡的内容；长列表只遍历可见区及必要缓冲行。Canvas 裁剪不会替代 CPU 侧的遍历、测量和排版剔除。
 2. 使用现有二维通道，合并同一组件的绘制，避免重复队列提交、额外 GL 状态查询与逐控件 flush。
 3. 将静态排版、截断、文字测量和 TextBlob 构造移到内容或布局失效时，逐帧只处理必要的位置、颜色与裁剪。
-4. 优先使用填充、圆角和渐变；仅对必要区域使用模糊、阴影、发光或玻璃。
+4. 优先使用填充、圆角和渐变；仅对必要区域使用模糊、阴影或发光。
 5. 稳态页面直接绘制。仅在需要整体合成的过渡期创建有明确边界的图层；不以全屏 `saveLayer` 包裹所有界面。
 6. 网络、文件读取和图片解码不放入绘制回调；后台处理普通数据，GPU 资源创建、更新和释放仍由正确的客户端渲染阶段完成。
 
@@ -580,7 +561,6 @@ public final class ChromaAnimatedCapsule {
 | 静态图片 | 功能所属图像缓存，限制像素总量 | 图片身份、目标尺寸或资源版本改变 |
 | 静态图片的模糊结果 | 只在图像或效果参数变化时生成 | 图片、分辨率、模糊参数变化 |
 | 实时世界背景 | 使用框架的当前通道快照 | 不能将旧画面长期当作当前世界 |
-| 玻璃背景纹理 | 复用同尺寸分配，每次调用刷新像素 | 目标尺寸变化或框架销毁 |
 
 静态图像模糊缓存由调用方持有，工作分辨率按实际显示尺寸与所需细节确定。低分辨率效果缓存仅用于相应图像效果，不改变文字、图标或其他图像的绘制质量。
 
@@ -589,8 +569,6 @@ public final class ChromaAnimatedCapsule {
 常规叠加通道在开始时读取已记录的模糊请求标记，通常来自上一帧；通道内才发出的首次请求可能没有快照。快照在需要的通道内刷新，不是已模糊画面的跨帧缓存。底层捕获保留整张帧缓冲图像，具体模糊绘制裁取所需区域；局部模糊不能消除整帧快照本身的成本。
 
 不要为每个控件重新截图，不要将本组件已经绘制的内容再次采样为背景。给效果提供基础填充降级；共享渲染失败会记录错误并在当前会话禁用，背景模糊还有独立的失败禁用状态。先定位日志中的首次异常，不要用空 catch 隐藏绘制错误。
-
-玻璃需要全目标捕获、GL 状态衔接和多次背景采样，成本通常高于基础图形。一个 `renderShapes` 调用共用一张快照；同一效果下的多个形状可合并提交，减少捕获与状态切换。为可见面板提供效果，避免对长列表的每一项分别捕获背景。
 
 ### 6.4 验证
 
@@ -603,7 +581,7 @@ public final class ChromaAnimatedCapsule {
 使用 Chroma Graphics 前，必须阅读本节、相关接口章节及对应实现。
 
 1. **核实接口与依赖。** 以当前实现及实际依赖为依据，核实类型、签名与调用行为。使用 Minecraft 后端时核对对应版本和映射的源码，不得猜测方法或虚构框架 API。
-2. **确定绘制阶段。** 明确内容属于 Screen、主目标 GUI、HUD 叠加还是世界 Gizmos，确认提交点在对应队列消费之前。复用现有入口，同一内容只接入一次。
+2. **确定绘制阶段。** 明确内容属于 Screen、加载叠加层、主目标 GUI、HUD 叠加还是世界 Gizmos，确认提交点在对应队列消费之前。复用现有入口，同一内容只接入一次。
 3. **复用字体接口。** 常规文字使用 `SkijaUi`；重复文字使用由调用方持有的 `PreparedText`。保持固定或离散字号，测量与绘制采用相同字体选择；缓存键包含字体版本及临时字体名。
 4. **统一坐标与几何。** 每帧只推进一次动画。绘制、背景采样、裁剪和命中测试读取同一份结果；区分物理像素、GUI 坐标和局部坐标，并对输入应用相应逆变换。
 5. **限定缓存与工作量。** 先剔除不可见内容，再处理可见布局。明确缓存键、容量、失效条件和释放时机；局部缓存策略仅适用于其所属内容。
@@ -617,10 +595,9 @@ public final class ChromaAnimatedCapsule {
 
 ## 8. 实现索引
 
-- [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java)、[SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
+- [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java)、[SkijaOverlay](../../src/client/java/com/pvp_utils/client/render/skia/SkijaOverlay.java)、[SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
 - [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java)、[SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java)、[SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
 - [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java)、[ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java)、[LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java)、[AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
-- [LiquidGlassRenderer](../../src/client/java/com/pvp_utils/client/render/skia/LiquidGlassRenderer.java)、[GlassStyle](../../src/client/java/com/pvp_utils/client/render/skia/GlassStyle.java)、[GlassGlState](../../src/client/java/com/pvp_utils/client/render/skia/GlassGlState.java)、[liquid_glass.fsh](../../src/client/resources/assets/pvp_utils/shaders/liquid_glass.fsh)
 - [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java)、[WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)、[WorldParticles](../../src/client/java/com/pvp_utils/client/render/world/WorldParticles.java)
 - [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java)、[GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
 - [构建定义](../../build.gradle)

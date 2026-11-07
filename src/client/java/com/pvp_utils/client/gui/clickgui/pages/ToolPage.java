@@ -267,7 +267,7 @@ public class ToolPage extends BasePage {
                  .visibleWhen(() -> Config.fullMode));
 
         HudAppearanceSettings.add(HudAppearanceSettings.module(modules, "方块数量显示", "Block Count Display"),
-                () -> Config.blockCountAppearance, () -> true, () -> false);
+                () -> Config.blockCountAppearance, () -> true);
 
     }
 

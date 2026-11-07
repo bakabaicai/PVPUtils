@@ -222,7 +222,7 @@ public class BlockCountDisplayRenderer {
         String frameName = name;
         float frameProgress = ringProgress;
         SkijaRenderer.draw(c -> {
-            HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius, Config.blockCountAppearance, false, 1f);
+            HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius, Config.blockCountAppearance, 1f);
             c.translate(drawX, drawY);
             c.scale(userScale * drawScale, userScale * drawScale);
             drawBase(c, frameName, blurMode);

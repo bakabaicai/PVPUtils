@@ -9,6 +9,7 @@ import com.pvp_utils.client.command.CommandManager;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
+import com.pvp_utils.client.startup.StartupProgress;
 import com.pvp_utils.client.modules.impl.Combat.ElytraAssistManager;
 import com.pvp_utils.client.modules.impl.Combat.MainHandAssistManager;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
@@ -31,6 +32,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 public class PVPUtilsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        StartupProgress.advance(StartupProgress.Stage.MODULES);
         Config.load();
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
         com.pvp_utils.client.plugin.PluginManager.INSTANCE.initialize();

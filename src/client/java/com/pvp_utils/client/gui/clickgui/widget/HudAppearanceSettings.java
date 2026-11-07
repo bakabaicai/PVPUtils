@@ -27,7 +27,6 @@ public final class HudAppearanceSettings {
             labels.add(switch (value.name()) {
                 case "LITE" -> "Lite";
                 case "BLUR" -> "Blur";
-                case "LIQUID_GLASS" -> "Liquid";
                 case "MATERIAL" -> "Material 3";
                 default -> value.name();
             });
@@ -43,16 +42,21 @@ public final class HudAppearanceSettings {
     }
 
     public static void add(SettingModule module, Supplier<HudAppearance> source,
-                           BooleanSupplier visible, BooleanSupplier liquid) {
-        add(module, source, visible, liquid, true, UiText.t("强调色", "Accent Color"));
+                           BooleanSupplier visible) {
+        add(module, source, visible, () -> true);
     }
 
-    public static void hotbar(SettingModule module, Supplier<HudAppearance> source, BooleanSupplier liquid) {
-        add(module, source, () -> true, liquid, false, UiText.t("选中框颜色", "Selection Color"));
+    public static void add(SettingModule module, Supplier<HudAppearance> source,
+                           BooleanSupplier visible, BooleanSupplier opacityVisible) {
+        add(module, source, visible, true, UiText.t("强调色", "Accent Color"), opacityVisible);
+    }
+
+    public static void hotbar(SettingModule module, Supplier<HudAppearance> source) {
+        add(module, source, () -> true, false, UiText.t("选中框颜色", "Selection Color"), () -> true);
     }
 
     private static void add(SettingModule module, Supplier<HudAppearance> source,
-                            BooleanSupplier visible, BooleanSupplier liquid, boolean text, String accentLabel) {
+                            BooleanSupplier visible, boolean text, String accentLabel, BooleanSupplier opacityVisible) {
         module.addSubVisible(UiText.t("阴影", "Shadow"), "",
                         new SettingToggle(() -> source.get().shadow, value -> { source.get().shadow = value; Config.save(); }), visible)
                 .addSubChildWhen(() -> visible.getAsBoolean() && source.get().shadow,
@@ -74,11 +78,10 @@ public final class HudAppearanceSettings {
                 .addSubChildWhen(() -> visible.getAsBoolean() && source.get().customBackground,
                         UiText.t("背景颜色", "Background Color"), "",
                         new SettingColorPreview(() -> source.get().backgroundColor, value -> source.get().backgroundColor = value, false, Config::save))
-                .addSubChildWhen(() -> visible.getAsBoolean() && source.get().customBackground,
+                .addSubChildWhen(() -> visible.getAsBoolean() && opacityVisible.getAsBoolean() && source.get().customBackground,
                         UiText.t("背景不透明度", "Background Opacity"), "",
                         new SettingSlider(0, 100, "%.0f%%", () -> (double) source.get().backgroundOpacity * 100,
                                 value -> { source.get().backgroundOpacity = value.floatValue() / 100f; Config.save(); }));
-        glass(module, source, () -> visible.getAsBoolean() && liquid.getAsBoolean());
     }
 
     public static void colors(SettingModule module, Supplier<HudAppearance> source) {
@@ -92,28 +95,4 @@ public final class HudAppearanceSettings {
                         new SettingColorPreview(() -> source.get().textColor, value -> source.get().textColor = value, false, Config::save));
     }
 
-    public static void glass(SettingModule module, Supplier<HudAppearance> source, BooleanSupplier visible) {
-        module.addSubGroupWhen(visible, UiText.t("液态玻璃", "Liquid Glass"), "")
-                .addSubChild(UiText.t("模糊", "Blur"), "",
-                        new SettingSlider(0, 30, "%.1f", () -> (double) source.get().glass.blur,
-                                value -> { source.get().glass.blur = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("折射", "Refraction"), "",
-                        new SettingSlider(1, 5, "%.2f", () -> (double) source.get().glass.refraction,
-                                value -> { source.get().glass.refraction = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("色散", "Dispersion"), "",
-                        new SettingSlider(0, 3, "%.2f", () -> (double) source.get().glass.dispersion,
-                                value -> { source.get().glass.dispersion = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("边缘光", "Rim"), "",
-                        new SettingSlider(0, 1, "%.2f", () -> (double) source.get().glass.rim,
-                                value -> { source.get().glass.rim = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("玻璃不透明度", "Glass Opacity"), "",
-                        new SettingSlider(0, 1, "%.2f", () -> (double) source.get().glass.alpha,
-                                value -> { source.get().glass.alpha = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("辉光", "Glow"), "",
-                        new SettingSlider(0, 1, "%.2f", () -> (double) source.get().glass.glow,
-                                value -> { source.get().glass.glow = value.floatValue(); Config.save(); }))
-                .addSubChild(UiText.t("厚度", "Thickness"), "",
-                        new SettingSlider(1, 120, "%.1f", () -> (double) source.get().glass.thickness,
-                                value -> { source.get().glass.thickness = value.floatValue(); Config.save(); }));
-    }
 }

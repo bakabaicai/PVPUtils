@@ -19,7 +19,7 @@ public class MiscPage extends BasePage {
                 .addSub(UiText.t("滚动灵敏度", "Scroll Sensitivity"), "",
                         new SettingSlider(0.2, 5.0, "%.1fx", () -> (double) Config.clickGuiScrollSpeed,
                                 value -> { Config.clickGuiScrollSpeed = value.floatValue(); Config.save(); }));
-        HudAppearanceSettings.add(clickGui, () -> Config.clickGuiAppearance, () -> true, () -> false);
+        HudAppearanceSettings.add(clickGui, () -> Config.clickGuiAppearance, () -> true);
         modules.add(clickGui);
 
         modules.add(new SettingModule(UiText.t("主界面", "Main Menu"), "", null)

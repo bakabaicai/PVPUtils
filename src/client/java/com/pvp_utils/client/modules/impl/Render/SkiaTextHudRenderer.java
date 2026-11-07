@@ -10,7 +10,6 @@ import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.render.skia.SoftShadow;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.skia.LiquidGlassRenderer;
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
@@ -33,7 +32,7 @@ public abstract class SkiaTextHudRenderer {
 
 
     private record Prepared(SkiaTextHudRenderer renderer, List<Line> lines, int width, int height,
-    float scale, int x, int y, boolean blurred, boolean liquid) {}
+    float scale, int x, int y) {}
 
     protected abstract HudAppearance appearance();
 
@@ -129,8 +128,9 @@ public abstract class SkiaTextHudRenderer {
         }
         if (prepared.isEmpty()) return;
 
-        for (int i = 0; i < prepared.size(); i++) {
-            prepared.set(i, renderBackground(canvas, client, prepared.get(i)));
+        for (Prepared item : prepared) {
+            item.renderer().drawBackground(canvas, item.x(), item.y(),
+                    item.width() * item.scale(), item.height() * item.scale(), item.scale());
         }
 
         for (Prepared item : prepared) item.renderer().draw(canvas, item);
@@ -146,27 +146,12 @@ public abstract class SkiaTextHudRenderer {
         float scale = scale();
         int x = renderX(client, width);
         int y = renderY(client, height);
-        return new Prepared(this, lines, width, height, scale, x, y, false, false);
+        return new Prepared(this, lines, width, height, scale, x, y);
     }
 
-    private static Prepared renderBackground(Canvas canvas, Minecraft client, Prepared item) {
-        SkiaTextHudRenderer renderer = item.renderer();
-        if (!renderer.backgroundEnabled()) return item;
-        float radius = (renderer.style() == Config.HudStyle.MATERIAL ? 22f : PANEL_RADIUS) * item.scale();
-        float w = item.width() * item.scale();
-        float h = item.height() * item.scale();
-        HudAppearance appearance = renderer.appearance();
-        if (renderer.style() == Config.HudStyle.MATERIAL) {
-            if (appearance.shadow) SoftShadow.drawRounded(canvas, item.x(), item.y(), w, h,
-                    radius, appearance.shadowStrength, 0xB0000000);
-            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius, appearance.background());
-            SkijaUi.rounded(canvas, item.x(), item.y(), w, h, radius,
-                    HudPanel.opacity(appearance.accent(), 0.13f));
-        } else {
-            HudPanel.draw(canvas, item.x(), item.y(), w, h, radius, appearance,
-                    renderer.style() == Config.HudStyle.LIQUID_GLASS, 1f);
-        }
-        return item;
+    protected void drawBackground(Canvas canvas, float x, float y, float width, float height, float scale) {
+        if (!backgroundEnabled()) return;
+        HudPanel.draw(canvas, x, y, width, height, PANEL_RADIUS * scale, appearance(), 1f);
     }
 
     private void draw(Canvas canvas, Prepared item) {
@@ -227,7 +212,7 @@ public abstract class SkiaTextHudRenderer {
         return max;
     }
 
-    private int skiaPanelWidth(List<Line> lines) {
+    protected int skiaPanelWidth(List<Line> lines) {
         return Math.max(minimumWidth(), (int) Math.ceil(skiaWidth(lines)) + PADDING_X * 2);
     }
 

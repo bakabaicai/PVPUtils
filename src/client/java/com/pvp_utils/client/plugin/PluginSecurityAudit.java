@@ -60,7 +60,7 @@ public final class PluginSecurityAudit {
     private static final Set<String> ACTIONS = Set.of("setRotation", "setVelocity", "setSprinting", "jump", "swing",
             "useItem", "stopUsingItem", "closeMenu", "attackTarget", "interactTarget", "select", "click");
     private static final Set<String> DRAWS = Set.of("text", "textWidth", "textShadow", "rect", "roundedRect", "line",
-            "outline", "gradient", "gradientDiagonal", "shadow", "circle", "icon", "texture", "blur", "glass",
+            "outline", "gradient", "gradientDiagonal", "shadow", "circle", "icon", "texture", "blur",
             "save", "restore", "translate", "scale", "rotate", "clip", "clipRounded", "button");
     private static final Set<String> DATA_METHODS = Set.of("toString", "valueOf", "toFixed", "toPrecision",
             "toExponential", "toLocaleString", "toUpperCase", "toLowerCase", "trim", "trimStart", "trimEnd",
@@ -955,7 +955,7 @@ public final class PluginSecurityAudit {
             }
             int width = method.equals("texture") ? 3 : method.equals("button") ? 4 : 2;
             int height = width + 1;
-            boolean rectangular = Set.of("rect", "roundedRect", "outline", "gradient", "gradientDiagonal", "shadow", "texture", "blur", "glass", "button").contains(method);
+            boolean rectangular = Set.of("rect", "roundedRect", "outline", "gradient", "gradientDiagonal", "shadow", "texture", "blur", "button").contains(method);
             if (rectangular && arguments.size() > height) {
                 Value w = arguments.get(width);
                 Value h = arguments.get(height);
@@ -987,9 +987,9 @@ public final class PluginSecurityAudit {
                 add("INVALID_UI_BOUNDS", Risk.UI_CONTROL, call, "极端、重复或无法确认的缩放可放大遮挡区域或造成异常绘制。",
                         "Extreme, repeated, or unresolved scaling may amplify screen coverage or disrupt drawing.");
             }
-            if (Set.of("blur", "glass", "shadow").contains(method) && (inLoop(call) || repeatedFunctions.contains(call.getEnclosingFunction()))) {
-                add("EXPENSIVE_DRAW_LOOP", Risk.RESOURCE_USAGE, call, "循环中的滤镜或液态玻璃可能反复执行高开销原生绘制。",
-                        "Filters or glass in a loop may repeatedly invoke expensive native drawing.");
+            if (Set.of("blur", "shadow").contains(method) && (inLoop(call) || repeatedFunctions.contains(call.getEnclosingFunction()))) {
+                add("EXPENSIVE_DRAW_LOOP", Risk.RESOURCE_USAGE, call, "循环中的滤镜可能反复执行高开销原生绘制。",
+                        "Filters in a loop may repeatedly invoke expensive native drawing.");
             }
         }
 

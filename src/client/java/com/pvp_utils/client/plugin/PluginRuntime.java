@@ -365,7 +365,7 @@ public final class PluginRuntime implements AutoCloseable {
         }
         for (String operation : List.of("text", "textWidth", "rect", "roundedRect", "line", "outline",
                 "gradient", "gradientDiagonal", "shadow", "textShadow", "icon", "texture", "blur",
-                "circle", "glass", "save", "restore", "translate", "scale", "rotate", "clip", "clipRounded")) {
+                "circle", "save", "restore", "translate", "scale", "rotate", "clip", "clipRounded")) {
             function(context, operation, (current, args) -> {
                 if (!rendering) throw new IllegalStateException("Drawing is only available during render");
                 if (++drawCalls > 2048) throw new ScriptLimitException("Too many draw calls");
@@ -383,26 +383,22 @@ public final class PluginRuntime implements AutoCloseable {
                     transformScaleY = previous[1];
                 }
                 if (List.of("translate", "scale", "rotate", "clip", "clipRounded").contains(operation)) transformed = true;
-                if (List.of("shadow", "blur", "glass").contains(operation) && ++effectCalls > 8) {
+                if (List.of("shadow", "blur").contains(operation) && ++effectCalls > 8) {
                     throw new ScriptLimitException("At most 8 filtered effects per frame");
                 }
-                if (operation.equals("glass") || operation.equals("blur")) {
+                if (operation.equals("blur")) {
                     if (transformed || stateDepth != 0) throw new IllegalStateException("Backdrop effects require base coordinates");
                     if (args.length < 5) throw new IllegalArgumentException("Missing backdrop bounds");
                     Object[] adjusted = args.clone();
                     adjusted[0] = originX + Context.toNumber(args[0]) * originScale;
                     adjusted[1] = originY + Context.toNumber(args[1]) * originScale;
                     for (int i = 2; i <= 4; i++) adjusted[i] = Context.toNumber(args[i]) * originScale;
-                    if (operation.equals("blur")) {
-                        host.pushDraw();
-                        try {
-                            host.draw("resetTransform", new Object[0]);
-                            host.draw(operation, adjusted);
-                        } finally {
-                            host.popDraw();
-                        }
-                    } else {
+                    host.pushDraw();
+                    try {
+                        host.draw("resetTransform", new Object[0]);
                         host.draw(operation, adjusted);
+                    } finally {
+                        host.popDraw();
                     }
                     return Undefined.instance;
                 }
@@ -462,11 +458,11 @@ public final class PluginRuntime implements AutoCloseable {
                 boundsArguments(args, 1);
             }
             case "rect", "roundedRect", "outline", "gradient", "gradientDiagonal", "shadow",
-                    "clip", "clipRounded", "blur", "glass" -> {
+                    "clip", "clipRounded", "blur" -> {
                 boundsArguments(args, 0);
                 switch (operation) {
                     case "rect" -> textArgument(args, 4);
-                    case "roundedRect", "outline", "shadow", "clipRounded", "blur", "glass" ->
+                    case "roundedRect", "outline", "shadow", "clipRounded", "blur" ->
                             numericArgument(args, 4, 0, 4096);
                 }
                 switch (operation) {
@@ -489,11 +485,6 @@ public final class PluginRuntime implements AutoCloseable {
                         textArgument(args, 7);
                     }
                     case "blur" -> numericArgument(args, 5, 0, 64);
-                    case "glass" -> {
-                        if (args.length > 5) textArgument(args, 5);
-                        if (args.length > 6) args[6] = Context.toBoolean(args[6]);
-                        if (args.length > 7 && !(args[7] instanceof Scriptable)) args[7] = Context.toBoolean(args[7]);
-                    }
                 }
             }
             case "line" -> {

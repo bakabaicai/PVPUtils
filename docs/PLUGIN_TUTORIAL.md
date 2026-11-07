@@ -247,7 +247,7 @@ if (state) {
 ## 10. 开发自己的 UI Screen
 
 不必直接访问 Java Screen。使用 `pvputils.ui.screen({id, title, render})` 注册界面，
-在 render 中调用 `ctx.gradient`、`ctx.outline`、`ctx.shadow`、`ctx.glass`、
+在 render 中调用 `ctx.gradient`、`ctx.outline`、`ctx.shadow`、
 `ctx.icon`、`ctx.texture` 等接口组成 UI。
 它们复用项目原来的绘制实现，而不是另外一套渲染引擎。
 
