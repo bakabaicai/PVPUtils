@@ -3,6 +3,7 @@ package com.pvp_utils.client.render.MainUI;
 import io.github.humbleui.types.RRect;
 
 import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.gui.clickgui.UiText;
 
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import com.pvp_utils.client.gui.MultiplayerCompatibilityScreen;
@@ -70,7 +71,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
     }
 
     public PVPUtilsMultiplayerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
-        super(Component.literal("Multiplayer"));
+        super(Component.literal(UiText.t("多人游戏", "Multiplayer")));
         this.parent = parent;
         this.shaderPath = shaderPath;
         this.embeddedBack = embeddedBack;
@@ -257,24 +258,25 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             stroke.setColor(0x22FFFFFF);
             canvas.drawRRect(RRect.makeXYWH(x + .5f, y + .5f, w - 1f, h - 1f, 20f), stroke);
         }
-        String title = "Multiplayer";
+        String title = UiText.t("多人游戏", "Multiplayer");
         int alpha = Math.round(255f * contentAlpha);
         SkijaUi.text(canvas, title, layoutWidth() * .5f - SkijaUi.textWidth(title, 30f) * .5f, (50f) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 40f, alpha);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
-        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, "Add", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, "Edit", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, "Delete", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, "Settings", alpha);
-        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, "Back", alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 0), buttonY, buttonW, 32f, UiText.t("添加", "Add"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 1), buttonY, buttonW, 32f, UiText.t("编辑", "Edit"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 2), buttonY, buttonW, 32f, UiText.t("删除", "Delete"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 3), buttonY, buttonW, 32f, UiText.t("设置", "Settings"), alpha);
+        drawButton(canvas, bottomButtonX(x, buttonW, 4), buttonY, buttonW, 32f, UiText.t("返回", "Back"), alpha);
     }
 
     private void drawServers(Canvas canvas, float x, float y, float w, float h, int alpha) {
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
         if (servers.isEmpty()) {
-            SkijaUi.text(canvas, "No servers", x + w * .5f - 42f, (y + h * .5f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), (Math.round(alpha * .8f) << 24) | 0xFFFFFF, 14f);
+            String emptyText = UiText.t("暂无服务器", "No servers");
+            SkijaUi.text(canvas, emptyText, x + (w - SkijaUi.textWidth(emptyText, 14f)) * .5f, (y + h * .5f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), (Math.round(alpha * .8f) << 24) | 0xFFFFFF, 14f);
         } else {
             float itemY = y - scroll;
             for (int i = 0; i < servers.size(); i++) {
@@ -350,7 +352,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             returningFromManageServer = true;
             prepareOverlayReturn();
             ServerData data = new ServerData("", "", ServerData.Type.OTHER);
-            minecraft.setScreen(new ManageServerScreen(this, Component.literal("Add Server"), ok -> {
+            minecraft.setScreen(new ManageServerScreen(this, Component.literal(UiText.t("添加服务器", "Add Server")), ok -> {
                 if (ok) {
                     serverList.add(data, false);
                     serverList.save();
@@ -365,7 +367,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             returningFromManageServer = true;
             prepareOverlayReturn();
             ServerData data = servers.get(selected);
-            minecraft.setScreen(new ManageServerScreen(this, Component.literal("Edit Server"), ok -> {
+            minecraft.setScreen(new ManageServerScreen(this, Component.literal(UiText.t("编辑服务器", "Edit Server")), ok -> {
                 if (ok) {
                     serverList.replace(selected, data);
                     serverList.save();
@@ -548,8 +550,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
 
     private String pingText(ServerData server) {
         return switch (server.state()) {
-            case INITIAL, PINGING -> "Pinging...";
-            case UNREACHABLE -> "Offline";
+            case INITIAL, PINGING -> UiText.t("正在检测…", "Pinging...");
+            case UNREACHABLE -> UiText.t("离线", "Offline");
             case INCOMPATIBLE, SUCCESSFUL -> server.ping >= 0L ? server.ping + " ms" : "-- ms";
         };
     }

@@ -6,7 +6,7 @@ import com.pvp_utils.client.gui.clickgui.UiText;
 import java.awt.Color;
 import java.util.List;
 
-public final class ThemeColors {
+public final class AccentColors {
     public enum Tag {
         RED("红色", "Red", 0xFFFF3232), ORANGE("橙色", "Orange", 0xFFFF8032),
         YELLOW("黄色", "Yellow", 0xFFFFFF32), LIME("青柠", "Lime", 0xFF80FF32),
@@ -85,20 +85,25 @@ public final class ThemeColors {
         }
     }
 
-    private ThemeColors() {
+    private static long lastSampleNanos;
+    private static double elapsedSeconds;
+    private static float previousSpeed = 1f;
+    private static boolean previouslyAnimated;
+
+    private AccentColors() {
     }
 
     public static Preset current() {
         try {
-            return Preset.valueOf(Config.themePreset);
+            return Preset.valueOf(Config.accentPreset);
         } catch (IllegalArgumentException | NullPointerException ignored) {
             return Preset.BLEND;
         }
     }
 
     public static void select(Preset preset) {
-        Config.themePreset = preset.name();
-        Config.themeCustomColors = false;
+        Config.accentPreset = preset.name();
+        Config.accentCustomColors = false;
         Config.save();
     }
 
@@ -107,8 +112,8 @@ public final class ThemeColors {
     }
 
     public static int accent(float x, float y) {
-        if (Config.themeCustomColors) {
-            return mix(Config.themePrimaryColor, Config.themeSecondaryColor, blend(x, y));
+        if (Config.accentCustomColors) {
+            return mix(Config.accentPrimaryColor, Config.accentSecondaryColor, blend(x, y));
         }
         return sample(current(), x, y);
     }
@@ -119,7 +124,7 @@ public final class ThemeColors {
 
     public static int sample(Preset preset, float x, float y) {
         if (preset == Preset.TEST) {
-            double time = Config.themeAnimated ? System.currentTimeMillis() * 0.00015 * speed() : 0.0;
+            double time = animationTime() * 0.15;
             return Color.HSBtoRGB((float) ((time + (x + y) * 0.0015) % 1.0), 0.75f, 1f);
         }
         int[] colors = preset.colors;
@@ -133,12 +138,23 @@ public final class ThemeColors {
     }
 
     private static float blend(float x, float y) {
-        double time = Config.themeAnimated ? System.currentTimeMillis() / 600.0 * speed() : 0.0;
+        double time = animationTime() / 0.6;
         return (float) (Math.sin(time + x * 0.005 + y * 0.06) * 0.5 + 0.5);
     }
 
     private static float speed() {
-        return Float.isFinite(Config.themeSpeed) ? Math.clamp(Config.themeSpeed, 0.1f, 3f) : 1f;
+        return Float.isFinite(Config.accentSpeed) ? Math.clamp(Config.accentSpeed, 0.1f, 3f) : 1f;
+    }
+
+    private static double animationTime() {
+        long now = System.nanoTime();
+        if (lastSampleNanos != 0L && previouslyAnimated) {
+            elapsedSeconds += Math.max(0L, now - lastSampleNanos) * 1.0e-9 * previousSpeed;
+        }
+        lastSampleNanos = now;
+        previousSpeed = speed();
+        previouslyAnimated = Config.accentAnimated;
+        return elapsedSeconds;
     }
 
     public static int mix(int first, int second, float amount) {

@@ -5,7 +5,7 @@ import io.github.humbleui.types.RRect;
 import com.pvp_utils.client.render.skia.SkijaUi;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
+import com.pvp_utils.client.gui.clickgui.theme.AccentColors;
 import io.github.humbleui.skija.Path;
 import io.github.humbleui.skija.PathBuilder;
 import io.github.humbleui.skija.PaintStrokeCap;
@@ -440,11 +440,11 @@ public class HudEditOverlay {
     }
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
-        int color = ThemeColors.accent();
+        int color = AccentColors.accent();
         if (snapXLine >= 0f) SkijaUi.line(canvas, snapXLine, 0f, snapXLine, guiH, 1.2f,
-                ThemeColors.withAlpha(color, alpha * snapXAlpha * 0.8f));
+                AccentColors.withAlpha(color, alpha * snapXAlpha * 0.8f));
         if (snapYLine >= 0f) SkijaUi.line(canvas, 0f, snapYLine, guiW, snapYLine, 1.2f,
-                ThemeColors.withAlpha(color, alpha * snapYAlpha * 0.8f));
+                AccentColors.withAlpha(color, alpha * snapYAlpha * 0.8f));
     }
 
     private void drawOverlay(Canvas canvas, int guiW, int guiH, float progress, List<EditItemState> items) {
@@ -473,7 +473,7 @@ public class HudEditOverlay {
         float top = y - pad;
         float right = x + width + pad;
         float bottom = y + height + pad;
-        int color = ThemeColors.withAlpha(ThemeColors.accent(x, y), (0.65f + hover * 0.35f) * opacity);
+        int color = AccentColors.withAlpha(AccentColors.accent(x, y), (0.65f + hover * 0.35f) * opacity);
         if (dragging) {
             try (PathEffect dash = PathEffect.makeDash(new float[]{DASH_LEN, DASH_GAP}, dashOffset);
                  Paint paint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1.2f).setColor(color)) {
@@ -502,7 +502,7 @@ public class HudEditOverlay {
         float width = SkijaUi.textWidth(text, HINT_TEXT_SIZE);
         float opacity = progress * Math.max(snapXAlpha, snapYAlpha) * 0.7f;
         SkijaUi.text(canvas, text, (guiW - width) * 0.5f, Math.max(48f, guiH - 92f), 18f,
-                ThemeColors.withAlpha(ThemeColors.accent(), opacity), HINT_TEXT_SIZE);
+                AccentColors.withAlpha(AccentColors.accent(), opacity), HINT_TEXT_SIZE);
     }
 
     private RectState getTargetHudRect(int guiW, int guiH) {

@@ -76,7 +76,7 @@ public class SettingSlider extends SettingWidget {
         canvas.drawRRect(RRect.makeXYWH(tx, trackY, TRACK_W, 4f, 2f), trackPaint);
         fillPaint.setColor(withAlpha(tc.accent, enabledAlpha));
         canvas.drawRRect(RRect.makeXYWH(tx, trackY, t * TRACK_W, 4f, 2f), fillPaint);
-        thumbPaint.setColor(withAlpha(0xFFFFFF, enabledAlpha));
+        thumbPaint.setColor(withAlpha(tc.primaryText, enabledAlpha));
         canvas.drawRRect(RRect.makeXYWH(thumbX - 8f, y + 2f, 16f, 16f, 8f), thumbPaint);
     }
 

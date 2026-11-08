@@ -7,9 +7,7 @@ import com.pvp_utils.client.render.skia.SkijaUi;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.gui.clickgui.pages.*;
-import com.pvp_utils.client.gui.clickgui.theme.ClickGuiTheme;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeManager;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.gui.clickgui.widget.PageTransition;
 import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
@@ -80,10 +78,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private static final float BASE_CARD_W = 740f;
     private static final float BASE_CARD_H = 500f;
     private static final float SCREEN_MARGIN = 24f;
-    private static final float THUMB_SIZE = 96f;
-    private static final float THUMB_GAP_X = 24f;
-    private static final float THUMB_ROW_GAP = 42f;
-    private static final int THUMB_COLS = 4;
     private static final float FOOTER_H = 24f;
     private static final float DRAG_HANDLE_H = 56f;
     private static final float FLYOUT_GAP = 12f;
@@ -125,10 +119,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private final Paint scrollbarThumbPaint = new Paint().setAntiAlias(true);
     private final Paint searchBgPaint = new Paint().setAntiAlias(true);
     private final Paint searchLinePaint = new Paint().setAntiAlias(true);
-    private final Paint thumbPaint = new Paint().setAntiAlias(true);
-    private final Paint previewBorderPaint = new Paint().setAntiAlias(true).setMode(PaintMode.STROKE).setStrokeWidth(1.2f);
     private final float resetIconWidth = SkijaUi.iconWidth("\uE042", 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-    private final float themeBackIconWidth = SkijaUi.iconWidth("\uE5C4", 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
     private String cachedResetText = "";
     private float cachedResetTextWidth = 0f;
     private String cachedCloseText = "";
@@ -148,11 +139,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private int pendingMouseX = 0;
     private int pendingMouseY = 0;
     private float pendingDelta = 0f;
-
-    private boolean themePreviewMode = false;
-    private int themeHoveredCard = -1;
-    private boolean themeBackHovered = false;
-    private final List<ClickGuiTheme> previewThemes = new ArrayList<>(ClickGuiThemeManager.themes());
 
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"));
@@ -395,6 +381,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         lastRenderMs = 0L;
         exitingFlyouts.clear();
         for (BasePage page : pages) {
+            page.releaseDrag();
             for (SettingModule module : page.getModules()) module.resetFlyout();
         }
         flyoutModule = null;
@@ -556,7 +543,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         closeHovered = true;
         if (layoutMouseX >= closeX && layoutMouseX <= closeX + tabW && layoutMouseY >= resetY && layoutMouseY <= resetY + resetH)
         resetHovered = true;
-        themeBackHovered = themePreviewMode && isThemeBackButton(layoutMouseX, layoutMouseY, contentX, contentY, contentW);
 
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float target = (i == hoveredTab && i != selectedTab) ? 1f : 0f;
@@ -592,17 +578,15 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
                     r[2] * visualScale, r[3] * visualScale, radius * visualScale), exit.alpha() * alpha);
         }
 
-        if (!themePreviewMode) {
-            float[] fg = flyoutGeometry(cardX, cardY, cardW, cardH);
-            for (SettingModule module : page.getModules()) {
-                if (module.getFlyoutProgress() > 0.01f) {
-                    float[] r = module.flyoutMorphRect(fg[0], fg[1], fg[2], fg[3], panelShiftX);
-                    float radius = 9f + 3f * SettingModule.cubicBezierEase(module.getFlyoutProgress());
-                    renderPanelBlur(canvas, RRect.makeXYWH(
-                            cx + (r[0] - layoutWidth * 0.5f) * visualScale,
-                            cy + (r[1] - layoutHeight * 0.5f) * visualScale,
-                            r[2] * visualScale, r[3] * visualScale, radius * visualScale));
-                }
+        float[] fg = flyoutGeometry(cardX, cardY, cardW, cardH);
+        for (SettingModule module : page.getModules()) {
+            if (module.getFlyoutProgress() > 0.01f) {
+                float[] r = module.flyoutMorphRect(fg[0], fg[1], fg[2], fg[3], panelShiftX);
+                float radius = 9f + 3f * SettingModule.cubicBezierEase(module.getFlyoutProgress());
+                renderPanelBlur(canvas, RRect.makeXYWH(
+                        cx + (r[0] - layoutWidth * 0.5f) * visualScale,
+                        cy + (r[1] - layoutHeight * 0.5f) * visualScale,
+                        r[2] * visualScale, r[3] * visualScale, radius * visualScale));
             }
         }
 
@@ -615,10 +599,17 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             SoftShadow.drawRounded(canvas, cardX, cardY, cardW, cardH, cardRadius,
                     Config.clickGuiAppearance.shadowStrength * alpha, 0xA0000000);
         }
-        float panelAlpha = Config.clickGuiAppearance.customBackground ? alpha * Config.clickGuiAppearance.backgroundOpacity
-                : Config.clickGuiPanelBlur ? alpha * 0.52f : alpha;
-        cardPaint.setColor(withAlpha(tc.window, panelAlpha));
-        canvas.drawRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), cardPaint);
+        float panelAlpha = ClickGuiThemeColors.panelBackgroundAlpha(alpha);
+        int surfaceSave = canvas.save();
+        try {
+            canvas.clipRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), true);
+            cardPaint.setColor(withAlpha(tc.window, panelAlpha));
+            canvas.drawRect(Rect.makeXYWH(cardX + sidebarW, cardY, cardW - sidebarW, cardH), cardPaint);
+            sidebarPaint.setColor(withAlpha(tc.sidebar, panelAlpha));
+            canvas.drawRect(Rect.makeXYWH(cardX, cardY, sidebarW, cardH), sidebarPaint);
+        } finally {
+            canvas.restoreToCount(surfaceSave);
+        }
 
         float gripLen = 26f;
         float gripThick = 3f;
@@ -640,12 +631,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         canvas.save();
         canvas.clipRRect(RRect.makeXYWH(cardX, cardY, cardW, cardH, cardRadius), true);
 
-        sidebarPaint.setColor(withAlpha(tc.sidebar, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
-        canvas.save();
-        canvas.clipRRect(RRect.makeXYWH(cardX, cardY, sidebarW, cardH, cardRadius), true);
-        canvas.drawRect(Rect.makeXYWH(cardX, cardY, sidebarW, cardH), sidebarPaint);
-        canvas.restore();
-
         dividerPaint.setColor(withAlpha(tc.border, alpha));
         canvas.drawRect(Rect.makeXYWH(cardX + sidebarW, cardY + 14f, 1f, cardH - 28f), dividerPaint);
 
@@ -665,7 +650,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             }
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveIcon, alpha);
-            int textColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveText, alpha);
+            int textColor = active ? withAlpha(tc.primaryText, alpha) : withAlpha(tc.inactiveText, alpha);
             SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, tabY + 4f, tabH, iconColor, 13f, TAB_ICON_FONTS[i]);
             SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + 4f, tabH, textColor, 13f);
         }
@@ -696,47 +681,34 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
         SkijaUi.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, closeY, closeH, withAlpha(closeTextColor, alpha), 12f);
 
-        float pageAlpha = themePreviewMode ? alpha : alpha * pageTransition.opacity();
-        float pageOffset = themePreviewMode ? 0f : pageTransition.offsetX();
+        float pageAlpha = alpha * pageTransition.opacity();
+        float pageOffset = pageTransition.offsetX();
         float pageMouseX = pageTransition.isInteractive() ? layoutMouseX - pageOffset : Float.NEGATIVE_INFINITY;
         int contentSave = canvas.save();
         try {
             canvas.clipRect(Rect.makeXYWH(contentX, contentY, contentW, contentH));
             canvas.translate(pageOffset, 0f);
-            if (themePreviewMode) {
-                SkijaUi.text(canvas, UiText.t("面板主题", "Panel Theme"), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, alpha), 18f);
-                SkijaUi.text(canvas, UiText.t("点击缩略图切换面板配色", "Click a thumbnail to switch the panel theme"), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
-                float backX = themeBackX(contentX, contentW);
-                hoverPaint.setColor(withAlpha(themeBackHovered ? tc.hoverBackground : tc.subModule, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
-                canvas.drawRRect(RRect.makeXYWH(backX, contentY + 12f, 28f, 28f, 6f), hoverPaint);
-                SkijaUi.icon(canvas, "\uE5C4", backX + (28f - themeBackIconWidth) / 2f, contentY + 12f, 28f, withAlpha(tc.primaryText, alpha), 18f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            } else {
-                SkijaUi.text(canvas, page.getTitle(), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, pageAlpha), 18f);
-                SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, pageAlpha), 10f);
-            }
+            SkijaUi.text(canvas, page.getTitle(), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, pageAlpha), 18f);
+            SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, pageAlpha), 10f);
 
             float clipTop = contentY + 54f;
             float clipBottom = contentY + contentH;
             int listClip = canvas.save();
             try {
                 canvas.clipRect(Rect.makeXYWH(contentX, clipTop, contentW, clipBottom - clipTop));
-                if (themePreviewMode) {
-                    drawThemePreviewGrid(canvas, contentX, contentY, contentW, alpha, layoutMouseX, layoutMouseY);
-                } else {
-                    float moduleStartY = contentY + 54f;
-                    float listHeight = contentH - 54f - FOOTER_H;
-                    float pageX = page instanceof PluginPage ? contentX : contentX + 10f;
-                    float pageWidth = page instanceof PluginPage ? contentW : contentW - 40f;
-                    int listSave = canvas.save();
-                    try {
-                        canvas.clipRect(Rect.makeXYWH(contentX, moduleStartY, contentW, Math.max(0f, listHeight)));
-                        page.draw(canvas, pageX, moduleStartY, pageWidth, listHeight, pageAlpha, contentScrollOffset, pageMouseX, layoutMouseY);
-                        drawScrollbar(canvas, page, contentX, contentY, contentW, contentH, pageAlpha, tc);
-                    } finally {
-                        canvas.restoreToCount(listSave);
-                    }
-                    drawDescriptionFooter(canvas, page, contentX, contentY, contentW, contentH, pageAlpha, tc);
+                float moduleStartY = contentY + 54f;
+                float listHeight = contentH - 54f - FOOTER_H;
+                float pageX = page instanceof PluginPage ? contentX : contentX + 10f;
+                float pageWidth = page instanceof PluginPage ? contentW : contentW - 40f;
+                int listSave = canvas.save();
+                try {
+                    canvas.clipRect(Rect.makeXYWH(contentX, moduleStartY, contentW, Math.max(0f, listHeight)));
+                    page.draw(canvas, pageX, moduleStartY, pageWidth, listHeight, pageAlpha, contentScrollOffset, pageMouseX, layoutMouseY);
+                    drawScrollbar(canvas, page, contentX, contentY, contentW, contentH, pageAlpha, tc);
+                } finally {
+                    canvas.restoreToCount(listSave);
                 }
+                drawDescriptionFooter(canvas, page, contentX, contentY, contentW, contentH, pageAlpha, tc);
             } finally {
                 canvas.restoreToCount(listClip);
             }
@@ -749,12 +721,10 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         for (SettingModule.FlyoutExit exit : exitingFlyouts) {
             exit.draw(canvas, cardX, cardY, alpha);
         }
-        if (!themePreviewMode) {
-            float[] g = flyoutGeometry(cardX, cardY, cardW, cardH);
-            for (SettingModule module : page.getModules()) {
-                if (module.getFlyoutProgress() > 0.01f) {
-                    module.draw(canvas, g[0], g[1], g[2], g[3], panelShiftX, alpha, layoutMouseX, layoutMouseY);
-                }
+        float[] g = flyoutGeometry(cardX, cardY, cardW, cardH);
+        for (SettingModule module : page.getModules()) {
+            if (module.getFlyoutProgress() > 0.01f) {
+                module.draw(canvas, g[0], g[1], g[2], g[3], panelShiftX, alpha, layoutMouseX, layoutMouseY);
             }
         }
 
@@ -763,73 +733,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         if (Version.DEBUG) {
             debugLastDrawMs = (System.nanoTime() - debugDrawStartNs) / 1_000_000.0;
         }
-    }
-
-    private float previewGridWidth() {
-        return THUMB_COLS * THUMB_SIZE + (THUMB_COLS - 1) * THUMB_GAP_X;
-    }
-
-    private float previewThumbX(float gridX, int index) {
-        int row = index / THUMB_COLS;
-        int rows = (previewThemes.size() + THUMB_COLS - 1) / THUMB_COLS;
-        int count = THUMB_COLS;
-        if (row == rows - 1 && previewThemes.size() % THUMB_COLS != 0) {
-            count = previewThemes.size() % THUMB_COLS;
-        }
-        float rowW = count * THUMB_SIZE + (count - 1) * THUMB_GAP_X;
-        return gridX + (previewGridWidth() - rowW) / 2f + (index % THUMB_COLS) * (THUMB_SIZE + THUMB_GAP_X);
-    }
-
-    private float previewThumbY(float gridY, int index) {
-        return gridY + (index / THUMB_COLS) * (THUMB_SIZE + THUMB_ROW_GAP);
-    }
-
-    private void drawThemePreviewGrid(Canvas canvas, float contentX, float contentY, float contentW, float alpha, float mouseX, float mouseY) {
-        float gridX = contentX + (contentW - previewGridWidth()) / 2f;
-        float gridY = contentY + 54f + 30f;
-        themeHoveredCard = -1;
-        String currentId = ClickGuiThemeManager.currentId();
-        for (int i = 0; i < previewThemes.size(); i++) {
-            ClickGuiTheme theme = previewThemes.get(i);
-            float cx = previewThumbX(gridX, i);
-            float cy = previewThumbY(gridY, i);
-            if (mouseX >= cx - 6f && mouseX <= cx + THUMB_SIZE + 6f && mouseY >= cy - 6f && mouseY <= cy + THUMB_SIZE + 26f) {
-                themeHoveredCard = i;
-            }
-            drawPreviewThemeCard(canvas, cx, cy, theme, theme.id().equals(currentId), themeHoveredCard == i, alpha);
-        }
-    }
-
-    private void drawPreviewThemeCard(Canvas canvas, float cx, float cy, ClickGuiTheme theme, boolean selected, boolean hovered, float alpha) {
-        ClickGuiThemeColors c = ClickGuiThemeColors.of(theme);
-        thumbPaint.setColor(withAlpha(c.window, alpha));
-        canvas.drawRRect(RRect.makeXYWH(cx, cy, THUMB_SIZE, THUMB_SIZE, 14f), thumbPaint);
-
-        thumbPaint.setColor(withAlpha(c.sidebar, alpha));
-        canvas.drawRRect(RRect.makeXYWH(cx + 12f, cy + 14f, 16f, 68f, 8f), thumbPaint);
-
-        thumbPaint.setColor(withAlpha(c.accent, alpha));
-        canvas.drawRRect(RRect.makeXYWH(cx + 14f, cy + 16f, 4f, 14f, 2f), thumbPaint);
-
-        thumbPaint.setColor(withAlpha(c.module, alpha));
-        canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 18f, 44f, 18f, 6f), thumbPaint);
-        canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 42f, 30f, 18f, 6f), thumbPaint);
-
-        thumbPaint.setColor(withAlpha(c.secondaryText, alpha * 0.55f));
-        canvas.drawRRect(RRect.makeXYWH(cx + 36f, cy + 66f, 36f, 5f, 2.5f), thumbPaint);
-
-        int borderColor = selected ? c.accent : (hovered ? c.secondaryText : c.border);
-        previewBorderPaint.setStrokeWidth(selected ? 2f : 1.2f);
-        previewBorderPaint.setColor(withAlpha(borderColor, alpha));
-        canvas.drawRRect(RRect.makeXYWH(cx, cy, THUMB_SIZE, THUMB_SIZE, 14f), previewBorderPaint);
-
-        if (selected) {
-            SkijaUi.icon(canvas, "\uE5CA", cx + THUMB_SIZE - 24f, (cy + 20f) + SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(13f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), withAlpha(c.accent, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        }
-
-        String name = theme.displayName();
-        float nw = SkijaUi.textWidth(name, 12f);
-        SkijaUi.text(canvas, name, cx + (THUMB_SIZE - nw) / 2f, (cy + THUMB_SIZE + 17f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), withAlpha(ClickGuiThemeColors.current().primaryText, alpha), 12f);
     }
 
     private void drawScrollbar(Canvas canvas, BasePage page, float contentX, float contentY, float contentW, float contentH, float alpha, ClickGuiThemeColors tc) {
@@ -915,7 +818,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
     private void updateFlyoutSources(BasePage page, float[] geometry) {
         page.setPanelShift(panelShiftX);
-        if (themePreviewMode) return;
         float y = geometry[15] + 54f + (page instanceof PluginPage ? 40f : 0f);
         page.updateFlyoutSources(geometry[14] + 10f, y, geometry[16] - 40f, contentScrollOffset);
     }
@@ -1020,7 +922,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         searchTextOffset = 0f;
         searchResultsPage = null;
         for (BasePage page : pages) page.setSearchQuery("");
-        themePreviewMode = false;
         selectedTab = index;
         if (pages.get(selectedTab) instanceof AddServerPage) pages.set(selectedTab, new ToolPage());
         pageTransition.request(activePage());
@@ -1034,31 +935,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         searchText = "";
         searchTextOffset = 0f;
         applySearch();
-    }
-
-    public void openThemePreview() {
-        clearSearch();
-        themePreviewMode = true;
-        targetScrollOffset = 0f;
-        contentScrollOffset = 0f;
-        invalidateScrollLayout();
-    }
-
-    private void closeThemePreview() {
-        themePreviewMode = false;
-        themeBackHovered = false;
-        targetScrollOffset = 0f;
-        contentScrollOffset = 0f;
-        invalidateScrollLayout();
-    }
-
-    private static float themeBackX(float contentX, float contentW) {
-        return contentX + contentW - 40f;
-    }
-
-    private static boolean isThemeBackButton(float mouseX, float mouseY, float contentX, float contentY, float contentW) {
-        float x = themeBackX(contentX, contentW);
-        return mouseX >= x && mouseX <= x + 28f && mouseY >= contentY + 12f && mouseY <= contentY + 40f;
     }
 
     private void setSearchFocused(boolean focused) {
@@ -1127,10 +1003,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         }
         if (SettingTextBox.keyPressed(event)) {
             invalidateScrollLayout();
-            return true;
-        }
-        if (themePreviewMode && event.key() == GLFW.GLFW_KEY_ESCAPE) {
-            closeThemePreview();
             return true;
         }
         if (flyoutModule != null && flyoutModule.isFlyoutOpen() && event.key() == GLFW.GLFW_KEY_ESCAPE) {
@@ -1226,7 +1098,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         float searchX = cardX + 18f, searchY = l[1] + 66f, searchW = sidebarW - 36f, searchH = 28f;
         BasePage page = activePage();
 
-        if (!themePreviewMode && button == 0 && openProgress > 0.99f) {
+        if (button == 0 && openProgress > 0.99f) {
             float[] g = flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.5f ? flyoutGeometry(cardX, l[1], l[2], l[3]) : null;
             if (g != null && mx >= g[0] + g[2] - 10f && mx <= g[0] + g[2] + 8f && my >= g[1] + g[3] - 10f && my <= g[1] + g[3] + 8f) {
                 resizeMode = 3;
@@ -1247,7 +1119,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             }
         }
 
-        if (pageTransition.isInteractive() && !themePreviewMode && button == 0 && flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() >= 0.5f) {
+        if (pageTransition.isInteractive() && button == 0 && flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() >= 0.5f) {
             float[] g = flyoutGeometry(cardX, l[1], l[2], l[3]);
             if (mx >= g[0] && mx <= g[0] + g[2] && my >= g[1] && my <= g[1] + g[3]) {
                 flyoutModule.flyoutClick(mx, my, g[0], g[1], g[2], g[3], button);
@@ -1256,7 +1128,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             }
         }
 
-        if (!themePreviewMode && button == 0 && openProgress > 0.99f
+        if (button == 0 && openProgress > 0.99f
                 && mx >= cardX && mx <= cardX + l[2]
                 && my >= l[1] && my <= l[1] + DRAG_HANDLE_H) {
             draggingWindow = true;
@@ -1270,7 +1142,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         if (button == 0 && mx >= searchX && mx <= searchX + searchW && my >= searchY && my <= searchY + searchH) {
             closeFlyout();
             SettingTextBox.clearFocus();
-            themePreviewMode = false;
             setSearchFocused(true);
             searchCursorTime = 0f;
             invalidateScrollLayout();
@@ -1279,16 +1150,11 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         setSearchFocused(false);
         SettingTextBox.clearFocus();
 
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && themePreviewMode && isThemeBackButton(mx, my, contentX, contentY, contentW)) {
-            closeThemePreview();
-            return true;
-        }
-
         for (int i = 0; i < TAB_KEYS_ZH.length; i++) {
             float ty = tabStartY + i * (tabH + tabGap) + 4f;
             if (mx >= cardX + 12f && mx <= cardX + 12f + tabW && my >= ty && my <= ty + tabH) {
                 if (button == 0) {
-                    if (i != selectedTab || searchResultsPage != null || themePreviewMode
+                    if (i != selectedTab || searchResultsPage != null
                             || pages.get(selectedTab) instanceof AddServerPage) selectPage(i);
                 }
                 return true;
@@ -1303,7 +1169,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
         if (button == 0 && mx >= closeX && mx <= closeX + tabW && my >= resetY && my <= resetY + resetH) {
             if (resetConfirm) {
-                themePreviewMode = false;
                 ResetManager.resetAll();
                 resetConfirm = false;
                 rebuildCurrentPage();
@@ -1317,23 +1182,6 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         resetConfirm = false;
 
         if (mx >= contentX && mx <= contentX + contentW && my >= contentY && my <= contentY + contentH) {
-            if (themePreviewMode) {
-                float gridX = contentX + (contentW - previewGridWidth()) / 2f;
-                float gridY = contentY + 54f + 30f;
-                for (int i = 0; i < previewThemes.size(); i++) {
-                    float cx = previewThumbX(gridX, i);
-                    float cy = previewThumbY(gridY, i);
-                    if (mx >= cx - 6f && mx <= cx + THUMB_SIZE + 6f && my >= cy - 6f && my <= cy + THUMB_SIZE + 26f) {
-                        ClickGuiTheme theme = previewThemes.get(i);
-                        if (!theme.id().equals(ClickGuiThemeManager.currentId())) {
-                            ClickGuiThemeManager.selectAndSave(theme.id());
-                        }
-                        invalidateScrollLayout();
-                        return true;
-                    }
-                }
-                return true;
-            }
             if (!pageTransition.isInteractive()) return true;
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && hasScrollbar(page, contentH) && isInScrollbar(mx, my, contentX, contentY, contentW, contentH)) {
                 draggingScrollbar = true;
@@ -1400,7 +1248,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             invalidateScrollLayout();
             return true;
         }
-        if (flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.01f && !themePreviewMode) {
+        if (flyoutModule != null && flyoutModule.isFlyoutOpen() && flyoutModule.getFlyoutProgress() > 0.01f) {
             float visualScale = getVisualScale(this.width, this.height);
             float mx = toLayoutX(event.x(), this.width, visualScale);
             float my = toLayoutY(event.y(), this.height, visualScale);
@@ -1443,7 +1291,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double hScroll, double vScroll) {
-        if (themePreviewMode || !pageTransition.isInteractive()) return false;
+        if (!pageTransition.isInteractive()) return false;
         float visualScale = getVisualScale(this.width, this.height);
         float layoutMx = toLayoutX(mx, this.width, visualScale);
         float layoutMy = toLayoutY(my, this.height, visualScale);

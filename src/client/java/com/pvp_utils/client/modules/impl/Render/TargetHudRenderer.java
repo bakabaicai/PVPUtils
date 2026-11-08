@@ -571,11 +571,11 @@ public class TargetHudRenderer {
     }
 
     private int newHudCardColor() {
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
+        return 0xEE000000 | Config.skiaBlurTintColor() & 0xFFFFFF;
     }
 
     private int newHudAvatarBackplateColor() {
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x66FFFFFF : 0x332A3345;
+        return 0x22000000 | Config.targetAppearance.text() & 0xFFFFFF;
     }
 
     private int newHudPrimaryTextColor(boolean blurMode) {
@@ -587,10 +587,7 @@ public class TargetHudRenderer {
     }
 
     private int newHudTrackColor(boolean blurMode) {
-        if (blurMode) {
-            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x33111827 : 0x2D000000;
-        }
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x22111827 : 0x33FFFFFF;
+        return 0x22000000 | Config.targetAppearance.text() & 0xFFFFFF;
     }
 
     private int getHealthTextAnimKey(long now) {

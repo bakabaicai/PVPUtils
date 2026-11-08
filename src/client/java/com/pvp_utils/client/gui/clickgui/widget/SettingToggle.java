@@ -51,7 +51,7 @@ public class SettingToggle extends SettingWidget {
         float thumbHeight = 20f + 0.8f * press;
         SkijaUi.rounded(canvas, centerX - thumbWidth * 0.5f, centerY - thumbHeight * 0.5f,
                 thumbWidth, thumbHeight, 10f, withAlpha(0xFFFFFF, alpha));
-        int symbolColor = withAlpha(lerpColor(colors.mutedText, colors.accent, progress), alpha);
+        int symbolColor = withAlpha(colors.dark ? colors.window : colors.primaryText, alpha);
         int save = canvas.save();
         try {
             canvas.translate(centerX, centerY);

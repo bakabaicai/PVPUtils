@@ -67,7 +67,7 @@ public final class HudAppearanceSettings {
     private static void add(SettingModule module, Supplier<HudAppearance> source,
                             BooleanSupplier visible, boolean text, String accentLabel, BooleanSupplier opacityVisible) {
         shadow(module, source, visible);
-        module.addSubVisible(UiText.t("跟随主题", "Use Theme Color"), "",
+        module.addSubVisible(UiText.t("使用全局强调色", "Use Global Accent"), "",
                         new SettingToggle(() -> source.get().useTheme, value -> { source.get().useTheme = value; Config.save(); }), visible)
                 .addSubChildWhen(() -> visible.getAsBoolean() && !source.get().useTheme,
                         accentLabel, "",
@@ -89,7 +89,7 @@ public final class HudAppearanceSettings {
     }
 
     public static void colors(SettingModule module, Supplier<HudAppearance> source) {
-        module.addSub(UiText.t("跟随主题", "Use Theme Color"), "",
+        module.addSub(UiText.t("使用全局强调色", "Use Global Accent"), "",
                         new SettingToggle(() -> source.get().useTheme, value -> { source.get().useTheme = value; Config.save(); }))
                 .addSubWhen(() -> !source.get().useTheme, UiText.t("强调色", "Accent Color"), "",
                         new SettingColorPreview(() -> source.get().accentColor, value -> source.get().accentColor = value, false, Config::save))

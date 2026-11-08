@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.pvp_utils.client.gui.clickgui.theme.UiTheme;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import java.io.*;
@@ -17,12 +18,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Config {
-    public static String themePreset = "BLEND";
-    public static boolean themeAnimated = true;
-    public static float themeSpeed = 1f;
-    public static int themePrimaryColor = 0xFF4794FD;
-    public static int themeSecondaryColor = 0xFF47FDA0;
-    public static boolean themeCustomColors;
+    public static UiTheme uiTheme = UiTheme.LIGHT;
+    public static String accentPreset = "BLEND";
+    public static boolean accentAnimated = true;
+    public static float accentSpeed = 1f;
+    public static int accentPrimaryColor = 0xFF4794FD;
+    public static int accentSecondaryColor = 0xFF47FDA0;
+    public static boolean accentCustomColors;
     public static boolean mainUIFrameLimitEnabled = true;
     public static int mainUIFrameLimit = 120;
     public static boolean hitSoundMeleeEnabled = true;
@@ -150,10 +152,8 @@ public class Config {
     public static boolean mcbiSkinDisplay = false;
     public static String mcbiSkinModes = "";
     public static float itemPhysicsRotationSpeed = 1.0f;
-    public static HudTheme hudTheme = HudTheme.LIGHT;
     public static float skiaBlurStrength = 1.0f;
     public static boolean clickGuiPanelBlur = false;
-    public static String clickGuiTheme = "white";
     public static int clickGuiScale = 0;
     public static float clickGuiScrollSpeed = 1.0f;
     public static float clickGuiCardW = 740f;
@@ -399,7 +399,6 @@ public class Config {
     public enum MusicInfoHudMode { LITE, BLUR }
 
     public enum MotionBlurAlgorithm { VELOCITY_BASED, FRAME_BLENDING, HYBRID_BLENDING, ACCUMULATION_MAX, ACCUMULATION_MIX }
-    public enum HudTheme { DARK, LIGHT }
     public enum WeatherMode { CLEAR, RAIN, SNOW, THUNDER }
     public enum ItemUseStatusMode { LITE, BLUR }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
@@ -415,23 +414,23 @@ public class Config {
     }
 
     public static int skiaBlurTintColor() {
-        return hudTheme == HudTheme.LIGHT ? 0x66F8FAFC : 0x66111827;
+        return 0x66000000 | UiTheme.current().background() & 0xFFFFFF;
     }
 
     public static int hudPrimaryTextColor() {
-        return hudTheme == HudTheme.LIGHT ? 0xFF111827 : 0xFFFFFFFF;
+        return UiTheme.current().primaryText();
     }
 
     public static int hudSecondaryTextColor() {
-        return hudTheme == HudTheme.LIGHT ? 0xAA111827 : 0xCCFFFFFF;
+        return 0xCC000000 | UiTheme.current().secondaryText() & 0xFFFFFF;
     }
 
     public static int hudMutedTextColor() {
-        return hudTheme == HudTheme.LIGHT ? 0xAA5C5870 : 0xBFFFFFFF;
+        return 0xAA000000 | UiTheme.current().secondaryText() & 0xFFFFFF;
     }
 
     public static int hudBorderColor() {
-        return hudTheme == HudTheme.LIGHT ? 0x55111827 : 0x55FFFFFF;
+        return 0x55000000 | UiTheme.current().primaryText() & 0xFFFFFF;
     }
 
     public static void setDynamicIsland(boolean value) {
@@ -589,7 +588,8 @@ public class Config {
 
     private static void normalizeAppearance() {
         mainUIFrameLimit = Math.clamp(mainUIFrameLimit, 30, 240);
-        themeSpeed = Float.isFinite(themeSpeed) ? Math.clamp(themeSpeed, 0.1f, 5f) : 1f;
+        if (uiTheme == null) uiTheme = UiTheme.LIGHT;
+        accentSpeed = Float.isFinite(accentSpeed) ? Math.clamp(accentSpeed, 0.1f, 3f) : 1f;
         for (Field field : configFields().values()) {
             if (field.getType() != com.pvp_utils.client.render.HudAppearance.class) continue;
             try {
@@ -604,15 +604,19 @@ public class Config {
                 throw new IllegalStateException(e);
             }
         }
+        clickGuiAppearance.useTheme = true;
+        clickGuiAppearance.customText = false;
+        clickGuiAppearance.customBackground = false;
     }
 
     public static void resetAppearance() {
-        themePreset = "BLEND";
-        themeAnimated = true;
-        themeSpeed = 1f;
-        themePrimaryColor = 0xFF4794FD;
-        themeSecondaryColor = 0xFF47FDA0;
-        themeCustomColors = false;
+        uiTheme = UiTheme.LIGHT;
+        accentPreset = "BLEND";
+        accentAnimated = true;
+        accentSpeed = 1f;
+        accentPrimaryColor = 0xFF4794FD;
+        accentSecondaryColor = 0xFF47FDA0;
+        accentCustomColors = false;
         mainUIFrameLimitEnabled = true;
         mainUIFrameLimit = 120;
         hitSoundMeleeEnabled = true;
@@ -707,6 +711,7 @@ public class Config {
             }
             readJsonValue(field, value);
         }
+        migrateThemeConfig(root, fields);
         JsonObject sound = root.has("HitSound") && root.get("HitSound").isJsonObject()
                 ? root.getAsJsonObject("HitSound") : root;
         if (!sound.has("melee-type") && !root.has("hitSoundMeleeType")) hitSoundMeleeType = hitSoundType;
@@ -717,6 +722,36 @@ public class Config {
         if (!sound.has("ranged-enabled") && !root.has("hitSoundRangedEnabled")) {
             hitSoundRangedEnabled = hitSoundCondition != HitSoundCondition.MELEE;
         }
+    }
+
+    private static void migrateThemeConfig(JsonObject root, Map<String, Field> fields) {
+        if (storedValue(root, "Theme", "surface", "uiTheme") == null) {
+            JsonElement panel = storedValue(root, "ClickGuiScale", "theme", "clickGuiTheme");
+            UiTheme migrated = UiTheme.fromLegacy(panel == null ? null : panel.getAsString());
+            if (migrated == null) {
+                JsonElement hud = storedValue(root, "HUDTheme", "theme", "hudTheme");
+                migrated = UiTheme.fromLegacy(hud == null ? null : hud.getAsString());
+            }
+            uiTheme = migrated == null ? UiTheme.LIGHT : migrated;
+        }
+        String[][] renamed = {
+                {"accentPreset", "themePreset"}, {"accentAnimated", "themeAnimated"},
+                {"accentSpeed", "themeSpeed"}, {"accentPrimaryColor", "themePrimaryColor"},
+                {"accentSecondaryColor", "themeSecondaryColor"}, {"accentCustomColors", "themeCustomColors"}
+        };
+        for (String[] names : renamed) {
+            ConfigPath target = pathForField(names[0]);
+            if (storedValue(root, target.module(), target.key(), names[0]) != null) continue;
+            JsonElement previous = storedValue(root, "Global", toKebabCase(names[1]), names[1]);
+            if (previous != null) readJsonValue(fields.get(names[0]), previous);
+        }
+    }
+
+    private static JsonElement storedValue(JsonObject root, String module, String key, String flatKey) {
+        JsonObject section = root.has(module) && root.get(module).isJsonObject() ? root.getAsJsonObject(module) : null;
+        JsonElement value = section == null ? null : section.get(key);
+        if (value == null || value.isJsonNull()) value = root.get(flatKey);
+        return value == null || value.isJsonNull() ? null : value;
     }
 
     private static boolean loadHudConfig(Path path) {
@@ -839,6 +874,8 @@ public class Config {
     }
 
     private static ConfigPath pathForField(String fieldName) {
+        if (fieldName.equals("uiTheme")) return new ConfigPath("Theme", "surface");
+        if (fieldName.startsWith("accent")) return new ConfigPath("Theme", toKebabCase(fieldName));
         String appearanceModule = switch (fieldName) {
             case "musicInfoAppearance" -> "MusicInfoHUD";
             case "targetAppearance" -> "TargetHUD";
@@ -1032,13 +1069,6 @@ public class Config {
             }
         } catch (Throwable ignored) {}
         return false;
-    }
-
-    private static HudTheme parseHudTheme(String value) {
-        if ("LIGHT".equals(value)) {
-            return HudTheme.LIGHT;
-        }
-        return HudTheme.DARK;
     }
 
     public static void applyGameLanguageDefault() {

@@ -6,7 +6,6 @@ import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
 import com.pvp_utils.client.command.CommandManager;
-import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
@@ -38,7 +37,6 @@ public class PVPUtilsClient implements ClientModInitializer {
         Config.load();
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
         com.pvp_utils.client.plugin.PluginManager.INSTANCE.initialize();
-        ClickGuiThemeManager.applyConfig();
         VictorySound.init();
         MainUIBackgrounds.initAsync();
         if (Config.useMainUI && Config.mainUIBackgroundMode == Config.MainUIBackgroundMode.VIDEO) {

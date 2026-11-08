@@ -110,7 +110,7 @@ public final class StartupOverlayRenderer implements AutoCloseable {
         long revision = SkijaUi.textFontRevision();
         if (welcome == null || fontRevision != revision) {
             closeTexts();
-            SkijaUi.withFont(SkijaUi.PRODUCT_SANS_LIGHT, () -> {
+            SkijaUi.withFont(SkijaUi.MISANS_REGULAR, () -> {
                 for (int i = 0; i < DOT_COUNT; i++) {
                     titles[i] = SkijaUi.prepareText(TITLE + ".".repeat(i + 1), TITLE_SIZE, false);
                 }
@@ -122,7 +122,7 @@ public final class StartupOverlayRenderer implements AutoCloseable {
         }
         if (status == null || preparedStage != stage) {
             if (status != null) status.close();
-            SkijaUi.withFont(SkijaUi.PRODUCT_SANS_REGULAR, () -> {
+            SkijaUi.withFont(SkijaUi.MISANS_REGULAR, () -> {
                 status = SkijaUi.prepareText(stage.label(), STATUS_SIZE, false);
                 FontMetrics statusMetrics = SkijaUi.textMetrics(STATUS_SIZE);
                 statusHeight = statusMetrics.getDescent() - statusMetrics.getAscent();

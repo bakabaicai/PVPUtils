@@ -356,29 +356,23 @@ public class BlockCountDisplayRenderer {
     }
 
     private int newCardColor() {
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
+        return 0xEE000000 | Config.skiaBlurTintColor() & 0xFFFFFF;
     }
 
     private int primaryTextColor(boolean blurMode) {
-        return blurMode ? Config.blockCountAppearance.text() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xFF202027 : 0xFFF8FAFC);
+        return Config.blockCountAppearance.text();
     }
 
     private int mutedTextColor(boolean blurMode) {
-        return blurMode ? Config.blockCountAppearance.secondaryText() : (Config.hudTheme == Config.HudTheme.LIGHT ? 0xAA5C5870 : 0xB8CBD5E1);
+        return Config.blockCountAppearance.secondaryText();
     }
 
     private int ringFillColor(boolean blurMode) {
-        if (blurMode) {
-            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x228F5CFF : 0x1F8F5CFF;
-        }
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x228F5CFF : 0x2A8F5CFF;
+        return 0x22000000 | Config.blockCountAppearance.accent() & 0xFFFFFF;
     }
 
     private int ringTrackColor(boolean blurMode) {
-        if (blurMode) {
-            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x338F5CFF;
-        }
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x448F5CFF : 0x668F5CFF;
+        return 0x44000000 | Config.blockCountAppearance.accent() & 0xFFFFFF;
     }
 
     private float clamp(float value, float min, float max) {

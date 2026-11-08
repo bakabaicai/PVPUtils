@@ -255,7 +255,6 @@ public class ResetManager {
         Config.smoothHotbarScrolling = false;
         Config.smoothHotbarAnimationSpeed = 0.55f;
         Config.hotbarRollover = 0;
-        Config.hudTheme = Config.HudTheme.LIGHT;
         Config.skiaBlurStrength = 1.0f;
         Config.clickGuiPanelBlur = false;
         Config.clickGuiScale = 1;

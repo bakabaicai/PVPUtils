@@ -1,7 +1,8 @@
 package com.pvp_utils.client.render;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
+import com.pvp_utils.client.gui.clickgui.theme.AccentColors;
+import com.pvp_utils.client.gui.clickgui.theme.UiTheme;
 
 public final class HudAppearance {
     public boolean shadow = true;
@@ -13,22 +14,43 @@ public final class HudAppearance {
     public boolean customBackground;
     public int backgroundColor = 0xFF111827;
     public float backgroundOpacity = 0.4f;
+    private transient int cachedTextBackground;
+    private transient UiTheme cachedTextTheme;
+    private transient int cachedPrimaryText;
+    private transient int cachedSecondaryText;
 
     public int accent() {
-        return useTheme ? ThemeColors.accent() : accentColor;
+        return useTheme ? AccentColors.accent() : accentColor;
     }
 
     public int accent(float x, float y) {
-        return useTheme ? ThemeColors.accent(x, y) : accentColor;
+        return useTheme ? AccentColors.accent(x, y) : accentColor;
     }
 
     public int text() {
-        return customText ? textColor : Config.hudPrimaryTextColor();
+        if (customText) return textColor;
+        if (!customBackground) return UiTheme.current().primaryText();
+        resolveTextColors();
+        return cachedPrimaryText;
     }
 
     public int secondaryText() {
-        int color = text();
+        int color;
+        if (customText) color = textColor;
+        else if (customBackground) {
+            resolveTextColors();
+            color = cachedSecondaryText;
+        } else color = UiTheme.current().secondaryText();
         return (Math.round((color >>> 24) * 0.7f) << 24) | (color & 0xFFFFFF);
+    }
+
+    private void resolveTextColors() {
+        UiTheme theme = UiTheme.current();
+        if (cachedTextTheme == theme && cachedTextBackground == backgroundColor) return;
+        cachedTextTheme = theme;
+        cachedTextBackground = backgroundColor;
+        cachedPrimaryText = UiTheme.readableText(theme.primaryText(), backgroundColor);
+        cachedSecondaryText = UiTheme.readableText(theme.secondaryText(), backgroundColor);
     }
 
     public int background() {

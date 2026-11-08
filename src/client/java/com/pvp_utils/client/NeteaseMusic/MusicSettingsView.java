@@ -1,7 +1,7 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.gui.clickgui.theme.ThemeColors;
+import com.pvp_utils.client.gui.clickgui.theme.AccentColors;
 import com.pvp_utils.client.gui.clickgui.widget.PageTransition;
 import com.pvp_utils.client.gui.clickgui.widget.SettingRowLayout;
 import com.pvp_utils.client.gui.clickgui.widget.ToggleAnimation;
@@ -167,7 +167,7 @@ public final class MusicSettingsView {
         float progress = animation.progress();
         float press = animation.press();
         MusicUi.rounded(canvas, x, y + 6f, 24f, 12f, 6f,
-                color(ThemeColors.mix(0xFF55575E, MusicUi.ACCENT, progress), alpha));
+                color(AccentColors.mix(0xFF55575E, MusicUi.ACCENT, progress), alpha));
         float thumbWidth = 8f - press;
         float thumbHeight = 8f + press * 0.4f;
         MusicUi.rounded(canvas, x + 6f + 12f * progress - thumbWidth * 0.5f,

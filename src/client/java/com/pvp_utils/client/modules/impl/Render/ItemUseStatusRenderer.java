@@ -375,7 +375,7 @@ public final class ItemUseStatusRenderer {
             c.translate(x, y);
             c.scale(scale, scale);
             int alphaInt = Math.round(Mth.clamp(alpha, 0.0f, 1.0f) * 255f);
-            newTrackPaint.setColor((Math.round(alphaInt * 0.22f) << 24) | (Config.hudTheme == Config.HudTheme.LIGHT ? 0x111827 : 0xFFFFFF));
+            newTrackPaint.setColor((Math.round(alphaInt * 0.22f) << 24) | (Config.itemUseAppearance.text() & 0xFFFFFF));
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, NEW_BAR_W, NEW_BAR_H, NEW_BAR_H * 0.5f), newTrackPaint);
 
             float fillW = Math.max(NEW_BAR_H, NEW_BAR_W * Mth.clamp(progress, 0.0f, 1.0f));

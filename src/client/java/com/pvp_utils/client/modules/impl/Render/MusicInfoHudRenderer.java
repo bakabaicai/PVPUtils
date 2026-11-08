@@ -193,7 +193,7 @@ public class MusicInfoHudRenderer {
         int bg = Config.musicInfoAppearance.background();
         int primary = Config.musicInfoAppearance.text();
         int secondary = Config.musicInfoAppearance.secondaryText();
-        int muted = Config.hudTheme == Config.HudTheme.LIGHT ? 0x885C5870 : 0x88FFFFFF;
+        int muted = 0x88000000 | Config.musicInfoAppearance.secondaryText() & 0xFFFFFF;
         painter.fill(0, 0, Math.round(LITE_W), Math.round(LITE_H), bg);
         painter.cover(song, 8, 8, COVER_SIZE);
         painter.text(trimLite(painter, song.name(), 118), 56, 9, primary);
@@ -258,14 +258,11 @@ public class MusicInfoHudRenderer {
     }
 
     private int cardColor() {
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0xF7F8FAFC : 0xE6111827;
+        return 0xEE000000 | Config.skiaBlurTintColor() & 0xFFFFFF;
     }
 
     private int coverBackplateColor(boolean blurMode) {
-        if (blurMode) {
-            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x44FFFFFF : 0x332A3345;
-        }
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x66FFFFFF : 0x332A3345;
+        return 0x22000000 | Config.musicInfoAppearance.text() & 0xFFFFFF;
     }
 
     private int primaryTextColor(boolean blurMode) {
@@ -277,10 +274,7 @@ public class MusicInfoHudRenderer {
     }
 
     private int trackColor(boolean blurMode) {
-        if (blurMode) {
-            return Config.hudTheme == Config.HudTheme.LIGHT ? 0x33111827 : 0x2D000000;
-        }
-        return Config.hudTheme == Config.HudTheme.LIGHT ? 0x22111827 : 0x33FFFFFF;
+        return 0x22000000 | Config.musicInfoAppearance.text() & 0xFFFFFF;
     }
 
     private String trimLite(LitePainter painter, String text, int maxWidth) {

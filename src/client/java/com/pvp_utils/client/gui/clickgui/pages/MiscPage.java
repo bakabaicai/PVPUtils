@@ -16,10 +16,13 @@ public class MiscPage extends BasePage {
                 .keybindAction(ModuleKeybindManager.ACTION_CLICK_GUI)
                 .addSub(UiText.t("面板模糊", "Panel Blur"), "",
                         new SettingToggle(() -> Config.clickGuiPanelBlur, value -> { Config.clickGuiPanelBlur = value; Config.save(); }))
+                .addSubChildWhen(() -> Config.clickGuiPanelBlur, UiText.t("背景不透明度", "Background Opacity"), "",
+                        new SettingSlider(0, 100, "%.0f%%", () -> (double) Config.clickGuiAppearance.backgroundOpacity * 100,
+                                value -> { Config.clickGuiAppearance.backgroundOpacity = value.floatValue() / 100f; Config.save(); }))
                 .addSub(UiText.t("滚动灵敏度", "Scroll Sensitivity"), "",
                         new SettingSlider(0.2, 5.0, "%.1fx", () -> (double) Config.clickGuiScrollSpeed,
                                 value -> { Config.clickGuiScrollSpeed = value.floatValue(); Config.save(); }));
-        HudAppearanceSettings.add(clickGui, () -> Config.clickGuiAppearance, () -> true);
+        HudAppearanceSettings.shadow(clickGui, () -> Config.clickGuiAppearance, () -> true);
         modules.add(clickGui);
 
         modules.add(new SettingModule(UiText.t("主界面", "Main Menu"), "", null)

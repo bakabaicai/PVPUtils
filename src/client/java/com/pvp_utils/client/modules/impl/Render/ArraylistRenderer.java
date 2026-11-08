@@ -97,7 +97,7 @@ public class ArraylistRenderer {
         graphics.pose().translate(x, y);
         graphics.pose().scale(scale, scale);
 
-        int shadowColor = Config.hudTheme == Config.HudTheme.LIGHT ? 0x33000000 : 0x66000000;
+        int shadowColor = com.pvp_utils.client.gui.clickgui.theme.UiTheme.current().isDark() ? 0x66000000 : 0x33000000;
         int width = Math.round(baseWidth(names));
         drawBackground(graphics, client, names, width, alignRight);
         for (int i = 0; i < names.size(); i++) {

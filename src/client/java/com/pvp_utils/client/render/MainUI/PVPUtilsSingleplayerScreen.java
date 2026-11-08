@@ -3,6 +3,7 @@ package com.pvp_utils.client.render.MainUI;
 import io.github.humbleui.types.RRect;
 
 import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.gui.clickgui.UiText;
 
 import com.pvp_utils.client.render.skia.SkijaRenderer;
 import io.github.humbleui.skija.Canvas;
@@ -68,7 +69,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
     }
 
     public PVPUtilsSingleplayerScreen(Screen parent, String shaderPath, Runnable embeddedBack) {
-        super(Component.literal("Single player"));
+        super(Component.literal(UiText.t("单人游戏", "Single player")));
         this.shaderPath = shaderPath;
         this.embeddedBack = embeddedBack;
     }
@@ -91,17 +92,17 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
 
     private void rebuildButtons() {
         buttons.clear();
-        buttons.add(new ActionButton("Play", () -> openSelectedWorld()));
-        buttons.add(new ActionButton("Create", () -> {
+        buttons.add(new ActionButton(UiText.t("开始游戏", "Play"), () -> openSelectedWorld()));
+        buttons.add(new ActionButton(UiText.t("创建", "Create"), () -> {
             if (minecraft != null) CreateWorldScreen.openFresh(minecraft, () -> {
                 loadWorlds();
                 minecraft.setScreen(this);
             });
         }));
-        buttons.add(new ActionButton("Edit", () -> openEditScreen()));
-        buttons.add(new ActionButton("Delete", () -> deleteSelectedWorld()));
-        buttons.add(new ActionButton("Refresh", this::loadWorlds));
-        buttons.add(new ActionButton("Back", this::startClose));
+        buttons.add(new ActionButton(UiText.t("编辑", "Edit"), () -> openEditScreen()));
+        buttons.add(new ActionButton(UiText.t("删除", "Delete"), () -> deleteSelectedWorld()));
+        buttons.add(new ActionButton(UiText.t("刷新", "Refresh"), this::loadWorlds));
+        buttons.add(new ActionButton(UiText.t("返回", "Back"), this::startClose));
         updateButtonBounds();
     }
 
@@ -288,7 +289,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
         float contentFade = transitioning ? 1f : ease(contentAlpha);
         int alpha = Math.round(255f * contentFade);
         float titleSize = 30f;
-        String title = "Single player";
+        String title = UiText.t("单人游戏", "Single player");
         SkijaUi.text(canvas, title, (layoutWidth() - SkijaUi.textWidth(title, titleSize)) * 0.5f, (44f) + SkijaUi.textMetrics(titleSize).getAscent(), SkijaUi.textMetrics(titleSize).getDescent() - SkijaUi.textMetrics(titleSize).getAscent(), (alpha << 24) | 0xFFFFFF, titleSize);
         drawWorldList(canvas, alpha);
         float buttonsAlpha = contentFade;
@@ -313,11 +314,11 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
         if (loading) {
-            drawCentered(canvas, "Loading worlds...", x + w * 0.5f, y + h * 0.45f, 14f, (alpha << 24) | 0xFFFFFF);
+            drawCentered(canvas, UiText.t("正在加载世界…", "Loading worlds..."), x + w * 0.5f, y + h * 0.45f, 14f, (alpha << 24) | 0xFFFFFF);
         } else if (!loadError.isBlank()) {
             drawCentered(canvas, loadError, x + w * 0.5f, y + h * 0.45f, 12f, (alpha << 24) | 0xFFB8B8);
         } else if (worlds.isEmpty()) {
-            drawCentered(canvas, "No worlds", x + w * 0.5f, y + h * 0.45f, 14f, (alpha << 24) | 0xFFFFFF);
+            drawCentered(canvas, UiText.t("暂无世界", "No worlds"), x + w * 0.5f, y + h * 0.45f, 14f, (alpha << 24) | 0xFFFFFF);
         } else {
             float itemH = 72f;
             float iy = y - scroll;
@@ -479,7 +480,7 @@ public class PVPUtilsSingleplayerScreen extends Screen implements com.pvp_utils.
                 loadWorlds();
             }
             minecraft.setScreen(this);
-        }, Component.literal("Delete World"), Component.literal(world.name())));
+        }, Component.literal(UiText.t("删除世界", "Delete World")), Component.literal(world.name())));
     }
 
     private void clampScroll() {

@@ -152,6 +152,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | `CLIENT_FONT` | 内置字体名 `"harmony"` |
 | `PRODUCT_SANS_REGULAR` | 内置 Product Sans Regular 字体名 `"product_sans_regular"` |
 | `PRODUCT_SANS_LIGHT` | 内置 Product Sans Light 字体名 `"product_sans_light"` |
+| `MISANS_REGULAR` | 内置 MiSans Regular 字体名 `"misans_regular"` |
 | `availableFontNames(): List<String>` | 获取内置和导入字体名 |
 | `selectFont(String)` | 切换全局字体 |
 | `withFont(String, Runnable)` | 临时覆盖当前线程的字体选择，回调结束后恢复 |

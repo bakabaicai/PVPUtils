@@ -152,6 +152,7 @@ Overloads without a font size use 9. Regular `text` and `boldText` already use s
 | `CLIENT_FONT` | Built-in font name, `"harmony"` |
 | `PRODUCT_SANS_REGULAR` | Built-in Product Sans Regular font name, `"product_sans_regular"` |
 | `PRODUCT_SANS_LIGHT` | Built-in Product Sans Light font name, `"product_sans_light"` |
+| `MISANS_REGULAR` | Built-in MiSans Regular font name, `"misans_regular"` |
 | `availableFontNames(): List<String>` | List built-in and imported font names |
 | `selectFont(String)` | Change the global font selection |
 | `withFont(String, Runnable)` | Temporarily override font selection on the current thread; restore it after the callback |
