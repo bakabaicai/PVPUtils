@@ -26,6 +26,10 @@
   "mixins": [
     "pvp-utils.mixins.json",
     {
+      "config": "pvp-utils.compatibility.mixins.json",
+      "environment": "client"
+    },
+    {
       "config": "pvp-utils.client.mixins.json",
       "environment": "client"
     }

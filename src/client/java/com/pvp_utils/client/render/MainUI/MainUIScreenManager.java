@@ -1,6 +1,7 @@
 package com.pvp_utils.client.render.MainUI;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.compatibility.CompatibilityGate;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.Button;
@@ -17,6 +18,7 @@ public final class MainUIScreenManager {
 
     public static void init() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (CompatibilityGate.hasPendingWarning()) return;
             if (Config.useMainUI) {
                 if (screen instanceof TitleScreen titleScreen) {
                     boolean delayEntryFade = firstMainUIAutoOpen;

@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.pvp_utils.mixin.compatibility",
+  "compatibilityLevel": "JAVA_21",
+  "plugin": "com.pvp_utils.compatibility.CompatibilityBootstrapPlugin",
+  "mixins": [
+    "CompatibilityMinecraftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

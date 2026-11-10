@@ -1,5 +1,6 @@
 package com.pvp_utils.client.startup;
 
+import com.pvp_utils.compatibility.CompatibilityGate;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -10,7 +11,7 @@ import java.util.Set;
 public final class StartupMixinPlugin implements IMixinConfigPlugin {
     @Override
     public void onLoad(String mixinPackage) {
-        StartupProgress.advance(StartupProgress.Stage.MIXINS);
+        CompatibilityGate.prepare();
     }
 
     @Override
@@ -29,7 +30,11 @@ public final class StartupMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public List<String> getMixins() {
-        return null;
+        List<String> mixins = CompatibilityGate.functionalMixins();
+        if (!mixins.isEmpty()) {
+            StartupProgress.advance(StartupProgress.Stage.MIXINS);
+        }
+        return mixins;
     }
 
     @Override
