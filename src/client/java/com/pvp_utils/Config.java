@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Config {
+    public static boolean onboardingCompleted;
     public static UiTheme uiTheme = UiTheme.LIGHT;
     public static String accentPreset = "BLEND";
     public static boolean accentAnimated = true;
@@ -889,6 +890,7 @@ public class Config {
     }
 
     private static ConfigPath pathForField(String fieldName) {
+        if (fieldName.equals("onboardingCompleted")) return new ConfigPath("Client", "onboarding-completed");
         if (fieldName.equals("uiTheme")) return new ConfigPath("Theme", "surface");
         if (fieldName.startsWith("accent")) return new ConfigPath("Theme", toKebabCase(fieldName));
         String appearanceModule = switch (fieldName) {

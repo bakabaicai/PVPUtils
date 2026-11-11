@@ -1,12 +1,14 @@
 package com.pvp_utils.client.startup;
 
+import com.pvp_utils.Config;
 import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.FontMetrics;
 
 public final class StartupOverlayRenderer implements AutoCloseable {
     public static final String TITLE = "Starting PVPUtils";
-    public static final String WELCOME = "Champion, Welcome back!";
+    public static final String WELCOME = "Welcome back!";
+    public static final String FIRST_WELCOME = "Hey, hello there!";
     private static final boolean TEST_SLOW_STARTUP = false;
     private static final long TEST_STAGE_DURATION_NANOS = 1_200_000_000L;
     private static final long TEST_DOT_INTERVAL_NANOS = 500_000_000L;
@@ -18,6 +20,7 @@ public final class StartupOverlayRenderer implements AutoCloseable {
     private static final float STATUS_SIZE = 11f;
     private final ChromaDraw.PreparedText[] titles = new ChromaDraw.PreparedText[DOT_COUNT];
     private ChromaDraw.PreparedText welcome;
+    private String preparedWelcome;
     private ChromaDraw.PreparedText status;
     private StartupProgress.Stage preparedStage;
     private long fontRevision = -1L;
@@ -73,6 +76,10 @@ public final class StartupOverlayRenderer implements AutoCloseable {
         return frame;
     }
 
+    public static String welcomeText() {
+        return Config.onboardingCompleted ? WELCOME : FIRST_WELCOME;
+    }
+
     public void renderChroma(Canvas canvas) {
         Frame current = frame;
         if (current == null || current.width() <= 0 || current.height() <= 0 || current.finished()) return;
@@ -108,16 +115,18 @@ public final class StartupOverlayRenderer implements AutoCloseable {
 
     private void prepareTexts(StartupProgress.Stage stage) {
         long revision = ChromaDraw.textFontRevision();
-        if (welcome == null || fontRevision != revision) {
+        String greeting = welcomeText();
+        if (welcome == null || fontRevision != revision || !greeting.equals(preparedWelcome)) {
             closeTexts();
             ChromaDraw.withFont(ChromaDraw.MISANS_REGULAR, () -> {
                 for (int i = 0; i < DOT_COUNT; i++) {
                     titles[i] = ChromaDraw.prepareText(TITLE + ".".repeat(i + 1), TITLE_SIZE, false);
                 }
-                welcome = ChromaDraw.prepareText(WELCOME, TITLE_SIZE, false);
+                welcome = ChromaDraw.prepareText(greeting, TITLE_SIZE, false);
                 FontMetrics titleMetrics = ChromaDraw.textMetrics(TITLE_SIZE);
                 titleHeight = titleMetrics.getDescent() - titleMetrics.getAscent();
             });
+            preparedWelcome = greeting;
             fontRevision = revision;
         }
         if (status == null || preparedStage != stage) {
@@ -147,6 +156,7 @@ public final class StartupOverlayRenderer implements AutoCloseable {
         }
         if (welcome != null) welcome.close();
         welcome = null;
+        preparedWelcome = null;
         if (status != null) status.close();
         status = null;
         preparedStage = null;

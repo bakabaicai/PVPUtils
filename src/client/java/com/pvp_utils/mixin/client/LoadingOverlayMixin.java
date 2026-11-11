@@ -77,8 +77,9 @@ public class LoadingOverlayMixin implements ChromaOverlay {
                     y + minecraft.font.lineHeight + 9, Math.round(frame.loadingAlpha() * 255f) << 24 | 0x888888, false);
         }
         if (frame.welcomeAlpha() > 0f) {
-            graphics.drawString(minecraft.font, StartupOverlayRenderer.WELCOME,
-                    (frame.width() - minecraft.font.width(StartupOverlayRenderer.WELCOME)) / 2, y,
+            String greeting = StartupOverlayRenderer.welcomeText();
+            graphics.drawString(minecraft.font, greeting,
+                    (frame.width() - minecraft.font.width(greeting)) / 2, y,
                     Math.round(frame.welcomeAlpha() * 255f) << 24 | 0xFFFFFF, false);
         }
     }
