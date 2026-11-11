@@ -1,5 +1,6 @@
 package com.pvp_utils.client.render.skia;
 
+import com.pvp_utils.client.modules.impl.Combat.combo.ComboEffectsManager;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
@@ -44,6 +45,7 @@ public final class SkijaFrameRenderer {
                 TpsHudRenderer.getInstance(),
                 ClockHudRenderer.getInstance()));
                 SkijaRenderer.draw(MusicInfoHudRenderer.getInstance()::renderSkija);
+                SkijaRenderer.draw(ComboEffectsManager::render);
                 SkijaRenderer.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
                         hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
             }

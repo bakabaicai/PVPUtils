@@ -9,10 +9,10 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
 
 public class OptimizePage extends BasePage {
     public OptimizePage() {
-        modules.add(new SettingModule(UiText.t("游戏内输入法修复", "IME Fix In Game"), UiText.t("避免输入法影响游戏按键操作", "Prevent input methods from interfering with game controls"),
-                new SettingToggle(() -> Config.disableImeInGame, v -> { Config.disableImeInGame = v; Config.save(); })));
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 0, new SettingModule(UiText.t("游戏内输入法修复", "IME Fix In Game"), UiText.t("避免输入法影响游戏按键操作", "Prevent input methods from interfering with game controls"),
+                new SettingToggle(() -> Config.disableImeInGame, v -> { Config.disableImeInGame = v; Config.save(); }))));
 
-        modules.add(new SettingModule(
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 1, new SettingModule(
                 UiText.t("更好的聊天栏", "Better Chat"),
                 UiText.t("聊天动画与玩家头像", "Chat animations and player heads"),
                 new SettingToggle(() -> Config.betterChat, v -> { Config.betterChat = v; Config.save(); }))
@@ -25,38 +25,47 @@ public class OptimizePage extends BasePage {
                 .addSub(UiText.t("消息动画时间", "Message Fade Time"), "",
                         new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatMessageFadeTime, v -> { Config.betterChatMessageFadeTime = v.intValue(); Config.save(); }))
                 .addSub(UiText.t("输入栏动画时间", "Input Fade Time"), "",
-                        new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatInputFadeTime, v -> { Config.betterChatInputFadeTime = v.intValue(); Config.save(); })));
+                        new SettingSlider(100.0, 900.0, "%.0fms", () -> (double) Config.betterChatInputFadeTime, v -> { Config.betterChatInputFadeTime = v.intValue(); Config.save(); }))));
 
-        modules.add(new SettingModule(
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 2, new SettingModule(
                 UiText.t("更好的计分板", "Better Scoreboard"),
                 UiText.t("调整计分板样式、位置和大小", "Customize the scoreboard appearance, position, and size"),
                 new SettingToggle(() -> Config.betterScoreboard, v -> { Config.betterScoreboard = v; Config.save(); }))
                 .addSub(UiText.t("隐藏红色数字", "Hide Red Numbers"), "",
                         new SettingToggle(() -> Config.betterScoreboardHideScores, v -> { Config.betterScoreboardHideScores = v; Config.save(); }))
                 .addSub(UiText.t("视觉改进", "Visual Improvement"), "",
-                        new SettingToggle(() -> Config.betterScoreboardVisualImprovement, v -> { Config.betterScoreboardVisualImprovement = v; Config.save(); })));
+                        new SettingToggle(() -> Config.betterScoreboardVisualImprovement, v -> { Config.betterScoreboardVisualImprovement = v; Config.save(); }))));
 
-        modules.add(new SettingModule(
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 3, new SettingModule(
                 UiText.t("更好的物品栏", "Better Item Selector"),
                 UiText.t("圆角快捷栏与平滑选中框", "Rounded hotbar with a smooth selection indicator"),
-                new SettingToggle(() -> Config.betterItemSelector, v -> { Config.betterItemSelector = v; Config.save(); })));
+                new SettingToggle(() -> Config.betterItemSelector, v -> { Config.betterItemSelector = v; Config.save(); }))));
 
-        modules.add(new SettingModule(
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 4, new SettingModule(
                 UiText.t("更好的鼠标逻辑", "Better Mouse Logic"),
                 UiText.t("优化物品栏内的鼠标交互", "Improve mouse interaction in inventories"),
-                new SettingToggle(() -> Config.betterMouseLogic, v -> { Config.betterMouseLogic = v; Config.save(); })));
+                new SettingToggle(() -> Config.betterMouseLogic, v -> { Config.betterMouseLogic = v; Config.save(); }))));
 
-        modules.add(new SettingModule(
+        modules.add(ModuleBindingIds.preserve(OptimizePage.class, 5, new SettingModule(
                 UiText.t("平滑快捷栏", "Smooth Hotbar"),
                 UiText.t("平滑快捷栏选中框的移动", "Smooth the hotbar selection transition"),
                 new SettingToggle(() -> Config.smoothHotbarScrolling, v -> { Config.smoothHotbarScrolling = v; Config.save(); }))
                 .addSub(UiText.t("动画速度", "Animation Speed"), "",
-                        new SettingSlider(0.05, 0.99, "%.2f", () -> (double) Config.smoothHotbarAnimationSpeed, v -> { Config.smoothHotbarAnimationSpeed = v.floatValue(); Config.save(); })));
+                        new SettingSlider(0.05, 0.99, "%.2f", () -> (double) Config.smoothHotbarAnimationSpeed, v -> { Config.smoothHotbarAnimationSpeed = v.floatValue(); Config.save(); }))));
         SettingModule scoreboard = HudAppearanceSettings.module(modules, "更好的计分板", "Better Scoreboard");
         HudAppearanceSettings.add(scoreboard, () -> Config.scoreboardAppearance,
                 () -> Config.betterScoreboardVisualImprovement);
         SettingModule hotbar = HudAppearanceSettings.module(modules, "更好的物品栏", "Better Item Selector");
         HudAppearanceSettings.hotbar(hotbar, () -> Config.hotbarAppearance);
+
+        modules.add(ModuleBindingIds.preserve(RenderPage.class, 13, new SettingModule(UiText.t("更好的延迟显示", "Better Ping Display"), UiText.t("在玩家列表中用数字显示延迟", "Show latency as numbers in the player list"),
+                new SettingToggle(() -> Config.betterPingDisplay, v -> { Config.betterPingDisplay = v; Config.save(); }))));
+
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 6 + (Config.restrictedFeaturesUnlocked() ? 2 : 0), new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
+                new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); }))));
+
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 7 + (Config.restrictedFeaturesUnlocked() ? 2 : 0), new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("禁止进入游泳姿态", "Prevent entering the swimming pose"),
+                new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); }))));
 
     }
 

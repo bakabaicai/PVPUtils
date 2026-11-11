@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -44,12 +45,23 @@ public final class Update {
     private Update() {}
 
     public static void startAutoCheck() {
-        runCheck(false, null, null);
+        runCheck(false, null, null, null);
     }
 
     public static void startManualCheck() {
         pendingManualStatus = checkingMessage();
-        runCheck(true, Update::deliverToPlayer, Update::deliverToPlayer);
+        runCheck(true, Update::deliverToPlayer, Update::deliverToPlayer, null);
+    }
+
+    public static void startManualCheck(Consumer<MutableComponent> onProgress, Consumer<MutableComponent> onComplete) {
+        Objects.requireNonNull(onProgress);
+        Objects.requireNonNull(onComplete);
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) return;
+        Consumer<MutableComponent> dispatchProgress = message -> client.execute(() -> onProgress.accept(message));
+        Consumer<MutableComponent> dispatchComplete = message -> client.execute(() -> onComplete.accept(message));
+        dispatchProgress.accept(checkingMessage());
+        runCheck(true, dispatchComplete, dispatchComplete, dispatchProgress);
     }
 
     public static void tick(Minecraft client) {
@@ -98,13 +110,14 @@ public final class Update {
         deliverToPlayer(qqClipboardMessage());
     }
 
-    private static void runCheck(boolean manual, Consumer<MutableComponent> onResult, Consumer<MutableComponent> onError) {
+    private static void runCheck(boolean manual, Consumer<MutableComponent> onResult, Consumer<MutableComponent> onError,
+                                 Consumer<MutableComponent> onProgress) {
         Thread thread = new Thread(() -> {
             try {
                 System.out.println("[PVPUtils][Update] check start manual=" + manual + " current=" + currentTypedVersion());
-                UpdateResult result = fetchResultWithRetry(5, manual);
+                UpdateResult result = fetchResultWithRetry(5, manual, onProgress);
                 cachedResult = result;
-                pendingManualStatus = null;
+                if (onProgress == null) pendingManualStatus = null;
                 System.out.println("[PVPUtils][Update] check complete current=" + currentTypedVersion()
                         + " fetched=" + result.fetchedVersion()
                         + " needUpdate=" + result.hasUpdate());
@@ -113,7 +126,7 @@ public final class Update {
                 }
             } catch (Exception e) {
                 cachedResult = null;
-                pendingManualStatus = null;
+                if (onProgress == null) pendingManualStatus = null;
                 System.out.println("[PVPUtils][Update] check failed current=" + currentTypedVersion() + " reason=" + e);
                 if (!manual) {
                     pendingAutoError = errorMessage(e.getMessage());
@@ -126,7 +139,8 @@ public final class Update {
         thread.start();
     }
 
-    private static UpdateResult fetchResultWithRetry(int maxAttempts, boolean manual) throws IOException, InterruptedException {
+    private static UpdateResult fetchResultWithRetry(int maxAttempts, boolean manual,
+                                                    Consumer<MutableComponent> onProgress) throws IOException, InterruptedException {
         IOException lastIo = null;
         InterruptedException lastInterrupted = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -142,7 +156,9 @@ public final class Update {
             }
             if (attempt < maxAttempts) {
                 if (manual) {
-                    pendingManualStatus = retryingMessage(attempt + 1, maxAttempts);
+                    MutableComponent message = retryingMessage(attempt + 1, maxAttempts);
+                    if (onProgress == null) pendingManualStatus = message;
+                    else onProgress.accept(message);
                 }
                 Thread.sleep(1200L);
             }

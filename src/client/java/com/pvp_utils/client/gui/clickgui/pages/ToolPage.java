@@ -1,15 +1,14 @@
 package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.modules.impl.Tool.PseudoCreativeManager;
 import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.Version;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
-import com.pvp_utils.client.modules.impl.Render.CustomCapeManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
-import com.pvp_utils.client.modules.impl.Tool.NickHiderManager;
 import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
 import net.minecraft.client.Minecraft;
 
@@ -19,16 +18,16 @@ import java.util.Map;
 public class ToolPage extends BasePage {
 
     public ToolPage() {
-        modules.add(new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("获胜时截图并保存至桌面", "Save a screenshot to the desktop after winning"),
-                new SettingToggle(() -> Config.autoScreenshot, v -> { Config.autoScreenshot = v; Config.save(); })));
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 0, new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("获胜时截图并保存至桌面", "Save a screenshot to the desktop after winning"),
+                new SettingToggle(() -> Config.autoScreenshot, v -> { Config.autoScreenshot = v; Config.save(); }))));
 
-        modules.add(new SettingModule(UiText.t("自动GG", "Auto GG"), UiText.t("在获胜后自动发送文字", "Automatically send text after winning"),
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 1, new SettingModule(UiText.t("自动GG", "Auto GG"), UiText.t("在获胜后自动发送文字", "Automatically send text after winning"),
                 new SettingToggle(() -> Config.autoGG, v -> { Config.autoGG = v; Config.save(); }))
                 .addSub(UiText.t("发送文本", "Message"), "",
                         new SettingTextBox(() -> Config.autoGGText, value -> { Config.autoGGText = value; Config.save(); }, 256))
                 .addSub(UiText.t("发送延迟(tick)", "Send Delay (tick)"), "",
                         new SettingSlider(0, 100, "%.0f", () -> (double) Config.autoGGDelayTicks,
-                                v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
+                                v -> { Config.autoGGDelayTicks = Math.max(0, Math.min(100, v.intValue())); Config.save(); }))));
 
         SettingModule autoLogin = new SettingModule(UiText.t("自动登录", "Auto Login"), UiText.t("进入已配置的服务器时自动执行登录命令", "Automatically send the login command on configured servers."),
                 new SettingToggle(() -> Config.serverAutoLogin, v -> { Config.serverAutoLogin = v; Config.save(); }))
@@ -66,141 +65,16 @@ public class ToolPage extends BasePage {
                         settings.showAddServerPage();
                     }
                 }));
-        modules.add(autoLogin);
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 2, autoLogin));
 
-        modules.add(new SettingModule(UiText.t("食物信息显示", "Food Info"), UiText.t("显示食物相关信息", "Show food-related information"),
-                new SettingToggle(() -> Config.foodInfo, v -> { Config.foodInfo = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器", "Open the NetEase Cloud player"),
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 4, new SettingModule(UiText.t("网易云音乐", "Netease Music"), UiText.t("打开网易云播放器", "Open the NetEase Cloud player"),
                 new SettingButton(UiText.t("打开", "Open"), NeteaseMusicManager::open))
-                .keybindAction(ModuleKeybindManager.ACTION_OPEN_MUSIC));
+                .keybindAction(ModuleKeybindManager.ACTION_OPEN_MUSIC)));
 
-        modules.add(new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
-                new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); })));
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 5, new SettingModule(UiText.t("摔落伤害预测", "Fall Damage Prediction"), UiText.t("预测摔落伤害数值", "Predict fall damage value"),
+                new SettingToggle(() -> Config.fallDamagePredict, v -> { Config.fallDamagePredict = v; Config.save(); }))));
 
-        if (Config.restrictedFeaturesUnlocked()) {
-        modules.add(new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
-                new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("投掷物与弓箭轨迹预测", "Projectile Trajectory Prediction"), UiText.t("预测弓箭、雪球和末影珍珠的飞行轨迹与落点", "Predict the flight trajectory and impact point of arrows, snowballs and ender pearls"),
-                new SettingToggle(() -> Config.projectileTrajectoryPredict, v -> { Config.projectileTrajectoryPredict = v; Config.save(); }))
-                .addSub(UiText.t("弓箭轨迹预测", "Bow Trajectory Prediction"), UiText.t("拉弓时显示箭矢的预测轨迹和落点", "Show the predicted arrow trajectory and impact point while drawing a bow"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictBow, v -> { Config.projectileTrajectoryPredictBow = v; Config.save(); }))
-                .addSub(UiText.t("雪球轨迹预测", "Snowball Trajectory Prediction"), UiText.t("显示雪球轨迹与落点", "Show the snowball trajectory and impact point"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictSnowball, v -> { Config.projectileTrajectoryPredictSnowball = v; Config.save(); }))
-                .addSub(UiText.t("末影珍珠轨迹预测", "Ender Pearl Trajectory Prediction"), UiText.t("显示末影珍珠轨迹与传送位置", "Show the ender-pearl trajectory and teleport destination"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictEnderPearl, v -> { Config.projectileTrajectoryPredictEnderPearl = v; Config.save(); }))
-                .addSub(UiText.t("落点方块预测", "Block Impact Prediction"), UiText.t("预测箭矢命中的方块", "Predict blocks hit by the arrow"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictBlock, v -> { Config.projectileTrajectoryPredictBlock = v; Config.save(); }))
-                .addSub(UiText.t("落点实体预测", "Entity Impact Prediction"), UiText.t("预测箭矢命中的实体", "Predict entities hit by the arrow"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictEntity, v -> { Config.projectileTrajectoryPredictEntity = v; Config.save(); }))
-                .addSubWhen(() -> Config.projectileTrajectoryPredictEntity, UiText.t("实体运动预测", "Entity Movement Prediction"), UiText.t("根据实体当前移动方向预测其落点位置", "Predict entity positions from their current movement direction"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictEntityMovement, v -> { Config.projectileTrajectoryPredictEntityMovement = v; Config.save(); }))
-                .addSub(UiText.t("其他玩家箭矢预警", "Other Player Arrow Warning"), UiText.t("仅显示预测会命中自己的其他玩家箭矢", "Only show other player arrows predicted to hit you"),
-                        new SettingToggle(() -> Config.projectileTrajectoryPredictOtherPlayers, v -> { Config.projectileTrajectoryPredictOtherPlayers = v; Config.save(); })));
-
-        }
-
-        modules.add(new SettingModule(UiText.t("自动疾跑", "Auto Sprint"), UiText.t("前进时自动进入疾跑状态", "Automatically sprint while moving forward"),
-                new SettingToggle(() -> Config.autoSprint, v -> { Config.autoSprint = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("禁止游泳", "No Swimming"), UiText.t("禁止进入游泳姿态", "Prevent entering the swimming pose"),
-                new SettingToggle(() -> Config.noSwimming, v -> { Config.noSwimming = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("隐藏昵称", "Hide Nickname"), UiText.t("在本地替换玩家昵称", "Replace the player nickname locally"),
-                new SettingToggle(() -> Config.nickHider, v -> { Config.nickHider = v; Config.save(); }))
-                .addSub("Nickname", UiText.t("用于替换真实用户名的显示名称", "Display name used to replace your real username"),
-                        new SettingTextBox(() -> Config.nickHiderNickname,
-                                v -> { Config.nickHiderNickname = NickHiderManager.normalizeNickname(v); Config.save(); }, 32))
-                .addSub(UiText.t("聊天栏", "Chat"), UiText.t("替换聊天消息中的自己用户名", "Replace your username in chat messages"),
-                        new SettingToggle(() -> Config.nickHiderChat, v -> { Config.nickHiderChat = v; Config.save(); }))
-                .addSub(UiText.t("Tab栏", "Tab List"), UiText.t("替换玩家列表中的自己用户名", "Replace your username in the player list"),
-                        new SettingToggle(() -> Config.nickHiderTab, v -> { Config.nickHiderTab = v; Config.save(); }))
-                .addSub("Nametag", UiText.t("替换自己头顶名称标签", "Replace your overhead name tag"),
-                        new SettingToggle(() -> Config.nickHiderNametag, v -> { Config.nickHiderNametag = v; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("手持物品位置调整", "Held Item Position"), UiText.t("调整第一人称主手与副手物品的位置", "Adjust first-person main-hand and off-hand item position"),
-                new SettingToggle(() -> Config.heldItemPosition, v -> { Config.heldItemPosition = v; Config.save(); }))
-                .addSub(UiText.t("主手 X", "Main Hand X"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainX,
-                                v -> { Config.heldItemMainX = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手 Y", "Main Hand Y"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainY,
-                                v -> { Config.heldItemMainY = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手 Z", "Main Hand Z"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemMainZ,
-                                v -> { Config.heldItemMainZ = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手旋转 X", "Main Hand Rotation X"), "",
-                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemMainRotX,
-                                v -> { Config.heldItemMainRotX = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手旋转 Y", "Main Hand Rotation Y"), "",
-                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemMainRotY,
-                                v -> { Config.heldItemMainRotY = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手挥手速度", "Main Hand Swing Speed"), "",
-                        new SettingSlider(0.0, 3.0, "%.2fx", () -> (double) Config.heldItemMainSwingSpeed,
-                                v -> { Config.heldItemMainSwingSpeed = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("主手透明度", "Main Hand Alpha"), "",
-                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.heldItemMainAlpha,
-                                v -> { Config.heldItemMainAlpha = Math.max(0, Math.min(100, v.intValue())); Config.save(); }))
-                .addSub(UiText.t("副手 X", "Off Hand X"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffX,
-                                v -> { Config.heldItemOffX = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手 Y", "Off Hand Y"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffY,
-                                v -> { Config.heldItemOffY = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手 Z", "Off Hand Z"), "",
-                        new SettingSlider(-1.0, 1.0, "%.2f", () -> (double) Config.heldItemOffZ,
-                                v -> { Config.heldItemOffZ = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手旋转 X", "Off Hand Rotation X"), "",
-                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemOffRotX,
-                                v -> { Config.heldItemOffRotX = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手旋转 Y", "Off Hand Rotation Y"), "",
-                        new SettingSlider(-180.0, 180.0, "%.0f°", () -> (double) Config.heldItemOffRotY,
-                                v -> { Config.heldItemOffRotY = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手挥手速度", "Off Hand Swing Speed"), "",
-                        new SettingSlider(0.0, 3.0, "%.2fx", () -> (double) Config.heldItemOffSwingSpeed,
-                                v -> { Config.heldItemOffSwingSpeed = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("副手透明度", "Off Hand Alpha"), "",
-                        new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.heldItemOffAlpha,
-                                v -> { Config.heldItemOffAlpha = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("去除容器半透明背景", "Remove Container Background"), UiText.t("去除背包和容器界面的半透明背景", "Remove the translucent background from inventory and container screens"),
-                new SettingToggle(() -> Config.removeContainerBackground, v -> { Config.removeContainerBackground = v; Config.save(); })));
-
-        if (Config.restrictedFeaturesUnlocked()) {
-        modules.add(new SettingModule(UiText.t("钓鱼竿辅助", "Fishing Rod Assist"), UiText.t("切换到钓鱼竿时自动右键使用", "Automatically right-click when switching to a fishing rod"),
-                new SettingToggle(() -> Config.fishingRodAssist, v -> { Config.fishingRodAssist = v; Config.save(); }))
-                .addSub(UiText.t("使用间隔(tick)", "Use Delay (tick)"), UiText.t("切换到钓鱼竿格子后等待多久再使用", "Ticks to wait after switching to a fishing rod slot before using it"),
-                        new SettingSlider(0, 20, "%.0f", () -> (double) Config.fishingRodAssistUseDelay,
-                                v -> { Config.fishingRodAssistUseDelay = v.intValue(); Config.save(); }))
-                .visibleWhen(() -> Config.fullMode));
-
-        }
-
-        modules.add(new SettingModule(UiText.t("方块数量显示", "Block Count Display"), UiText.t("右键放置方块时显示方块数量、放置速度和点击速度", "Show block count, placement speed, and click speed while right-clicking blocks"),
-                new SettingToggle(() -> Config.blockCountDisplay, v -> {
-                    Config.setBlockCountDisplay(v);
-                    Config.save();
-                })));
-
-        modules.add(new SettingModule(UiText.t("改变客户端时间", "Time Change"), UiText.t("强制修改客户端显示的世界时间", "Force the client-side world time"),
-                new SettingToggle(() -> Config.timeChange, v -> { Config.timeChange = v; Config.save(); }))
-                .addSub(UiText.t("时间", "Time"), "",
-                        new SettingSlider(0, 23999, "%.0f", () -> (double) Config.clientTime,
-                                v -> { Config.clientTime = v.intValue(); Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("改变客户端天气", "Weather Change"), UiText.t("强制修改客户端显示的天气", "Force the client-side weather"),
-                new SettingToggle(() -> Config.weatherChange, v -> { Config.weatherChange = v; Config.save(); }))
-                .addSub(UiText.t("天气模式", "Weather Mode"), "",
-                        new SettingCycle(List.of(
-                                UiText.t("晴天", "Clear"),
-                                UiText.t("雨天", "Rain"),
-                                UiText.t("雪天", "Snow"),
-                                UiText.t("雷暴", "Thunder")),
-                                () -> Config.weatherMode.ordinal(),
-                                i -> { Config.weatherMode = Config.WeatherMode.values()[i % Config.WeatherMode.values().length]; Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("自由视角", "Freelook"), UiText.t("开启功能后，使用按键进行触发（默认Mouse 5），可以自由观看四周而不影响原本视角朝向。", "Use a keybind to activate freelook (default Mouse 5), allowing you to look around freely without changing your original view direction."),
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 14 + (Config.restrictedFeaturesUnlocked() ? 3 : 0), new SettingModule(UiText.t("自由视角", "Freelook"), UiText.t("开启功能后，使用按键进行触发（默认Mouse 5），可以自由观看四周而不影响原本视角朝向。", "Use a keybind to activate freelook (default Mouse 5), allowing you to look around freely without changing your original view direction."),
                 new SettingToggle(() -> Config.freelook, v -> { Config.freelook = v; Config.save(); }))
                 .keybindAction(ModuleKeybindManager.ACTION_FREELOOK)
                 .addSub(UiText.t("触发模式", "Trigger Mode"), "",
@@ -211,9 +85,9 @@ public class ToolPage extends BasePage {
                                 i -> { Config.freelookTriggerMode = i == 0 ? Config.FreelookTriggerMode.HOLD : Config.FreelookTriggerMode.TOGGLE; Config.save(); }))
                 .addSub(UiText.t("灵敏度", "Sensitivity"), "",
                         new SettingSlider(1.0, 100.0, "%.0f%%", () -> (double) Config.freelookSensitivity,
-                                v -> { Config.freelookSensitivity = Math.max(1, Math.min(100, v.intValue())); Config.save(); })));
+                                v -> { Config.freelookSensitivity = Math.max(1, Math.min(100, v.intValue())); Config.save(); }))));
 
-        modules.add(new SettingModule(UiText.t("缩放", "Zoom"), UiText.t("按快捷键放大视野", "Zoom the view with a key binding"),
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 15 + (Config.restrictedFeaturesUnlocked() ? 3 : 0), new SettingModule(UiText.t("缩放", "Zoom"), UiText.t("按快捷键放大视野", "Zoom the view with a key binding"),
                 new SettingToggle(() -> Config.zoom, v -> { Config.zoom = v; Config.save(); }))
                 .keybindAction(ModuleKeybindManager.ACTION_ZOOM)
                 .addSub(UiText.t("缩放倍率", "Zoom Amount"), UiText.t("按下缩放键时的初始缩放倍率", "Initial zoom multiplier while holding the zoom key"),
@@ -235,25 +109,18 @@ public class ToolPage extends BasePage {
                                 v -> { Config.zoomOutTime = Math.max(0.0f, Math.min(1.5f, v.floatValue())); Config.save(); }))
                 .addSub(UiText.t("缩放相机灵敏度", "Zoom Camera Sensitivity"), "",
                         new SettingSlider(0.0, 100.0, "%.0f%%", () -> (double) Config.zoomRelativeSensitivity,
-                                v -> { Config.zoomRelativeSensitivity = Math.max(0, Math.min(100, v.intValue())); Config.save(); })));
-
-        modules.add(new SettingModule(UiText.t("自定义披风", "Custom Cape"), UiText.t("加载本地的自定义皮肤文件", "Load a local custom skin file"),
-                new SettingToggle(() -> Config.customCape, v -> { Config.customCape = v; Config.save(); }))
-                .addSub(UiText.t("打开目录", "Open Folder"), "",
-                        new SettingButton(UiText.t("打开", "Open"), CustomCapeManager::openFolder))
-                .addSub(UiText.t("切换披风", "Switch Cape"), "",
-                        new SettingButton(() -> Config.customCapeImage, CustomCapeManager::cycleCape)));
+                                v -> { Config.zoomRelativeSensitivity = Math.max(0, Math.min(100, v.intValue())); Config.save(); }))));
 
         if (Version.DEBUG) {
-            modules.add(new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),
+            modules.add(ModuleBindingIds.preserve(ToolPage.class, 17 + (Config.restrictedFeaturesUnlocked() ? 3 : 0), new SettingModule(UiText.t("FakePlayer", "FakePlayer"), UiText.t("测试功能请勿开启", "Test feature, do not enable"),
                     new SettingToggle(FakePlayerManager::isEnabled, FakePlayerManager::setEnabled))
                     .addSub(UiText.t("盔甲", "Armor"), UiText.t("控制假玩家是否穿着下界合金甲", "Control whether the fake player wears netherite armor"),
                             new SettingToggle(FakePlayerManager::hasArmor, FakePlayerManager::setArmor))
                     .addSub(UiText.t("不死图腾", "Totem"), UiText.t("控制假玩家手上是否持有不死图腾", "Control whether the fake player holds a Totem of Undying"),
-                            new SettingToggle(FakePlayerManager::hasTotem, FakePlayerManager::setTotem)));
+                            new SettingToggle(FakePlayerManager::hasTotem, FakePlayerManager::setTotem))));
         }
 
-        modules.add(new SettingModule(UiText.t("快捷存入", "Quick Deposit"), UiText.t("手持物品并左键点击容器时快捷存入手中的物品", "Quickly deposit the held item when left-clicking a container while holding an item"),
+        modules.add(ModuleBindingIds.preserve(ToolPage.class, 17 + (Config.restrictedFeaturesUnlocked() ? 3 : 0) + (Version.DEBUG ? 1 : 0), new SettingModule(UiText.t("快捷存入", "Quick Deposit"), UiText.t("手持物品并左键点击容器时快捷存入手中的物品", "Quickly deposit the held item when left-clicking a container while holding an item"),
                 new SettingToggle(() -> Config.autoChestDeposit, v -> { Config.autoChestDeposit = v; Config.save(); }))
                 .addSub(UiText.t("仅限资源", "Resources Only"), UiText.t("只存入资源", "Only deposit resources"),
                         new SettingToggle(() -> Config.autoChestDepositResourcesOnly,
@@ -264,10 +131,20 @@ public class ToolPage extends BasePage {
                 .addSub(UiText.t("关闭容器延迟", "Close Container Delay"), UiText.t("存入物品后关闭容器所等待的时间(tick)", "Ticks to wait after depositing the item before closing the container"),
                         new SettingSlider(0, 40, "%.0f", () -> (double) Config.autoChestDepositCloseDelay,
                                 v -> { Config.autoChestDepositCloseDelay = v.intValue(); Config.save(); }))
-                 .visibleWhen(() -> Config.fullMode));
+                 .visibleWhen(() -> Config.fullMode)));
 
-        HudAppearanceSettings.add(HudAppearanceSettings.module(modules, "方块数量显示", "Block Count Display"),
-                () -> Config.blockCountAppearance, () -> true);
+        modules.add(ModuleBindingIds.preserve(MiscPage.class, 4, new SettingModule(UiText.t("伪装创造", "Pseudo Creative"), UiText.t("在本地显示创造模式状态", "Display Creative mode locally"),
+                new SettingToggle(PseudoCreativeManager::isActive, v -> { PseudoCreativeManager.setEnabled(v); Config.save(); }))));
+
+        if (Config.restrictedFeaturesUnlocked()) {
+            modules.add(ModuleBindingIds.preserve(CombatPage.class, 0 + (Config.restrictedFeaturesUnlocked() ? 1 : 0), new SettingModule(UiText.t("鞘翅改进", "Elytra Improvements"), UiText.t("自动展开鞘翅并使用烟花推进", "Automatically deploy elytra and use firework boosts"),
+                    new SettingToggle(() -> Config.elytraAssist, v -> { Config.elytraAssist = v; Config.save(); }))
+                    .addSub(UiText.t("自动展开鞘翅", "Auto Deploy Elytra"), UiText.t("跳起时自动展开身上的鞘翅", "Automatically deploy equipped elytra when jumping"),
+                            new SettingToggle(() -> Config.elytraAutoDeploy, v -> { Config.elytraAutoDeploy = v; Config.save(); }))
+                    .addSub(UiText.t("自动烟花推进", "Auto Firework Boost"), UiText.t("手持烟花且没有烟花动能时自动使用", "Automatically use held fireworks when no boost is active"),
+                            new SettingToggle(() -> Config.elytraAutoFirework, v -> { Config.elytraAutoFirework = v; Config.save(); }))
+                    .visibleWhen(() -> Config.fullMode)));
+        }
 
     }
 

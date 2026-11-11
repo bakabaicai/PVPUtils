@@ -75,6 +75,15 @@ public class Config {
     public static boolean foodInfo = false;
     public static boolean hitMarker = false;
     public static boolean hitSound = false;
+    public static boolean comboEffects = false;
+    public static boolean comboEffectsPlayers = true;
+    public static boolean comboEffectsMonsters = false;
+    public static boolean comboEffectsAnimals = false;
+    public static boolean comboEffectsOther = false;
+    public static boolean comboEffectsIcon = true;
+    public static boolean comboEffectsSound = true;
+    public static float comboEffectsVolume = 1f;
+    public static float comboEffectsDuration = 300f;
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
     public static boolean mainHandAssistShield = false;
@@ -571,6 +580,7 @@ public class Config {
 
     public static synchronized void save() {
         normalizeFakeFps();
+        normalizeComboEffects();
         normalizeDynamicIslandAppearance();
         normalizeAppearance();
         ensureConfigDirectory();
@@ -663,6 +673,11 @@ public class Config {
         fakeFpsMax = Math.max(fakeFpsMin, clampFakeFps(fakeFpsMax));
         fakeFpsJumpMinSeconds = clampFakeFpsJumpSeconds(fakeFpsJumpMinSeconds);
         fakeFpsJumpMaxSeconds = Math.max(fakeFpsJumpMinSeconds, clampFakeFpsJumpSeconds(fakeFpsJumpMaxSeconds));
+    }
+
+    private static void normalizeComboEffects() {
+        comboEffectsVolume = Float.isFinite(comboEffectsVolume) ? Math.clamp(comboEffectsVolume, 0f, 1f) : 1f;
+        comboEffectsDuration = Float.isFinite(comboEffectsDuration) ? Math.clamp(comboEffectsDuration, 0.1f, 300f) : 300f;
     }
 
     private static boolean loadJsonConfig(Path path) {
@@ -973,6 +988,7 @@ public class Config {
             new ModuleRule("ElytraImprovements", "elytra", "elytraAssist"),
             new ModuleRule("HitMarker", "hitMarker", "hitMarker"),
             new ModuleRule("HitSound", "hitSound", "hitSound"),
+            new ModuleRule("ComboEffects", "comboEffects", "comboEffects"),
             new ModuleRule("Legacy17Animations", "legacy17", "legacy17Animations", "legacy17UseSwing", "legacy17FishingRod", "legacy17HeadRotation", "legacy17HurtTilt", "legacy17ItemPickup"),
             new ModuleRule("SwordBlockingAnimation", "swordBlock", "swordBlock", "offsetX", "offsetY", "offsetZ", "animSpeed", "animationMode"),
             new ModuleRule("AutoBlock", "autoMode", "autoMode", "range"),

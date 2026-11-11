@@ -6,6 +6,8 @@ import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
 import com.pvp_utils.client.VersionWarningManager;
 import com.pvp_utils.client.command.CommandManager;
+import com.pvp_utils.client.combat.KillConfirmManager;
+import com.pvp_utils.client.modules.impl.Combat.combo.ComboEffectsManager;
 import com.pvp_utils.client.render.MainUI.MainUIBackgrounds;
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUIScreenManager;
@@ -29,12 +31,17 @@ import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 final class PVPUtilsClientRuntime {
+    private static final KillConfirmManager.KillListener COMBO_EFFECTS_LISTENER =
+            (target, name, distance, combo) -> ComboEffectsManager.onKill(target);
+
     private PVPUtilsClientRuntime() {
     }
     static void initialize() {
         StartupProgress.advance(StartupProgress.Stage.MODULES);
         AntiCheat.verifyEnvironment();
         Config.load();
+        ComboEffectsManager.initialize();
+        KillConfirmManager.INSTANCE.subscribe(COMBO_EFFECTS_LISTENER);
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
         com.pvp_utils.client.plugin.PluginManager.INSTANCE.initialize();
         VictorySound.init();
@@ -50,6 +57,9 @@ final class PVPUtilsClientRuntime {
         Update.startAutoCheck();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(
                 client -> {
+                    KillConfirmManager.INSTANCE.unsubscribe(COMBO_EFFECTS_LISTENER);
+                    KillConfirmManager.INSTANCE.clear();
+                    ComboEffectsManager.close();
                     com.pvp_utils.client.modules.impl.Combat.HitSoundPlayer.close();
                     MainUISharedBackground.close();
                     PseudoCreativeManager.setEnabled(false);
@@ -60,6 +70,8 @@ final class PVPUtilsClientRuntime {
         ClientTickEvents.START_CLIENT_TICK.register(client ->
                 com.pvp_utils.client.plugin.PluginManager.INSTANCE.prepareTick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            ComboEffectsManager.tick(client);
+            KillConfirmManager.INSTANCE.tick(client);
             com.pvp_utils.client.skin.McbiServerGate.tick(client);
             com.pvp_utils.client.plugin.PluginManager.INSTANCE.tick(client);
             AutoChestDepositManager.tick(client);
