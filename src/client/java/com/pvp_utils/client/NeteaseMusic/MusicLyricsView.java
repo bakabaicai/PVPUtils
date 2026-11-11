@@ -1,7 +1,7 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -502,7 +502,7 @@ public final class MusicLyricsView implements AutoCloseable {
     }
 
     private void rebuildRows(List<LyricLine> lyrics) {
-        long fontRevision = SkijaUi.textFontRevision();
+        long fontRevision = ChromaDraw.textFontRevision();
         if (lyrics == cachedLyrics && Math.abs(cachedWidth - lyricsWidth) < 0.1f
                 && cachedTranslation == translationVisible && cachedFontRevision == fontRevision) return;
         cachedLyrics = lyrics;
@@ -705,7 +705,7 @@ public final class MusicLyricsView implements AutoCloseable {
     private static final class Fragment implements AutoCloseable {
         private final String value;
         private final int start;
-        private SkijaUi.PreparedText prepared;
+        private ChromaDraw.PreparedText prepared;
         private LyricWordTimeline timeline;
 
         private Fragment(String value, int start) {

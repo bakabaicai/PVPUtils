@@ -2,9 +2,9 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudAppearance;
-import com.pvp_utils.client.render.skia.SkijaUi;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import io.github.humbleui.skija.BlendMode;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ColorFilter;
@@ -45,7 +45,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
     private double minuteAngle;
     private double hourAngle;
     private Path dialPath;
-    private SkijaUi.PreparedText dateText;
+    private ChromaDraw.PreparedText dateText;
     private String preparedDate;
     private long preparedFontRevision = -1;
     private Image dateImage;
@@ -163,7 +163,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
         float opacity = (color >>> 24) / 255f;
         boolean blurred = Config.clockHudBlurBackground && opacity < 0.999f;
         if (blurred) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, screenDialPath(x, y, width, height),
+            ChromaGraphics.drawBlurredBackdrop(canvas, screenDialPath(x, y, width, height),
                     x, y, width, height, Math.clamp(Config.skiaBlurStrength, 0f, 2f) * 10.5f);
         }
         if (opacity <= 0f && !blurred) return;
@@ -182,7 +182,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
                                 shadowImage.getHeight() / (float) SHADOW_RASTER_SCALE),
                         SamplingMode.LINEAR, shadowPaint, true);
             }
-            if (opacity > 0f) SkijaUi.fillPath(canvas, path, color);
+            if (opacity > 0f) ChromaDraw.fillPath(canvas, path, color);
         } finally {
             canvas.restoreToCount(save);
         }
@@ -212,7 +212,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
         drawHand(canvas, centerX, centerY, minuteAngle, 37f, 10.5f, minuteColor);
         float dotX = centerX + (float) Math.sin(secondAngle) * 49f;
         float dotY = centerY - (float) Math.cos(secondAngle) * 49f;
-        SkijaUi.rounded(canvas, dotX - 4.5f, dotY - 4.5f, 9f, 9f, 4.5f, dotColor);
+        ChromaDraw.rounded(canvas, dotX - 4.5f, dotY - 4.5f, 9f, 9f, 4.5f, dotColor);
         int save = canvas.save();
         try {
             canvas.translate(centerX, centerY);
@@ -230,17 +230,17 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
 
     private static void drawHand(Canvas canvas, float x, float y, double angle,
                                  float length, float thickness, int color) {
-        SkijaUi.line(canvas, x, y, x + (float) Math.sin(angle) * length,
+        ChromaDraw.line(canvas, x, y, x + (float) Math.sin(angle) * length,
                 y - (float) Math.cos(angle) * length, thickness, color, PaintStrokeCap.ROUND);
     }
 
     private void prepareDate() {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (dateText != null && date.equals(preparedDate) && revision == preparedFontRevision) return;
         if (dateText != null) dateText.close();
         if (dateImage != null) dateImage.close();
         dateImage = null;
-        dateText = SkijaUi.prepareText(date, DATE_SIZE, false);
+        dateText = ChromaDraw.prepareText(date, DATE_SIZE, false);
         preparedDate = date;
         preparedFontRevision = revision;
     }
@@ -251,7 +251,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
         double scale = Math.max(Math.hypot(matrix[0], matrix[3]), Math.hypot(matrix[1], matrix[4]));
         int density = Math.clamp((int) Math.ceil(scale), 1, 12);
         if (dateImage != null && dateRasterScale == density) return;
-        float height = SkijaUi.textMetrics(DATE_SIZE).getDescent() - SkijaUi.textMetrics(DATE_SIZE).getAscent();
+        float height = ChromaDraw.textMetrics(DATE_SIZE).getDescent() - ChromaDraw.textMetrics(DATE_SIZE).getAscent();
         int pixelWidth = Math.max(1, (int) Math.ceil((dateText.width() + DATE_PADDING * 2f) * density));
         int pixelHeight = Math.max(1, (int) Math.ceil((height + DATE_PADDING * 2f) * density));
         Image generated;
@@ -289,7 +289,7 @@ public final class ClockHudRenderer extends SkiaTextHudRenderer implements AutoC
             raster.clear(0);
             raster.scale(SHADOW_RASTER_SCALE, SHADOW_RASTER_SCALE);
             raster.translate(SHADOW_PADDING, SHADOW_PADDING);
-            SoftShadow.drawPath(raster, dialPath(), strength, 0xB0000000);
+            ChromaShadow.drawPath(raster, dialPath(), strength, 0xB0000000);
             generated = surface.makeImageSnapshot();
         }
         if (shadowImage != null) shadowImage.close();

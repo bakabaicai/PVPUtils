@@ -8,14 +8,14 @@ import com.pvp_utils.client.gui.SettingsScreen;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.modules.impl.Render.NotificationOverlay;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import com.pvp_utils.client.render.MainUI.PVPUtilsMainUI;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.Matrix33;
 import io.github.humbleui.types.Rect;
 import io.github.humbleui.types.RRect;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import net.minecraft.resources.Identifier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -741,8 +741,8 @@ public final class PluginManager {
             float size = number(args, 1);
             if (size < 1 || size > 128) throw new IllegalArgumentException("Invalid font size");
             return args.length > 2
-                    ? SkijaUi.textWidthWithFallback(PluginRuntime.string(args, 0), size, PluginRuntime.string(args, 2))
-                    : SkijaUi.textWidthWithFallback(PluginRuntime.string(args, 0), size);
+                    ? ChromaDraw.textWidthWithFallback(PluginRuntime.string(args, 0), size, PluginRuntime.string(args, 2))
+                    : ChromaDraw.textWidthWithFallback(PluginRuntime.string(args, 0), size);
         }
 
         @Override
@@ -775,35 +775,35 @@ public final class PluginManager {
                     String text = PluginRuntime.string(args, 0);
                     float size = number(args, 3);
                     if (size < 1 || size > 128) throw new IllegalArgumentException("Invalid font size");
-                    float height = SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent();
+                    float height = ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent();
                     if (operation.equals("textShadow")) {
                         if (args.length > 5) {
-                            SkijaUi.textShadowWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size, PluginRuntime.string(args, 5));
+                            ChromaDraw.textShadowWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size, PluginRuntime.string(args, 5));
                         } else {
-                            SkijaUi.textShadowWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size);
+                            ChromaDraw.textShadowWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size);
                         }
                     } else {
                         if (args.length > 5) {
-                            SkijaUi.textWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size, PluginRuntime.string(args, 5));
+                            ChromaDraw.textWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size, PluginRuntime.string(args, 5));
                         } else {
-                            SkijaUi.textWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size);
+                            ChromaDraw.textWithFallback(currentCanvas, text, number(args, 1), number(args, 2), height, color(args, 4), size);
                         }
                     }
                 }
-                case "rect" -> SkijaUi.fill(currentCanvas, number(args, 0), number(args, 1),
+                case "rect" -> ChromaDraw.fill(currentCanvas, number(args, 0), number(args, 1),
                         number(args, 2), number(args, 3), color(args, 4));
-                case "roundedRect" -> SkijaUi.rounded(currentCanvas, number(args, 0), number(args, 1),
+                case "roundedRect" -> ChromaDraw.rounded(currentCanvas, number(args, 0), number(args, 1),
                         number(args, 2), number(args, 3), number(args, 4), color(args, 5));
-                case "line" -> SkijaUi.line(currentCanvas, number(args, 0), number(args, 1),
+                case "line" -> ChromaDraw.line(currentCanvas, number(args, 0), number(args, 1),
                         number(args, 2), number(args, 3), number(args, 4), color(args, 5));
-                case "outline" -> SkijaUi.outline(currentCanvas, number(args, 0), number(args, 1), size(args, 2),
+                case "outline" -> ChromaDraw.outline(currentCanvas, number(args, 0), number(args, 1), size(args, 2),
                         size(args, 3), size(args, 4), size(args, 5), color(args, 6));
-                case "gradient" -> SkijaUi.gradient(currentCanvas, number(args, 0), number(args, 1),
+                case "gradient" -> ChromaDraw.gradient(currentCanvas, number(args, 0), number(args, 1),
                         size(args, 2), size(args, 3), color(args, 4), color(args, 5),
                         args.length > 6 && Context.toBoolean(args[6]), args.length > 7 ? size(args, 7) : 0);
-                case "gradientDiagonal" -> SkijaUi.gradientDiagonal(currentCanvas, number(args, 0), number(args, 1),
+                case "gradientDiagonal" -> ChromaDraw.gradientDiagonal(currentCanvas, number(args, 0), number(args, 1),
                         size(args, 2), size(args, 3), color(args, 4), color(args, 5), args.length > 6 ? size(args, 6) : 0);
-                case "shadow" -> SkijaUi.dropShadowRounded(currentCanvas, number(args, 0), number(args, 1),
+                case "shadow" -> ChromaDraw.dropShadowRounded(currentCanvas, number(args, 0), number(args, 1),
                         size(args, 2), size(args, 3), size(args, 4), number(args, 5), effect(args, 6), color(args, 7));
                 case "save" -> currentCanvas.save();
                 case "restore" -> currentCanvas.restore();
@@ -815,7 +815,7 @@ public final class PluginManager {
                 case "clipRounded" -> currentCanvas.clipRRect(RRect.makeXYWH(number(args, 0), number(args, 1), size(args, 2), size(args, 3), size(args, 4)), true);
                 case "blur" -> {
                     float x = number(args, 0), y = number(args, 1), w = size(args, 2), h = size(args, 3);
-                    SkijaRenderer.drawBlurredBackdrop(currentCanvas, RRect.makeXYWH(x, y, w, h, size(args, 4)), x, y, w, h, effect(args, 5));
+                    ChromaGraphics.drawBlurredBackdrop(currentCanvas, RRect.makeXYWH(x, y, w, h, size(args, 4)), x, y, w, h, effect(args, 5));
                 }
                 case "circle" -> {
                     try (Paint paint = new Paint().setAntiAlias(true).setColor(color(args, 3))) {
@@ -827,13 +827,13 @@ public final class PluginManager {
                     if (fontSize < 1 || fontSize > 128) throw new IllegalArgumentException("Invalid icon size");
                     String set = args.length > 5 ? PluginRuntime.string(args, 5) : "material";
                     if (!set.equals("material") && !set.equals("pvp")) throw new IllegalArgumentException("Unknown icon set");
-                    SkijaUi.icon(currentCanvas, PluginRuntime.string(args, 0), number(args, 1), number(args, 2),
+                    ChromaDraw.icon(currentCanvas, PluginRuntime.string(args, 0), number(args, 1), number(args, 2),
                             fontSize, color(args, 4), fontSize,
-                            set.equals("pvp") ? SkijaUi.IconSet.PVP_CONTROLS : SkijaUi.IconSet.MATERIAL_SYMBOLS);
+                            set.equals("pvp") ? ChromaDraw.IconSet.PVP_CONTROLS : ChromaDraw.IconSet.MATERIAL_SYMBOLS);
                 }
                 case "texture" -> {
                     Identifier resource = Identifier.parse(PluginRuntime.string(args, 0));
-                    try (SkijaRenderer.BorrowedImage borrowed = SkijaRenderer.borrowTexture(resource)) {
+                    try (ChromaGraphics.BorrowedImage borrowed = ChromaGraphics.borrowTexture(resource)) {
                         if (borrowed != null) currentCanvas.drawImageRect(borrowed.image(),
                                 Rect.makeXYWH(number(args, 1), number(args, 2), size(args, 3), size(args, 4)));
                     }
@@ -841,11 +841,11 @@ public final class PluginManager {
                 case "button" -> {
                     float x = number(args, 1), y = number(args, 2), w = size(args, 3), h = size(args, 4);
                     boolean enabled = Context.toBoolean(args[5]), hover = Context.toBoolean(args[6]);
-                    SkijaUi.rounded(currentCanvas, x, y, w, h, 7, !enabled ? 0xFF303540 : hover ? 0xFF4C6FFF : 0xFF3451D6);
+                    ChromaDraw.rounded(currentCanvas, x, y, w, h, 7, !enabled ? 0xFF303540 : hover ? 0xFF4C6FFF : 0xFF3451D6);
                     String text = PluginRuntime.string(args, 0);
                     float fs = Math.max(1, Math.min(13, h * 0.5f));
-                    SkijaUi.textWithFallback(currentCanvas, text,
-                            x + (w - SkijaUi.textWidthWithFallback(text, fs)) / 2, y, h,
+                    ChromaDraw.textWithFallback(currentCanvas, text,
+                            x + (w - ChromaDraw.textWidthWithFallback(text, fs)) / 2, y, h,
                             enabled ? 0xFFFFFFFF : 0xFF9298A4, fs);
                 }
                 default -> throw new IllegalArgumentException("Unknown draw operation");

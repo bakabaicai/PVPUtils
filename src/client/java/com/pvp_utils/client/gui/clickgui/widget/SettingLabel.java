@@ -1,7 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 
@@ -53,7 +53,7 @@ public final class SettingLabel extends SettingWidget {
         try {
             canvas.clipRect(Rect.makeXYWH(x, y, width, height));
             for (int index = 0; index < lines.length; index++) {
-                SkijaUi.text(canvas, lines[index], x, top + index * LINE_HEIGHT,
+                ChromaDraw.text(canvas, lines[index], x, top + index * LINE_HEIGHT,
                         LINE_HEIGHT, color, TEXT_SIZE);
             }
         } finally {
@@ -64,7 +64,7 @@ public final class SettingLabel extends SettingWidget {
     private void refreshLayout() {
         String value = text.get();
         if (value == null) value = "";
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (value.equals(cachedText) && revision == cachedFontRevision) return;
         ArrayList<String> wrapped = new ArrayList<>();
         for (String paragraph : value.split("\\r\\n|\\r|\\n", -1)) {
@@ -77,7 +77,7 @@ public final class SettingLabel extends SettingWidget {
                 int end = start;
                 while (end < paragraph.length()) {
                     int next = paragraph.offsetByCodePoints(end, 1);
-                    if (end > start && SkijaUi.textWidth(paragraph.substring(start, next), TEXT_SIZE) > width) break;
+                    if (end > start && ChromaDraw.textWidth(paragraph.substring(start, next), TEXT_SIZE) > width) break;
                     end = next;
                 }
                 wrapped.add(paragraph.substring(start, end));

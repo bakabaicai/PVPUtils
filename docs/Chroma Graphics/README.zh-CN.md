@@ -6,7 +6,7 @@
 
 Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、文字与图标、背景模糊及世界空间图形接口。框架统一管理常规二维绘制的 Skia 上下文、帧缓冲包装、绘制时序和 OpenGL 状态恢复。本文说明当前实现的接口、坐标空间、调用约束、资源生命周期与性能使用方法。当前后端接入 Minecraft，依赖如下。
 
-Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、`SkijaUi` 等名称；不存在名为 `ChromaGraphics` 的统一入口类。
+通用接口统一位于 `com.pvp_utils.client.render.chroma` 及其子包。`ChromaGraphics` 管理二维绘制通道与提交，`ChromaDraw` 提供图形和文字接口，`ChromaWorld` 提供世界绘制接口。
 
 | 项目 | 当前实现 |
 | --- | --- |
@@ -16,7 +16,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 | 几何类型 | HumbleUI Types 0.2.0 |
 | 当前打包的本地后端 | Windows x64 |
 | 常规二维渲染 | Skija、OpenGL、GUI 逻辑坐标 |
-| 三维渲染 | `WorldRender` 封装 Minecraft Gizmos |
+| 三维渲染 | `ChromaWorld` 封装 Minecraft Gizmos |
 
 框架提供绘制能力，不自动完成组件注册、布局、输入命中、文本换行、异步任务调度或业务缓存。底层画布适配 GUI 缩放，不等于界面布局自动适配所有分辨率。
 
@@ -24,25 +24,35 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 | 模块 | 职责 | 使用范围 |
 | --- | --- | --- |
-| `SkijaScreen` | 屏幕的二维绘制入口 | 自定义 `Screen` |
-| `SkijaOverlay` | 加载叠加层的二维绘制入口及资源生命周期 | 自定义 `Overlay` |
-| `SkijaRenderer` | 活动画布、主目标与叠加队列、纹理借用、背景模糊 | 功能代码使用指定入口；帧调度由框架维护 |
-| `SkijaUi` | 图形、文字、图标、共享字体及预备文本 | 常规 UI/HUD 首选 |
-| `SkijaFrameRenderer` | HUD、屏幕、加载叠加层和队列的帧级调度 | 框架内部 |
-| `SkijaBackdrop` | 背景采样、GL 状态保存与恢复 | 包内实现 |
-| `WorldRender` | 世界空间图形及世界坐标投影 | 三维功能模块 |
+| `ChromaScreen` | 屏幕的二维绘制入口 | 自定义 `Screen` |
+| `ChromaOverlay` | 加载叠加层的二维绘制入口及资源生命周期 | 自定义 `Overlay` |
+| `ChromaGraphics` | 活动画布、主目标与叠加队列、纹理借用、背景模糊 | 功能代码使用指定入口；帧调度由框架维护 |
+| `ChromaDraw` | 图形、文字、图标、共享字体及预备文本 | 常规 UI/HUD 首选 |
+| `ChromaFrameRenderer` | HUD、屏幕、加载叠加层和队列的帧级调度 | 框架内部 |
+| `ChromaBackdrop` | 背景采样、GL 状态保存与恢复 | 包内实现 |
+| `ChromaWorld` | 世界空间图形及世界坐标投影 | 三维功能模块 |
 
 常规二维绘制复用一个受管理的 Skia 上下文。三维图形走 Minecraft Gizmos，不经过二维 Canvas。
+
+### 1.2 包结构
+
+| 包 | 内容 |
+| --- | --- |
+| `com.pvp_utils.client.render.chroma` | 二维提交、屏幕与叠加层契约、图形与文字接口、帧调度及背景采样 |
+| `com.pvp_utils.client.render.chroma.effects` | 阴影、内容过渡、轮廓分离与状态图标 |
+| `com.pvp_utils.client.render.chroma.world` | 世界几何、坐标投影、绘制注册与粒子集合 |
+
+文件位置与职责见第 8 节。方法的调用约束、坐标空间与资源所有权由各接口章节说明。
 
 ## 2. 绘制时序与接入方式
 
 ### 2.1 当前帧的执行顺序
 
-1. `MinecraftMixin` 在 `Minecraft.runTick` 开始时调用 `SkijaRenderer.beginFrame()`，清空两条提交队列。
+1. `MinecraftMixin` 在 `Minecraft.runTick` 开始时调用 `ChromaGraphics.beginFrame()`，清空两条提交队列。
 2. Minecraft 收集 GUI 绘制内容。此期间在活动 Skia 画布之外调用 `draw()`，会进入主目标队列。
 3. `GameRendererMixin` 在 `GuiRenderer.render(GpuBufferSlice)` 之前调用 `renderMainSubmitted()`，将主目标队列绘制到 Minecraft 主颜色目标。
-4. Minecraft 将主目标 `blitToScreen()` 后，`SkijaFrameRenderer.render()` 开始叠加绘制。窗口最小化时跳过；存在加载叠加层时，仅处理已启用的 `SkijaOverlay`。
-5. 无加载叠加层时，叠加通道依次执行宿主接入的 HUD 绘制、当前 `SkijaScreen`、`submit()` 队列和宿主的末尾叠加绘制。有已启用的 `SkijaOverlay` 时，按其显示策略绘制后方屏幕与队列，最后绘制该叠加层，不调度常规 HUD。
+4. Minecraft 将主目标 `blitToScreen()` 后，`ChromaFrameRenderer.render()` 开始叠加绘制。窗口最小化时跳过；存在加载叠加层时，仅处理已启用的 `ChromaOverlay`。
+5. 无加载叠加层时，叠加通道依次执行宿主接入的 HUD 绘制、当前 `ChromaScreen`、`submit()` 队列和宿主的末尾叠加绘制。有已启用的 `ChromaOverlay` 时，按其显示策略绘制后方屏幕与队列，最后绘制该叠加层，不调度常规 HUD。
 6. 通道结束时提交 Skia 命令并恢复外部 GL 状态。
 
 主目标通道使用包装 Minecraft 主颜色纹理的 FBO；叠加通道使用默认帧缓冲 FBO 0。通道开始时完成尺寸检查、Surface 复用或重建、GL 状态同步及 GUI 坐标缩放。
@@ -53,27 +63,27 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 | 场景 | 标准方式 |
 | --- | --- |
-| 新建完整 Skia 屏幕 | `Screen implements SkijaScreen`，在 `renderSkija(Canvas)` 中直接绘制 |
-| 新建 Skia 加载叠加层 | `Overlay implements SkijaOverlay`，在常规 `render(...)` 中收集帧状态，在 `renderSkija(Canvas)` 中绘制 |
-| 已持有框架提供的 Canvas | 直接调用 `SkijaUi`、`PreparedText` 或必要的 Skija Canvas 方法 |
-| 将局部绘制封装为回调 | `SkijaRenderer.draw(painter)`；活动通道内立即执行并保护 Canvas 状态 |
+| 新建完整 Skia 屏幕 | `Screen implements ChromaScreen`，在 `renderChroma(Canvas)` 中直接绘制 |
+| 新建 Skia 加载叠加层 | `Overlay implements ChromaOverlay`，在常规 `render(...)` 中收集帧状态，在 `renderChroma(Canvas)` 中绘制 |
+| 已持有框架提供的 Canvas | 直接调用 `ChromaDraw`、`PreparedText` 或必要的 Skija Canvas 方法 |
+| 将局部绘制封装为回调 | `ChromaGraphics.draw(painter)`；活动通道内立即执行并保护 Canvas 状态 |
 | 在 GUI 收集阶段绘制主目标内容 | 在主目标队列消费前调用 `draw(painter)` |
-| 从已有的当前帧 HUD 收集入口提交叠加内容 | `SkijaRenderer.submit(painter)`，在叠加队列消费前提交 |
-| 世界空间线框或标记 | 在现有世界渲染 Gizmos 收集阶段调用 `WorldRender` |
+| 从已有的当前帧 HUD 收集入口提交叠加内容 | `ChromaGraphics.submit(painter)`，在叠加队列消费前提交 |
+| 世界空间线框或标记 | 在现有世界渲染 Gizmos 收集阶段调用 `ChromaWorld` |
 
 `draw()` 与 `submit()` 不能互换：前者没有活动 Canvas 时进入主目标队列，后者始终进入叠加队列。叠加队列在屏幕之后绘制；不应覆盖菜单的 HUD 必须自行检查 `client.screen` 等显示条件。
 
 队列仅服务当前帧，不是持久任务队列，也不具备线程安全保证。不得从网络线程提交 Canvas 操作，不得在队列消费过程中继续入队并依赖下一帧执行。异步工作只发布数据；客户端线程在正确阶段读取数据并提交绘制。
 
-同一内容只能接入一个绘制入口。已由 `SkijaFrameRenderer` 调用的屏幕或 HUD，不应再额外提交相同内容。实现 HUD 类本身不会自动注册到帧调度器。
+同一内容只能接入一个绘制入口。已由 `ChromaFrameRenderer` 调用的屏幕或 HUD，不应再额外提交相同内容。实现 HUD 类本身不会自动注册到帧调度器。
 
 ### 2.3 加载叠加层
 
-`SkijaOverlay` 复用现有叠加通道，不创建独立上下文。`isSkijaOverlayActive()` 默认返回 `true`；返回 `false` 时，框架保留该叠加层的原版绘制行为。常规 `render(...)` 每帧只更新一次布局和动画状态，`renderSkija(...)` 消费同一份状态。
+`ChromaOverlay` 复用现有叠加通道，不创建独立上下文。`isChromaOverlayActive()` 默认返回 `true`；返回 `false` 时，框架保留该叠加层的原版绘制行为。常规 `render(...)` 每帧只更新一次布局和动画状态，`renderChroma(...)` 消费同一份状态。
 
 `rendersScreenBehind()` 默认返回 `false`。返回 `true` 时，叠加层的常规 `render(...)` 必须先调用后方屏幕的原版绘制入口；框架随后依次绘制该屏幕的 Skia 部分、`submit()` 队列和叠加层。仅在这个分支消费叠加队列，常规 HUD 不参与加载叠加层通道。全屏渐隐应由最后绘制的叠加层覆盖后方内容，避免混合原版控件与 Skia 内容时产生时序差异。
 
-调用 `Minecraft.setOverlay(...)` 替换实例时，框架关闭前一个 `SkijaOverlay`；客户端渲染器关闭时也关闭仍在使用的实例。实现方在 `close()` 中释放自己持有的文字、路径、图像及滤镜，保持重复关闭安全。原版 `Overlay` 没有屏幕的 `removed()` 生命周期，不能依赖该方法释放叠加层资源。
+调用 `Minecraft.setOverlay(...)` 替换实例时，框架关闭前一个 `ChromaOverlay`；客户端渲染器关闭时也关闭仍在使用的实例。实现方在 `close()` 中释放自己持有的文字、路径、图像及滤镜，保持重复关闭安全。原版 `Overlay` 没有屏幕的 `removed()` 生命周期，不能依赖该方法释放叠加层资源。
 
 ## 3. 接口列表
 
@@ -83,22 +93,22 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 | 接口 | 行为与约束 |
 | --- | --- |
-| `SkijaScreen.renderSkija(Canvas)` | 当前屏幕的实际 Skia 绘制；Canvas 由框架借出 |
-| `SkijaOverlay.renderSkija(Canvas)` | 加载叠加层的实际 Skia 绘制；继承 `SkijaScreen`，使用同一共享 Canvas |
-| `SkijaOverlay.isSkijaOverlayActive(): boolean` | 是否启用该实例的 Skia 叠加绘制；默认 `true` |
-| `SkijaOverlay.rendersScreenBehind(): boolean` | 是否先绘制后方屏幕及提交队列；默认 `false` |
-| `SkijaOverlay.close()` | 释放该实例所属资源；由叠加层替换与客户端关闭触发 |
-| `SkijaRenderer.draw(Consumer<Canvas>)` | 活动画布内立即绘制；否则加入主目标队列 |
-| `SkijaRenderer.submit(Consumer<Canvas>)` | 加入当前帧叠加队列 |
-| `SkijaRenderer.isDrawing(): boolean` | 是否存在活动的共享画布 |
-| `SkijaRenderer.hasFailed(): boolean` | 共享渲染器是否已因错误禁用 |
+| `ChromaScreen.renderChroma(Canvas)` | 当前屏幕的实际 Skia 绘制；Canvas 由框架借出 |
+| `ChromaOverlay.renderChroma(Canvas)` | 加载叠加层的实际 Skia 绘制；继承 `ChromaScreen`，使用同一共享 Canvas |
+| `ChromaOverlay.isChromaOverlayActive(): boolean` | 是否启用该实例的 Skia 叠加绘制；默认 `true` |
+| `ChromaOverlay.rendersScreenBehind(): boolean` | 是否先绘制后方屏幕及提交队列；默认 `false` |
+| `ChromaOverlay.close()` | 释放该实例所属资源；由叠加层替换与客户端关闭触发 |
+| `ChromaGraphics.draw(Consumer<Canvas>)` | 活动画布内立即绘制；否则加入主目标队列 |
+| `ChromaGraphics.submit(Consumer<Canvas>)` | 加入当前帧叠加队列 |
+| `ChromaGraphics.isDrawing(): boolean` | 是否存在活动的共享画布 |
+| `ChromaGraphics.hasFailed(): boolean` | 共享渲染器是否已因错误禁用 |
 | `drawBlurredBackdrop(Canvas, RRect, x, y, width, height, strength)` | 按屏幕 GUI 坐标采样，圆角矩形裁剪 |
 | `drawBlurredBackdrop(Canvas, io.github.humbleui.skija.Path, x, y, width, height, strength)` | 按屏幕 GUI 坐标采样，路径裁剪 |
 | `borrowTexture(Identifier): BorrowedImage` | 借用 Minecraft GL 纹理，可能返回 `null` |
 | `BorrowedImage.image(): Image` | 获取借用包装中的 Skia 图像 |
 | `BorrowedImage.close()` | 释放包装，不销毁 Minecraft 拥有的纹理 |
 
-### 3.2 图形与效果：SkijaUi
+### 3.2 图形与效果：ChromaDraw
 
 | 接口 | 用途 |
 | --- | --- |
@@ -119,7 +129,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 线段与路径描边复用共享 Paint，线宽至少为 0.1，调用结束后恢复填充模式、默认线宽、端点与连接状态。
 
-### 3.3 文字与图标：SkijaUi
+### 3.3 文字与图标：ChromaDraw
 
 | 接口 | 用途 |
 | --- | --- |
@@ -145,7 +155,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 省略字号的重载使用 9。普通 `text` 与 `boldText` 已接入共享字体回退，不需要为中文另建渲染器。`IconSet` 支持 `PVP_CONTROLS` 和 `MATERIAL_SYMBOLS`。
 
-### 3.4 字体管理：SkijaUi
+### 3.4 字体管理：ChromaDraw
 
 | 接口 | 用途 |
 | --- | --- |
@@ -168,7 +178,7 @@ Chroma Graphics 是系统名称，当前 Java 类型仍使用 `SkijaRenderer`、
 
 Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont()` 选择字重，预备文本和字体度量应在同一字体覆盖范围内计算。生成的 `PreparedText` 已保存所选字体的字形，后续绘制无需再次切换字体。内置 Typeface 与 Font 由框架管理，调用方仅释放自己持有的预备文本。
 
-### 3.5 世界绘制：WorldRender
+### 3.5 世界绘制：ChromaWorld
 
 所有位置均为世界坐标。绘制在 Minecraft Gizmos 收集区间内提交，填充与线条由宿主批量处理；`throughWalls=false` 保留深度遮挡，`true` 使用始终置顶绘制。
 
@@ -198,13 +208,13 @@ Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont
 | `Registration.close()` | 注销回调；可重复调用 |
 | `capture(Camera, Matrix4fc modelView, Matrix4fc projection)`、`renderRegistered(float partialTick)` | 框架内部的视图捕获和回调调度 |
 
-注册回调由 `WorldRenderLevelRendererMixin` 在 `collectPerFrameGizmos()` 区间内调用。回调内可以直接提交上述图形；不得从二维叠加或网络线程调用。回调抛出运行时异常时记录错误并注销，避免每帧重复失败。调用方在停用或销毁时关闭注册句柄，避免持有失效对象。点尺寸和线宽遵循 Gizmos 的屏幕尺寸约定；圆、球体与广告牌尺寸使用世界单位。
+注册回调由 `ChromaWorldMixin` 在 `collectPerFrameGizmos()` 区间内调用。回调内可以直接提交上述图形；不得从二维叠加或网络线程调用。回调抛出运行时异常时记录错误并注销，避免每帧重复失败。调用方在停用或销毁时关闭注册句柄，避免持有失效对象。点尺寸和线宽遵循 Gizmos 的屏幕尺寸约定；圆、球体与广告牌尺寸使用世界单位。
 
-`WorldParticles` 提供调用方所属的有限粒子集合：
+`ChromaParticles` 提供调用方所属的有限粒子集合：
 
 | 接口 | 行为与约束 |
 | --- | --- |
-| `WorldParticles(int capacity)` | 容量为 1–4096；超出容量时淘汰最早粒子 |
+| `ChromaParticles(int capacity)` | 容量为 1–4096；超出容量时淘汰最早粒子 |
 | `emit(Vec3 position, Vec3 velocity, Spec): boolean` | 添加粒子；速度为世界单位/秒 |
 | `Spec(lifetime, size, int color, ParticleShape, gravity, drag, angularVelocity, boolean throughWalls)` | 生命周期为秒，尺寸为世界单位，重力为世界单位/秒²，阻尼为每秒系数，角速度为弧度/秒 |
 | `update(float seconds)` | 推进一次模拟，保存前后位置供插值；不在绘制时自动推进 |
@@ -220,10 +230,10 @@ Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont
 
 | 类 | 接口组 |
 | --- | --- |
-| `SkijaFrameRenderer` | `render()`、`close()` |
-| `SkijaRenderer` | `beginFrame()`、`renderMainSubmitted()`、`renderSubmitted()` |
-| `SkijaRenderer` | `renderOverlay(Consumer<Canvas>)`、`renderMainTarget(Consumer<Canvas>)` |
-| `SkijaRenderer` | `close()` |
+| `ChromaFrameRenderer` | `render()`、`close()` |
+| `ChromaGraphics` | `beginFrame()`、`renderMainSubmitted()`、`renderSubmitted()` |
+| `ChromaGraphics` | `renderOverlay(Consumer<Canvas>)`、`renderMainTarget(Consumer<Canvas>)` |
+| `ChromaGraphics` | `close()` |
 
 `renderMainTarget()` 在共享画布已活动时复用当前通道，不强制切换目标。常规组件不得创建新的 `DirectContext`。
 
@@ -233,27 +243,27 @@ Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont
 
 | 接口 | 行为与约束 |
 | --- | --- |
-| `SoftShadow.drawRounded(Canvas, x, y, width, height, radius, strength, color)` | 绘制圆角轮廓外侧的均匀柔和阴影；`strength` 为 0–1，0 跳过绘制 |
-| `SoftShadow.drawPath(Canvas, Path, strength, color)` | 使用同一个填充路径生成外围阴影；不修改或关闭传入路径 |
-| `ContentTransition.draw(Canvas, Rect bounds, visibility, offsetY, Runnable drawing)` | 非稳态时在 `bounds` 内叠加渐显渐隐与等向模糊；`visibility` 为 0–1，`offsetY` 为可选的显式纵向位移 |
-| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, progress): Geometry` | 构建主圆角面板及右侧圆球的共用填充路径；进度 0 仅含主面板，1 为具有指定间隙的分体 |
+| `ChromaShadow.drawRounded(Canvas, x, y, width, height, radius, strength, color)` | 绘制圆角轮廓外侧的均匀柔和阴影；`strength` 为 0–1，0 跳过绘制 |
+| `ChromaShadow.drawPath(Canvas, Path, strength, color)` | 使用同一个填充路径生成外围阴影；不修改或关闭传入路径 |
+| `ChromaTransition.draw(Canvas, Rect bounds, visibility, offsetY, Runnable drawing)` | 非稳态时在 `bounds` 内叠加渐显渐隐与等向模糊；`visibility` 为 0–1，`offsetY` 为可选的显式纵向位移 |
+| `ChromaSeparation.create(x, y, width, height, radius, satelliteRadius, gap, progress): Geometry` | 构建主圆角面板及右侧圆球的共用填充路径；进度 0 仅含主面板，1 为具有指定间隙的分体 |
 | 上述接口末尾增加 `boolean alignTop` | 默认重载使圆球垂直居中；`true` 将球心锚定在 `y + max(cornerRadius, satelliteRadius)`，主面板增高时分体保持靠上排列 |
-| `LiquidSeparation.create(x, y, width, height, radius, satelliteRadius, gap, leftProgress, rightProgress, alignTop): Geometry` | 两侧圆球按独立进度分离，合并为同一个填充路径；原单进度重载等价于 `leftProgress=0` |
-| `LiquidSeparation.Geometry.path(): Path`、`bounds(): Rect` | 返回当前形变的路径及紧致外框，可用于同一帧的填充、背景裁剪、阴影及输入范围 |
+| `ChromaSeparation.create(x, y, width, height, radius, satelliteRadius, gap, leftProgress, rightProgress, alignTop): Geometry` | 两侧圆球按独立进度分离，合并为同一个填充路径；原单进度重载等价于 `leftProgress=0` |
+| `ChromaSeparation.Geometry.path(): Path`、`bounds(): Rect` | 返回当前形变的路径及紧致外框，可用于同一帧的填充、背景裁剪、阴影及输入范围 |
 | `Geometry.satelliteCenterX()`、`satelliteCenterY()`、`satelliteRadius()` | 返回右侧圆球的当前几何；右侧进度 0 时可见半径为 0 |
 | `Geometry.leftSatelliteCenterX()`、`leftSatelliteCenterY()`、`leftSatelliteRadius()` | 返回左侧圆球的当前几何；左侧进度 0 时可见半径为 0 |
 | `Geometry.close()` | 释放所属 Path，可重复关闭；不得单独关闭其借出的 `path()` |
-| `AnimatedStatusIcon.draw(Canvas, success, x, y, size, progress, color)` | 按路径长度绘制成功对勾，或按错开的进度区间绘制失败叉号的两条线段，使用圆端点及圆转角 |
+| `ChromaStatusIcon.draw(Canvas, success, x, y, size, progress, color)` | 按路径长度绘制成功对勾，或按错开的进度区间绘制失败叉号的两条线段，使用圆端点及圆转角 |
 
 阴影应在面板内容和面板内部裁剪之前绘制。其强度同时影响颜色透明度与模糊宽度，颜色为 ARGB；阴影不会覆盖轮廓内部，也不产生包边。形变中应对完整路径调用一次阴影和一次填充，避免在黏附区域反复混合半透明颜色。
 
-`ContentTransition` 只在过渡期建立局部图层，并在退出调用前释放 Paint 和滤镜、恢复 Canvas。透明度与 `visibility` 成正比；模糊在两个方向使用相同强度，随显现减弱，不根据位移添加纵向拖影。`visibility` 接近 1 且位移为 0 时直接调用绘制函数；此时不建立额外裁剪，稳态内容的裁剪仍由调用方负责。传入的 `bounds` 是过渡期的硬裁剪范围，应包含显式位移所需的空间。不要用全屏矩形包装单行文字，不要从绘制函数再次提交队列。过渡期间保持字号固定。
+`ChromaTransition` 只在过渡期建立局部图层，并在退出调用前释放 Paint 和滤镜、恢复 Canvas。透明度与 `visibility` 成正比；模糊在两个方向使用相同强度，随显现减弱，不根据位移添加纵向拖影。`visibility` 接近 1 且位移为 0 时直接调用绘制函数；此时不建立额外裁剪，稳态内容的裁剪仍由调用方负责。传入的 `bounds` 是过渡期的硬裁剪范围，应包含显式位移所需的空间。不要用全屏矩形包装单行文字，不要从绘制函数再次提交队列。过渡期间保持字号固定。
 
 `offsetY=0f` 表示在原位渐显渐隐并叠加模糊；非零值只对本次回调施加纵向位移。显隐、位移及其动画曲线由调用方提供，接口不管理内容切换或计时。
 
 液体分离的主路径、两侧圆球和黏附桥采用相同绕向的非零填充，一次绘制即可得到合并轮廓；双侧模式不得分别调用两次填充、背景采样或阴影。桥在分离后段逐渐收细并断开。实际圆球半径限制在主面板高度的一半以内；右球心从面板内部移动到 `x + width + gap + satelliteRadius`，左球心移动到 `x - gap - satelliteRadius`。公式中的 `gap` 和 `satelliteRadius` 指经参数限制后的值：间隙不小于 0，圆球半径不超过面板高度的一半。上沿对齐使用经过尺寸限制后的圆角与圆球半径，零半径时不添加圆球或黏附桥。`bounds()` 包含两侧的实际扩展，布局和输入范围应读取同一份几何。`Geometry` 由创建它的组件拥有，在本帧用完或几何失效时关闭；相同参数下允许组件自行复用，框架没有全局几何或图像缓存。
 
-动画进度由调用方每帧计算一次，并在同一帧的各次绘制中复用。`AnimatedStatusIcon` 仅依据传入的进度绘制，不保存动画状态。
+动画进度由调用方每帧计算一次，并在同一帧的各次绘制中复用。`ChromaStatusIcon` 仅依据传入的进度绘制，不保存动画状态。
 
 ## 4. 坐标、动画与资源约定
 
@@ -292,7 +302,7 @@ Minecraft 返回既有 Screen 实例时，`added()` 会执行，但受保护的 
 | 资源 | 责任 |
 | --- | --- |
 | 框架提供的 `Canvas` | 借用，不关闭，不跨帧保存，不传给工作线程 |
-| `SkijaUi` 内部 Font、Typeface、Paint | 共享资源；功能模块不关闭 |
+| `ChromaDraw` 内部 Font、Typeface、Paint | 共享资源；功能模块不关闭 |
 | 功能创建的 `PreparedText`、Paint、Path、Image、Surface、滤镜等 | 功能持有并在失效、替换、关闭时释放 |
 | `BorrowedImage` | 在活动 Skia 回调中借用并用 try-with-resources 关闭包装 |
 | Minecraft 纹理 | 由 Minecraft 纹理系统管理，不由借用者销毁 |
@@ -306,22 +316,22 @@ Minecraft 返回既有 Screen 实例时，`added()` 会执行，但受保护的 
 
 ### 5.1 自适应屏幕与可复用文字
 
-在 `render()` 收集当前尺寸，在 `renderSkija()` 绘制。关闭时释放标题，返回同一实例后自动重建。该示例完全自行绘制背景，因此覆盖默认背景入口；混合原版控件的页面需要另行设计叠加顺序，避免覆盖原版控件。
+在 `render()` 收集当前尺寸，在 `renderChroma()` 绘制。关闭时释放标题，返回同一实例后自动重建。该示例完全自行绘制背景，因此覆盖默认背景入口；混合原版控件的页面需要另行设计叠加顺序，避免覆盖原版控件。
 
 ```java
-package com.pvp_utils.client.render.examples;
+package com.pvp_utils.client.render.chroma.examples;
 
-import com.pvp_utils.client.render.skia.SkijaScreen;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-public final class ChromaExampleScreen extends Screen implements SkijaScreen {
+public final class ChromaExampleScreen extends Screen implements ChromaScreen {
     private Frame frame;
-    private SkijaUi.PreparedText heading;
+    private ChromaDraw.PreparedText heading;
     private long fontRevision = -1;
 
     public ChromaExampleScreen() {
@@ -346,18 +356,18 @@ public final class ChromaExampleScreen extends Screen implements SkijaScreen {
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         Frame current = frame;
         if (current == null) return;
-        SkijaUi.fill(canvas, 0f, 0f, current.screenWidth(), current.screenHeight(), 0xFF11151D);
+        ChromaDraw.fill(canvas, 0f, 0f, current.screenWidth(), current.screenHeight(), 0xFF11151D);
         if (current.width() <= 0f || current.height() <= 0f) return;
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (heading == null || fontRevision != revision) {
             if (heading != null) heading.close();
-            heading = SkijaUi.prepareText("Chroma Graphics", 18f, true);
+            heading = ChromaDraw.prepareText("Chroma Graphics", 18f, true);
             fontRevision = revision;
         }
-        SkijaUi.rounded(canvas, current.x(), current.y(),
+        ChromaDraw.rounded(canvas, current.x(), current.y(),
                 current.width(), current.height(), 12f, 0xFF202835);
         int save = canvas.save();
         try {
@@ -387,15 +397,15 @@ public final class ChromaExampleScreen extends Screen implements SkijaScreen {
 持有一个 `ChromaHudLabel` 实例，从现有客户端 HUD 收集入口每帧调用一次 `submit(...)`，调用时机必须位于帧开始之后、叠加队列消费之前。关闭模块时停止提交，再调用 `close()`。该示例只缓存当前文字，不随位置变化重建，也不在菜单上方显示。
 
 ```java
-package com.pvp_utils.client.render.examples;
+package com.pvp_utils.client.render.chroma.examples;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.Minecraft;
 
 public final class ChromaHudLabel implements AutoCloseable {
-    private SkijaUi.PreparedText label;
+    private ChromaDraw.PreparedText label;
     private String cachedValue;
     private long fontRevision = -1;
 
@@ -403,18 +413,18 @@ public final class ChromaHudLabel implements AutoCloseable {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.options.hideGui || client.screen != null) return;
         LabelFrame frame = new LabelFrame(value == null ? "" : value, x, y);
-        SkijaRenderer.submit(canvas -> draw(canvas, frame));
+        ChromaGraphics.submit(canvas -> draw(canvas, frame));
     }
 
     private void draw(Canvas canvas, LabelFrame frame) {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (label == null || !frame.value().equals(cachedValue) || fontRevision != revision) {
             if (label != null) label.close();
-            label = SkijaUi.prepareText(frame.value(), 12f, false);
+            label = ChromaDraw.prepareText(frame.value(), 12f, false);
             cachedValue = frame.value();
             fontRevision = revision;
         }
-        SkijaUi.rounded(canvas, frame.x(), frame.y(), label.width() + 16f, 28f, 7f, 0xD9202835);
+        ChromaDraw.rounded(canvas, frame.x(), frame.y(), label.width() + 16f, 28f, 7f, 0xD9202835);
         label.drawTop(canvas, frame.x() + 8f, frame.y() + 6f, 0xFFF3F6FC);
     }
 
@@ -435,30 +445,30 @@ public final class ChromaHudLabel implements AutoCloseable {
 从活动 Skia 回调、尚未施加页面局部变换的 Canvas 调用。scale 由调用方每帧计算一次；文字由调用方准备并管理。屏幕裁剪与局部前景使用同一次 scale 计算结果。
 
 ```java
-package com.pvp_utils.client.render.examples;
+package com.pvp_utils.client.render.chroma.examples;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.RRect;
 
 public final class ChromaBlurPanel {
     public static void draw(Canvas canvas, float centerX, float centerY,
                             float width, float height, float radius, float scale,
-                            SkijaUi.PreparedText label) {
+                            ChromaDraw.PreparedText label) {
         if (!Float.isFinite(scale) || scale <= 0f || width <= 0f || height <= 0f) return;
         float screenWidth = width * scale;
         float screenHeight = height * scale;
         float x = centerX - screenWidth * 0.5f;
         float y = centerY - screenHeight * 0.5f;
         RRect screenClip = RRect.makeXYWH(x, y, screenWidth, screenHeight, radius * scale);
-        SkijaRenderer.drawBlurredBackdrop(canvas, screenClip, x, y, screenWidth, screenHeight, 12f);
+        ChromaGraphics.drawBlurredBackdrop(canvas, screenClip, x, y, screenWidth, screenHeight, 12f);
         int save = canvas.save();
         try {
             canvas.translate(x, y);
             canvas.scale(scale, scale);
             canvas.clipRRect(RRect.makeXYWH(0f, 0f, width, height, radius), true);
-            SkijaUi.rounded(canvas, 0f, 0f, width, height, radius, 0xE6202835);
+            ChromaDraw.rounded(canvas, 0f, 0f, width, height, radius, 0xE6202835);
             label.drawTop(canvas, 16f, 16f, 0xFFF3F6FC);
         } finally {
             canvas.restoreToCount(save);
@@ -474,10 +484,10 @@ public final class ChromaBlurPanel {
 在活动共享 Skia 回调中调用，传入 Minecraft 纹理管理器所管理的 `Identifier`。不要跨资源重载缓存借用包装；长期图像缓存需要独立的所有权及失效设计。
 
 ```java
-package com.pvp_utils.client.render.examples;
+package com.pvp_utils.client.render.chroma.examples;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 import net.minecraft.resources.Identifier;
@@ -486,9 +496,9 @@ public final class ChromaTexturePainter {
     public static void draw(Canvas canvas, Identifier texture,
                             float x, float y, float width, float height) {
         if (width <= 0f || height <= 0f) return;
-        try (SkijaRenderer.BorrowedImage borrowed = SkijaRenderer.borrowTexture(texture)) {
+        try (ChromaGraphics.BorrowedImage borrowed = ChromaGraphics.borrowTexture(texture)) {
             if (borrowed == null) {
-                SkijaUi.rounded(canvas, x, y, width, height, 6f, 0xFF202835);
+                ChromaDraw.rounded(canvas, x, y, width, height, 6f, 0xFF202835);
                 return;
             }
             canvas.drawImageRect(borrowed.image(), Rect.makeXYWH(x, y, width, height));
@@ -502,30 +512,30 @@ public final class ChromaTexturePainter {
 在已有 HUD 绘制入口的活动 Canvas 中调用，`x/y` 为屏幕 GUI 坐标，所有进度已由调用方更新。示例先绘制外围阴影，再采样当前背景并填充面板，最后使文字在原位渐显渐隐并叠加模糊。文字的所有权由调用方保留。
 
 ```java
-package com.pvp_utils.client.render.examples;
+package com.pvp_utils.client.render.chroma.examples;
 
-import com.pvp_utils.client.render.skia.ContentTransition;
-import com.pvp_utils.client.render.skia.LiquidSeparation;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaUi;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.effects.ChromaTransition;
+import com.pvp_utils.client.render.chroma.effects.ChromaSeparation;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 
 public final class ChromaAnimatedCapsule {
     public static void draw(Canvas canvas, float x, float y, float leftSeparation, float rightSeparation,
-                            float visibility, SkijaUi.PreparedText label) {
-        try (LiquidSeparation.Geometry shape = LiquidSeparation.create(
+                            float visibility, ChromaDraw.PreparedText label) {
+        try (ChromaSeparation.Geometry shape = ChromaSeparation.create(
                 x, y, 240f, 32f, 16f, 14f, 7f, leftSeparation, rightSeparation, true)) {
             Rect bounds = shape.bounds();
-            SoftShadow.drawPath(canvas, shape.path(), 0.45f, 0xB0000000);
-            SkijaRenderer.drawBlurredBackdrop(canvas, shape.path(),
+            ChromaShadow.drawPath(canvas, shape.path(), 0.45f, 0xB0000000);
+            ChromaGraphics.drawBlurredBackdrop(canvas, shape.path(),
                     bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), 10f);
-            SkijaUi.fillPath(canvas, shape.path(), 0xD91B1F26);
+            ChromaDraw.fillPath(canvas, shape.path(), 0xD91B1F26);
             int save = canvas.save();
             try {
                 canvas.clipRect(Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f));
-                ContentTransition.draw(canvas, Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f),
+                ChromaTransition.draw(canvas, Rect.makeXYWH(x + 14f, y + 4f, 212f, 24f),
                         visibility, 0f,
                         () -> label.drawTop(canvas, x + 14f, y + 8f, 0xFFF3F6FC));
             } finally {
@@ -585,7 +595,7 @@ public final class ChromaAnimatedCapsule {
 
 1. **核实接口与依赖。** 以当前实现及实际依赖为依据，核实类型、签名与调用行为。使用 Minecraft 后端时核对对应版本和映射的源码，不得猜测方法或虚构框架 API。
 2. **确定绘制阶段。** 明确内容属于 Screen、加载叠加层、主目标 GUI、HUD 叠加还是世界 Gizmos，确认提交点在对应队列消费之前。复用现有入口，同一内容只接入一次。
-3. **复用字体接口。** 常规文字使用 `SkijaUi`；重复文字使用由调用方持有的 `PreparedText`。保持固定或离散字号，测量与绘制采用相同字体选择；缓存键包含字体版本及临时字体名。
+3. **复用字体接口。** 常规文字使用 `ChromaDraw`；重复文字使用由调用方持有的 `PreparedText`。保持固定或离散字号，测量与绘制采用相同字体选择；缓存键包含字体版本及临时字体名。
 4. **统一坐标与几何。** 每帧只推进一次动画。绘制、背景采样、裁剪和命中测试读取同一份结果；区分物理像素、GUI 坐标和局部坐标，并对输入应用相应逆变换。
 5. **限定缓存与工作量。** 先剔除不可见内容，再处理可见布局。明确缓存键、容量、失效条件和释放时机；局部缓存策略仅适用于其所属内容。
 6. **维护资源所有权。** 不跨帧保存或关闭借出的 Canvas。关闭自己创建的本地资源，将 GPU 操作留在正确的客户端渲染阶段；调用方不得关闭框架共享资源。
@@ -598,9 +608,22 @@ public final class ChromaAnimatedCapsule {
 
 ## 8. 实现索引
 
-- [SkijaScreen](../../src/client/java/com/pvp_utils/client/render/skia/SkijaScreen.java)、[SkijaOverlay](../../src/client/java/com/pvp_utils/client/render/skia/SkijaOverlay.java)、[SkijaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaFrameRenderer.java)
-- [SkijaRenderer](../../src/client/java/com/pvp_utils/client/render/skia/SkijaRenderer.java)、[SkijaUi](../../src/client/java/com/pvp_utils/client/render/skia/SkijaUi.java)、[SkijaBackdrop](../../src/client/java/com/pvp_utils/client/render/skia/SkijaBackdrop.java)
-- [SoftShadow](../../src/client/java/com/pvp_utils/client/render/skia/SoftShadow.java)、[ContentTransition](../../src/client/java/com/pvp_utils/client/render/skia/ContentTransition.java)、[LiquidSeparation](../../src/client/java/com/pvp_utils/client/render/skia/LiquidSeparation.java)、[AnimatedStatusIcon](../../src/client/java/com/pvp_utils/client/render/skia/AnimatedStatusIcon.java)
-- [WorldRender](../../src/client/java/com/pvp_utils/client/render/world/WorldRender.java)、[WorldRenderLevelRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/WorldRenderLevelRendererMixin.java)、[WorldParticles](../../src/client/java/com/pvp_utils/client/render/world/WorldParticles.java)
-- [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java)、[GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java)
-- [构建定义](../../build.gradle)
+| 文件 | 职责 |
+| --- | --- |
+| [ChromaGraphics](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaGraphics.java) | 二维绘制提交、画布通道、纹理借用与背景模糊 |
+| [ChromaDraw](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaDraw.java) | 图形、文字、图标、字体管理与预备文本 |
+| [ChromaScreen](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaScreen.java) | 屏幕的活动 Canvas 绘制契约 |
+| [ChromaOverlay](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaOverlay.java) | 加载叠加层的绘制策略与关闭契约 |
+| [ChromaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaFrameRenderer.java) | Minecraft 后端的帧级通道调度 |
+| [ChromaBackdrop](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaBackdrop.java) | 背景采样、帧缓冲包装与 GL 状态恢复；包内实现 |
+| [ChromaShadow](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaShadow.java) | 圆角与路径的外侧阴影 |
+| [ChromaTransition](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaTransition.java) | 有界渐显渐隐与模糊合成 |
+| [ChromaSeparation](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaSeparation.java) | 可分离轮廓的几何构建与资源所有权 |
+| [ChromaStatusIcon](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaStatusIcon.java) | 对勾与叉号的路径绘制动画 |
+| [ChromaWorld](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaWorld.java) | 世界空间几何、深度策略、坐标投影与绘制注册 |
+| [ChromaParticles](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaParticles.java) | 有限粒子集合、模拟更新与插值绘制 |
+| [ChromaWorldMixin](../../src/client/java/com/pvp_utils/mixin/client/ChromaWorldMixin.java) | 世界几何收集与相机矩阵接入 |
+| [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java) | 帧开始、帧末绘制与叠加层生命周期接入 |
+| [GameRendererMixin](../../src/client/java/com/pvp_utils/mixin/client/GameRendererMixin.java) | 主目标提交队列的消费接入 |
+| [LoadingOverlayMixin](../../src/client/java/com/pvp_utils/mixin/client/LoadingOverlayMixin.java) | 原版加载叠加层的 ChromaOverlay 适配 |
+| [构建定义](../../build.gradle) | 后端依赖与源码集配置 |

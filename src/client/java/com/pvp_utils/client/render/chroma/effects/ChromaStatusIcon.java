@@ -1,4 +1,6 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma.effects;
+
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.PaintStrokeCap;
@@ -6,8 +8,8 @@ import io.github.humbleui.skija.PaintStrokeJoin;
 import io.github.humbleui.skija.Path;
 import io.github.humbleui.skija.PathBuilder;
 
-public final class AnimatedStatusIcon {
-    private AnimatedStatusIcon() {
+public final class ChromaStatusIcon {
+    private ChromaStatusIcon() {
     }
 
     public static void draw(Canvas canvas, boolean success, float x, float y, float size, float progress, int color) {
@@ -37,7 +39,7 @@ public final class AnimatedStatusIcon {
                 }
             }
             try (Path path = builder.detach()) {
-                SkijaUi.strokePath(canvas, path, Math.max(1.4f, size * 0.085f), color,
+                ChromaDraw.strokePath(canvas, path, Math.max(1.4f, size * 0.085f), color,
                         PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
             }
         }

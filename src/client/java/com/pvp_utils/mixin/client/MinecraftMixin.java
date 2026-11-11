@@ -6,7 +6,7 @@ import com.pvp_utils.client.modules.impl.Tool.AutoChestDepositManager;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.TimeWeatherChanger;
 import com.pvp_utils.client.modules.impl.Render.DamageNumberRenderer;
-import com.pvp_utils.client.render.skia.SkijaOverlay;
+import com.pvp_utils.client.render.chroma.ChromaOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Overlay;
 import net.minecraft.client.gui.screens.Screen;
@@ -33,9 +33,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
     @Inject(method = "setOverlay", at = @At("HEAD"))
-    private void pvp_utils$closePreviousSkijaOverlay(Overlay overlay, CallbackInfo ci) {
+    private void pvp_utils$closePreviousChromaOverlay(Overlay overlay, CallbackInfo ci) {
         Overlay previous = ((Minecraft) (Object) this).getOverlay();
-        if (previous != overlay && previous instanceof SkijaOverlay skijaOverlay) skijaOverlay.close();
+        if (previous != overlay && previous instanceof ChromaOverlay chromaOverlay) chromaOverlay.close();
     }
 
     @Inject(method = "tick", at = @At("TAIL"))
@@ -166,8 +166,8 @@ public class MinecraftMixin {
     }
 
     @Inject(method = "runTick", at = @At("HEAD"))
-    private void pvp_utils$beginSkijaFrame(boolean advanceGameTime, CallbackInfo ci) {
-        com.pvp_utils.client.render.skia.SkijaRenderer.beginFrame();
+    private void pvp_utils$beginChromaFrame(boolean advanceGameTime, CallbackInfo ci) {
+        com.pvp_utils.client.render.chroma.ChromaGraphics.beginFrame();
     }
 
     @Inject(
@@ -178,7 +178,7 @@ public class MinecraftMixin {
     shift = At.Shift.AFTER
     )
     )
-    private void pvp_utils$renderSkija(boolean advanceGameTime, CallbackInfo ci) {
-        com.pvp_utils.client.render.skia.SkijaFrameRenderer.render();
+    private void pvp_utils$renderChroma(boolean advanceGameTime, CallbackInfo ci) {
+        com.pvp_utils.client.render.chroma.ChromaFrameRenderer.render();
     }
 }

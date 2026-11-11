@@ -1,8 +1,8 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import net.minecraft.client.Minecraft;
@@ -74,7 +74,7 @@ public final class ServerConnectionOverlay {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
-        SkijaRenderer.submit(canvas -> {
+        ChromaGraphics.submit(canvas -> {
             drawConnectionRow(canvas, width, height, status);
             drawLogLines(canvas, height);
         });
@@ -84,7 +84,7 @@ public final class ServerConnectionOverlay {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
 
-        SkijaRenderer.submit(canvas -> {
+        ChromaGraphics.submit(canvas -> {
             drawFailureRow(canvas, width, height);
             drawLogLines(canvas, height);
         });
@@ -96,16 +96,16 @@ public final class ServerConnectionOverlay {
         String leftIcon = "\uF80E";
         String rightIcon = "\uE30C";
 
-        float leftW = SkijaUi.iconWidth(leftIcon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float rightW = SkijaUi.iconWidth(rightIcon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float leftW = ChromaDraw.iconWidth(leftIcon, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        float rightW = ChromaDraw.iconWidth(rightIcon, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         float iconGap = 112f;
         float dotsX = width / 2f + (leftW - rightW) / 2f;
         float leftX = dotsX - iconGap - leftW / 2f;
         float rightX = dotsX + iconGap - rightW / 2f;
 
-        SkijaUi.icon(canvas, leftIcon, leftX, (y) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, leftIcon, leftX, (y) + ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         drawLoadingDots(canvas, dotsX, y - 23f);
-        SkijaUi.icon(canvas, rightIcon, rightX, (y) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, rightIcon, rightX, (y) + ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     }
 
     private static void drawFailureRow(Canvas canvas, int width, int height) {
@@ -116,9 +116,9 @@ public final class ServerConnectionOverlay {
         String centerIcon = "\uE5CD";
         String rightIcon = "\uE30C";
 
-        float leftW = SkijaUi.iconWidth(leftIcon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float rightW = SkijaUi.iconWidth(rightIcon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float centerW = SkijaUi.iconWidth(centerIcon, centerIconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float leftW = ChromaDraw.iconWidth(leftIcon, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        float rightW = ChromaDraw.iconWidth(rightIcon, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        float centerW = ChromaDraw.iconWidth(centerIcon, centerIconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         float iconGap = 112f;
         float centerX = width / 2f + (leftW - rightW) / 2f;
         float age = failedAtMs <= 0L ? 1f : Math.min(1f, (System.currentTimeMillis() - failedAtMs) / 520f);
@@ -129,11 +129,11 @@ public final class ServerConnectionOverlay {
         float rightX = centerX + iconGap - rightW / 2f + shake;
         float centerY = y + (1f - eased) * 9f;
         float scaledCenterSize = centerIconSize * Math.max(0.2f, eased);
-        float scaledCenterW = SkijaUi.iconWidth(centerIcon, scaledCenterSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float scaledCenterW = ChromaDraw.iconWidth(centerIcon, scaledCenterSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
 
-        SkijaUi.icon(canvas, leftIcon, leftX, (y) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.icon(canvas, centerIcon, centerX - scaledCenterW / 2f + shake, (centerY) + SkijaUi.iconMetrics(scaledCenterSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(scaledCenterSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(scaledCenterSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFFF5555, scaledCenterSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.icon(canvas, rightIcon, rightX, (y) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, leftIcon, leftX, (y) + ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, centerIcon, centerX - scaledCenterW / 2f + shake, (centerY) + ChromaDraw.iconMetrics(scaledCenterSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(scaledCenterSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(scaledCenterSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFFF5555, scaledCenterSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, rightIcon, rightX, (y) + ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFFEFF6FF, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     }
 
     private static void drawLoadingDots(Canvas canvas, float x, float y) {
@@ -159,7 +159,7 @@ public final class ServerConnectionOverlay {
         float x = 10f;
         float y = height - 10f - (lines.size() - 1) * lineHeight;
         for (String line : lines) {
-            SkijaUi.text(canvas, trim(line, 86), x, (y) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), 0xB8FFFFFF, textSize);
+            ChromaDraw.text(canvas, trim(line, 86), x, (y) + ChromaDraw.textMetrics(textSize).getAscent(), ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent(), 0xB8FFFFFF, textSize);
             y += lineHeight;
         }
     }

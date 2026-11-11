@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.world;
+package com.pvp_utils.client.render.chroma.world;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-public final class WorldRender {
+public final class ChromaWorld {
     private static final Matrix4f MODEL_VIEW = new Matrix4f();
     private static final Matrix4f PROJECTION = new Matrix4f();
     private static Vec3 cameraPosition = Vec3.ZERO;
@@ -33,7 +33,7 @@ public final class WorldRender {
     private static final float[][] HEART = heartVertices();
     private static final float[][] QUAD = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
 
-    private WorldRender() {
+    private ChromaWorld() {
     }
 
     public static void capture(Camera camera, Matrix4fc modelViewMatrix, Matrix4fc projectionMatrix) {

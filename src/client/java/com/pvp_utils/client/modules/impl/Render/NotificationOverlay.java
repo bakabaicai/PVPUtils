@@ -1,6 +1,6 @@
 package com.pvp_utils.client.modules.impl.Render;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import io.github.humbleui.skija.Canvas;
@@ -124,7 +124,7 @@ public class NotificationOverlay {
         String renderMessage = active ? message : "Notification";
         ItemStack renderIcon = active ? iconStack : ItemStack.EMPTY;
         String renderSymbol = active ? symbolIcon : "";
-        int textWidth = Math.round(SkijaUi.textWidth(renderMessage, TEXT_SIZE));
+        int textWidth = Math.round(ChromaDraw.textWidth(renderMessage, TEXT_SIZE));
         boolean hasSymbol = !renderSymbol.isEmpty();
         boolean hasIcon = !renderIcon.isEmpty() || hasSymbol;
         int iconSize = 16;
@@ -225,7 +225,7 @@ public class NotificationOverlay {
 
             if (hasSymbol) {
                 submitText(renderSymbol, currentX, y + HEIGHT / 2f + 7f, SYMBOL_SIZE,
-                symbolColor | 0xFF000000, SkijaUi.IconSet.MATERIAL_SYMBOLS, finalX, y, scale);
+                symbolColor | 0xFF000000, ChromaDraw.IconSet.MATERIAL_SYMBOLS, finalX, y, scale);
                 currentX += iconSize + iconMargin;
             } else if (hasIcon) {
                 graphics.renderFakeItem(renderIcon, currentX, y + (HEIGHT - iconSize) / 2);
@@ -239,15 +239,15 @@ public class NotificationOverlay {
     }
 
     private void submitText(String text, float x, float y, float size, int color,
-    SkijaUi.IconSet font, float anchorX, float anchorY, float scale) {
-        com.pvp_utils.client.render.skia.SkijaRenderer.submit(canvas -> {
+    ChromaDraw.IconSet font, float anchorX, float anchorY, float scale) {
+        com.pvp_utils.client.render.chroma.ChromaGraphics.submit(canvas -> {
             canvas.translate(anchorX, anchorY);
             canvas.scale(scale, scale);
             canvas.translate(-anchorX, -anchorY);
             if (font == null) {
-                SkijaUi.text(canvas, text, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
+                ChromaDraw.text(canvas, text, x, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), color, size);
             } else {
-                SkijaUi.icon(canvas, text, x, (y) + SkijaUi.iconMetrics(size, font).getAscent(), SkijaUi.iconMetrics(size, font).getDescent() - SkijaUi.iconMetrics(size, font).getAscent(), color, size, font);
+                ChromaDraw.icon(canvas, text, x, (y) + ChromaDraw.iconMetrics(size, font).getAscent(), ChromaDraw.iconMetrics(size, font).getDescent() - ChromaDraw.iconMetrics(size, font).getAscent(), color, size, font);
             }
         });
     }

@@ -2,9 +2,9 @@ package com.pvp_utils.client.render.MainUI;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.function.Predicate;
 
-public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
+public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp_utils.client.render.chroma.ChromaScreen {
     private static final long OPEN_MS = 440L;
     private static final int PAGE_SIZE = 16;
     private final Screen parent;
@@ -136,7 +136,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (!embedded && minecraft.screen != this)) {
             pendingFrame = false;
             return;
@@ -154,7 +154,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
             return;
         }
         try {
-            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+            ChromaGraphics.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
                     chromeAlpha, target -> drawPage(target, true)));
         } finally {
             pendingFrame = false;
@@ -186,7 +186,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float y = MainUiScale.pageScreenY(cardY() + (1f - visibility) * 20f, height, scale, layoutCenterY());
         float w = cardW() * scale;
         float h = cardH() * scale;
-        SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, w, h, 20f * scale),
+        ChromaGraphics.drawBlurredBackdrop(canvas, RRect.makeXYWH(x, y, w, h, 20f * scale),
                 x, y, w, h, 1.08f * 10.5f);
         int save = canvas.save();
         try {
@@ -204,7 +204,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float cardY = cardY() + (1f - visibility) * 20f;
         int alpha = Math.round(255f * visibility);
 
-        SkijaUi.rounded(canvas, cardX, cardY, cardW, cardH, 20f, 0x1A101010);;
+        ChromaDraw.rounded(canvas, cardX, cardY, cardW, cardH, 20f, 0x1A101010);;
         try (Paint bg = new Paint(); Paint stroke = new Paint()) {
             bg.setAntiAlias(true);
             bg.setColor((Math.round(alpha * 0.20f) << 24) | 0x17191D);
@@ -217,9 +217,9 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         }
 
         String title = "ViaFabricPlus";
-        SkijaUi.text(canvas, title, cardX + 28f, (cardY + 34f) + SkijaUi.textMetrics(22f).getAscent(), SkijaUi.textMetrics(22f).getDescent() - SkijaUi.textMetrics(22f).getAscent(), (alpha << 24) | 0xFFFFFF, 22f);
+        ChromaDraw.text(canvas, title, cardX + 28f, (cardY + 34f) + ChromaDraw.textMetrics(22f).getAscent(), ChromaDraw.textMetrics(22f).getDescent() - ChromaDraw.textMetrics(22f).getAscent(), (alpha << 24) | 0xFFFFFF, 22f);
         String current = currentTargetVersion();
-        SkijaUi.text(canvas, current.isBlank() ? "Protocol" : "Current: " + current, cardX + cardW - 190f, (cardY + 34f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
+        ChromaDraw.text(canvas, current.isBlank() ? "Protocol" : "Current: " + current, cardX + cardW - 190f, (cardY + 34f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
 
         int save = canvas.save();
         try {
@@ -241,7 +241,7 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         float centerX = cardX + cardW * 0.5f;
         drawPageButton(canvas, centerX - 66f, pagerY, -1, alpha, page > 0);
         String count = (page + 1) + " / " + pageCount();
-        SkijaUi.text(canvas, count, centerX - SkijaUi.textWidth(count, 11f) * 0.5f, pagerY, 26f,
+        ChromaDraw.text(canvas, count, centerX - ChromaDraw.textWidth(count, 11f) * 0.5f, pagerY, 26f,
                 (Math.round(alpha * 0.72f) << 24) | 0xFFFFFF, 11f);
         drawPageButton(canvas, centerX + 34f, pagerY, 1, alpha, page + 1 < pageCount());
 
@@ -306,16 +306,16 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
         int titleColor = containsCurrent ? 0x75F28A : 0xFFFFFF;
         float textWidth = w - 20f;
         float size = 18f;
-        while (size > 11f && SkijaUi.textWidth(protocol.name(), size) > textWidth) size -= 1f;
+        while (size > 11f && ChromaDraw.textWidth(protocol.name(), size) > textWidth) size -= 1f;
         String label = fit(protocol.name(), textWidth, size);
-        float tw = SkijaUi.textWidth(label, size);
-        SkijaUi.text(canvas, label, x + (w - tw) * 0.5f, y, h, (alpha << 24) | titleColor, size);
+        float tw = ChromaDraw.textWidth(label, size);
+        ChromaDraw.text(canvas, label, x + (w - tw) * 0.5f, y, h, (alpha << 24) | titleColor, size);
     }
 
     private String fit(String value, float maxWidth, float size) {
-        if (SkijaUi.textWidth(value, size) <= maxWidth) return value;
+        if (ChromaDraw.textWidth(value, size) <= maxWidth) return value;
         String result = value;
-        while (result.length() > 1 && SkijaUi.textWidth(result + "...", size) > maxWidth) {
+        while (result.length() > 1 && ChromaDraw.textWidth(result + "...", size) > maxWidth) {
             result = result.substring(0, result.length() - 1);
         }
         return result + "...";
@@ -327,8 +327,8 @@ public final class PVPUtilsViaFabricPlusScreen extends Screen implements com.pvp
             bg.setColor((Math.round(alpha * (hovered ? 0.28f : 0.15f)) << 24) | 0x73BDEB);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 26f, 10f), bg);
         }
-        float tw = SkijaUi.textWidth(text, 11f);
-        SkijaUi.text(canvas, text, x + (w - tw) * 0.5f, (y + 17f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (alpha << 24) | 0xFFFFFF, 11f);
+        float tw = ChromaDraw.textWidth(text, 11f);
+        ChromaDraw.text(canvas, text, x + (w - tw) * 0.5f, (y + 17f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (alpha << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawPageButton(Canvas canvas, float x, float y, int direction, int alpha, boolean enabled) {

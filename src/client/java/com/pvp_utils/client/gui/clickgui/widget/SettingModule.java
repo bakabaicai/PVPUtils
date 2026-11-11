@@ -3,11 +3,11 @@ package com.pvp_utils.client.gui.clickgui.widget;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.ModuleKeybindManager;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import io.github.humbleui.skija.Canvas;
@@ -420,21 +420,21 @@ public class SettingModule {
         float wx = x + width - WIDGET_PAD - widgetW;
         float wy = y + (TILE_H - widgetH) / 2f;
         float keybindSpace = isKeybindable() && !keybindId().isBlank() ? keybindWidth + 6f : 0f;
-        float arrowW = hasVisibleSubEntries() ? SkijaUi.iconWidth(ARROW_COLLAPSED, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS) : 0f;
+        float arrowW = hasVisibleSubEntries() ? ChromaDraw.iconWidth(ARROW_COLLAPSED, 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS) : 0f;
         float textMax = wx - 8f - keybindSpace - (arrowW > 0f ? arrowW + 4f : 0f) - (x + PAD_X);
 
-        float ascent = SkijaUi.textMetrics(12f).getAscent();
-        float lineHeight = SkijaUi.textMetrics(12f).getDescent() - ascent;
-        SkijaUi.text(canvas, fitTitle(title, Math.max(0f, textMax)), x + PAD_X,
+        float ascent = ChromaDraw.textMetrics(12f).getAscent();
+        float lineHeight = ChromaDraw.textMetrics(12f).getDescent() - ascent;
+        ChromaDraw.text(canvas, fitTitle(title, Math.max(0f, textMax)), x + PAD_X,
                 y, TILE_H, withAlpha(tc.primaryText, alpha), 12f);
 
         if (arrowW > 0f) {
             String arrow = flyoutOpen ? ARROW_EXPANDED : ARROW_COLLAPSED;
             float arrowX = wx - 8f - keybindSpace - arrowW;
-            float iconAscent = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent();
-            float iconHeight = SkijaUi.iconMetrics(12f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - iconAscent;
-            SkijaUi.icon(canvas, arrow, arrowX, y, TILE_H,
-                    withAlpha(flyoutOpen ? tc.accent : tc.mutedText, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            float iconAscent = ChromaDraw.iconMetrics(12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent();
+            float iconHeight = ChromaDraw.iconMetrics(12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - iconAscent;
+            ChromaDraw.icon(canvas, arrow, arrowX, y, TILE_H,
+                    withAlpha(flyoutOpen ? tc.accent : tc.mutedText, alpha), 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         }
 
         drawKeybind(canvas, wx, y + (TILE_H - KEYBIND_H) / 2f, alpha, mouseX, mouseY);
@@ -475,24 +475,24 @@ public class SettingModule {
         String id = keybindId();
         if (!isKeybindable() || id.isBlank()) return KEYBIND_BASE_W;
         if (ModuleKeybindManager.isCapturing(id)) {
-            return Math.max(110f, SkijaUi.textWidth(UiText.t("按下任意键...", "Press any key..."), 9f) + 20f);
+            return Math.max(110f, ChromaDraw.textWidth(UiText.t("按下任意键...", "Press any key..."), 9f) + 20f);
         }
         String keyName = ModuleKeybindManager.keyName(id);
-        return keyName.isBlank() ? KEYBIND_BASE_W : Math.max(KEYBIND_BASE_W, SkijaUi.textWidth(keyName, 9f) + 12f);
+        return keyName.isBlank() ? KEYBIND_BASE_W : Math.max(KEYBIND_BASE_W, ChromaDraw.textWidth(keyName, 9f) + 12f);
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float size, float alpha) {
-        float textW = SkijaUi.textWidth(text, size);
-        SkijaUi.text(canvas, text, x + (width - textW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), size);
+        float textW = ChromaDraw.textWidth(text, size);
+        ChromaDraw.text(canvas, text, x + (width - textW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), size);
     }
 
     private void drawCenteredIcon(Canvas canvas, String icon, float x, float y, float width, float alpha) {
-        float iconW = SkijaUi.iconWidth(icon, 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.icon(canvas, icon, x + (width - iconW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float iconW = ChromaDraw.iconWidth(icon, 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, icon, x + (width - iconW) / 2f, y, KEYBIND_H, withAlpha(0xFFFFFF, alpha), 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     }
 
     private String fitTitle(String text, float maxWidth) {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (!text.equals(cachedTitleSource) || Math.abs(maxWidth - cachedTitleMaxWidth) > 0.5f || cachedTitleRevision != revision) {
             cachedTitleRevision = revision;
             cachedTitleSource = text;
@@ -504,12 +504,12 @@ public class SettingModule {
 
     private static String truncate(String text, float maxWidth, float size) {
         if (text == null || text.isEmpty()) return "";
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
+        if (ChromaDraw.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "\u2026";
-        float ellipsisW = SkijaUi.textWidth(ellipsis, size);
+        float ellipsisW = ChromaDraw.textWidth(ellipsis, size);
         for (int i = text.length() - 1; i > 0; i--) {
             String candidate = text.substring(0, i);
-            if (SkijaUi.textWidth(candidate, size) + ellipsisW <= maxWidth) return candidate + ellipsis;
+            if (ChromaDraw.textWidth(candidate, size) + ellipsisW <= maxWidth) return candidate + ellipsis;
         }
         return ellipsis;
     }
@@ -569,7 +569,7 @@ public class SettingModule {
     }
 
     public float preferredFlyoutWidth() {
-        float width = Math.max(320f, SkijaUi.textWidth(title, 13f) + 120f);
+        float width = Math.max(320f, ChromaDraw.textWidth(title, 13f) + 120f);
         for (SubEntry sub : subEntries) {
             if (!sub.isVisible()) continue;
             width = Math.max(width, preferredRowWidth(sub, 0f));
@@ -607,17 +607,17 @@ public class SettingModule {
         float bodyTop = y + FLYOUT_HEADER_H;
         float bodyHeight = Math.max(0f, height - FLYOUT_HEADER_H - FLYOUT_PAD);
         if (Config.clickGuiAppearance.shadow) {
-            SoftShadow.drawRounded(canvas, rect[0], rect[1], rect[2], rect[3], radius,
+            ChromaShadow.drawRounded(canvas, rect[0], rect[1], rect[2], rect[3], radius,
                     Config.clickGuiAppearance.shadowStrength * alpha, 0xA0000000);
         }
         int cardSave = canvas.save();
         try {
             canvas.clipRRect(RRect.makeXYWH(rect[0], rect[1], rect[2], rect[3], radius), true);
-            SkijaUi.rounded(canvas, rect[0], rect[1], rect[2], rect[3], radius, withAlpha(cardColor, bodyAlpha));
+            ChromaDraw.rounded(canvas, rect[0], rect[1], rect[2], rect[3], radius, withAlpha(cardColor, bodyAlpha));
             float headerHeight = Math.min(FLYOUT_HEADER_H, rect[3]);
             float closeX = rect[0] + rect[2] - 12f - CLOSE_SIZE;
             float widgetWidth = mainWidget == null ? 0f : mainWidget.getWidth() + 10f;
-            SkijaUi.text(canvas, truncate(title, Math.max(0f, closeX - rect[0] - PAD_X - widgetWidth - 10f), 13f),
+            ChromaDraw.text(canvas, truncate(title, Math.max(0f, closeX - rect[0] - PAD_X - widgetWidth - 10f), 13f),
                     rect[0] + PAD_X, rect[1], headerHeight, withAlpha(colors.primaryText, alpha), 13f);
             if (mainWidget != null) {
                 mainWidget.draw(canvas, closeX - 10f - mainWidget.getWidth(),
@@ -628,12 +628,12 @@ public class SettingModule {
             float closeHitX = x + width - 12f - CLOSE_SIZE;
             boolean hovered = mouseX >= closeHitX && mouseX <= closeHitX + CLOSE_SIZE
                     && mouseY >= closeY && mouseY <= closeY + CLOSE_SIZE;
-            if (hovered) SkijaUi.rounded(canvas, closeHitX, closeY, CLOSE_SIZE, CLOSE_SIZE, 5f,
+            if (hovered) ChromaDraw.rounded(canvas, closeHitX, closeY, CLOSE_SIZE, CLOSE_SIZE, 5f,
                     withAlpha(colors.hoverBackground, contentAlpha));
             int closeColor = withAlpha(colors.secondaryText, contentAlpha);
-            SkijaUi.line(canvas, closeHitX + 5f, closeY + 5f, closeHitX + 13f, closeY + 13f,
+            ChromaDraw.line(canvas, closeHitX + 5f, closeY + 5f, closeHitX + 13f, closeY + 13f,
                     1.4f, closeColor, PaintStrokeCap.ROUND);
-            SkijaUi.line(canvas, closeHitX + 13f, closeY + 5f, closeHitX + 5f, closeY + 13f,
+            ChromaDraw.line(canvas, closeHitX + 13f, closeY + 5f, closeHitX + 5f, closeY + 13f,
                     1.4f, closeColor, PaintStrokeCap.ROUND);
             int contentSave = canvas.save();
             try {
@@ -647,26 +647,26 @@ public class SettingModule {
                     try {
                         canvas.clipRect(Rect.makeXYWH(x, rowY, width, visibleHeight));
                         float rowAlpha = contentAlpha * row.visibility;
-                        SkijaUi.rounded(canvas, x + layout.x(), rowY, layout.width(), layout.bodyHeight(), 8f,
+                        ChromaDraw.rounded(canvas, x + layout.x(), rowY, layout.width(), layout.bodyHeight(), 8f,
                                 withAlpha(colors.subModule, ClickGuiThemeColors.panelBackgroundAlpha(rowAlpha)));
                         if (row.depth >= 2) {
-                            SkijaUi.line(canvas, x + layout.x() - 6f, rowY + 6f,
+                            ChromaDraw.line(canvas, x + layout.x() - 6f, rowY + 6f,
                                     x + layout.x() - 6f, rowY + layout.bodyHeight() - 6f, 1.5f,
                                     withAlpha(colors.accent, rowAlpha * 0.48f), PaintStrokeCap.ROUND);
                         }
                         SubEntry entry = row.entry;
                         float titleTop = row.description.length == 0
                                 ? rowY + (layout.headerHeight() - 18f) * 0.5f : rowY + 6f;
-                        SkijaUi.text(canvas, truncate(entry.title, layout.textWidth(), 12f), x + layout.textX(),
+                        ChromaDraw.text(canvas, truncate(entry.title, layout.textWidth(), 12f), x + layout.textX(),
                                 titleTop, 18f, withAlpha(colors.subModuleText, rowAlpha), 12f);
                         for (int i = 0; i < row.description.length; i++) {
-                            SkijaUi.text(canvas, row.description[i], x + layout.textX(), rowY + 24f + i * 13f,
+                            ChromaDraw.text(canvas, row.description[i], x + layout.textX(), rowY + 24f + i * 13f,
                                     13f, withAlpha(colors.secondaryText, rowAlpha), 10f);
                         }
                         if (entry.group && entry.hasVisibleChildren()) {
-                            SkijaUi.icon(canvas, entry.expanded ? ARROW_EXPANDED : ARROW_COLLAPSED,
+                            ChromaDraw.icon(canvas, entry.expanded ? ARROW_EXPANDED : ARROW_COLLAPSED,
                                     x + layout.x() + layout.width() - 28f, rowY, layout.headerHeight(),
-                                    withAlpha(colors.mutedText, rowAlpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+                                    withAlpha(colors.mutedText, rowAlpha), 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
                         } else if (entry.widget != null) {
                             drawRowWidget(canvas, row, x, bodyTop + 5f - scroll, rowAlpha);
                         }
@@ -690,7 +690,7 @@ public class SettingModule {
                     gripRadius * 2f, gripRadius * 2f), 90f, -90f, false);
             builder.lineTo(cornerX, cornerY - 26f);
             try (Path path = builder.detach()) {
-                SkijaUi.strokePath(canvas, path, 3f, withAlpha(colors.accent, alpha * 0.55f),
+                ChromaDraw.strokePath(canvas, path, 3f, withAlpha(colors.accent, alpha * 0.55f),
                         PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
             }
         }
@@ -836,11 +836,11 @@ public class SettingModule {
         private float descriptionWidth = -1f;
 
         private float preferredLabelWidth() {
-            long revision = SkijaUi.textFontRevision();
+            long revision = ChromaDraw.textFontRevision();
             if (labelRevision != revision) {
                 labelRevision = revision;
-                labelWidth = Math.max(SkijaUi.textWidth(title, 12f),
-                        Math.min(280f, SkijaUi.textWidth(subtitle == null ? "" : subtitle, 10f)));
+                labelWidth = Math.max(ChromaDraw.textWidth(title, 12f),
+                        Math.min(280f, ChromaDraw.textWidth(subtitle == null ? "" : subtitle, 10f)));
             }
             return labelWidth;
         }
@@ -848,7 +848,7 @@ public class SettingModule {
         private String[] description = new String[0];
 
         private String[] descriptionLines(float width) {
-            long revision = SkijaUi.textFontRevision();
+            long revision = ChromaDraw.textFontRevision();
             if (Math.abs(descriptionWidth - width) < 0.01f && descriptionRevision == revision) return description;
             descriptionWidth = width;
             descriptionRevision = revision;
@@ -860,7 +860,7 @@ public class SettingModule {
                 int next = start;
                 while (next < subtitle.length()) {
                     int after = next + Character.charCount(subtitle.codePointAt(next));
-                    if (end > start && SkijaUi.textWidth(subtitle.substring(start, after), 10f) > width) break;
+                    if (end > start && ChromaDraw.textWidth(subtitle.substring(start, after), 10f) > width) break;
                     end = after;
                     next = after;
                 }

@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui.widget;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import io.github.humbleui.skija.Canvas;
@@ -56,16 +56,16 @@ public class SettingSlider extends SettingWidget {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         float enabledAlpha = isEnabled() ? alpha : alpha * 0.4f;
         double value = getter.get();
-        long fontRevision = SkijaUi.textFontRevision();
+        long fontRevision = ChromaDraw.textFontRevision();
         if (Double.compare(value, cachedValue) != 0 || cachedFontRevision != fontRevision) {
             cachedFontRevision = fontRevision;
             cachedValue = value;
             cachedText = String.format(format, value);
-            cachedTextWidth = SkijaUi.textWidth(cachedText, 11f);
+            cachedTextWidth = ChromaDraw.textWidth(cachedText, 11f);
         }
         String val = cachedText;
         float lw = cachedTextWidth;
-        SkijaUi.text(canvas, val, x + LABEL_W - lw, y, getHeight(), withAlpha(tc.mutedText, enabledAlpha), 11f);
+        ChromaDraw.text(canvas, val, x + LABEL_W - lw, y, getHeight(), withAlpha(tc.mutedText, enabledAlpha), 11f);
 
         float tx = x + LABEL_W + 8f;
         float t = (float)((value - min) / (max - min));

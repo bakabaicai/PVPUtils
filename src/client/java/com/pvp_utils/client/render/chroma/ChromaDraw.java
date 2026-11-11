@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma;
 
 import io.github.humbleui.types.RRect;
 
@@ -39,7 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
-public final class SkijaUi {
+public final class ChromaDraw {
     public static final String CLIENT_FONT = "harmony";
     public static final String PRODUCT_SANS_REGULAR = "product_sans_regular";
     public static final String PRODUCT_SANS_LIGHT = "product_sans_light";
@@ -77,7 +77,7 @@ public final class SkijaUi {
     private static boolean importedFontsLoaded;
     private static long textFontRevision;
 
-    private SkijaUi() {
+    private ChromaDraw() {
     }
 
     public static Typeface boldTypeface() {
@@ -494,10 +494,10 @@ public final class SkijaUi {
 
         try (Stream<Path> files = Files.list(directory)) {
             files.filter(Files::isRegularFile)
-            .filter(SkijaUi::isFontFile)
+            .filter(ChromaDraw::isFontFile)
             .sorted(Comparator.comparing(path -> path.getFileName().toString(),
             String.CASE_INSENSITIVE_ORDER))
-            .forEach(SkijaUi::loadImportedTypeface);
+            .forEach(ChromaDraw::loadImportedTypeface);
         } catch (IOException error) {
             PVPUtils.LOGGER.warn("Could not inspect imported fonts in {}", directory, error);
         }
@@ -762,7 +762,7 @@ public final class SkijaUi {
     }
 
     private static Typeface loadTypeface(String resource, FontStyle fallbackStyle) {
-        try (InputStream stream = SkijaUi.class.getResourceAsStream(resource)) {
+        try (InputStream stream = ChromaDraw.class.getResourceAsStream(resource)) {
             if (stream != null) {
                 try (Data data = Data.makeFromBytes(stream.readAllBytes())) {
                     Typeface typeface = FontMgr.getDefault().makeFromData(data);

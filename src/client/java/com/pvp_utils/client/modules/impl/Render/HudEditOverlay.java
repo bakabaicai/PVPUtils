@@ -2,7 +2,7 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.gui.clickgui.theme.AccentColors;
@@ -17,7 +17,7 @@ import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
@@ -168,7 +168,7 @@ public class HudEditOverlay {
         }
     }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
         if (!active || client.options.hideGui) {
@@ -441,9 +441,9 @@ public class HudEditOverlay {
 
     private void drawGrid(Canvas canvas, int guiW, int guiH, float alpha) {
         int color = AccentColors.accent();
-        if (snapXLine >= 0f) SkijaUi.line(canvas, snapXLine, 0f, snapXLine, guiH, 1.2f,
+        if (snapXLine >= 0f) ChromaDraw.line(canvas, snapXLine, 0f, snapXLine, guiH, 1.2f,
                 AccentColors.withAlpha(color, alpha * snapXAlpha * 0.8f));
-        if (snapYLine >= 0f) SkijaUi.line(canvas, 0f, snapYLine, guiW, snapYLine, 1.2f,
+        if (snapYLine >= 0f) ChromaDraw.line(canvas, 0f, snapYLine, guiW, snapYLine, 1.2f,
                 AccentColors.withAlpha(color, alpha * snapYAlpha * 0.8f));
     }
 
@@ -490,18 +490,18 @@ public class HudEditOverlay {
                     radius * 2f, radius * 2f), 90f, -90f, false);
             builder.lineTo(right, bottom - gripLength);
             try (Path path = builder.detach()) {
-                SkijaUi.strokePath(canvas, path, 2.5f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
+                ChromaDraw.strokePath(canvas, path, 2.5f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
             }
         }
-        SkijaUi.text(canvas, label, left, Math.max(1f, top - 18f), 16f, color, 10f);
+        ChromaDraw.text(canvas, label, left, Math.max(1f, top - 18f), 16f, color, 10f);
     }
 
     private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
         if (dragTarget == DragTarget.NONE || (snapXLine < 0f && snapYLine < 0f)) return;
         String text = Config.isChinese ? "弱对齐" : "Weak alignment";
-        float width = SkijaUi.textWidth(text, HINT_TEXT_SIZE);
+        float width = ChromaDraw.textWidth(text, HINT_TEXT_SIZE);
         float opacity = progress * Math.max(snapXAlpha, snapYAlpha) * 0.7f;
-        SkijaUi.text(canvas, text, (guiW - width) * 0.5f, Math.max(48f, guiH - 92f), 18f,
+        ChromaDraw.text(canvas, text, (guiW - width) * 0.5f, Math.max(48f, guiH - 92f), 18f,
                 AccentColors.withAlpha(AccentColors.accent(), opacity), HINT_TEXT_SIZE);
     }
 

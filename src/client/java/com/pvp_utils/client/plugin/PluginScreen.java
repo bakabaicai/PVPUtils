@@ -1,6 +1,6 @@
 package com.pvp_utils.client.plugin;
 
-import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
 import io.github.humbleui.skija.Canvas;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -8,7 +8,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
-public final class PluginScreen extends Screen implements SkijaScreen {
+public final class PluginScreen extends Screen implements ChromaScreen {
     private final String plugin;
     private final String id;
     private final Screen parent;
@@ -45,7 +45,7 @@ public final class PluginScreen extends Screen implements SkijaScreen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!removed && minecraft.screen == this) PluginManager.INSTANCE.renderScreen(plugin, id, canvas, width, height);
     }
 

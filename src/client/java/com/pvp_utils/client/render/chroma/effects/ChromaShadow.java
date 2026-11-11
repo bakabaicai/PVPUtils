@@ -1,12 +1,14 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma.effects;
+
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.ClipMode;
 import io.github.humbleui.skija.Path;
 import io.github.humbleui.types.RRect;
 
-public final class SoftShadow {
-    private SoftShadow() {
+public final class ChromaShadow {
+    private ChromaShadow() {
     }
 
     public static void drawRounded(Canvas canvas, float x, float y, float width, float height,
@@ -18,7 +20,7 @@ public final class SoftShadow {
         int save = canvas.save();
         try {
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, corner), ClipMode.DIFFERENCE, true);
-            SkijaUi.dropShadowRounded(canvas, x, y, width, height, corner, 0f, blur(amount), shadowColor);
+            ChromaDraw.dropShadowRounded(canvas, x, y, width, height, corner, 0f, blur(amount), shadowColor);
         } finally {
             canvas.restoreToCount(save);
         }
@@ -31,7 +33,7 @@ public final class SoftShadow {
         int save = canvas.save();
         try {
             canvas.clipPath(path, ClipMode.DIFFERENCE, true);
-            SkijaUi.dropShadowPath(canvas, path, blur(amount), shadowColor);
+            ChromaDraw.dropShadowPath(canvas, path, blur(amount), shadowColor);
         } finally {
             canvas.restoreToCount(save);
         }

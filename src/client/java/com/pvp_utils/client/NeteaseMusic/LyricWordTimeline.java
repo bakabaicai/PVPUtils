@@ -1,6 +1,6 @@
 package com.pvp_utils.client.NeteaseMusic;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +56,7 @@ public final class LyricWordTimeline {
     }
 
     private static float measure(String value, float size, boolean bold) {
-        return bold ? SkijaUi.boldTextWidth(value, size) : SkijaUi.textWidth(value, size);
+        return bold ? ChromaDraw.boldTextWidth(value, size) : ChromaDraw.textWidth(value, size);
     }
 
     private record Word(long startMs, long durationMs, float from, float to) {

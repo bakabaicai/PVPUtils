@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui.widget;
 
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 import io.github.humbleui.types.RRect;
@@ -119,11 +119,11 @@ public class SettingColorPreview extends SettingWidget {
         ClickGuiThemeColors theme = ClickGuiThemeColors.current();
         float swatchX = x + WIDTH - SWATCH_WIDTH;
         drawSwatch(canvas, swatchX, y, SWATCH_WIDTH, CONTROL_HEIGHT, color, alpha, theme);
-        SkijaUi.text(canvas, hexText, x, y, CONTROL_HEIGHT, withAlpha(theme.secondaryText, alpha), 10f);
+        ChromaDraw.text(canvas, hexText, x, y, CONTROL_HEIGHT, withAlpha(theme.secondaryText, alpha), 10f);
         if (colorSetter != null) {
             int markColor = contrastingColor(color);
-            SkijaUi.icon(canvas, expanded ? "\uE5CE" : "\uE5CF", swatchX + SWATCH_WIDTH - 19f,
-                    y, CONTROL_HEIGHT, multiplyAlpha(markColor, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, expanded ? "\uE5CE" : "\uE5CF", swatchX + SWATCH_WIDTH - 19f,
+                    y, CONTROL_HEIGHT, multiplyAlpha(markColor, alpha), 13f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         }
         if (expandProgress <= 0.001f) return;
         int save = canvas.save();
@@ -138,9 +138,9 @@ public class SettingColorPreview extends SettingWidget {
     private void drawPalette(Canvas canvas, float x, float y, float alpha, ClickGuiThemeColors theme) {
         float squareWidth = squareWidth();
         int hueColor = Color.HSBtoRGB(hsv[0], 1f, 1f);
-        SkijaUi.gradient(canvas, x, y, squareWidth, PICKER_HEIGHT,
+        ChromaDraw.gradient(canvas, x, y, squareWidth, PICKER_HEIGHT,
                 multiplyAlpha(0xFFFFFFFF, alpha), multiplyAlpha(hueColor, alpha), false, 5f);
-        SkijaUi.gradient(canvas, x, y, squareWidth, PICKER_HEIGHT,
+        ChromaDraw.gradient(canvas, x, y, squareWidth, PICKER_HEIGHT,
                 0x00000000, multiplyAlpha(0xFF000000, alpha), true, 5f);
         float markerX = x + hsv[1] * squareWidth;
         float markerY = y + (1f - hsv[2]) * PICKER_HEIGHT;
@@ -152,7 +152,7 @@ public class SettingColorPreview extends SettingWidget {
             canvas.clipRRect(RRect.makeXYWH(hueX, y, BAR_WIDTH, PICKER_HEIGHT, 4f), true);
             float segmentHeight = PICKER_HEIGHT / 6f;
             for (int i = 0; i < 6; i++) {
-                SkijaUi.gradient(canvas, hueX, y + segmentHeight * i, BAR_WIDTH, segmentHeight + 0.25f,
+                ChromaDraw.gradient(canvas, hueX, y + segmentHeight * i, BAR_WIDTH, segmentHeight + 0.25f,
                         multiplyAlpha(HUE_COLORS[i], alpha), multiplyAlpha(HUE_COLORS[i + 1], alpha), true, 0f);
             }
         } finally {
@@ -166,18 +166,18 @@ public class SettingColorPreview extends SettingWidget {
             try {
                 canvas.clipRRect(RRect.makeXYWH(alphaX, y, BAR_WIDTH, PICKER_HEIGHT, 4f), true);
                 drawCheckerboard(canvas, alphaX, y, BAR_WIDTH, PICKER_HEIGHT, alpha, theme);
-                SkijaUi.gradient(canvas, alphaX, y, BAR_WIDTH, PICKER_HEIGHT,
+                ChromaDraw.gradient(canvas, alphaX, y, BAR_WIDTH, PICKER_HEIGHT,
                         multiplyAlpha(color | 0xFF000000, alpha), color & 0x00FFFFFF, true, 0f);
             } finally {
                 canvas.restoreToCount(alphaSave);
             }
             drawBarMarker(canvas, alphaX, y + (1f - (color >>> 24) / 255f) * PICKER_HEIGHT, alpha);
         }
-        SkijaUi.text(canvas, UiText.t("饱和度 / 明度", "Saturation / Value"), x, y + PICKER_HEIGHT + 8f,
+        ChromaDraw.text(canvas, UiText.t("饱和度 / 明度", "Saturation / Value"), x, y + PICKER_HEIGHT + 8f,
                 14f, withAlpha(theme.secondaryText, alpha), 9f);
         if (allowAlpha) {
-            float textWidth = SkijaUi.textWidth(alphaText, 9f);
-            SkijaUi.text(canvas, alphaText, x + WIDTH - textWidth, y + PICKER_HEIGHT + 8f,
+            float textWidth = ChromaDraw.textWidth(alphaText, 9f);
+            ChromaDraw.text(canvas, alphaText, x + WIDTH - textWidth, y + PICKER_HEIGHT + 8f,
                     14f, withAlpha(theme.secondaryText, alpha), 9f);
         }
     }
@@ -189,11 +189,11 @@ public class SettingColorPreview extends SettingWidget {
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, 6f), true);
             drawCheckerboard(canvas, x, y, width, height, alpha, theme);
             if (splitSupplier.getAsBoolean()) {
-                SkijaUi.fill(canvas, x, y, width * 0.5f, height, multiplyAlpha(argb, alpha));
-                SkijaUi.fill(canvas, x + width * 0.5f, y, width * 0.5f, height,
+                ChromaDraw.fill(canvas, x, y, width * 0.5f, height, multiplyAlpha(argb, alpha));
+                ChromaDraw.fill(canvas, x + width * 0.5f, y, width * 0.5f, height,
                         multiplyAlpha(secondColorSupplier.getAsInt(), alpha));
             } else {
-                SkijaUi.fill(canvas, x, y, width, height, multiplyAlpha(argb, alpha));
+                ChromaDraw.fill(canvas, x, y, width, height, multiplyAlpha(argb, alpha));
             }
         } finally {
             canvas.restoreToCount(save);
@@ -204,13 +204,13 @@ public class SettingColorPreview extends SettingWidget {
                                   float alpha, ClickGuiThemeColors theme) {
         int base = theme.dark ? 0xFF343841 : 0xFFE4E7EC;
         int alternate = theme.dark ? 0xFF4A505B : 0xFFC2C8D1;
-        SkijaUi.fill(canvas, x, y, width, height, multiplyAlpha(base, alpha));
+        ChromaDraw.fill(canvas, x, y, width, height, multiplyAlpha(base, alpha));
         float cell = 6f;
         int rows = (int) Math.ceil(height / cell);
         int columns = (int) Math.ceil(width / cell);
         for (int row = 0; row < rows; row++) {
             for (int column = row & 1; column < columns; column += 2) {
-                SkijaUi.fill(canvas, x + column * cell, y + row * cell,
+                ChromaDraw.fill(canvas, x + column * cell, y + row * cell,
                         Math.min(cell, width - column * cell), Math.min(cell, height - row * cell),
                         multiplyAlpha(alternate, alpha));
             }
@@ -218,17 +218,17 @@ public class SettingColorPreview extends SettingWidget {
     }
 
     private void drawMarker(Canvas canvas, float x, float y, float radius, float alpha) {
-        SkijaUi.outline(canvas, x - radius - 0.7f, y - radius - 0.7f,
+        ChromaDraw.outline(canvas, x - radius - 0.7f, y - radius - 0.7f,
                 radius * 2f + 1.4f, radius * 2f + 1.4f, radius + 0.7f, 2.5f,
                 multiplyAlpha(0x99000000, alpha));
-        SkijaUi.outline(canvas, x - radius, y - radius, radius * 2f, radius * 2f, radius, 1.6f,
+        ChromaDraw.outline(canvas, x - radius, y - radius, radius * 2f, radius * 2f, radius, 1.6f,
                 multiplyAlpha(0xFFFFFFFF, alpha));
     }
 
     private void drawBarMarker(Canvas canvas, float x, float y, float alpha) {
-        SkijaUi.rounded(canvas, x - 2f, y - 2f, BAR_WIDTH + 4f, 4f, 2f,
+        ChromaDraw.rounded(canvas, x - 2f, y - 2f, BAR_WIDTH + 4f, 4f, 2f,
                 multiplyAlpha(0x99000000, alpha));
-        SkijaUi.rounded(canvas, x - 1f, y - 1f, BAR_WIDTH + 2f, 2f, 1f,
+        ChromaDraw.rounded(canvas, x - 1f, y - 1f, BAR_WIDTH + 2f, 2f, 1f,
                 multiplyAlpha(0xFFFFFFFF, alpha));
     }
 

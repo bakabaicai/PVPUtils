@@ -3,7 +3,7 @@ package com.pvp_utils.client.render.MainUI;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -13,7 +13,7 @@ import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.alt.AltManagerScreen;
 import com.pvp_utils.client.via.ViaFabricPlusBridge;
 import com.pvp_utils.client.Version;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.client.startup.StartupProgress;
 import io.github.humbleui.skija.*;
 import net.fabricmc.api.EnvType;
@@ -44,7 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Environment(EnvType.CLIENT)
-public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
+public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.render.chroma.ChromaScreen {
     private static final long HINT_DURATION_MS = 5000L;
     private static final long HINT_FADE_IN_MS = 400L;
     private static final long HINT_FADE_OUT_MS = 800L;
@@ -440,8 +440,8 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             buttons.get(i).setBounds(startX, startY + i * (buttonH + gap), buttonW, buttonH);
         }
         float titleSize = titleSize();
-        float titleW = SkijaUi.textWidth("PVPUtils", titleSize);
-        float titleH = (SkijaUi.textMetrics(titleSize).getDescent() - SkijaUi.textMetrics(titleSize).getAscent());
+        float titleW = ChromaDraw.textWidth("PVPUtils", titleSize);
+        float titleH = (ChromaDraw.textMetrics(titleSize).getDescent() - ChromaDraw.textMetrics(titleSize).getAscent());
         float titleX = (this.width - titleW) * 0.5f;
         float titleY = compactCardY() - titleH - 32f * scale;
         titleHitBox = new TitleHitBox(titleX, titleY, titleW, titleH);
@@ -484,7 +484,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (isFlipping()) {
             if (pendingGpuUi && this.minecraft != null && this.minecraft.screen == this) {
                 renderGpuUi(pendingGpuAlpha);
@@ -493,19 +493,19 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             return;
         }
         if (embeddedSingleplayer != null) {
-            embeddedSingleplayer.renderSkija(canvas);
+            embeddedSingleplayer.renderChroma(canvas);
             return;
         }
         if (embeddedMultiplayer != null) {
-            embeddedMultiplayer.renderSkija(canvas);
+            embeddedMultiplayer.renderChroma(canvas);
             return;
         }
         if (embeddedAltManager != null) {
-            embeddedAltManager.renderSkija(canvas);
+            embeddedAltManager.renderChroma(canvas);
             return;
         }
         if (embeddedViaFabricPlus != null) {
-            embeddedViaFabricPlus.renderSkija(canvas);
+            embeddedViaFabricPlus.renderChroma(canvas);
             return;
         }
         if (!pendingGpuUi || this.minecraft == null || this.minecraft.screen != this) {
@@ -517,7 +517,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     }
 
     private void renderGpuUi(float alpha) {
-        SkijaRenderer.draw(c -> {
+        ChromaGraphics.draw(c -> {
             if (isFlipping()) {
                 renderFlip(c, alpha);
                 return;
@@ -569,7 +569,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             int save = alpha * visibility >= 0.999f ? canvas.save() : canvas.saveLayer(null, opacity);
             try {
                 float titleMove = (1f - visibility) * 34f * mainLayoutScale();
-                SkijaUi.text(canvas, "PVPUtils", titleHitBox.x, (titleHitBox.y + titleHitBox.h * 0.82f + titleMove) + SkijaUi.textMetrics(titleSize()).getAscent(), SkijaUi.textMetrics(titleSize()).getDescent() - SkijaUi.textMetrics(titleSize()).getAscent(), 0xFFFFFFFF, titleSize());
+                ChromaDraw.text(canvas, "PVPUtils", titleHitBox.x, (titleHitBox.y + titleHitBox.h * 0.82f + titleMove) + ChromaDraw.textMetrics(titleSize()).getAscent(), ChromaDraw.textMetrics(titleSize()).getDescent() - ChromaDraw.textMetrics(titleSize()).getAscent(), 0xFFFFFFFF, titleSize());
                 int corner = canvas.save();
                 try {
                     MainUiScale.applyTopRight(canvas, this.width, this.height, mainLayoutScale());
@@ -603,7 +603,7 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
     private void renderMainCardBlur(Canvas canvas) {
         RRect bounds = mainMenuBounds();
         float strength = Math.max(0.65f, Math.min(1.25f, 0.65f + Math.max(bounds.getWidth(), bounds.getHeight()) / 520f * 0.25f));
-        SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), strength * 10.5f);
+        ChromaGraphics.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), strength * 10.5f);
         try (Paint overlay = new Paint().setColor(0x12000000)) {
             canvas.drawRRect(bounds, overlay);
         }
@@ -1205,14 +1205,14 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         int accentColor = lightTheme ? 0xD17600 : 0xFFD176;
         int bgColor = (alpha << 24) | (lightTheme ? 0xF7F7F7 : 0xFFFFFF);
         int iconColor = (Math.round((230f + 25f * settingsHoverProgress) * fade) << 24) | lerpRgb(baseColor, accentColor, settingsHoverProgress);
-        SkijaUi.rounded(canvas, x, y, w, h, 10f + 6f * t, bgColor);
+        ChromaDraw.rounded(canvas, x, y, w, h, 10f + 6f * t, bgColor);
         if (fade <= 0.001f) return;
         x = getSettingsX();
         String icon = "\uE8B8";
         float size = 22f;
-        float iconW = SkijaUi.iconWidth(icon, size, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        float iconH = (SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent());
-        SkijaUi.icon(canvas, icon, x + (SETTINGS_SIZE - iconW) * 0.5f, (y + (SETTINGS_SIZE + iconH) * 0.5f - 2f) + SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(size, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), iconColor, size, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float iconW = ChromaDraw.iconWidth(icon, size, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        float iconH = (ChromaDraw.iconMetrics(size, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(size, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent());
+        ChromaDraw.icon(canvas, icon, x + (SETTINGS_SIZE - iconW) * 0.5f, (y + (SETTINGS_SIZE + iconH) * 0.5f - 2f) + ChromaDraw.iconMetrics(size, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(size, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(size, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), iconColor, size, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     }
 
     private void renderSettingsPanel(Canvas canvas) {
@@ -1234,43 +1234,43 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             canvas.clipRRect(RRect.makeXYWH(getSettingsX() + SETTINGS_SIZE - w, y, w, h, 10f + 6f * t), true);
             float contentX = x + 22f;
             float contentY = y + 34f;
-            SkijaUi.text(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, (contentY) + SkijaUi.textMetrics(18f).getAscent(), SkijaUi.textMetrics(18f).getDescent() - SkijaUi.textMetrics(18f).getAscent(), primary, 18f);
+            ChromaDraw.text(canvas, Config.isChinese ? "UI \u8bbe\u7f6e" : "UI Settings", contentX, (contentY) + ChromaDraw.textMetrics(18f).getAscent(), ChromaDraw.textMetrics(18f).getDescent() - ChromaDraw.textMetrics(18f).getAscent(), primary, 18f);
 
             float rowY = y + 72f;
-            SkijaUi.text(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, (rowY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+            ChromaDraw.text(canvas, Config.isChinese ? "\u5f53\u524d\u80cc\u666f\u6a21\u5f0f" : "Background Mode", contentX, (rowY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
             renderChoice(canvas, contentX, rowY + 18f, 82f, Config.isChinese ? "\u5185\u7f6eGLSL" : "GLSL", isGlslBackground(), textAlpha);
             renderChoice(canvas, contentX + 92f, rowY + 18f, 92f, Config.isChinese ? "\u56fe\u7247" : "Image", isImageBackground(), textAlpha);
             renderChoice(canvas, contentX + 194f, rowY + 18f, 76f, Config.isChinese ? "\u89c6\u9891" : "Video", isVideoBackground(), textAlpha);
 
             if (isImageBackground() || isVideoBackground()) {
                 float folderY = y + 148f;
-                SkijaUi.text(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, (folderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                ChromaDraw.text(canvas, Config.isChinese ? "\u6253\u5f00\u76ee\u5f55" : "Open Folder", contentX, (folderY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                 renderButton(canvas, contentX + 198f, folderY - 16f, 72f, Config.isChinese ? "\u6253\u5f00" : "Open", textAlpha);
             }
 
             if (isImageBackground()) {
                 float imageY = y + 184f;
-                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, (imageY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                ChromaDraw.text(canvas, Config.isChinese ? "\u9009\u62e9\u56fe\u7247" : "Select Image", contentX, (imageY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                 renderButton(canvas, contentX + 112f, imageY - 16f, 158f, Config.mainUIBackgroundImage, textAlpha);
 
                 float effectY = y + 220f;
-                SkijaUi.text(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, (effectY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                ChromaDraw.text(canvas, Config.isChinese ? "\u80cc\u666f\u6548\u679c" : "Background Effects", contentX, (effectY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                 renderToggle(canvas, contentX, effectY + 18f, Config.isChinese ? "\u9f20\u6807\u4ea4\u4e92\u6548\u679c" : "Mouse Interaction", Config.mainUIMouseEffect, textAlpha);
             } else if (isVideoBackground()) {
                 float videoY = y + 184f;
-                SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, (videoY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                ChromaDraw.text(canvas, Config.isChinese ? "\u9009\u62e9\u89c6\u9891" : "Select Video", contentX, (videoY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                 String label = Config.mainUIVideoBackground == null || Config.mainUIVideoBackground.isBlank()
                 ? (Config.isChinese ? "\u65e0 MP4" : "No MP4")
                 : Config.mainUIVideoBackground;
                 renderButton(canvas, contentX + 112f, videoY - 16f, 158f, label, textAlpha);
             } else {
                 float glslY = y + 148f;
-                SkijaUi.text(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, (glslY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                ChromaDraw.text(canvas, Config.isChinese ? "GLSL \u6a21\u5f0f" : "GLSL Mode", contentX, (glslY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                 renderChoice(canvas, contentX + 112f, glslY - 16f, 72f, Config.isChinese ? "\u968f\u673a" : "Random", Config.mainUIGlslMode == Config.MainUIGlslMode.RANDOM, textAlpha);
                 renderChoice(canvas, contentX + 194f, glslY - 16f, 76f, Config.isChinese ? "\u56fa\u5b9a" : "Fixed", Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED, textAlpha);
                 if (Config.mainUIGlslMode == Config.MainUIGlslMode.FIXED) {
                     float shaderY = y + 184f;
-                    SkijaUi.text(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, (shaderY) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), secondary, 12f);
+                    ChromaDraw.text(canvas, Config.isChinese ? "\u9009\u62e9 GLSL" : "Select GLSL", contentX, (shaderY) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), secondary, 12f);
                     renderButton(canvas, contentX + 112f, shaderY - 16f, 158f, MainUIShader.normalizeShader(Config.mainUIGlslShader), textAlpha);
                 }
             }
@@ -1281,10 +1281,10 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
                 float progress = Math.clamp((Config.mainUIFrameLimit - 30f) / 210f, 0f, 1f);
                 int trackColor = (Math.round(textAlpha * 0.16f) << 24) | (primary & 0xFFFFFF);
                 int activeColor = (textAlpha << 24) | (lightTheme ? 0xD17600 : 0xFFD176);
-                SkijaUi.rounded(canvas, contentX, sliderY - 2f, 220f, 4f, 2f, trackColor);
-                SkijaUi.rounded(canvas, contentX, sliderY - 2f, 220f * progress, 4f, 2f, activeColor);
-                SkijaUi.rounded(canvas, contentX + 220f * progress - 5f, sliderY - 5f, 10f, 10f, 5f, activeColor);
-                SkijaUi.text(canvas, Integer.toString(Config.mainUIFrameLimit), contentX + 238f, sliderY - 10f, 20f, primary, 11f);
+                ChromaDraw.rounded(canvas, contentX, sliderY - 2f, 220f, 4f, 2f, trackColor);
+                ChromaDraw.rounded(canvas, contentX, sliderY - 2f, 220f * progress, 4f, 2f, activeColor);
+                ChromaDraw.rounded(canvas, contentX + 220f * progress - 5f, sliderY - 5f, 10f, 10f, 5f, activeColor);
+                ChromaDraw.text(canvas, Integer.toString(Config.mainUIFrameLimit), contentX + 238f, sliderY - 10f, 20f, primary, 11f);
             }
         } finally {
             canvas.restoreToCount(panelSave);
@@ -1295,8 +1295,8 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         float versionX = 12f;
         float versionY = this.height - 12f;
         if (Version.DEBUG) {
-            float debugY = versionY - (SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent()) - 4f;
-            SkijaUi.text(canvas, "DEBUG", versionX, (debugY) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xFFFFD34D, 11f);
+            float debugY = versionY - (ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent()) - 4f;
+            ChromaDraw.text(canvas, "DEBUG", versionX, (debugY) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), 0xFFFFD34D, 11f);
         }
         drawVersionText(canvas, versionX, versionY, 11f, 0xE6FFFFFF);
     }
@@ -1339,14 +1339,14 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         String version = Version.displayName();
         String type = Version.typeName();
         if (type.isEmpty()) {
-            SkijaUi.text(canvas, version, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
+            ChromaDraw.text(canvas, version, x, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), baseColor, size);
             return;
         }
 
         String marker = "-" + type;
         int typeStart = version.indexOf(marker);
         if (typeStart < 0) {
-            SkijaUi.text(canvas, version, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
+            ChromaDraw.text(canvas, version, x, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), baseColor, size);
             return;
         }
 
@@ -1356,10 +1356,10 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
         String typed = version.substring(typeStart, typeEnd);
         String after = version.substring(typeEnd);
         int typeColor = Version.TYPE == 1 ? 0xFFFF4444 : 0xFFFFD34D;
-        SkijaUi.text(canvas, before, x, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
-        float tx = x + SkijaUi.textWidth(before, size);
-        SkijaUi.text(canvas, typed, tx, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), typeColor, size);
-        SkijaUi.text(canvas, after, tx + SkijaUi.textWidth(typed, size), (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), baseColor, size);
+        ChromaDraw.text(canvas, before, x, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), baseColor, size);
+        float tx = x + ChromaDraw.textWidth(before, size);
+        ChromaDraw.text(canvas, typed, tx, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), typeColor, size);
+        ChromaDraw.text(canvas, after, tx + ChromaDraw.textWidth(typed, size), (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), baseColor, size);
     }
 
     private void renderChoice(Canvas canvas, float x, float y, float w, String text, boolean selected, int alpha) {
@@ -1370,8 +1370,8 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
         }
         int color = (alpha << 24) | (selected ? 0xFFD176 : (lightTheme ? 0x111111 : 0xFFFFFF));
-        float tw = SkijaUi.textWidth(text, 11f);
-        SkijaUi.text(canvas, text, x + (w - tw) * 0.5f, (y + 18f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), color, 11f);
+        float tw = ChromaDraw.textWidth(text, 11f);
+        ChromaDraw.text(canvas, text, x + (w - tw) * 0.5f, (y + 18f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), color, 11f);
     }
 
     private void renderButton(Canvas canvas, float x, float y, float w, String text, int alpha) {
@@ -1382,19 +1382,19 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             canvas.drawRRect(RRect.makeXYWH(x, y, w, 28f, 9f), bg);
         }
         String label = text == null ? "" : text;
-        if (SkijaUi.textWidth(label, 11f) > w - 16f) {
-            while (label.length() > 1 && SkijaUi.textWidth(label + "...", 11f) > w - 16f) {
+        if (ChromaDraw.textWidth(label, 11f) > w - 16f) {
+            while (label.length() > 1 && ChromaDraw.textWidth(label + "...", 11f) > w - 16f) {
                 label = label.substring(0, label.length() - 1);
             }
             label += "...";
         }
-        float tw = SkijaUi.textWidth(label, 11f);
-        SkijaUi.text(canvas, label, x + (w - tw) * 0.5f, (y + 18f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 11f);
+        float tw = ChromaDraw.textWidth(label, 11f);
+        ChromaDraw.text(canvas, label, x + (w - tw) * 0.5f, (y + 18f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 11f);
     }
 
     private void renderToggle(Canvas canvas, float x, float y, String text, boolean selected, int alpha) {
         boolean lightTheme = isLightTheme();
-        SkijaUi.text(canvas, text, x, (y + 18f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 12f);
+        ChromaDraw.text(canvas, text, x, (y + 18f) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), (alpha << 24) | (lightTheme ? 0x111111 : 0xFFFFFF), 12f);
         float tx = x + 218f;
         try (Paint track = new Paint()) {
             track.setAntiAlias(true);
@@ -1616,9 +1616,9 @@ public class PVPUtilsMainUI extends Screen implements com.pvp_utils.client.rende
             int color = withAlpha(0xFFFFFFFF, drawAlpha);
             float iconX = drawX + 22f * uiScale;
             float centerY = drawY + drawH * 0.5f;
-            float iconH = (SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent());
-            SkijaUi.icon(canvas, icon, iconX, (centerY + iconH * 0.35f) + SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), color, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            SkijaUi.text(canvas, text, drawX + 54f * uiScale + t * 3f * uiScale, (centerY + (SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent()) * 0.36f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), color, textSize);
+            float iconH = (ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent());
+            ChromaDraw.icon(canvas, icon, iconX, (centerY + iconH * 0.35f) + ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), color, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.text(canvas, text, drawX + 54f * uiScale + t * 3f * uiScale, (centerY + (ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent()) * 0.36f) + ChromaDraw.textMetrics(textSize).getAscent(), ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent(), color, textSize);
         }
     }
 

@@ -2,15 +2,15 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicCovers;
 import com.pvp_utils.client.NeteaseMusic.Song;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -66,7 +66,7 @@ public class MusicInfoHudRenderer {
         }
     }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!Config.musicInfoHud || Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE) {
             pendingFrame = false;
             return;
@@ -119,7 +119,7 @@ public class MusicInfoHudRenderer {
             if (Config.musicInfoHudMode == Config.MusicInfoHudMode.LITE) {
                 drawLiteCard(new SkiaLitePainter(canvas), song, positionMs, totalMs, playbackMode);
             } else {
-                SkijaUi.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, Config.musicInfoAppearance.background());
+                ChromaDraw.rounded(canvas, 0f, 0f, CARD_W, CARD_H, RADIUS, Config.musicInfoAppearance.background());
                 drawCardContent(canvas, song, positionMs, totalMs, playbackMode, true);
             }
         } finally {
@@ -128,7 +128,7 @@ public class MusicInfoHudRenderer {
     }
 
     private void drawCardContent(Canvas canvas, Song song, long positionMs, long totalMs, String playbackMode, boolean blurMode) {
-        SkijaUi.rounded(canvas, 10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f, coverBackplateColor(blurMode));
+        ChromaDraw.rounded(canvas, 10f, 10f, NEW_COVER_SIZE, NEW_COVER_SIZE, 12f, coverBackplateColor(blurMode));
 
         Image cover = NeteaseMusicCovers.skiaImage(song.image());
         if (cover != null) {
@@ -147,11 +147,11 @@ public class MusicInfoHudRenderer {
                 canvas.restoreToCount(coverSave);
             }
         } else {
-            SkijaUi.text(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, (10f + NEW_COVER_SIZE / 2f + 4f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0x66FFFFFF, 12f);
+            ChromaDraw.text(canvas, "♪", 10f + NEW_COVER_SIZE / 2f - 4f, (10f + NEW_COVER_SIZE / 2f + 4f) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), 0x66FFFFFF, 12f);
         }
 
-        SkijaUi.text(canvas, trimSkia(song.name(), 128f, 13f), 70f, (24f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), primaryTextColor(blurMode), 13f);
-        SkijaUi.text(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
+        ChromaDraw.text(canvas, trimSkia(song.name(), 128f, 13f), 70f, (24f) + ChromaDraw.textMetrics(13f).getAscent(), ChromaDraw.textMetrics(13f).getDescent() - ChromaDraw.textMetrics(13f).getAscent(), primaryTextColor(blurMode), 13f);
+        ChromaDraw.text(canvas, trimSkia(song.displayArtist(), 128f, 11f), 70f, (40f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
 
         long total = Math.max(0L, totalMs);
         long position = Math.max(0L, Math.min(positionMs, Math.max(total, 0L)));
@@ -160,11 +160,11 @@ public class MusicInfoHudRenderer {
         float barY = 51f;
         float barW = 112f;
         float barH = 5f;
-        SkijaUi.rounded(canvas, barX, barY, barW, barH, barH * 0.5f, trackColor(blurMode));
-        SkijaUi.rounded(canvas, barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f, Config.musicInfoAppearance.accent());
-        SkijaUi.text(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
+        ChromaDraw.rounded(canvas, barX, barY, barW, barH, barH * 0.5f, trackColor(blurMode));
+        ChromaDraw.rounded(canvas, barX, barY, Math.max(barH, barW * progress), barH, barH * 0.5f, Config.musicInfoAppearance.accent());
+        ChromaDraw.text(canvas, MusicPlaybackService.formatTime(position) + " / " + MusicPlaybackService.formatTime(total), 70f, (64f) + ChromaDraw.textMetrics(9f).getAscent(), ChromaDraw.textMetrics(9f).getDescent() - ChromaDraw.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
         String mode = playbackMode;
-        SkijaUi.text(canvas, mode, CARD_W - 14f - SkijaUi.textWidth(mode, 9f), (64f) + SkijaUi.textMetrics(9f).getAscent(), SkijaUi.textMetrics(9f).getDescent() - SkijaUi.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
+        ChromaDraw.text(canvas, mode, CARD_W - 14f - ChromaDraw.textWidth(mode, 9f), (64f) + ChromaDraw.textMetrics(9f).getAscent(), ChromaDraw.textMetrics(9f).getDescent() - ChromaDraw.textMetrics(9f).getAscent(), mutedTextColor(blurMode), 9f);
     }
 
     private void renderLite(GuiGraphics graphics, Minecraft client, MusicPlaybackService player, Song song) {
@@ -175,7 +175,7 @@ public class MusicInfoHudRenderer {
         float scale = getScale();
 
         if (Config.musicInfoAppearance.shadow) {
-            SkijaRenderer.draw(c -> SoftShadow.drawRounded(c, x, y, LITE_W * scale, LITE_H * scale,
+            ChromaGraphics.draw(c -> ChromaShadow.drawRounded(c, x, y, LITE_W * scale, LITE_H * scale,
                     0f, Config.musicInfoAppearance.shadowStrength, 0xB0000000));
         }
         graphics.pose().pushMatrix();
@@ -289,9 +289,9 @@ public class MusicInfoHudRenderer {
 
     private String trimSkia(String text, float maxWidth, float size) {
         if (text == null || text.isBlank()) return "";
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
+        if (ChromaDraw.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "...";
-        while (text.length() > 1 && SkijaUi.textWidth(text + ellipsis, size) > maxWidth) {
+        while (text.length() > 1 && ChromaDraw.textWidth(text + ellipsis, size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + ellipsis;
@@ -338,15 +338,15 @@ public class MusicInfoHudRenderer {
         }
 
         public void fill(int left, int top, int right, int bottom, int color) {
-            SkijaUi.fill(canvas, left, top, right - left, bottom - top, color);
+            ChromaDraw.fill(canvas, left, top, right - left, bottom - top, color);
         }
 
         public void text(String value, int x, int y, int color) {
-            SkijaUi.textAtTop(canvas, value, x, y, color, 9f, false);
+            ChromaDraw.textAtTop(canvas, value, x, y, color, 9f, false);
         }
 
         public float width(String value) {
-            return SkijaUi.textWidth(value, 9f);
+            return ChromaDraw.textWidth(value, 9f);
         }
 
         public void cover(Song song, int x, int y, int size) {

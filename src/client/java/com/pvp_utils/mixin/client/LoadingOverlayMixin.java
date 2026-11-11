@@ -1,8 +1,8 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
-import com.pvp_utils.client.render.skia.SkijaOverlay;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaOverlay;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.client.startup.StartupOverlayRenderer;
 import com.pvp_utils.client.startup.StartupProgress;
 import io.github.humbleui.skija.Canvas;
@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LoadingOverlay.class)
-public class LoadingOverlayMixin implements SkijaOverlay {
+public class LoadingOverlayMixin implements ChromaOverlay {
     @Shadow
     @Final
     private Minecraft minecraft;
@@ -57,7 +57,7 @@ public class LoadingOverlayMixin implements SkijaOverlay {
         if (frame.finished()) {
             StartupProgress.complete();
             minecraft.setOverlay(null);
-        } else if (SkijaRenderer.hasFailed()) {
+        } else if (ChromaGraphics.hasFailed()) {
             pvp_utils$renderStartupFallback(graphics, frame);
         }
         ci.cancel();
@@ -84,7 +84,7 @@ public class LoadingOverlayMixin implements SkijaOverlay {
     }
 
     @Override
-    public boolean isSkijaOverlayActive() {
+    public boolean isChromaOverlayActive() {
         return pvp_utils$startupRenderer != null;
     }
 
@@ -95,8 +95,8 @@ public class LoadingOverlayMixin implements SkijaOverlay {
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
-        if (pvp_utils$startupRenderer != null) pvp_utils$startupRenderer.renderSkija(canvas);
+    public void renderChroma(Canvas canvas) {
+        if (pvp_utils$startupRenderer != null) pvp_utils$startupRenderer.renderChroma(canvas);
     }
 
     @Override

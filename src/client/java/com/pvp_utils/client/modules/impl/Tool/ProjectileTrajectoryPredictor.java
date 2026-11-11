@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.world.WorldRender;
+import com.pvp_utils.client.render.chroma.world.ChromaWorld;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -132,7 +132,7 @@ public final class ProjectileTrajectoryPredictor {
             Vec3 segmentEnd = hitEntityFirst ? entityHit.location() : hitBlock ? blockHit.getLocation() : nextPosition;
             Vec3 lineStart = position.add(handOffset.scale(handWeight(tick)));
             Vec3 lineEnd = (hitBlock || hitEntityFirst) ? segmentEnd : segmentEnd.add(handOffset.scale(handWeight(tick + 1)));
-            WorldRender.line(lineStart, lineEnd, TRAJECTORY_COLOR, 2.5f);
+            ChromaWorld.line(lineStart, lineEnd, TRAJECTORY_COLOR, 2.5f);
             if (hitEntityFirst) {
                 List<TrajectoryImpact> impacts = sampleImpacts(level, player, arrowSpawnPosition(player, partialTick), viewVector, power * 3.0f, false, partialTick,
                         new TrajectoryImpact(entityHit, null));
@@ -144,7 +144,7 @@ public final class ProjectileTrajectoryPredictor {
             }
             if (hitBlock) {
                 if (Config.projectileTrajectoryPredictBlock) {
-                    WorldRender.face(new AABB(blockHit.getBlockPos()), blockHit.getDirection(), SNOWBALL_IMPACT_FACE_COLOR, 3.0f);
+                    ChromaWorld.face(new AABB(blockHit.getBlockPos()), blockHit.getDirection(), SNOWBALL_IMPACT_FACE_COLOR, 3.0f);
                 }
                 if (Config.projectileTrajectoryPredictEntity) {
                     List<TrajectoryImpact> impacts = sampleImpacts(level, player, arrowSpawnPosition(player, partialTick), viewVector, power * 3.0f, false, partialTick,
@@ -185,9 +185,9 @@ public final class ProjectileTrajectoryPredictor {
             }
 
             for (Segment segment : trajectory.segments()) {
-                WorldRender.line(segment.from(), segment.to(), INCOMING_TRAJECTORY_COLOR, 2.0f);
+                ChromaWorld.line(segment.from(), segment.to(), INCOMING_TRAJECTORY_COLOR, 2.0f);
             }
-            WorldRender.box(interpolatedBox(player, partialTick).inflate(0.05), INCOMING_HIT_OUTLINE_COLOR, INCOMING_HIT_FILL_COLOR);
+            ChromaWorld.box(interpolatedBox(player, partialTick).inflate(0.05), INCOMING_HIT_OUTLINE_COLOR, INCOMING_HIT_FILL_COLOR);
         }
     }
 
@@ -274,7 +274,7 @@ public final class ProjectileTrajectoryPredictor {
             Vec3 segmentEnd = hitEntityFirst ? entityHit.location() : hitBlock ? blockHit.getLocation() : nextPosition;
             Vec3 lineStart = position.add(handOffset.scale(handWeight(tick)));
             Vec3 lineEnd = (hitBlock || hitEntityFirst) ? segmentEnd : segmentEnd.add(handOffset.scale(handWeight(tick + 1)));
-            WorldRender.line(lineStart, lineEnd, lineColor, 2.5f);
+            ChromaWorld.line(lineStart, lineEnd, lineColor, 2.5f);
 
             if (hitEntityFirst) {
                 if (!isPearl && Config.projectileTrajectoryPredictEntity) {
@@ -309,10 +309,10 @@ public final class ProjectileTrajectoryPredictor {
         AABB blockBox = new AABB(hit.getBlockPos());
         if (isPearl) {
             boolean flat = hit.getDirection().getAxis().isVertical();
-            WorldRender.face(blockBox, hit.getDirection(), flat ? PEARL_FLAT_FACE_COLOR : PEARL_SIDE_FACE_COLOR, 3.0f);
+            ChromaWorld.face(blockBox, hit.getDirection(), flat ? PEARL_FLAT_FACE_COLOR : PEARL_SIDE_FACE_COLOR, 3.0f);
             return;
         }
-        WorldRender.face(blockBox, hit.getDirection(), SNOWBALL_IMPACT_FACE_COLOR, 3.0f);
+        ChromaWorld.face(blockBox, hit.getDirection(), SNOWBALL_IMPACT_FACE_COLOR, 3.0f);
     }
 
     // Rightward horizontal unit vector for a given yaw (forward = (-sinYaw, .., cosYaw)).
@@ -512,7 +512,7 @@ public final class ProjectileTrajectoryPredictor {
 
     private static void renderEntityBox(LocalPlayer player, Entity entity, double projectileSpeed, float partialTick, double chance) {
         int rgb = interpolateColor(0xFF5555, 0x55FF55, chance);
-        WorldRender.box(displayPredictedBox(player, entity, projectileSpeed, partialTick).inflate(0.05), 0xFF000000 | rgb, 0x33000000 | rgb);
+        ChromaWorld.box(displayPredictedBox(player, entity, projectileSpeed, partialTick).inflate(0.05), 0xFF000000 | rgb, 0x33000000 | rgb);
     }
 
     private static double hitChance(List<TrajectoryImpact> impacts, Entity entity) {

@@ -4,7 +4,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.render.HudAppearance;
 import com.pvp_utils.client.render.HudPanel;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.scores.Objective;
@@ -40,7 +40,7 @@ public final class BetterScoreboardRenderer {
                         + (BetterScoreboardManager.VISUAL_OFFSET_Y - padding) * scale,
                 0f, Math.max(0f, graphics.guiHeight() - height));
         HudAppearance appearance = Config.scoreboardAppearance;
-        SkijaRenderer.draw(canvas -> HudPanel.draw(canvas, x, y, width, height, 9f * scale, appearance, 1f));
+        ChromaGraphics.draw(canvas -> HudPanel.draw(canvas, x, y, width, height, 9f * scale, appearance, 1f));
         graphics.pose().pushMatrix();
         try {
             graphics.pose().translate(x, y);

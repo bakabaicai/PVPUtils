@@ -2,14 +2,14 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudAppearance;
 import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
 import com.pvp_utils.client.util.RateCounter;
 import io.github.humbleui.skija.*;
 import net.minecraft.client.Minecraft;
@@ -65,7 +65,7 @@ public class KeystrokesRenderer {
         if (!Config.keystrokes) return;
 
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) return;
+        if (client.screen instanceof ChromaScreen || client.screen instanceof NeteaseMusicScreen) return;
         LocalPlayer player = client.player;
         if (player == null) return;
 
@@ -148,10 +148,10 @@ public class KeystrokesRenderer {
         pendingRightCps = rightCps;
     }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.keystrokes || Config.keystrokesMode == Config.KeystrokesMode.LITE || client.options.hideGui || client.screen instanceof ChromaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -252,16 +252,16 @@ public class KeystrokesRenderer {
     }
 
     private void updateLabelMetrics() {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (labelFontRevision == revision) return;
-        keyLabelW = SkijaUi.textWidth("W", 11f);
-        aLabelW = SkijaUi.textWidth("A", 11f);
-        sLabelW = SkijaUi.textWidth("S", 11f);
-        dLabelW = SkijaUi.textWidth("D", 11f);
-        spaceLabelW = SkijaUi.textWidth("SPACE", 11f);
-        shiftLabelW = SkijaUi.textWidth("SHIFT", 11f);
-        lmbLabelW = SkijaUi.textWidth("LMB", 8.5f);
-        rmbLabelW = SkijaUi.textWidth("RMB", 8.5f);
+        keyLabelW = ChromaDraw.textWidth("W", 11f);
+        aLabelW = ChromaDraw.textWidth("A", 11f);
+        sLabelW = ChromaDraw.textWidth("S", 11f);
+        dLabelW = ChromaDraw.textWidth("D", 11f);
+        spaceLabelW = ChromaDraw.textWidth("SPACE", 11f);
+        shiftLabelW = ChromaDraw.textWidth("SHIFT", 11f);
+        lmbLabelW = ChromaDraw.textWidth("LMB", 8.5f);
+        rmbLabelW = ChromaDraw.textWidth("RMB", 8.5f);
         labelFontRevision = revision;
     }
 
@@ -289,20 +289,20 @@ public class KeystrokesRenderer {
     private void drawKeyShell(Canvas canvas, float x, float y, float width, float height, KeyVisual visual) {
         int accent = Config.keystrokesAppearance.accent(x, y);
         if (visual.pulse > 0.01f) {
-            SkijaUi.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, visual.pulse * 0.12f));
+            ChromaDraw.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, visual.pulse * 0.12f));
         }
         if (visual.press > 0.01f) {
-            SkijaUi.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, 0.9f * easeOutCubic(visual.press)));
+            ChromaDraw.rounded(canvas, x, y, width, height, 7f, withAlpha(accent, 0.9f * easeOutCubic(visual.press)));
         }
     }
 
     private void drawCenteredText(Canvas canvas, String text, float x, float y, float width, float height, float size, int color) {
-        drawCenteredText(canvas, text, SkijaUi.textWidth(text, size), x, y, width, height, size, color);
+        drawCenteredText(canvas, text, ChromaDraw.textWidth(text, size), x, y, width, height, size, color);
     }
 
     private void drawCenteredText(Canvas canvas, String text, float textW, float x, float y, float width, float height, float size, int color) {
         float textX = x + (width - textW) * 0.5f;
-        SkijaUi.text(canvas, text, textX, y, height, color, size);
+        ChromaDraw.text(canvas, text, textX, y, height, color, size);
     }
 
     public int getScaledWidth() {

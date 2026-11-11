@@ -1,7 +1,7 @@
 package com.pvp_utils.client.gui;
 
-import com.pvp_utils.client.render.skia.SkijaScreen;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public final class ConfirmationDialogScreen extends Screen implements SkijaScreen {
+public final class ConfirmationDialogScreen extends Screen implements ChromaScreen {
     private static final int TEXT_COLOR = 0xFF252936;
     private static final int BODY_COLOR = 0xFF687080;
     private static final int MUTED_COLOR = 0xFF7C8190;
@@ -100,18 +100,18 @@ public final class ConfirmationDialogScreen extends Screen implements SkijaScree
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!inputAllowed()) return;
         ensureLayout();
-        SkijaUi.fill(canvas, 0, 0, width, height, 0x880D1428);
+        ChromaDraw.fill(canvas, 0, 0, width, height, 0x880D1428);
         int saved = canvas.save();
         try {
             canvas.scale(scale, scale);
-            SkijaUi.dropShadowRounded(canvas, cardX, cardY, cardWidth, cardHeight, 24, 7, 28, 0x400B1027);
-            SkijaUi.rounded(canvas, cardX, cardY, cardWidth, cardHeight, 24, 0xFFFDFDFF);
+            ChromaDraw.dropShadowRounded(canvas, cardX, cardY, cardWidth, cardHeight, 24, 7, 28, 0x400B1027);
+            ChromaDraw.rounded(canvas, cardX, cardY, cardWidth, cardHeight, 24, 0xFFFDFDFF);
             float titleY = cardY + topPadding;
             for (String line : titleLines) {
-                SkijaUi.boldText(canvas, line, cardX + 30, titleY, titleLineHeight, TEXT_COLOR, titleFontSize);
+                ChromaDraw.boldText(canvas, line, cardX + 30, titleY, titleLineHeight, TEXT_COLOR, titleFontSize);
                 titleY += titleLineHeight;
             }
             drawClose(canvas);
@@ -127,10 +127,10 @@ public final class ConfirmationDialogScreen extends Screen implements SkijaScree
         float x = cardX + cardWidth - 47;
         float y = cardY + 19;
         boolean hover = hit(x, y, 28, 28, mouseX, mouseY);
-        if (hover) SkijaUi.rounded(canvas, x, y, 28, 28, 14, 0xFFF0F1F7);
-        if (keyboardFocus && focusedButton == 2) SkijaUi.outline(canvas, x, y, 28, 28, 14, 1.5f, ACCENT_COLOR);
-        SkijaUi.line(canvas, x + 9, y + 9, x + 19, y + 19, 1.5f, MUTED_COLOR);
-        SkijaUi.line(canvas, x + 19, y + 9, x + 9, y + 19, 1.5f, MUTED_COLOR);
+        if (hover) ChromaDraw.rounded(canvas, x, y, 28, 28, 14, 0xFFF0F1F7);
+        if (keyboardFocus && focusedButton == 2) ChromaDraw.outline(canvas, x, y, 28, 28, 14, 1.5f, ACCENT_COLOR);
+        ChromaDraw.line(canvas, x + 9, y + 9, x + 19, y + 19, 1.5f, MUTED_COLOR);
+        ChromaDraw.line(canvas, x + 19, y + 9, x + 9, y + 19, 1.5f, MUTED_COLOR);
     }
 
     private void drawBody(Canvas canvas) {
@@ -140,7 +140,7 @@ public final class ConfirmationDialogScreen extends Screen implements SkijaScree
             float y = bodyY - scrollOffset;
             for (TextLine line : bodyLines) {
                 if (y + line.height() >= bodyY && y <= bodyY + bodyViewportHeight) {
-                    SkijaUi.text(canvas, line.text(), cardX + 30, y, line.height(), line.color(), line.size());
+                    ChromaDraw.text(canvas, line.text(), cardX + 30, y, line.height(), line.color(), line.size());
                 }
                 y += line.height();
             }
@@ -150,32 +150,32 @@ public final class ConfirmationDialogScreen extends Screen implements SkijaScree
         float maxScroll = maxScroll();
         if (maxScroll > 0) {
             if (scrollOffset > 0) {
-                SkijaUi.gradient(canvas, cardX + 29, bodyY, cardWidth - 58, 10, 0xFFFDFDFF, 0x00FDFDFF, true, 0);
+                ChromaDraw.gradient(canvas, cardX + 29, bodyY, cardWidth - 58, 10, 0xFFFDFDFF, 0x00FDFDFF, true, 0);
             }
             if (scrollOffset < maxScroll) {
-                SkijaUi.gradient(canvas, cardX + 29, bodyY + bodyViewportHeight - 10, cardWidth - 58, 10,
+                ChromaDraw.gradient(canvas, cardX + 29, bodyY + bodyViewportHeight - 10, cardWidth - 58, 10,
                         0x00FDFDFF, 0xFFFDFDFF, true, 0);
             }
             float x = cardX + cardWidth - 20;
             float thumbHeight = Math.max(18, bodyViewportHeight * bodyViewportHeight / bodyHeight);
             float thumbY = bodyY + (bodyViewportHeight - thumbHeight) * scrollOffset / maxScroll;
-            SkijaUi.rounded(canvas, x, bodyY, 3, bodyViewportHeight, 1.5f, 0xFFEFF0F6);
-            SkijaUi.rounded(canvas, x, thumbY, 3, thumbHeight, 1.5f, 0xFFAEB6D3);
+            ChromaDraw.rounded(canvas, x, bodyY, 3, bodyViewportHeight, 1.5f, 0xFFEFF0F6);
+            ChromaDraw.rounded(canvas, x, thumbY, 3, thumbHeight, 1.5f, 0xFFAEB6D3);
         }
     }
 
     private void drawButton(Canvas canvas, int index, float x, String label) {
         boolean hover = hit(x, buttonY, buttonWidth, buttonHeight, mouseX, mouseY);
         int color = index == 0 ? (hover ? 0xFFE9EBF3 : 0xFFF1F2F7) : (hover ? 0xFF596BDF : ACCENT_COLOR);
-        SkijaUi.rounded(canvas, x, buttonY, buttonWidth, buttonHeight, 16, color);
+        ChromaDraw.rounded(canvas, x, buttonY, buttonWidth, buttonHeight, 16, color);
         if (keyboardFocus && focusedButton == index) {
-            SkijaUi.outline(canvas, x - 3, buttonY - 3, buttonWidth + 6, buttonHeight + 6, 19, 1.5f, ACCENT_COLOR);
+            ChromaDraw.outline(canvas, x - 3, buttonY - 3, buttonWidth + 6, buttonHeight + 6, 19, 1.5f, ACCENT_COLOR);
         }
         float fontSize = 13;
-        while (fontSize > 9 && SkijaUi.textWidth(label, fontSize) > buttonWidth - 20) fontSize -= 0.5f;
+        while (fontSize > 9 && ChromaDraw.textWidth(label, fontSize) > buttonWidth - 20) fontSize -= 0.5f;
         String fitted = ellipsize(label, buttonWidth - 20, fontSize, false);
-        float textX = x + (buttonWidth - SkijaUi.textWidth(fitted, fontSize)) * 0.5f;
-        SkijaUi.text(canvas, fitted, textX, buttonY, buttonHeight, index == 0 ? TEXT_COLOR : 0xFFFFFFFF, fontSize);
+        float textX = x + (buttonWidth - ChromaDraw.textWidth(fitted, fontSize)) * 0.5f;
+        ChromaDraw.text(canvas, fitted, textX, buttonY, buttonHeight, index == 0 ? TEXT_COLOR : 0xFFFFFFFF, fontSize);
     }
 
     private void ensureLayout() {
@@ -273,7 +273,7 @@ public final class ConfirmationDialogScreen extends Screen implements SkijaScree
     }
 
     private static float textWidth(String text, float size, boolean bold) {
-        return bold ? SkijaUi.boldTextWidth(text, size) : SkijaUi.textWidth(text, size);
+        return bold ? ChromaDraw.boldTextWidth(text, size) : ChromaDraw.textWidth(text, size);
     }
 
     private float maxScroll() {

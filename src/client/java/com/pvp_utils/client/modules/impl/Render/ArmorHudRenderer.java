@@ -2,9 +2,9 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
 import io.github.humbleui.skija.Canvas;
@@ -47,7 +47,7 @@ public class ArmorHudRenderer {
         if (!Config.armorHud) {
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof com.pvp_utils.client.render.skia.SkijaScreen) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof com.pvp_utils.client.render.chroma.ChromaScreen) {
             return;
         }
 
@@ -143,7 +143,7 @@ public class ArmorHudRenderer {
     private void renderNewCard(GuiGraphics graphics, ItemStack stack, float x, float y) {
         float scale = getRenderScale();
         float drawH = CARD_H * scale;
-        SkijaRenderer.draw(canvas -> {
+        ChromaGraphics.draw(canvas -> {
             HudPanel.draw(canvas, x, y, newCardWidth() * scale, newCardHeight() * scale,
                     5f * scale, Config.armorAppearance, 1f);
             canvas.translate(x, y);
@@ -209,9 +209,9 @@ public class ArmorHudRenderer {
         float ratio = clamp((stack.getMaxDamage() - stack.getDamageValue()) / (float) stack.getMaxDamage(), 0f, 1f);
         String percent = Math.round(ratio * 100f) + "%";
         if (Config.armorHudShowPercentage) {
-            float textW = SkijaUi.textWidth(percent, 8.5f);
+            float textW = ChromaDraw.textWidth(percent, 8.5f);
             float textX = Math.max(CARD_PAD + CARD_ICON + CARD_PAD, cardW - CARD_PAD - textW);
-            SkijaUi.text(canvas, percent, textX, (12.4f) + SkijaUi.textMetrics(8.5f).getAscent(), SkijaUi.textMetrics(8.5f).getDescent() - SkijaUi.textMetrics(8.5f).getAscent(), Config.armorAppearance.text(), 8.5f);
+            ChromaDraw.text(canvas, percent, textX, (12.4f) + ChromaDraw.textMetrics(8.5f).getAscent(), ChromaDraw.textMetrics(8.5f).getDescent() - ChromaDraw.textMetrics(8.5f).getAscent(), Config.armorAppearance.text(), 8.5f);
         }
 
         if (Config.armorHudShowBar) {

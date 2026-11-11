@@ -1,6 +1,6 @@
 package com.pvp_utils.client.NeteaseMusic;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -33,23 +33,23 @@ public final class MusicUi {
     }
 
     public static void text(Canvas canvas, String value, float x, float y, float size, int color) {
-        SkijaUi.textAtTop(canvas, value, x, y, color, textSize(size), false);
+        ChromaDraw.textAtTop(canvas, value, x, y, color, textSize(size), false);
     }
 
     public static void bold(Canvas canvas, String value, float x, float y, float size, int color) {
-        SkijaUi.textAtTop(canvas, value, x, y, color, textSize(size), true);
+        ChromaDraw.textAtTop(canvas, value, x, y, color, textSize(size), true);
     }
 
     public static float width(String value, float size) {
-        return SkijaUi.textWidth(value, textSize(size));
+        return ChromaDraw.textWidth(value, textSize(size));
     }
 
     public static float boldWidth(String value, float size) {
-        return SkijaUi.boldTextWidth(value, textSize(size));
+        return ChromaDraw.boldTextWidth(value, textSize(size));
     }
 
-    static SkijaUi.PreparedText prepareBold(String value, float size) {
-        return SkijaUi.prepareText(value, textSize(size), true);
+    static ChromaDraw.PreparedText prepareBold(String value, float size) {
+        return ChromaDraw.prepareText(value, textSize(size), true);
     }
 
     public static String fit(String value, float availableWidth, float size) {
@@ -71,13 +71,13 @@ public final class MusicUi {
 
     public static void rounded(Canvas canvas, float x, float y, float width, float height, float radius, int color) {
         if (width <= 0f || height <= 0f || color >>> 24 == 0) return;
-        SkijaUi.rounded(canvas, x, y, width, height,
+        ChromaDraw.rounded(canvas, x, y, width, height,
                 Math.max(0f, Math.min(radius, Math.min(width, height) * 0.5f)), color);
     }
 
     public static void line(Canvas canvas, float x1, float y1, float x2, float y2, float width, int color) {
         if (width <= 0f || color >>> 24 == 0) return;
-        SkijaUi.line(canvas, x1, y1, x2, y2, width, color, PaintStrokeCap.ROUND);
+        ChromaDraw.line(canvas, x1, y1, x2, y2, width, color, PaintStrokeCap.ROUND);
     }
 
     public static void icon(Canvas canvas, String name, float x, float y, float size, int color) {
@@ -87,8 +87,8 @@ public final class MusicUi {
         try {
             canvas.translate(x, y);
             canvas.scale(size / 24f, size / 24f);
-            if (FILLED_ICONS.contains(name)) SkijaUi.fillPath(canvas, path, color);
-            else SkijaUi.strokePath(canvas, path, 1.8f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
+            if (FILLED_ICONS.contains(name)) ChromaDraw.fillPath(canvas, path, color);
+            else ChromaDraw.strokePath(canvas, path, 1.8f, color, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
         } finally {
             canvas.restoreToCount(save);
         }

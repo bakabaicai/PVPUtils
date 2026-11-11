@@ -2,9 +2,9 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
 import io.github.humbleui.skija.Paint;
@@ -369,7 +369,7 @@ public final class ItemUseStatusRenderer {
         float scale = getScale();
         float x = getRenderX(client.getWindow().getGuiScaledWidth());
         float y = getRenderY(client.getWindow().getGuiScaledHeight());
-        SkijaRenderer.draw(c -> {
+        ChromaGraphics.draw(c -> {
             HudPanel.draw(c, x, y, NEW_W * scale, NEW_H * scale, 8f * scale,
                     Config.itemUseAppearance, alpha);
             c.translate(x, y);
@@ -383,7 +383,7 @@ public final class ItemUseStatusRenderer {
             c.drawRRect(RRect.makeXYWH(NEW_BAR_X, NEW_BAR_Y, fillW, NEW_BAR_H, NEW_BAR_H * 0.5f), newFillPaint);
 
             int textColor = (alphaInt << 24) | (Config.itemUseAppearance.text() & 0xFFFFFF);
-            SkijaUi.text(c, Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 100.0f) + "%", 146f, (17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), textColor, 10f);
+            ChromaDraw.text(c, Math.round(Mth.clamp(progress, 0.0f, 1.0f) * 100.0f) + "%", 146f, (17f) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), textColor, 10f);
         });
     }
 

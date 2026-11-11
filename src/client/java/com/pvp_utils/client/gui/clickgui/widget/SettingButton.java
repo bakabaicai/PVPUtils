@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui.widget;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import io.github.humbleui.skija.Canvas;
@@ -40,9 +40,9 @@ public class SettingButton extends SettingWidget {
         String text = label.get();
         if (!text.equals(cachedText)) {
             cachedText = text;
-            cachedTextWidth = SkijaUi.textWidth(text, 11f);
+            cachedTextWidth = ChromaDraw.textWidth(text, 11f);
         }
-        SkijaUi.text(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, y, getHeight(), withAlpha(0xFFFFFF, alpha), 11f);
+        ChromaDraw.text(canvas, text, x + (getWidth() - cachedTextWidth) * 0.5f, y, getHeight(), withAlpha(0xFFFFFF, alpha), 11f);
     }
 
     @Override

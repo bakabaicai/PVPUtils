@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.world;
+package com.pvp_utils.client.render.chroma.world;
 
 import net.minecraft.util.ARGB;
 import net.minecraft.world.phys.Vec3;
@@ -7,19 +7,19 @@ import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.Objects;
 
-public final class WorldParticles implements AutoCloseable {
+public final class ChromaParticles implements AutoCloseable {
     private final ArrayDeque<Particle> particles;
     private final int capacity;
     private boolean closed;
 
-    public WorldParticles(int capacity) {
+    public ChromaParticles(int capacity) {
         if (capacity < 1 || capacity > 4096) throw new IllegalArgumentException("Particle capacity must be 1–4096");
         this.capacity = capacity;
         particles = new ArrayDeque<>(capacity);
     }
 
     public boolean emit(Vec3 position, Vec3 velocity, Spec spec) {
-        if (closed || !WorldRender.valid(position) || !WorldRender.valid(velocity) || spec == null) return false;
+        if (closed || !ChromaWorld.valid(position) || !ChromaWorld.valid(velocity) || spec == null) return false;
         if (particles.size() == capacity) particles.removeFirst();
         particles.addLast(new Particle(position, velocity, spec));
         return true;
@@ -47,11 +47,11 @@ public final class WorldParticles implements AutoCloseable {
         }
     }
 
-    public void render(WorldRender.Frame frame) {
+    public void render(ChromaWorld.Frame frame) {
         render(frame, 128);
     }
 
-    public void render(WorldRender.Frame frame, double maxDistance) {
+    public void render(ChromaWorld.Frame frame, double maxDistance) {
         if (closed || frame == null || !Double.isFinite(maxDistance) || maxDistance <= 0) return;
         float partial = Math.clamp(frame.partialTick(), 0f, 1f);
         double maximumDistanceSquared = maxDistance * maxDistance;
@@ -65,7 +65,7 @@ public final class WorldParticles implements AutoCloseable {
             float rotation = particle.previousRotation + (particle.rotation - particle.previousRotation) * partial;
             float size = particle.spec.size() * (1f - progress * 0.35f);
             int color = ARGB.multiplyAlpha(particle.spec.color(), alpha);
-            WorldRender.billboard(position, size, size, rotation, color, particle.spec.shape(), particle.spec.throughWalls());
+            ChromaWorld.billboard(position, size, size, rotation, color, particle.spec.shape(), particle.spec.throughWalls());
         }
     }
 
@@ -87,7 +87,7 @@ public final class WorldParticles implements AutoCloseable {
         closed = true;
     }
 
-    public record Spec(float lifetime, float size, int color, WorldRender.ParticleShape shape,
+    public record Spec(float lifetime, float size, int color, ChromaWorld.ParticleShape shape,
                        float gravity, float drag, float angularVelocity, boolean throughWalls) {
         public Spec {
             if (!Float.isFinite(lifetime) || lifetime <= 0f || !Float.isFinite(size) || size <= 0f

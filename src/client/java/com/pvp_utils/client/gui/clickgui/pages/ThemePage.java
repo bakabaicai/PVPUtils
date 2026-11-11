@@ -9,7 +9,7 @@ import com.pvp_utils.client.gui.clickgui.widget.PageTransition;
 import com.pvp_utils.client.gui.clickgui.widget.SettingColorPreview;
 import com.pvp_utils.client.gui.clickgui.widget.SettingSlider;
 import com.pvp_utils.client.gui.clickgui.widget.SettingToggle;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
@@ -191,8 +191,8 @@ public class ThemePage extends BasePage {
     private void drawSectionTabs(Canvas canvas, float x, float y, float width, float alpha, ClickGuiThemeColors colors) {
         float tabsWidth = Math.min(width, 232f);
         float segment = (tabsWidth - 6f) * 0.5f;
-        SkijaUi.rounded(canvas, x, y, tabsWidth, 34f, 10f, color(colors.module, alpha));
-        SkijaUi.rounded(canvas, x + 3f + segment * tabPosition, y + 3f, segment, 28f, 8f,
+        ChromaDraw.rounded(canvas, x, y, tabsWidth, 34f, 10f, color(colors.module, alpha));
+        ChromaDraw.rounded(canvas, x + 3f + segment * tabPosition, y + 3f, segment, 28f, 8f,
                 color(colors.window, alpha));
         centered(canvas, UiText.t("主题", "Theme"), x + 3f, y + 3f, segment, 28f,
                 colors.primaryText, alpha * (1f - 0.4f * tabPosition), 11f);
@@ -201,16 +201,16 @@ public class ThemePage extends BasePage {
     }
 
     private void drawPreview(Canvas canvas, float x, float y, float width, float alpha, ClickGuiThemeColors colors) {
-        SkijaUi.rounded(canvas, x, y, width, PREVIEW_HEIGHT, 12f, color(colors.module, alpha));
+        ChromaDraw.rounded(canvas, x, y, width, PREVIEW_HEIGHT, 12f, color(colors.module, alpha));
         boolean themes = sections.displayed() == Section.THEME;
         String label = themes ? UiText.t("当前主题", "Current Theme") : UiText.t("当前强调色", "Current Accent");
         String selection = themes ? UiTheme.current().label()
                 : Config.accentCustomColors ? UiText.t("自定义", "Custom") : AccentColors.current().label;
-        SkijaUi.text(canvas, label, x + 14f, y + 12f, 16f, color(colors.secondaryText, alpha), 9f);
-        SkijaUi.text(canvas, selection, x + 14f, y + 32f, 24f, color(colors.primaryText, alpha), 15f);
+        ChromaDraw.text(canvas, label, x + 14f, y + 12f, 16f, color(colors.secondaryText, alpha), 9f);
+        ChromaDraw.text(canvas, selection, x + 14f, y + 32f, 24f, color(colors.primaryText, alpha), 15f);
         int first = themes ? UiTheme.current().background() : colors.accent;
         int second = themes ? UiTheme.current().panel() : AccentColors.secondary();
-        SkijaUi.gradient(canvas, x + 14f, y + 68f, 72f, 9f,
+        ChromaDraw.gradient(canvas, x + 14f, y + 68f, 72f, 9f,
                 color(first, alpha), color(second, alpha), false, 4.5f);
         if (themes) {
             float previewWidth = Math.min(210f, width * 0.46f);
@@ -235,9 +235,9 @@ public class ThemePage extends BasePage {
                     && contains(mouseX, mouseY, cx, cy, cardWidth, THEME_HEIGHT);
             int base = AccentColors.mix(colors.module | 0xFF000000, colors.accent | 0xFF000000,
                     selected ? 0.14f : hovered ? 0.07f : 0f);
-            SkijaUi.rounded(canvas, cx, cy, cardWidth, THEME_HEIGHT, 10f, color(base, alpha));
+            ChromaDraw.rounded(canvas, cx, cy, cardWidth, THEME_HEIGHT, 10f, color(base, alpha));
             drawMiniature(canvas, cx + 7f, cy + 7f, cardWidth - 14f, 76f, theme, colors.accent, alpha);
-            SkijaUi.text(canvas, theme.label(), cx + 11f, cy + 85f, 24f,
+            ChromaDraw.text(canvas, theme.label(), cx + 11f, cy + 85f, 24f,
                     color(colors.primaryText, alpha), 11f);
             if (selected) drawCheck(canvas, cx + cardWidth - 29f, cy + 89f, 16f, colors.accent, alpha);
         }
@@ -250,25 +250,25 @@ public class ThemePage extends BasePage {
         int save = canvas.save();
         try {
             canvas.clipRRect(RRect.makeXYWH(x, y, width, height, 7f), true);
-            SkijaUi.fill(canvas, x + sidebar, y, width - sidebar, height, color(colors.window, alpha));
-            SkijaUi.fill(canvas, x, y, sidebar, height, color(colors.sidebar, alpha));
-            SkijaUi.rounded(canvas, x + 7f, y + 9f, sidebar - 14f, 4f, 2f, color(colors.primaryText, alpha * 0.55f));
+            ChromaDraw.fill(canvas, x + sidebar, y, width - sidebar, height, color(colors.window, alpha));
+            ChromaDraw.fill(canvas, x, y, sidebar, height, color(colors.sidebar, alpha));
+            ChromaDraw.rounded(canvas, x + 7f, y + 9f, sidebar - 14f, 4f, 2f, color(colors.primaryText, alpha * 0.55f));
             for (int i = 0; i < 3; i++) {
-                SkijaUi.rounded(canvas, x + 6f, y + 25f + i * 12f, sidebar - 12f, 7f, 3f,
+                ChromaDraw.rounded(canvas, x + 6f, y + 25f + i * 12f, sidebar - 12f, 7f, 3f,
                         color(i == 0 ? colors.accent : colors.primaryText, alpha * (i == 0 ? 0.75f : 0.12f)));
             }
             float rowX = x + sidebar + 7f;
             float rowWidth = width - sidebar - 14f;
             for (int i = 0; i < 2; i++) {
                 float rowY = y + 9f + i * 31f;
-                SkijaUi.rounded(canvas, rowX, rowY, rowWidth, 25f, 5f, color(colors.module, alpha));
-                SkijaUi.rounded(canvas, rowX + 6f, rowY + 6f, rowWidth * 0.35f, 4f, 2f,
+                ChromaDraw.rounded(canvas, rowX, rowY, rowWidth, 25f, 5f, color(colors.module, alpha));
+                ChromaDraw.rounded(canvas, rowX + 6f, rowY + 6f, rowWidth * 0.35f, 4f, 2f,
                         color(colors.primaryText, alpha * 0.65f));
-                SkijaUi.rounded(canvas, rowX + 6f, rowY + 15f, rowWidth * 0.46f, 3f, 1.5f,
+                ChromaDraw.rounded(canvas, rowX + 6f, rowY + 15f, rowWidth * 0.46f, 3f, 1.5f,
                         color(colors.secondaryText, alpha * 0.3f));
-                SkijaUi.rounded(canvas, rowX + rowWidth - 25f, rowY + 7f, 19f, 11f, 5.5f,
+                ChromaDraw.rounded(canvas, rowX + rowWidth - 25f, rowY + 7f, 19f, 11f, 5.5f,
                         color(i == 0 ? colors.accent : colors.scrollbarTrack, alpha));
-                SkijaUi.rounded(canvas, rowX + rowWidth - (i == 0 ? 15f : 23f), rowY + 8.5f,
+                ChromaDraw.rounded(canvas, rowX + rowWidth - (i == 0 ? 15f : 23f), rowY + 8.5f,
                         8f, 8f, 4f, color(0xFFFFFF, alpha));
             }
         } finally {
@@ -278,11 +278,11 @@ public class ThemePage extends BasePage {
 
     private void drawAnimation(Canvas canvas, float x, float y, float width, float alpha, ClickGuiThemeColors colors) {
         float controlsX = x + width - PADDING - speed.getWidth();
-        SkijaUi.text(canvas, UiText.t("动态渐变", "Animated Gradient"), controlsX, y + 12f, 24f,
+        ChromaDraw.text(canvas, UiText.t("动态渐变", "Animated Gradient"), controlsX, y + 12f, 24f,
                 color(colors.primaryText, alpha), 10f);
         animated.draw(canvas, x + width - PADDING - animated.getWidth(), y + 12f, alpha);
         if (speedExpansion <= 0f) return;
-        SkijaUi.text(canvas, UiText.t("变化速度", "Animation Speed"), controlsX, y + 43f, 14f,
+        ChromaDraw.text(canvas, UiText.t("变化速度", "Animation Speed"), controlsX, y + 43f, 14f,
                 color(colors.secondaryText, alpha * speedExpansion), 9f);
         speed.draw(canvas, controlsX, y + 63f, alpha * speedExpansion);
     }
@@ -296,7 +296,7 @@ public class ThemePage extends BasePage {
     private void drawPaletteTab(Canvas canvas, float x, float y, float width, String text, PaletteTab tab,
                                 float alpha, ClickGuiThemeColors colors) {
         boolean selected = palettes.target() == tab;
-        if (selected) SkijaUi.rounded(canvas, x, y, width, TAB_HEIGHT, 8f, color(colors.module, alpha));
+        if (selected) ChromaDraw.rounded(canvas, x, y, width, TAB_HEIGHT, 8f, color(colors.module, alpha));
         centered(canvas, text, x, y, width, TAB_HEIGHT, selected ? colors.primaryText : colors.secondaryText, alpha, 10f);
     }
 
@@ -312,9 +312,9 @@ public class ThemePage extends BasePage {
             boolean selected = selectedTag == tag;
             int chipColor = tag == null ? colors.accent : tag.color;
             int base = AccentColors.mix(colors.module | 0xFF000000, chipColor | 0xFF000000, selected ? 0.2f : 0f);
-            SkijaUi.rounded(canvas, cx, cy, chipWidth, CHIP_HEIGHT, 7f, color(base, alpha));
-            SkijaUi.rounded(canvas, cx + 7f, cy + 8f, 8f, 8f, 4f, color(chipColor, alpha));
-            SkijaUi.text(canvas, tag == null ? UiText.t("全部", "All") : tag.label(), cx + 21f, cy, CHIP_HEIGHT,
+            ChromaDraw.rounded(canvas, cx, cy, chipWidth, CHIP_HEIGHT, 7f, color(base, alpha));
+            ChromaDraw.rounded(canvas, cx + 7f, cy + 8f, 8f, 8f, 4f, color(chipColor, alpha));
+            ChromaDraw.text(canvas, tag == null ? UiText.t("全部", "All") : tag.label(), cx + 21f, cy, CHIP_HEIGHT,
                     color(selected ? colors.primaryText : colors.secondaryText, alpha), 9f);
         }
         int columns = columns();
@@ -331,19 +331,19 @@ public class ThemePage extends BasePage {
             int first = AccentColors.sample(preset, 0f, 0f);
             int second = AccentColors.sample(preset, 0f, 50f);
             int base = AccentColors.mix(colors.module | 0xFF000000, first, selected ? 0.16f : hovered ? 0.07f : 0f);
-            SkijaUi.rounded(canvas, cx, cy, cardWidth, ACCENT_HEIGHT, 9f, color(base, alpha));
-            SkijaUi.gradient(canvas, cx + 7f, cy + 7f, cardWidth - 14f, 22f,
+            ChromaDraw.rounded(canvas, cx, cy, cardWidth, ACCENT_HEIGHT, 9f, color(base, alpha));
+            ChromaDraw.gradient(canvas, cx + 7f, cy + 7f, cardWidth - 14f, 22f,
                     color(first, alpha), color(second, alpha), false, 6f);
-            SkijaUi.text(canvas, preset.label, cx + 10f, cy + 34f, 20f, color(colors.primaryText, alpha), 9.5f);
+            ChromaDraw.text(canvas, preset.label, cx + 10f, cy + 34f, 20f, color(colors.primaryText, alpha), 9.5f);
             if (selected) drawCheck(canvas, cx + cardWidth - 27f, cy + 10f, 16f, first, alpha);
         }
     }
 
     private void drawCustom(Canvas canvas, float x, float top, float width, float alpha, ClickGuiThemeColors colors) {
-        SkijaUi.text(canvas, UiText.t("自定义强调色", "Custom Accent"), x + 2f, top, 34f,
+        ChromaDraw.text(canvas, UiText.t("自定义强调色", "Custom Accent"), x + 2f, top, 34f,
                 color(colors.primaryText, alpha), 11f);
         float buttonX = x + width - 82f;
-        SkijaUi.rounded(canvas, buttonX, top + 2f, 82f, 30f, 8f, color(colors.module, alpha));
+        ChromaDraw.rounded(canvas, buttonX, top + 2f, 82f, 30f, 8f, color(colors.module, alpha));
         centered(canvas, Config.accentCustomColors ? UiText.t("已应用", "Applied") : UiText.t("应用", "Apply"),
                 buttonX, top + 2f, 82f, 30f, colors.primaryText, alpha, 10f);
         drawPicker(canvas, pickerLayout(x, top, width, false), primaryColor, UiText.t("主色", "Primary"), alpha, colors);
@@ -352,9 +352,9 @@ public class ThemePage extends BasePage {
 
     private void drawPicker(Canvas canvas, PickerLayout layout, SettingColorPreview picker, String label,
                             float alpha, ClickGuiThemeColors colors) {
-        SkijaUi.rounded(canvas, layout.x(), layout.y(), layout.width(), pickerCardHeight(picker), 10f,
+        ChromaDraw.rounded(canvas, layout.x(), layout.y(), layout.width(), pickerCardHeight(picker), 10f,
                 color(colors.module, alpha));
-        SkijaUi.text(canvas, label, layout.x() + PADDING, layout.y() + 8f, 18f,
+        ChromaDraw.text(canvas, label, layout.x() + PADDING, layout.y() + 8f, 18f,
                 color(colors.secondaryText, alpha), 10f);
         picker.draw(canvas, layout.pickerX(), layout.y() + PICKER_TOP, alpha);
     }
@@ -479,15 +479,15 @@ public class ThemePage extends BasePage {
     }
 
     private static void drawCheck(Canvas canvas, float x, float y, float size, int accent, float alpha) {
-        SkijaUi.rounded(canvas, x, y, size, size, size * 0.5f, color(accent, alpha));
+        ChromaDraw.rounded(canvas, x, y, size, size, size * 0.5f, color(accent, alpha));
         int foreground = UiTheme.readableText(0xFFFFFFFF, accent);
-        SkijaUi.icon(canvas, "\uE5CA", x + 2f, y, size, color(foreground, alpha), size - 4f,
-                SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, "\uE5CA", x + 2f, y, size, color(foreground, alpha), size - 4f,
+                ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     }
 
     private static void centered(Canvas canvas, String label, float x, float y, float width, float height,
                                   int rgb, float alpha, float size) {
-        SkijaUi.text(canvas, label, x + (width - SkijaUi.textWidth(label, size)) * 0.5f,
+        ChromaDraw.text(canvas, label, x + (width - ChromaDraw.textWidth(label, size)) * 0.5f,
                 y, height, color(rgb, alpha), size);
     }
 

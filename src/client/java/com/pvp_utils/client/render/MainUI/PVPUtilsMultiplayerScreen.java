@@ -2,10 +2,10 @@ package com.pvp_utils.client.render.MainUI;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import com.pvp_utils.client.gui.clickgui.UiText;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.client.gui.MultiplayerCompatibilityScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
+public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_utils.client.render.chroma.ChromaScreen {
     private final Screen parent;
     private final String shaderPath;
     private final Runnable embeddedBack;
@@ -184,7 +184,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
@@ -202,7 +202,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             return;
         }
         try {
-            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+            ChromaGraphics.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
                     chromeAlpha, target -> drawPage(target, true)));
         } finally {
             pendingFrame = false;
@@ -230,8 +230,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
         float w = cardW();
         float h = cardH();
         if (!closingToMain) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale)), MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
-            SkijaUi.rounded(canvas, MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale), 0x12000000);;
+            ChromaGraphics.drawBlurredBackdrop(canvas, RRect.makeXYWH(MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale)), MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), Math.max(0f, Math.min(2f, 0.95f)) * 10.5f);
+            ChromaDraw.rounded(canvas, MainUiScale.pageScreenX(x, width, layoutScale, layoutCenterX()), MainUiScale.pageScreenY(y, height, layoutScale, layoutCenterY()), MainUiScale.pageScreenSize(w, layoutScale), MainUiScale.pageScreenSize(h, layoutScale), MainUiScale.pageScreenSize(20f, layoutScale), 0x12000000);;
         }
         canvas.save();
         try {
@@ -260,7 +260,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
         }
         String title = UiText.t("多人游戏", "Multiplayer");
         int alpha = Math.round(255f * contentAlpha);
-        SkijaUi.text(canvas, title, layoutWidth() * .5f - SkijaUi.textWidth(title, 30f) * .5f, (50f) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
+        ChromaDraw.text(canvas, title, layoutWidth() * .5f - ChromaDraw.textWidth(title, 30f) * .5f, (50f) + ChromaDraw.textMetrics(30f).getAscent(), ChromaDraw.textMetrics(30f).getDescent() - ChromaDraw.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawServers(canvas, x + 16f, y + 16f, w - 32f, h - 40f, alpha);
         float buttonY = y + h + 12f;
         float buttonW = (w - 32f) / 5f;
@@ -276,7 +276,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
         canvas.clipRect(Rect.makeXYWH(x, y, w, h));
         if (servers.isEmpty()) {
             String emptyText = UiText.t("暂无服务器", "No servers");
-            SkijaUi.text(canvas, emptyText, x + (w - SkijaUi.textWidth(emptyText, 14f)) * .5f, (y + h * .5f) + SkijaUi.textMetrics(14f).getAscent(), SkijaUi.textMetrics(14f).getDescent() - SkijaUi.textMetrics(14f).getAscent(), (Math.round(alpha * .8f) << 24) | 0xFFFFFF, 14f);
+            ChromaDraw.text(canvas, emptyText, x + (w - ChromaDraw.textWidth(emptyText, 14f)) * .5f, (y + h * .5f) + ChromaDraw.textMetrics(14f).getAscent(), ChromaDraw.textMetrics(14f).getDescent() - ChromaDraw.textMetrics(14f).getAscent(), (Math.round(alpha * .8f) << 24) | 0xFFFFFF, 14f);
         } else {
             float itemY = y - scroll;
             for (int i = 0; i < servers.size(); i++) {
@@ -313,19 +313,19 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
                 canvas.restore();
             }
         } else {
-            SkijaUi.icon(canvas, "\uE88A", x + 26f, (y + 39f) + SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(25f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, 25f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, "\uE88A", x + 26f, (y + 39f) + ChromaDraw.iconMetrics(25f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(25f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(25f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, 25f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         }
         float rightX = x + w - 12f;
         String pingText = pingText(server);
         String playersText = playersText(server);
-        float reserved = Math.max(SkijaUi.textWidth(pingText, 11f), SkijaUi.textWidth(playersText, 11f)) + 18f;
+        float reserved = Math.max(ChromaDraw.textWidth(pingText, 11f), ChromaDraw.textWidth(playersText, 11f)) + 18f;
         float textWidth = Math.max(40f, w - 66f - reserved - 12f);
         String serverName = fitText(server.name, 15f, textWidth);
         String serverAddress = fitText(server.ip, 11f, textWidth);
-        SkijaUi.text(canvas, serverName, x + 66f, (y + 26f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
-        SkijaUi.text(canvas, serverAddress, x + 66f, (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
-        SkijaUi.text(canvas, pingText, rightX - SkijaUi.textWidth(pingText, 11f), (y + 26f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .92f) << 24) | pingColor(server), 11f);
-        SkijaUi.text(canvas, playersText, rightX - SkijaUi.textWidth(playersText, 11f), (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
+        ChromaDraw.text(canvas, serverName, x + 66f, (y + 26f) + ChromaDraw.textMetrics(15f).getAscent(), ChromaDraw.textMetrics(15f).getDescent() - ChromaDraw.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
+        ChromaDraw.text(canvas, serverAddress, x + 66f, (y + 46f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
+        ChromaDraw.text(canvas, pingText, rightX - ChromaDraw.textWidth(pingText, 11f), (y + 26f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (Math.round(alpha * .92f) << 24) | pingColor(server), 11f);
+        ChromaDraw.text(canvas, playersText, rightX - ChromaDraw.textWidth(playersText, 11f), (y + 46f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawButton(Canvas canvas, float x, float y, float w, float h, String label, int alpha) {
@@ -337,7 +337,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
             bg.setColor((Math.round(alpha * (.20f + .12f * p)) << 24) | color);
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
         }
-        SkijaUi.text(canvas, label, x + (w - SkijaUi.textWidth(label, 13f)) * .5f, (y + 21f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), (alpha << 24) | 0xFFFFFF, 13f);
+        ChromaDraw.text(canvas, label, x + (w - ChromaDraw.textWidth(label, 13f)) * .5f, (y + 21f) + ChromaDraw.textMetrics(13f).getAscent(), ChromaDraw.textMetrics(13f).getDescent() - ChromaDraw.textMetrics(13f).getAscent(), (alpha << 24) | 0xFFFFFF, 13f);
     }
 
     @Override
@@ -571,8 +571,8 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
 
     private String fitText(String text, float size, float maxWidth) {
         String value = text == null ? "" : text;
-        if (SkijaUi.textWidth(value, size) <= maxWidth) return value;
-        while (value.length() > 1 && SkijaUi.textWidth(value + "...", size) > maxWidth) {
+        if (ChromaDraw.textWidth(value, size) <= maxWidth) return value;
+        while (value.length() > 1 && ChromaDraw.textWidth(value + "...", size) > maxWidth) {
             value = value.substring(0, value.length() - 1);
         }
         return value + "...";

@@ -2,13 +2,13 @@ package com.pvp_utils.client.alt;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import com.pvp_utils.client.gui.clickgui.UiText;
 
 import com.pvp_utils.client.render.MainUI.MainUISharedBackground;
 import com.pvp_utils.client.render.MainUI.MainUIFlipAnimation;
 import com.pvp_utils.client.render.MainUI.MainUiScale;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Matrix33;
@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public final class AltManagerScreen extends Screen implements com.pvp_utils.client.render.skia.SkijaScreen {
+public final class AltManagerScreen extends Screen implements com.pvp_utils.client.render.chroma.ChromaScreen {
     private static final long OPEN_MS = 440L;
     private static final long CLOSE_MS = 440L;
     private final Screen parent;
@@ -171,7 +171,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame || minecraft == null || (embeddedBack == null && minecraft.screen != this)) {
             pendingFrame = false;
             return;
@@ -189,7 +189,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             return;
         }
         try {
-            SkijaRenderer.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
+            ChromaGraphics.draw(canvas -> MainUIFlipAnimation.drawPage(canvas, cardTransform, cardBounds,
                     chromeAlpha, target -> drawPage(target, true)));
         } finally {
             pendingFrame = false;
@@ -213,9 +213,9 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     private void drawPage(Canvas canvas, boolean transitioning) {
         if (!closingToMain) {
             RRect bounds = transitionBounds();
-            SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
+            ChromaGraphics.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
                     bounds.getWidth(), bounds.getHeight(), 0.95f * 10.5f);
-            SkijaUi.rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(),
+            ChromaDraw.rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(),
                     20f * layoutScale(), 0x12000000);
         }
         int save = canvas.save();
@@ -238,7 +238,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         drawMainCard(canvas, x, y, w, h);
         String title = UiText.t("账户管理", "Alt Manager");
         float pageW = layoutWidth();
-        SkijaUi.text(canvas, title, pageW * .5f - SkijaUi.textWidth(title, 30f) * .5f, (titleY()) + SkijaUi.textMetrics(30f).getAscent(), SkijaUi.textMetrics(30f).getDescent() - SkijaUi.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
+        ChromaDraw.text(canvas, title, pageW * .5f - ChromaDraw.textWidth(title, 30f) * .5f, (titleY()) + ChromaDraw.textMetrics(30f).getAscent(), ChromaDraw.textMetrics(30f).getDescent() - ChromaDraw.textMetrics(30f).getAscent(), (alpha << 24) | 0xFFFFFF, 30f);
         drawAccounts(canvas, x + 16f, y + 16f, w - 32f, h - 82f, alpha);
         if (!status.isBlank()) {
             drawCentered(canvas, status, pageW * .5f, y + h - 40f, 10f, (Math.round(alpha * .62f) << 24) | 0xFFFFFF);
@@ -259,9 +259,9 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float modalProgress = Math.max(offlineDialogProgress, Math.max(microsoftDialogProgress, deleteDialogProgress));
         if (modalProgress > .01f) {
             int tintAlpha = Math.round(0x26 * ease(modalProgress));
-            SkijaRenderer.drawBlurredBackdrop(canvas, RRect.makeXYWH(0f, 0f, width, height, 0f),
+            ChromaGraphics.drawBlurredBackdrop(canvas, RRect.makeXYWH(0f, 0f, width, height, 0f),
                     0f, 0f, width, height, (0.45f + 0.50f * ease(modalProgress)) * 10.5f);
-            SkijaUi.rounded(canvas, 0f, 0f, width, height, 0f, tintAlpha << 24);
+            ChromaDraw.rounded(canvas, 0f, 0f, width, height, 0f, tintAlpha << 24);
         }
         if (offlineDialogProgress > .01f) drawAnimatedDialog(canvas, offlineDialogProgress, 190f, () -> drawOfflineDialog(canvas));
         if (microsoftDialogProgress > .01f) drawAnimatedDialog(canvas, microsoftDialogProgress, 166f, () -> drawMicrosoftDialog(canvas));
@@ -328,12 +328,12 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         if (!drawAvatar(canvas, account, x + 10f, y + 10f, 44f, alpha)) {
             String symbol = account.typeName().equals("Microsoft") ? "\uE853" : "\uE7FD";
             float symbolSize = 24f;
-            float symbolWidth = SkijaUi.iconWidth(symbol, symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            SkijaUi.icon(canvas, symbol, x + 32f - symbolWidth * .5f, (y + 39f) + SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, symbolSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            float symbolWidth = ChromaDraw.iconWidth(symbol, symbolSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, symbol, x + 32f - symbolWidth * .5f, (y + 39f) + ChromaDraw.iconMetrics(symbolSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(symbolSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(symbolSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), (Math.round(alpha * .86f) << 24) | 0xFFFFFF, symbolSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         }
-        SkijaUi.text(canvas, account.name(), x + 66f, (y + 26f) + SkijaUi.textMetrics(15f).getAscent(), SkijaUi.textMetrics(15f).getDescent() - SkijaUi.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
+        ChromaDraw.text(canvas, account.name(), x + 66f, (y + 26f) + ChromaDraw.textMetrics(15f).getAscent(), ChromaDraw.textMetrics(15f).getDescent() - ChromaDraw.textMetrics(15f).getAscent(), (alpha << 24) | 0xFFFFFF, 15f);
         String detail = accountTypeText(account) + (account.isCurrent() ? UiText.t("  |  当前账户", "  |  Active") : "");
-        SkijaUi.text(canvas, detail, x + 66f, (y + 46f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
+        ChromaDraw.text(canvas, detail, x + 66f, (y + 46f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), (Math.round(alpha * .72f) << 24) | 0xFFFFFF, 11f);
     }
 
     private void drawOfflineDialog(Canvas canvas) {
@@ -343,7 +343,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         float y = layoutCenterY() - h * .5f;
         drawDialogCard(canvas, x, y, w, h);
         drawCentered(canvas, UiText.t("添加离线账户", "Add Offline"), layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
-        SkijaUi.text(canvas, UiText.t("用户名", "Username"), x + 24f, (y + 72f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
+        ChromaDraw.text(canvas, UiText.t("用户名", "Username"), x + 24f, (y + 72f) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), 0xB8FFFFFF, 12f);
         drawInput(canvas, x + 24f, y + 84f, w - 48f, 34f);
         float buttonW = (w - 56f) * .5f;
         drawButton(canvas, x + 24f, y + 136f, buttonW, 30f, UiText.t("确认", "Confirm"), 255);
@@ -372,13 +372,13 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         drawDialogCard(canvas, x, y, w, h);
         drawCentered(canvas, UiText.t("Microsoft 登录", "Microsoft Login"), layoutCenterX(), y + 38f, 18f, 0xFFFFFFFF);
         if (microsoftSuccessAt > 0L) {
-            SkijaUi.icon(canvas, "\uE876", x + 24f, (y + 83f) + SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(24f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFF62E58B, 24f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, "\uE876", x + 24f, (y + 83f) + ChromaDraw.iconMetrics(24f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(24f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(24f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), 0xFF62E58B, 24f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         } else {
             drawSpinner(canvas, x + 38f, y + 76f);
         }
-        SkijaUi.text(canvas, microsoftStatus, x + 66f, (y + 80f) + SkijaUi.textMetrics(13f).getAscent(), SkijaUi.textMetrics(13f).getDescent() - SkijaUi.textMetrics(13f).getAscent(), microsoftStatusColor, 13f);
+        ChromaDraw.text(canvas, microsoftStatus, x + 66f, (y + 80f) + ChromaDraw.textMetrics(13f).getAscent(), ChromaDraw.textMetrics(13f).getDescent() - ChromaDraw.textMetrics(13f).getAscent(), microsoftStatusColor, 13f);
         if (!deviceCode.isBlank()) {
-            SkijaUi.text(canvas, UiText.t("验证码：", "Code: ") + deviceCode, x + 24f, (y + 112f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), 0xB8FFFFFF, 11f);
+            ChromaDraw.text(canvas, UiText.t("验证码：", "Code: ") + deviceCode, x + 24f, (y + 112f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), 0xB8FFFFFF, 11f);
         }
         float buttonW = (w - 56f) * .5f;
         String copyLabel = System.currentTimeMillis() - deviceCodeCopiedAt < 1500L ? UiText.t("已复制", "Copied") : UiText.t("复制验证码", "Copy Code");
@@ -387,7 +387,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void drawDialogCard(Canvas canvas, float x, float y, float w, float h) {
-        SkijaUi.rounded(canvas, x, y, w, h, 20f, 0x12000000);
+        ChromaDraw.rounded(canvas, x, y, w, h, 20f, 0x12000000);
         drawMainCard(canvas, x, y, w, h);
     }
 
@@ -398,7 +398,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         try {
             RRect bounds = RRect.makeXYWH((width - dialogWidth() * scale) * .5f,
                     (height - dialogHeight * scale) * .5f, dialogWidth() * scale, dialogHeight * scale, 20f * scale);
-            SkijaRenderer.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
+            ChromaGraphics.drawBlurredBackdrop(canvas, bounds, bounds.getLeft(), bounds.getTop(),
                     bounds.getWidth(), bounds.getHeight(), 0.95f * 10.5f);
             MainUiScale.applyPage(canvas, width, height, scale, layoutCenterX(), layoutCenterY());
             renderer.run();
@@ -421,9 +421,9 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
         }
         String shown = input.isBlank() ? UiText.t("输入用户名", "Enter username") : input;
         int color = input.isBlank() ? 0x8AFFFFFF : 0xFFFFFFFF;
-        SkijaUi.text(canvas, shown, x + 12f, (y + 22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), color, 12f);
+        ChromaDraw.text(canvas, shown, x + 12f, (y + 22f) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), color, 12f);
         if ((System.currentTimeMillis() / 500L) % 2L == 0L) {
-            float cursorX = x + 12f + SkijaUi.textWidth(input, 12f);
+            float cursorX = x + 12f + ChromaDraw.textWidth(input, 12f);
             try (Paint cursor = new Paint()) {
                 cursor.setColor(0xFFFFFFFF);
                 canvas.drawRect(Rect.makeXYWH(cursorX, y + 8f, 1f, h - 16f), cursor);
@@ -445,7 +445,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
             canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 10f), bg);
         }
         float fontSize = h <= 28f ? 12f : 13f;
-        SkijaUi.text(canvas, label, x + (w - SkijaUi.textWidth(label, fontSize)) * .5f, (y + (h <= 28f ? 18f : 21f)) + SkijaUi.textMetrics(fontSize).getAscent(), SkijaUi.textMetrics(fontSize).getDescent() - SkijaUi.textMetrics(fontSize).getAscent(), (Math.round(alpha * (enabled ? 1f : .48f)) << 24) | 0xFFFFFF, fontSize);
+        ChromaDraw.text(canvas, label, x + (w - ChromaDraw.textWidth(label, fontSize)) * .5f, (y + (h <= 28f ? 18f : 21f)) + ChromaDraw.textMetrics(fontSize).getAscent(), ChromaDraw.textMetrics(fontSize).getDescent() - ChromaDraw.textMetrics(fontSize).getAscent(), (Math.round(alpha * (enabled ? 1f : .48f)) << 24) | 0xFFFFFF, fontSize);
     }
 
     private void drawSpinner(Canvas canvas, float x, float y) {
@@ -898,7 +898,7 @@ public final class AltManagerScreen extends Screen implements com.pvp_utils.clie
     }
 
     private void drawCentered(Canvas canvas, String text, float centerX, float y, float size, int color) {
-        SkijaUi.text(canvas, text, centerX - SkijaUi.textWidth(text, size) * .5f, (y) + SkijaUi.textMetrics(size).getAscent(), SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent(), color, size);
+        ChromaDraw.text(canvas, text, centerX - ChromaDraw.textWidth(text, size) * .5f, (y) + ChromaDraw.textMetrics(size).getAscent(), ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent(), color, size);
     }
 
     private boolean inside(double mx, double my, float x, float y, float w, float h) {

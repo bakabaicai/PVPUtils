@@ -10,12 +10,12 @@ import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.ItemUseStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.LowHealthHandler;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
-import com.pvp_utils.client.render.skia.AnimatedStatusIcon;
-import com.pvp_utils.client.render.skia.ContentTransition;
-import com.pvp_utils.client.render.skia.LiquidSeparation;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaUi;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.effects.ChromaStatusIcon;
+import com.pvp_utils.client.render.chroma.effects.ChromaTransition;
+import com.pvp_utils.client.render.chroma.effects.ChromaSeparation;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -97,7 +97,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
     private long lyricSongId = -1L;
     private long lyricTime = -1L;
     private float lyricProgress = 1f;
-    private LiquidSeparation.Geometry geometry;
+    private ChromaSeparation.Geometry geometry;
     private GeometryKey geometryKey;
 
     public static DynamicIslandRenderer getInstance() { return INSTANCE; }
@@ -115,7 +115,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
 
     public void requestTabListFrame() { lastTabRequestTime = System.currentTimeMillis(); }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         Minecraft client = Minecraft.getInstance();
         if (!Config.dynamicIsland || client.player == null || client.level == null || client.options.hideGui) {
             close();
@@ -160,17 +160,17 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         GeometryKey next = new GeometryKey(x, y, animatedWidth * scale, animatedHeight * scale, radius * scale, leftSeparation, separation, scale);
         if (!next.equals(geometryKey)) {
             if (geometry != null) geometry.close();
-            geometry = LiquidSeparation.create(x, y, next.width, next.height, next.radius,
+            geometry = ChromaSeparation.create(x, y, next.width, next.height, next.radius,
                     SATELLITE_RADIUS * scale, SATELLITE_GAP * scale, leftSeparation, separation, true);
             geometryKey = next;
         }
         Rect bounds = geometry.bounds();
-        if (Config.dynamicIslandShadow) SoftShadow.drawPath(canvas, geometry.path(), Config.dynamicIslandShadowStrength, 0xA0000000);
+        if (Config.dynamicIslandShadow) ChromaShadow.drawPath(canvas, geometry.path(), Config.dynamicIslandShadowStrength, 0xA0000000);
         if (Config.dynamicIslandBackground == Config.DynamicIslandBackground.BLUR) {
-            SkijaRenderer.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(),
+            ChromaGraphics.drawBlurredBackdrop(canvas, geometry.path(), bounds.getLeft(), bounds.getTop(),
                     bounds.getWidth(), bounds.getHeight(), Math.clamp(Config.skiaBlurStrength, 0f, 5f) * 10.5f);
         }
-        SkijaUi.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
+        ChromaDraw.fillPath(canvas, geometry.path(), Config.dynamicIslandColor);
         int save = canvas.save();
         try {
             canvas.translate(x, y);
@@ -178,7 +178,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
             int clip = canvas.save();
             try {
                 canvas.clipRRect(RRect.makeXYWH(0f, 0f, animatedWidth, animatedHeight, radius), true);
-                ContentTransition.draw(canvas, Rect.makeXYWH(0f, 0f, animatedWidth, animatedHeight), visibility, 0f,
+                ChromaTransition.draw(canvas, Rect.makeXYWH(0f, 0f, animatedWidth, animatedHeight), visibility, 0f,
                         () -> drawContent(canvas, displayed, new IslandLayout(animatedWidth, animatedHeight, radius, displayed.kind == Kind.TAB), nowMs));
             } finally { canvas.restoreToCount(clip); }
             if (leftSatelliteVisibility > 0.001f && leftSeparation > 0.08f && leftSatelliteSong != null) {
@@ -390,9 +390,9 @@ public final class DynamicIslandRenderer implements AutoCloseable {
     private void drawIconLabel(Canvas canvas, String icon, String text, float x, float centerY, float size,
                                int color, int iconColor, float width) {
         if (width < IDLE_ICON_SIZE + IDLE_ICON_GAP) return;
-        float glyphWidth = SkijaUi.iconWidth(icon, IDLE_ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.icon(canvas, icon, x + (IDLE_ICON_SIZE - glyphWidth) * 0.5f, centerY - IDLE_ICON_SIZE * 0.5f,
-                IDLE_ICON_SIZE, iconColor, IDLE_ICON_SIZE, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        float glyphWidth = ChromaDraw.iconWidth(icon, IDLE_ICON_SIZE, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, icon, x + (IDLE_ICON_SIZE - glyphWidth) * 0.5f, centerY - IDLE_ICON_SIZE * 0.5f,
+                IDLE_ICON_SIZE, iconColor, IDLE_ICON_SIZE, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         textCache.draw(canvas, text, x + IDLE_ICON_SIZE + IDLE_ICON_GAP, centerY, size,
                 color, width - IDLE_ICON_SIZE - IDLE_ICON_GAP, 0f);
     }
@@ -450,10 +450,10 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         try {
             canvas.clipRect(lyricBounds);
             if (!previousLyric.isEmpty() && lyricProgress < 1f) {
-                ContentTransition.draw(canvas, lyricBounds, 1f - lyricProgress, -19f * lyricProgress,
+                ChromaTransition.draw(canvas, lyricBounds, 1f - lyricProgress, -19f * lyricProgress,
                         () -> textCache.drawScrolling(canvas, previousLyric, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW, 0L, 6000L));
             }
-            ContentTransition.draw(canvas, lyricBounds, lyricProgress, 19f * (1f - lyricProgress),
+            ChromaTransition.draw(canvas, lyricBounds, lyricProgress, 19f * (1f - lyricProgress),
                     () -> textCache.drawScrolling(canvas, lyricText, lyricX, centerY, TEXT_SIZE, primaryColor(), lyricW,
                             Math.max(0L, MusicPlaybackService.INSTANCE.positionMs() - lyricTime),
                             DynamicIslandLyrics.snapshot().lineDurationMs(), DynamicIslandLyrics.snapshot().line()));
@@ -463,7 +463,7 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         for (int i = 0; i < musicLevels.length; i++) {
             float envelope = 1f - Math.abs(i - 3f) / 4f;
             float height = 2.5f + envelope * 6.5f + musicLevels[i] * (5f + envelope * 4f);
-            SkijaUi.rounded(canvas, barsX + i * 3f, centerY - height * 0.5f, 1.8f, height, 0.9f, barColor);
+            ChromaDraw.rounded(canvas, barsX + i * 3f, centerY - height * 0.5f, 1.8f, height, 0.9f, barColor);
         }
     }
 
@@ -488,8 +488,8 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         if (alpha <= 0f) return;
         Image cover = song == null ? null : NeteaseMusicCovers.skiaImage(song.image());
         if (cover == null) {
-            float glyphWidth = SkijaUi.iconWidth(ICON_MUSIC, size * 0.8f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            SkijaUi.icon(canvas, ICON_MUSIC, x + (size - glyphWidth) * 0.5f, y, size, withAlpha(primaryColor(), Math.round(alpha * 255f)), size * 0.8f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            float glyphWidth = ChromaDraw.iconWidth(ICON_MUSIC, size * 0.8f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, ICON_MUSIC, x + (size - glyphWidth) * 0.5f, y, size, withAlpha(primaryColor(), Math.round(alpha * 255f)), size * 0.8f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
             return;
         }
         int save = canvas.save();
@@ -514,10 +514,10 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         int accent = frame.kind == Kind.NOTIFICATION ? frame.notification.accentColor() : primaryColor();
         float iconProgress = clamp((nowMs - contentShownMs) / 520f, 0f, 1f);
         if (icon.equals("\uE5CA") || icon.equals("\uE5CD")) {
-            AnimatedStatusIcon.draw(canvas, icon.equals("\uE5CA"), iconX, iconY, iconSize, iconProgress, accent);
+            ChromaStatusIcon.draw(canvas, icon.equals("\uE5CA"), iconX, iconY, iconSize, iconProgress, accent);
         } else {
-            float width = SkijaUi.iconWidth(icon, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-            SkijaUi.icon(canvas, icon, iconX + (iconSize - width) * 0.5f, iconY, iconSize, accent, iconSize, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            float width = ChromaDraw.iconWidth(icon, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, icon, iconX + (iconSize - width) * 0.5f, iconY, iconSize, accent, iconSize, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         }
         float contentX = 47f;
         float contentWidth = Math.max(0f, layout.width - contentX - 15f);
@@ -526,9 +526,9 @@ public final class DynamicIslandRenderer implements AutoCloseable {
         if (frame.kind == Kind.ITEM || frame.kind == Kind.BLOCK) {
             float progress = frame.kind == Kind.ITEM ? frame.item.progress() : frame.block.progress();
             float width = Math.max(0f, layout.width - 30f);
-            SkijaUi.rounded(canvas, 15f, layout.height - 10f, width, 2.5f, 1.25f, withAlpha(primaryColor(), 36));
+            ChromaDraw.rounded(canvas, 15f, layout.height - 10f, width, 2.5f, 1.25f, withAlpha(primaryColor(), 36));
             float filled = width * clamp(progress, 0f, 1f);
-            if (filled > 0f) SkijaUi.rounded(canvas, 15f, layout.height - 10f, filled, 2.5f, 1.25f, withAlpha(primaryColor(), 220));
+            if (filled > 0f) ChromaDraw.rounded(canvas, 15f, layout.height - 10f, filled, 2.5f, 1.25f, withAlpha(primaryColor(), 220));
         }
     }
 

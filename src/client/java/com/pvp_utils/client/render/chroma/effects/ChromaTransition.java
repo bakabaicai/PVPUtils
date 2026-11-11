@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma.effects;
 
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.FilterTileMode;
@@ -6,8 +6,8 @@ import io.github.humbleui.skija.ImageFilter;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.types.Rect;
 
-public final class ContentTransition {
-    private ContentTransition() {
+public final class ChromaTransition {
+    private ChromaTransition() {
     }
 
     public static void draw(Canvas canvas, Rect bounds, float visibility, float offsetY, Runnable drawing) {

@@ -1,6 +1,6 @@
 package com.pvp_utils.client.startup;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.FontMetrics;
 
@@ -16,9 +16,9 @@ public final class StartupOverlayRenderer implements AutoCloseable {
     private static final long DOT_INTERVAL_NANOS = 350_000_000L;
     private static final float TITLE_SIZE = 22f;
     private static final float STATUS_SIZE = 11f;
-    private final SkijaUi.PreparedText[] titles = new SkijaUi.PreparedText[DOT_COUNT];
-    private SkijaUi.PreparedText welcome;
-    private SkijaUi.PreparedText status;
+    private final ChromaDraw.PreparedText[] titles = new ChromaDraw.PreparedText[DOT_COUNT];
+    private ChromaDraw.PreparedText welcome;
+    private ChromaDraw.PreparedText status;
     private StartupProgress.Stage preparedStage;
     private long fontRevision = -1L;
     private float titleHeight;
@@ -73,11 +73,11 @@ public final class StartupOverlayRenderer implements AutoCloseable {
         return frame;
     }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         Frame current = frame;
         if (current == null || current.width() <= 0 || current.height() <= 0 || current.finished()) return;
         if (current.backgroundAlpha() > 0f) {
-            SkijaUi.fill(canvas, 0f, 0f, current.width(), current.height(), color(0, current.backgroundAlpha()));
+            ChromaDraw.fill(canvas, 0f, 0f, current.width(), current.height(), color(0, current.backgroundAlpha()));
         }
         if (current.loadingAlpha() <= 0f && current.welcomeAlpha() <= 0f) return;
         prepareTexts(current.stage());
@@ -107,24 +107,24 @@ public final class StartupOverlayRenderer implements AutoCloseable {
     }
 
     private void prepareTexts(StartupProgress.Stage stage) {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (welcome == null || fontRevision != revision) {
             closeTexts();
-            SkijaUi.withFont(SkijaUi.MISANS_REGULAR, () -> {
+            ChromaDraw.withFont(ChromaDraw.MISANS_REGULAR, () -> {
                 for (int i = 0; i < DOT_COUNT; i++) {
-                    titles[i] = SkijaUi.prepareText(TITLE + ".".repeat(i + 1), TITLE_SIZE, false);
+                    titles[i] = ChromaDraw.prepareText(TITLE + ".".repeat(i + 1), TITLE_SIZE, false);
                 }
-                welcome = SkijaUi.prepareText(WELCOME, TITLE_SIZE, false);
-                FontMetrics titleMetrics = SkijaUi.textMetrics(TITLE_SIZE);
+                welcome = ChromaDraw.prepareText(WELCOME, TITLE_SIZE, false);
+                FontMetrics titleMetrics = ChromaDraw.textMetrics(TITLE_SIZE);
                 titleHeight = titleMetrics.getDescent() - titleMetrics.getAscent();
             });
             fontRevision = revision;
         }
         if (status == null || preparedStage != stage) {
             if (status != null) status.close();
-            SkijaUi.withFont(SkijaUi.MISANS_REGULAR, () -> {
-                status = SkijaUi.prepareText(stage.label(), STATUS_SIZE, false);
-                FontMetrics statusMetrics = SkijaUi.textMetrics(STATUS_SIZE);
+            ChromaDraw.withFont(ChromaDraw.MISANS_REGULAR, () -> {
+                status = ChromaDraw.prepareText(stage.label(), STATUS_SIZE, false);
+                FontMetrics statusMetrics = ChromaDraw.textMetrics(STATUS_SIZE);
                 statusHeight = statusMetrics.getDescent() - statusMetrics.getAscent();
                 preparedStage = stage;
             });

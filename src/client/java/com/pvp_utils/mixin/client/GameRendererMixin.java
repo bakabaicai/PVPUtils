@@ -21,9 +21,9 @@ public abstract class GameRendererMixin {
                     target = "Lnet/minecraft/client/gui/render/GuiRenderer;render(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V"
             )
     )
-    private void pvp_utils$renderSkijaUnderlay(net.minecraft.client.DeltaTracker deltaTracker,
+    private void pvp_utils$renderChromaUnderlay(net.minecraft.client.DeltaTracker deltaTracker,
                                              boolean renderLevel, CallbackInfo ci) {
-        com.pvp_utils.client.render.skia.SkijaRenderer.renderMainSubmitted();
+        com.pvp_utils.client.render.chroma.ChromaGraphics.renderMainSubmitted();
     }
 
     @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)

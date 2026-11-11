@@ -2,9 +2,9 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
@@ -117,13 +117,13 @@ public class TargetHudRenderer {
             char c = ch.charAt(0);
             if (c < healthCharWidthCache.length) {
                 if (!healthCharWidthCached[c]) {
-                    healthCharWidthCache[c] = SkijaUi.textWidth(ch, 10f);
+                    healthCharWidthCache[c] = ChromaDraw.textWidth(ch, 10f);
                     healthCharWidthCached[c] = true;
                 }
                 return healthCharWidthCache[c];
             }
         }
-        return SkijaUi.textWidth(ch, 10f);
+        return ChromaDraw.textWidth(ch, 10f);
     }
 
     public void onHit(LivingEntity entity) {
@@ -369,7 +369,7 @@ public class TargetHudRenderer {
         animatedHealthRatio += (ratio - animatedHealthRatio) * Math.min(1f, dt * 10f);
         animatedAbsorptionRatio += (absorptionRatio - animatedAbsorptionRatio) * Math.min(1f, dt * 10f);
 
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (textFontRevision != revision) {
             java.util.Arrays.fill(healthCharWidthCached, false);
             lastRawName = null;
@@ -421,9 +421,9 @@ public class TargetHudRenderer {
             }
         };
         if (avatarTexture != null) {
-            SkijaRenderer.submit(painter);
+            ChromaGraphics.submit(painter);
         } else {
-            SkijaRenderer.draw(painter);
+            ChromaGraphics.draw(painter);
             SpawnEggItem eggItem = SpawnEggItem.byId(target.getType());
             if (eggItem != null) {
                 graphics.pose().pushMatrix();
@@ -445,7 +445,7 @@ public class TargetHudRenderer {
             newHudBgPaint.setColor(newHudCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, NEW_HUD_WIDTH, NEW_HUD_HEIGHT, 16f), newHudBgPaint);
         }
-        SkijaUi.text(c, name, 60f, 10f, 19f, newHudPrimaryTextColor(blurMode), 13f);
+        ChromaDraw.text(c, name, 60f, 10f, 19f, newHudPrimaryTextColor(blurMode), 13f);
     }
 
     private void drawNewOverlay(Canvas c, String healthText, float healthRatio, float absorptionRatio, long now, boolean blurMode) {
@@ -461,7 +461,7 @@ public class TargetHudRenderer {
         }
         drawAnimatedHealthText(c, healthText, now, blurMode);
         if (showDist) {
-            float healthTextEndX = 60f + SkijaUi.textWidth(healthText, 10f) + 4f;
+            float healthTextEndX = 60f + ChromaDraw.textWidth(healthText, 10f) + 4f;
             drawAnimatedDistText(c, currentDistText, healthTextEndX, now, blurMode);
         }
 
@@ -532,10 +532,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (healthTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (healthTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                SkijaUi.text(c, oldCh, x, (oldY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
-                SkijaUi.text(c, ch, x, (newY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
+                ChromaDraw.text(c, oldCh, x, (oldY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
+                ChromaDraw.text(c, ch, x, (newY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
             } else {
-                SkijaUi.text(c, ch, x, (baseY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
+                ChromaDraw.text(c, ch, x, (baseY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), newHudMutedTextColor(blurMode), 10f);
             }
             x += w;
         }
@@ -560,10 +560,10 @@ public class TargetHudRenderer {
             if (changed) {
                 float oldY = baseY + (distTextDirection > 0 ? -height * eased : height * eased);
                 float newY = baseY + (distTextDirection > 0 ? height * (1f - eased) : -height * (1f - eased));
-                SkijaUi.text(c, oldCh, x, (oldY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
-                SkijaUi.text(c, ch, x, (newY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
+                ChromaDraw.text(c, oldCh, x, (oldY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
+                ChromaDraw.text(c, ch, x, (newY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
             } else {
-                SkijaUi.text(c, ch, x, (baseY) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
+                ChromaDraw.text(c, ch, x, (baseY) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), 0xFFFFAA00, 10f);
             }
             x += w;
         }
@@ -663,7 +663,7 @@ public class TargetHudRenderer {
         if (rawName.equals(lastRawName)) return lastTruncatedName;
 
         lastRawName = rawName;
-        if (SkijaUi.textWidth(rawName, 13f) <= 95f) {
+        if (ChromaDraw.textWidth(rawName, 13f) <= 95f) {
             lastTruncatedName = rawName;
             return lastTruncatedName;
         }
@@ -672,7 +672,7 @@ public class TargetHudRenderer {
         int high = rawName.length();
         while (low < high) {
             int mid = (low + high + 1) >>> 1;
-            if (SkijaUi.textWidth(rawName.substring(0, mid) + "...", 13f) <= 95f) {
+            if (ChromaDraw.textWidth(rawName.substring(0, mid) + "...", 13f) <= 95f) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -684,7 +684,7 @@ public class TargetHudRenderer {
 
     private void renderNewAvatar(Canvas canvas, Identifier texture, RRect avatarClip, float hurt, float heal, int alpha) {
         int save = canvas.save();
-        try (SkijaRenderer.BorrowedImage borrowed = texture == null ? null : SkijaRenderer.borrowTexture(texture);
+        try (ChromaGraphics.BorrowedImage borrowed = texture == null ? null : ChromaGraphics.borrowTexture(texture);
              Paint paint = new Paint()) {
             canvas.clipRRect(avatarClip, true);
             Rect destination = Rect.makeLTRB(avatarClip.getLeft(), avatarClip.getTop(),
@@ -697,11 +697,11 @@ public class TargetHudRenderer {
                         destination, SamplingMode.DEFAULT, paint, true);
             }
             if (hurt > 0f) {
-                SkijaUi.fill(canvas, destination.getLeft(), destination.getTop(), destination.getWidth(),
+                ChromaDraw.fill(canvas, destination.getLeft(), destination.getTop(), destination.getWidth(),
                         destination.getHeight(), (Math.round(alpha * hurt * 0.6f) << 24) | 0xFF0000);
             }
             if (heal > 0f) {
-                SkijaUi.fill(canvas, destination.getLeft(), destination.getTop(), destination.getWidth(),
+                ChromaDraw.fill(canvas, destination.getLeft(), destination.getTop(), destination.getWidth(),
                         destination.getHeight(), (Math.round(alpha * heal * 0.62f) << 24) | 0x55FF55);
             }
         } finally {

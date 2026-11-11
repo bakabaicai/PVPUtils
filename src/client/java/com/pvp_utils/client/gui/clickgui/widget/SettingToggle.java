@@ -1,7 +1,7 @@
 package com.pvp_utils.client.gui.clickgui.widget;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.PaintStrokeCap;
 
@@ -43,23 +43,23 @@ public class SettingToggle extends SettingWidget {
         float press = animation.press();
         ClickGuiThemeColors colors = ClickGuiThemeColors.current();
         int trackColor = lerpColor(colors.scrollbarTrack, colors.accent, progress);
-        SkijaUi.rounded(canvas, x, y, 44f, 24f, 12f,
+        ChromaDraw.rounded(canvas, x, y, 44f, 24f, 12f,
                 withAlpha(trackColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         float centerX = x + 12f + 20f * progress;
         float centerY = y + 12f;
         float thumbWidth = 20f - 1.6f * press;
         float thumbHeight = 20f + 0.8f * press;
-        SkijaUi.rounded(canvas, centerX - thumbWidth * 0.5f, centerY - thumbHeight * 0.5f,
+        ChromaDraw.rounded(canvas, centerX - thumbWidth * 0.5f, centerY - thumbHeight * 0.5f,
                 thumbWidth, thumbHeight, 10f, withAlpha(0xFFFFFF, alpha));
         int symbolColor = withAlpha(colors.dark ? colors.window : colors.primaryText, alpha);
         int save = canvas.save();
         try {
             canvas.translate(centerX, centerY);
             canvas.rotate(180f * progress);
-            SkijaUi.line(canvas, lerp(-3.4f, 4.2f, progress), lerp(-3.4f, 0f, progress),
+            ChromaDraw.line(canvas, lerp(-3.4f, 4.2f, progress), lerp(-3.4f, 0f, progress),
                     lerp(3.4f, 1.1f, progress), lerp(3.4f, -2.9f, progress),
                     1.7f, symbolColor, PaintStrokeCap.ROUND);
-            SkijaUi.line(canvas, lerp(3.4f, 1.1f, progress), lerp(-3.4f, -2.9f, progress),
+            ChromaDraw.line(canvas, lerp(3.4f, 1.1f, progress), lerp(-3.4f, -2.9f, progress),
                     lerp(-3.4f, -4.6f, progress), 3.4f,
                     1.7f, symbolColor, PaintStrokeCap.ROUND);
         } finally {

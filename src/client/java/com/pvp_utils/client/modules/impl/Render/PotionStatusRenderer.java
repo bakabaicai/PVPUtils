@@ -2,13 +2,13 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -75,7 +75,7 @@ public class PotionStatusRenderer {
             clearPendingFrame();
             return;
         }
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof ChromaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -110,10 +110,10 @@ public class PotionStatusRenderer {
         pendingBaseH = baseH;
     }
 
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame) return;
         Minecraft client = Minecraft.getInstance();
-        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) {
+        if (!Config.potionStatus || client.options.hideGui || client.screen instanceof ChromaScreen || client.screen instanceof NeteaseMusicScreen) {
             clearPendingFrame();
             return;
         }
@@ -150,7 +150,7 @@ public class PotionStatusRenderer {
     public boolean shouldHideVanillaEffects() {
         if (!Config.potionStatus || !Config.potionStatusHideVanilla) return false;
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof SkijaScreen || client.screen instanceof NeteaseMusicScreen) return false;
+        if (client.player == null || client.level == null || client.options.hideGui || client.screen instanceof ChromaScreen || client.screen instanceof NeteaseMusicScreen) return false;
         return HudEditOverlay.getInstance().isActive() || !visibleEffects(client).isEmpty();
     }
 
@@ -261,7 +261,7 @@ public class PotionStatusRenderer {
     }
 
     private void renderGl(Minecraft client, List<EffectVisual> visuals, float x, float y, float userScale, float bgProgress, float baseH) {
-        SkijaRenderer.draw(canvas -> {
+        ChromaGraphics.draw(canvas -> {
             float easedBg = easeOutCubic(bgProgress);
             if (Config.potionStatusBackground && Config.potionStatusStyle != Config.HudStyle.LITE) {
                 float scale = userScale * easedBg;
@@ -319,24 +319,24 @@ public class PotionStatusRenderer {
         String name = truncate(Component.translatable(effect.getDescriptionId()).getString(), 70f, 10f);
         String amp = amplifier(effect.getAmplifier());
         if (showCountdown) {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
+            ChromaDraw.text(canvas, name, drawX + ICON + 10f, (rowY + 11f) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
             drawDurationLine(canvas, visual, amp, drawX + ICON + 10f, rowY + 22f, withAlpha(0xCFFFFFFF, alpha));
         } else {
-            SkijaUi.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + SkijaUi.textMetrics(10f).getAscent(), SkijaUi.textMetrics(10f).getDescent() - SkijaUi.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
+            ChromaDraw.text(canvas, name, drawX + ICON + 10f, (rowY + 17f) + ChromaDraw.textMetrics(10f).getAscent(), ChromaDraw.textMetrics(10f).getDescent() - ChromaDraw.textMetrics(10f).getAscent(), withAlpha(0xF6FFFFFF, alpha), 10f);
         }
     }
 
     private void drawDurationLine(Canvas canvas, EffectVisual visual, String amp, float x, float y, int color) {
         if (visual.effect != null && (visual.effect.isInfiniteDuration() || visual.displayDurationTicks < 0f)) {
             if (!amp.isEmpty()) {
-                SkijaUi.text(canvas, amp, x, (y) + SkijaUi.textMetrics(8f).getAscent(), SkijaUi.textMetrics(8f).getDescent() - SkijaUi.textMetrics(8f).getAscent(), color, 8f);
-                x += SkijaUi.textWidth(amp, 8f) + 5f;
+                ChromaDraw.text(canvas, amp, x, (y) + ChromaDraw.textMetrics(8f).getAscent(), ChromaDraw.textMetrics(8f).getDescent() - ChromaDraw.textMetrics(8f).getAscent(), color, 8f);
+                x += ChromaDraw.textWidth(amp, 8f) + 5f;
             }
-            SkijaUi.icon(canvas, INFINITE_ICON, x, (y + 1.5f) + SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getDescent() - SkijaUi.iconMetrics(10f, SkijaUi.IconSet.MATERIAL_SYMBOLS).getAscent(), color, 10f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+            ChromaDraw.icon(canvas, INFINITE_ICON, x, (y + 1.5f) + ChromaDraw.iconMetrics(10f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), ChromaDraw.iconMetrics(10f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getDescent() - ChromaDraw.iconMetrics(10f, ChromaDraw.IconSet.MATERIAL_SYMBOLS).getAscent(), color, 10f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
             return;
         }
         String time = formatDuration(visual);
-        SkijaUi.text(canvas, amp.isEmpty() ? time : amp + "  " + time, x, (y) + SkijaUi.textMetrics(8f).getAscent(), SkijaUi.textMetrics(8f).getDescent() - SkijaUi.textMetrics(8f).getAscent(), color, 8f);
+        ChromaDraw.text(canvas, amp.isEmpty() ? time : amp + "  " + time, x, (y) + ChromaDraw.textMetrics(8f).getAscent(), ChromaDraw.textMetrics(8f).getDescent() - ChromaDraw.textMetrics(8f).getAscent(), color, 8f);
     }
 
     private void drawIcons(Minecraft client, Canvas canvas, List<EffectVisual> visuals) {
@@ -402,8 +402,8 @@ public class PotionStatusRenderer {
     }
 
     private String truncate(String text, float maxWidth, float size) {
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
-        while (text.length() > 1 && SkijaUi.textWidth(text + "...", size) > maxWidth) {
+        if (ChromaDraw.textWidth(text, size) <= maxWidth) return text;
+        while (text.length() > 1 && ChromaDraw.textWidth(text + "...", size) > maxWidth) {
             text = text.substring(0, text.length() - 1);
         }
         return text + "...";

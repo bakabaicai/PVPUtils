@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.Version;
@@ -14,9 +14,9 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
 import com.pvp_utils.client.ResetManager;
 import com.pvp_utils.client.ModuleKeybindManager;
 import com.pvp_utils.client.modules.impl.Optimize.InputMethodFix.InputMethodFix;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaScreen;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import io.github.humbleui.skija.PaintMode;
@@ -36,14 +36,14 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
-public class NewSettingsScreen extends Screen implements SkijaScreen {
+public class NewSettingsScreen extends Screen implements ChromaScreen {
     private final Screen parent;
 
     private final List<BasePage> pages;
     private final PageTransition<BasePage> pageTransition;
 
     private static final String[] TAB_ICONS = {"\uE903", "\uE901", "\uE026", "\uE121", "\uE900", "\uE3A9", "\uE87B"};
-    private static final SkijaUi.IconSet[] TAB_ICON_FONTS = {SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.PVP_CONTROLS, SkijaUi.IconSet.MATERIAL_SYMBOLS, SkijaUi.IconSet.MATERIAL_SYMBOLS};
+    private static final ChromaDraw.IconSet[] TAB_ICON_FONTS = {ChromaDraw.IconSet.PVP_CONTROLS, ChromaDraw.IconSet.PVP_CONTROLS, ChromaDraw.IconSet.MATERIAL_SYMBOLS, ChromaDraw.IconSet.MATERIAL_SYMBOLS, ChromaDraw.IconSet.PVP_CONTROLS, ChromaDraw.IconSet.MATERIAL_SYMBOLS, ChromaDraw.IconSet.MATERIAL_SYMBOLS};
     private static final String[] TAB_KEYS_ZH = {"战斗", "视觉", "工具", "优化", "其他", "主题", "插件"};
     private static final String[] TAB_KEYS_EN = {"Combat", "Render", "Tools", "Optimize", "Misc", "Theme", "Plugins"};
 
@@ -119,7 +119,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     private final Paint scrollbarThumbPaint = new Paint().setAntiAlias(true);
     private final Paint searchBgPaint = new Paint().setAntiAlias(true);
     private final Paint searchLinePaint = new Paint().setAntiAlias(true);
-    private final float resetIconWidth = SkijaUi.iconWidth("\uE042", 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+    private final float resetIconWidth = ChromaDraw.iconWidth("\uE042", 13f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
     private String cachedResetText = "";
     private float cachedResetTextWidth = 0f;
     private String cachedCloseText = "";
@@ -272,7 +272,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame || this.minecraft == null || this.minecraft.screen != this) {
             pendingFrame = false;
             return;
@@ -287,7 +287,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
     private void renderPanelBlur(Canvas canvas, RRect panel) {
         if (!Config.clickGuiPanelBlur || minecraft == null) return;
-        SkijaRenderer.drawBlurredBackdrop(canvas, panel, panel.getLeft(), panel.getTop(),
+        ChromaGraphics.drawBlurredBackdrop(canvas, panel, panel.getLeft(), panel.getTop(),
                 panel.getWidth(), panel.getHeight(), Math.max(0f, Math.min(2f, Config.skiaBlurStrength)) * 10.5f);
         try (Paint tint = new Paint().setAntiAlias(true).setColor(Config.skiaBlurTintColor())) {
             canvas.drawRRect(panel, tint);
@@ -410,16 +410,16 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         String line3 = String.format("scroll %.1f/%.1f full=%s", contentScrollOffset, cachedScrollMax, Config.fullMode ? "Y" : "N");
         float padding = 10f;
         float textSize = 10f;
-        float w = Math.max(SkijaUi.textWidth(line1, textSize), Math.max(SkijaUi.textWidth(line2, textSize), SkijaUi.textWidth(line3, textSize))) + padding * 2f;
+        float w = Math.max(ChromaDraw.textWidth(line1, textSize), Math.max(ChromaDraw.textWidth(line2, textSize), ChromaDraw.textWidth(line3, textSize))) + padding * 2f;
         float h = 42f;
         float x = cardX + cardW - w - 14f;
         float y = cardY + 14f;
         Paint bg = new Paint().setAntiAlias(true);
         bg.setColor(withAlpha(tc.content, alpha));
         canvas.drawRRect(RRect.makeXYWH(x, y, w, h, 8f), bg);
-        SkijaUi.text(canvas, line1, x + padding, (y + 13f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.mutedText, alpha), textSize);
-        SkijaUi.text(canvas, line2, x + padding, (y + 25f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
-        SkijaUi.text(canvas, line3, x + padding, (y + 37f) + SkijaUi.textMetrics(textSize).getAscent(), SkijaUi.textMetrics(textSize).getDescent() - SkijaUi.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
+        ChromaDraw.text(canvas, line1, x + padding, (y + 13f) + ChromaDraw.textMetrics(textSize).getAscent(), ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent(), withAlpha(tc.mutedText, alpha), textSize);
+        ChromaDraw.text(canvas, line2, x + padding, (y + 25f) + ChromaDraw.textMetrics(textSize).getAscent(), ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
+        ChromaDraw.text(canvas, line3, x + padding, (y + 37f) + ChromaDraw.textMetrics(textSize).getAscent(), ChromaDraw.textMetrics(textSize).getDescent() - ChromaDraw.textMetrics(textSize).getAscent(), withAlpha(tc.secondaryText, alpha), textSize);
     }
 
     private int computeHoverSignature(double mouseX, double mouseY) {
@@ -596,7 +596,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         canvas.translate(-layoutWidth * 0.5f, -layoutHeight * 0.5f);
 
         if (Config.clickGuiAppearance.shadow) {
-            SoftShadow.drawRounded(canvas, cardX, cardY, cardW, cardH, cardRadius,
+            ChromaShadow.drawRounded(canvas, cardX, cardY, cardW, cardH, cardRadius,
                     Config.clickGuiAppearance.shadowStrength * alpha, 0xA0000000);
         }
         float panelAlpha = ClickGuiThemeColors.panelBackgroundAlpha(alpha);
@@ -624,7 +624,7 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             builder.arcTo(Rect.makeXYWH(gripCornerX - gripRadius * 2f, gripCornerY - gripRadius * 2f, gripRadius * 2f, gripRadius * 2f), 90f, -90f, false);
             builder.lineTo(gripCornerX, gripCornerY - gripLen);
             try (Path path = builder.detach()) {
-                SkijaUi.strokePath(canvas, path, gripThick, gripColor, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
+                ChromaDraw.strokePath(canvas, path, gripThick, gripColor, PaintStrokeCap.ROUND, PaintStrokeJoin.ROUND);
             }
         }
 
@@ -634,9 +634,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         dividerPaint.setColor(withAlpha(tc.border, alpha));
         canvas.drawRect(Rect.makeXYWH(cardX + sidebarW, cardY + 14f, 1f, cardH - 28f), dividerPaint);
 
-        SkijaUi.text(canvas, "PVPUtils", cardX + 18f, cardY + 22f, 24f, withAlpha(tc.primaryText, alpha), 16f);
+        ChromaDraw.text(canvas, "PVPUtils", cardX + 18f, cardY + 22f, 24f, withAlpha(tc.primaryText, alpha), 16f);
         drawDebugOverlay(canvas, cardX, cardY, cardW, alpha, tc);
-        SkijaUi.text(canvas, UiText.t("客户端设置", "Client Settings"), cardX + 18f, cardY + 46f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
+        ChromaDraw.text(canvas, UiText.t("客户端设置", "Client Settings"), cardX + 18f, cardY + 46f, 16f, withAlpha(tc.secondaryText, alpha), 10f);
         drawSearchBox(canvas, searchX, searchY, searchW, searchH, alpha, dt, tc);
 
         indicatorPaint.setColor(withAlpha(tc.indicator, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
@@ -651,8 +651,8 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             boolean active = i == selectedTab;
             int iconColor = active ? withAlpha(tc.accent, alpha) : withAlpha(tc.inactiveIcon, alpha);
             int textColor = active ? withAlpha(tc.primaryText, alpha) : withAlpha(tc.inactiveText, alpha);
-            SkijaUi.icon(canvas, TAB_ICONS[i], cardX + 18f, tabY + 4f, tabH, iconColor, 13f, TAB_ICON_FONTS[i]);
-            SkijaUi.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + 4f, tabH, textColor, 13f);
+            ChromaDraw.icon(canvas, TAB_ICONS[i], cardX + 18f, tabY + 4f, tabH, iconColor, 13f, TAB_ICON_FONTS[i]);
+            ChromaDraw.text(canvas, UiText.t(TAB_KEYS_ZH[i], TAB_KEYS_EN[i]), cardX + 38f, tabY + 4f, tabH, textColor, 13f);
         }
 
         int closeBgColor = lerpColor(tc.buttonBackground, tc.dangerHoverBackground, closeHoverAlpha);
@@ -665,21 +665,21 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         String resetIcon = "\uE042";
         if (!resetText.equals(cachedResetText)) {
             cachedResetText = resetText;
-            cachedResetTextWidth = SkijaUi.textWidth(resetText, 12f);
+            cachedResetTextWidth = ChromaDraw.textWidth(resetText, 12f);
         }
         float resetTotalW = resetIconWidth + 6f + cachedResetTextWidth;
         float resetStartX = closeX + (tabW - resetTotalW) / 2f;
-        SkijaUi.icon(canvas, resetIcon, resetStartX, resetY, resetH, withAlpha(resetTextColor, alpha), 13f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
-        SkijaUi.text(canvas, resetText, resetStartX + resetIconWidth + 6f, resetY, resetH, withAlpha(resetTextColor, alpha), 12f);
+        ChromaDraw.icon(canvas, resetIcon, resetStartX, resetY, resetH, withAlpha(resetTextColor, alpha), 13f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.text(canvas, resetText, resetStartX + resetIconWidth + 6f, resetY, resetH, withAlpha(resetTextColor, alpha), 12f);
 
         closeBgPaint.setColor(withAlpha(closeBgColor, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(closeX, closeY, tabW, closeH, 8f), closeBgPaint);
         String closeText = UiText.t("× 关闭", "× Close");
         if (!closeText.equals(cachedCloseText)) {
             cachedCloseText = closeText;
-            cachedCloseTextWidth = SkijaUi.textWidth(closeText, 12f);
+            cachedCloseTextWidth = ChromaDraw.textWidth(closeText, 12f);
         }
-        SkijaUi.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, closeY, closeH, withAlpha(closeTextColor, alpha), 12f);
+        ChromaDraw.text(canvas, closeText, closeX + (tabW - cachedCloseTextWidth) / 2f, closeY, closeH, withAlpha(closeTextColor, alpha), 12f);
 
         float pageAlpha = alpha * pageTransition.opacity();
         float pageOffset = pageTransition.offsetX();
@@ -688,8 +688,8 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         try {
             canvas.clipRect(Rect.makeXYWH(contentX, contentY, contentW, contentH));
             canvas.translate(pageOffset, 0f);
-            SkijaUi.text(canvas, page.getTitle(), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, pageAlpha), 18f);
-            SkijaUi.text(canvas, page.getSubtitle(), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, pageAlpha), 10f);
+            ChromaDraw.text(canvas, page.getTitle(), contentX + 18f, contentY + 8f, 26f, withAlpha(tc.primaryText, pageAlpha), 18f);
+            ChromaDraw.text(canvas, page.getSubtitle(), contentX + 18f, contentY + 34f, 16f, withAlpha(tc.secondaryText, pageAlpha), 10f);
 
             float clipTop = contentY + 54f;
             float clipBottom = contentY + contentH;
@@ -763,9 +763,9 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
             cachedFooterMaxWidth = maxWidth;
             cachedFooterRender = truncate(source, maxWidth, 10f);
         }
-        float ascent = SkijaUi.textMetrics(10f).getAscent();
-        float lineHeight = SkijaUi.textMetrics(10f).getDescent() - ascent;
-        SkijaUi.text(canvas, cachedFooterRender, contentX + 18f,
+        float ascent = ChromaDraw.textMetrics(10f).getAscent();
+        float lineHeight = ChromaDraw.textMetrics(10f).getDescent() - ascent;
+        ChromaDraw.text(canvas, cachedFooterRender, contentX + 18f,
                 (contentY + contentH - FOOTER_H * 0.5f + 3f) + ascent, lineHeight,
                 withAlpha(tc.secondaryText, alpha), 10f);
     }
@@ -844,12 +844,12 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
 
     private static String truncate(String text, float maxWidth, float size) {
         if (text == null || text.isEmpty()) return "";
-        if (SkijaUi.textWidth(text, size) <= maxWidth) return text;
+        if (ChromaDraw.textWidth(text, size) <= maxWidth) return text;
         String ellipsis = "\u2026";
-        float ellipsisW = SkijaUi.textWidth(ellipsis, size);
+        float ellipsisW = ChromaDraw.textWidth(ellipsis, size);
         for (int i = text.length() - 1; i > 0; i--) {
             String candidate = text.substring(0, i);
-            if (SkijaUi.textWidth(candidate, size) + ellipsisW <= maxWidth) return candidate + ellipsis;
+            if (ChromaDraw.textWidth(candidate, size) + ellipsisW <= maxWidth) return candidate + ellipsis;
         }
         return ellipsis;
     }
@@ -859,18 +859,18 @@ public class NewSettingsScreen extends Screen implements SkijaScreen {
         searchBgPaint.setColor(withAlpha(background, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, width, height, 7f), searchBgPaint);
 
-        SkijaUi.icon(canvas, "\uE8B6", x + 9f, y, height, withAlpha(tc.searchIcon, alpha), 12f, SkijaUi.IconSet.MATERIAL_SYMBOLS);
+        ChromaDraw.icon(canvas, "\uE8B6", x + 9f, y, height, withAlpha(tc.searchIcon, alpha), 12f, ChromaDraw.IconSet.MATERIAL_SYMBOLS);
         float textX = x + 28f;
         float textW = Math.max(1f, width - 36f);
         boolean empty = searchText.isEmpty();
         String display = empty ? UiText.t("\u8F93\u5165\u4EE5\u67E5\u627E...", "Type to search...") : searchText;
-        float realTextWidth = SkijaUi.textWidth(searchText, 10f);
+        float realTextWidth = ChromaDraw.textWidth(searchText, 10f);
         float targetOffset = empty ? 0f : Math.max(0f, realTextWidth - textW + 3f);
         searchTextOffset = lerp(searchTextOffset, targetOffset, dt * 16f);
 
         canvas.save();
         canvas.clipRect(Rect.makeXYWH(textX, y + 2f, textW, height - 4f));
-        SkijaUi.text(canvas, display, textX - (empty ? 0f : searchTextOffset), y, height, withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
+        ChromaDraw.text(canvas, display, textX - (empty ? 0f : searchTextOffset), y, height, withAlpha(empty ? tc.searchTextPlaceholder : tc.searchText, alpha), 10f);
         if (searchFocused) {
             float cursorPulse = 0.35f + 0.65f * (0.5f + 0.5f * (float) Math.sin(searchCursorTime * 6f));
             float cursorX = textX + Math.min(textW - 1f, Math.max(0f, realTextWidth - searchTextOffset));

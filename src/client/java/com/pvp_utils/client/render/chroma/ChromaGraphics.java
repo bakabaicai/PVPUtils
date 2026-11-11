@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma;
 
 import io.github.humbleui.types.RRect;
 
@@ -37,7 +37,7 @@ import org.lwjgl.system.MemoryStack;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 
-public final class SkijaRenderer {
+public final class ChromaGraphics {
     private static DirectContext context;
     private static BackendRenderTarget renderTarget;
     private static Surface surface;
@@ -59,7 +59,7 @@ public final class SkijaRenderer {
     private static boolean failed;
     private static boolean backdropBlurFailed;
 
-    private SkijaRenderer() {
+    private ChromaGraphics() {
     }
 
     public static void renderOverlay(java.util.function.Consumer<Canvas> painter) {
@@ -118,7 +118,7 @@ public final class SkijaRenderer {
             surface.notifyContentWillChange(ContentChangeMode.RETAIN);
             if (captureBackdrop) {
                 SurfaceTarget target = surfaces.get(framebuffer);
-                if (target == null) throw new IllegalStateException("Missing Skija surface target");
+                if (target == null) throw new IllegalStateException("Missing Chroma Graphics surface target");
                 backdrop = target.backdrop().capture(context, framebuffer, width, height);
                 frameBackdropSnapshot = backdrop;
             }
@@ -132,10 +132,10 @@ public final class SkijaRenderer {
                 canvas.restoreToCount(save);
             }
             context.flushAndSubmit(surface);
-            SkijaUi.releaseRetiredFontResources();
+            ChromaDraw.releaseRetiredFontResources();
         } catch (Throwable throwable) {
             failed = true;
-            PVPUtils.LOGGER.error("Skija renderer failed; disabling it for this session", throwable);
+            PVPUtils.LOGGER.error("Chroma Graphics renderer failed; disabling it for this session", throwable);
         } finally {
             activeCanvas = null;
             frameBackdropSnapshot = null;
@@ -255,7 +255,7 @@ public final class SkijaRenderer {
         if (guiWidth <= 0.0F || guiHeight <= 0.0F) return;
 
         try {
-            SkijaBackdrop.draw(canvas, frameBackdropSnapshot, clipper,
+            ChromaBackdrop.draw(canvas, frameBackdropSnapshot, clipper,
             x, y, width, height, guiWidth, guiHeight, strength);
         } catch (Throwable throwable) {
             backdropBlurFailed = true;
@@ -306,7 +306,7 @@ public final class SkijaRenderer {
             themedFramebuffer = -1;
             themedColorTexture = -1;
         }
-        SkijaUi.close();
+        ChromaDraw.close();
         context.close();
         context = null;
     }
@@ -325,13 +325,13 @@ public final class SkijaRenderer {
             framebuffer, FramebufferFormat.GR_GL_RGBA8);
             Surface created;
             try {
-                created = SkijaBackdrop.wrap(context, backend);
+                created = ChromaBackdrop.wrap(context, backend);
                 if (created == null) throw new IllegalStateException("Failed to wrap framebuffer " + framebuffer);
             } catch (Throwable error) {
                 backend.close();
                 throw error;
             }
-            target = new SurfaceTarget(width, height, samples, stencilBits, backend, created, new SkijaBackdrop());
+            target = new SurfaceTarget(width, height, samples, stencilBits, backend, created, new ChromaBackdrop());
             surfaces.put(framebuffer, target);
         }
         renderTarget = target.backend();
@@ -356,7 +356,7 @@ public final class SkijaRenderer {
     }
 
     private record SurfaceTarget(int width, int height, int samples, int stencilBits,
-    BackendRenderTarget backend, Surface surface, SkijaBackdrop backdrop) implements AutoCloseable {
+    BackendRenderTarget backend, Surface surface, ChromaBackdrop backdrop) implements AutoCloseable {
         @Override
         public void close() {
             backdrop.close();

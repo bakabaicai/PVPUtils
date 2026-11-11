@@ -6,9 +6,9 @@ import com.pvp_utils.client.NeteaseMusic.LyricLineProcessor;
 import com.pvp_utils.client.NeteaseMusic.MusicPlaybackService;
 import com.pvp_utils.client.NeteaseMusic.LyricRasterCache;
 import com.pvp_utils.client.NeteaseMusic.LyricWordTimeline;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
-import com.pvp_utils.client.render.skia.SkijaScreen;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
@@ -42,7 +42,7 @@ public class LyricsDisplayRenderer {
     private static final long PREVIEW_SCROLL_MS = 650L;
     private static final long PREVIEW_CYCLE_MS = 1850L;
 
-    private final Map<TextKey, SkijaUi.PreparedText> preparedLines = new LinkedHashMap<>(32, 0.75f, true);
+    private final Map<TextKey, ChromaDraw.PreparedText> preparedLines = new LinkedHashMap<>(32, 0.75f, true);
     private final LyricRasterCache rasterCache = new LyricRasterCache();
     private final Map<LyricLine, LyricWordTimeline> wordTimelines = new LinkedHashMap<>(32, 0.75f, true);
     private int springFirst;
@@ -124,7 +124,7 @@ public class LyricsDisplayRenderer {
 
         float frameVisualIndex = visualIndex;
         float resolution = (float) client.getWindow().getGuiScale() * scale;
-        SkijaRenderer.submit(canvas -> {
+        ChromaGraphics.submit(canvas -> {
             refreshFont();
             rasterResolution = resolution;
             canvas.translate(x, y);
@@ -339,7 +339,7 @@ public class LyricsDisplayRenderer {
             float focus, int color, float sigma, long positionMs, long durationMs, boolean active) {
         if ((color >>> 24) == 0) return;
         String text = displayText(line.text());
-        SkijaUi.PreparedText prepared = preparedText(text, CURRENT_SIZE);
+        ChromaDraw.PreparedText prepared = preparedText(text, CURRENT_SIZE);
         LyricWordTimeline timeline = active && line.hasWords() ? timeline(line, text) : null;
         if (timeline != null && timeline.isEmpty()) timeline = null;
         float highlighted = timeline == null ? 0f : timeline.widthAt(positionMs);
@@ -368,7 +368,7 @@ public class LyricsDisplayRenderer {
 
     private void drawTranslationLine(Canvas canvas, String text, float centerX, float top,
             float globalAlpha, float sigma, long elapsedMs, long durationMs) {
-        SkijaUi.PreparedText prepared = preparedText(text, TRANSLATION_SIZE);
+        ChromaDraw.PreparedText prepared = preparedText(text, TRANSLATION_SIZE);
         int alpha = Math.round(0.62f * globalAlpha * 255f);
         if (alpha <= 0) return;
         float x = horizontalX(prepared.width(), centerX, MAX_TEXT_WIDTH, elapsedMs, durationMs);
@@ -395,21 +395,21 @@ public class LyricsDisplayRenderer {
     }
 
     private void refreshFont() {
-        long revision = SkijaUi.textFontRevision();
+        long revision = ChromaDraw.textFontRevision();
         if (revision == cachedFontRevision) return;
         clearPreparedLines();
         cachedFontRevision = revision;
     }
 
-    private SkijaUi.PreparedText preparedText(String text, float size) {
+    private ChromaDraw.PreparedText preparedText(String text, float size) {
         int sizeSteps = Math.round(size * 4f);
         TextKey key = new TextKey(text, sizeSteps);
-        SkijaUi.PreparedText prepared = preparedLines.get(key);
+        ChromaDraw.PreparedText prepared = preparedLines.get(key);
         if (prepared != null) {
             return prepared;
         }
         float fontSize = sizeSteps * 0.25f;
-        prepared = SkijaUi.prepareText(text, fontSize, false);
+        prepared = ChromaDraw.prepareText(text, fontSize, false);
         preparedLines.put(key, prepared);
         if (preparedLines.size() > MAX_PREPARED_LINES) {
             var oldest = preparedLines.entrySet().iterator();
@@ -420,7 +420,7 @@ public class LyricsDisplayRenderer {
     }
 
     private float lineHeight(float size) {
-        var metrics = SkijaUi.textMetrics(size);
+        var metrics = ChromaDraw.textMetrics(size);
         return metrics.getDescent() - metrics.getAscent();
     }
 
@@ -538,7 +538,7 @@ public class LyricsDisplayRenderer {
     private void clearPreparedLines() {
         rasterCache.clear();
         wordTimelines.clear();
-        preparedLines.values().forEach(SkijaUi.PreparedText::close);
+        preparedLines.values().forEach(ChromaDraw.PreparedText::close);
         preparedLines.clear();
         cachedFontRevision = -1L;
     }
@@ -547,7 +547,7 @@ public class LyricsDisplayRenderer {
     }
 
     private boolean shouldSkipScreen(Minecraft client) {
-        return client.screen instanceof SkijaScreen
+        return client.screen instanceof ChromaScreen
         || (client.screen != null && !(client.screen instanceof ChatScreen));
     }
 

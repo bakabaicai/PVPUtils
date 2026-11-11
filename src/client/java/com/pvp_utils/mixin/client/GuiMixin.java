@@ -22,7 +22,7 @@ import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
 import com.pvp_utils.client.modules.impl.Tool.BlockCountDisplayRenderer;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardRenderer;
 
-import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -61,7 +61,7 @@ public class GuiMixin {
         Minecraft mc = Minecraft.getInstance();
         int guiWidth = mc.getWindow().getGuiScaledWidth();
         int guiHeight = mc.getWindow().getGuiScaledHeight();
-        boolean skiaScreenOpen = mc.screen instanceof SkijaScreen;
+        boolean skiaScreenOpen = mc.screen instanceof ChromaScreen;
         if (mc.options.hideGui) return;
 
         if (!skiaScreenOpen) {

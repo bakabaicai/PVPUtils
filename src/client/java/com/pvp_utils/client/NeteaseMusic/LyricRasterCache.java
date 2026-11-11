@@ -1,6 +1,6 @@
 package com.pvp_utils.client.NeteaseMusic;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.BlendMode;
 import io.github.humbleui.skija.ColorFilter;
@@ -27,7 +27,7 @@ public final class LyricRasterCache implements AutoCloseable {
     private long pixels;
     private boolean closed;
 
-    public void draw(Canvas canvas, SkijaUi.PreparedText text, float size, float x, float top,
+    public void draw(Canvas canvas, ChromaDraw.PreparedText text, float size, float x, float top,
                      int color, float blur, float resolution) {
         if ((color >>> 24) == 0) return;
         int scale = Math.clamp(Math.round(resolution), 1, 4);
@@ -66,7 +66,7 @@ public final class LyricRasterCache implements AutoCloseable {
         }
     }
 
-    private Entry create(SkijaUi.PreparedText text, int scale, int width, int height) {
+    private Entry create(ChromaDraw.PreparedText text, int scale, int width, int height) {
         Image sharp = null;
         try (Surface surface = Surface.makeRaster(ImageInfo.makeN32Premul(width, height))) {
             Canvas canvas = surface.getCanvas();
@@ -119,7 +119,7 @@ public final class LyricRasterCache implements AutoCloseable {
         closed = true;
     }
 
-    private record Key(SkijaUi.PreparedText text, int scale) {
+    private record Key(ChromaDraw.PreparedText text, int scale) {
     }
 
     private record Entry(Image sharp, Image blurred, long pixels) implements AutoCloseable {

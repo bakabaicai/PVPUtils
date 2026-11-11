@@ -64,7 +64,7 @@ final class PVPUtilsClientRuntime {
                     MainUISharedBackground.close();
                     PseudoCreativeManager.setEnabled(false);
                     com.pvp_utils.client.plugin.PluginManager.INSTANCE.close();
-                    com.pvp_utils.client.render.skia.SkijaFrameRenderer.close();
+                    com.pvp_utils.client.render.chroma.ChromaFrameRenderer.close();
                 });
 
         ClientTickEvents.START_CLIENT_TICK.register(client ->

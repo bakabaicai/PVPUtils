@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma;
 
 import com.pvp_utils.client.modules.impl.Combat.combo.ComboEffectsManager;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
@@ -14,8 +14,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Overlay;
 
-public final class SkijaFrameRenderer {
-    private SkijaFrameRenderer() {
+public final class ChromaFrameRenderer {
+    private ChromaFrameRenderer() {
     }
 
     public static void render() {
@@ -23,43 +23,43 @@ public final class SkijaFrameRenderer {
         if (client.getWindow().isMinimized()) return;
         Overlay overlay = client.getOverlay();
         if (overlay != null) {
-            if (!(overlay instanceof SkijaOverlay skijaOverlay) || !skijaOverlay.isSkijaOverlayActive()) return;
-            SkijaRenderer.renderOverlay(canvas -> {
-                if (skijaOverlay.rendersScreenBehind()) {
-                    if (client.screen instanceof SkijaScreen screen) SkijaRenderer.draw(screen::renderSkija);
-                    SkijaRenderer.renderSubmitted();
+            if (!(overlay instanceof ChromaOverlay chromaOverlay) || !chromaOverlay.isChromaOverlayActive()) return;
+            ChromaGraphics.renderOverlay(canvas -> {
+                if (chromaOverlay.rendersScreenBehind()) {
+                    if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen::renderChroma);
+                    ChromaGraphics.renderSubmitted();
                 }
-                SkijaRenderer.draw(skijaOverlay::renderSkija);
+                ChromaGraphics.draw(chromaOverlay::renderChroma);
             });
             return;
         }
-        SkijaRenderer.renderOverlay(canvas -> {
+        ChromaGraphics.renderOverlay(canvas -> {
             if (client.level != null && !client.options.hideGui
                     && (client.screen == null || client.screen instanceof ChatScreen
                     || HudEditOverlay.getInstance().isActive())) {
-                SkijaRenderer.draw(PotionStatusRenderer.getInstance()::renderSkija);
-                SkijaRenderer.draw(KeystrokesRenderer.getInstance()::renderSkija);
-                SkijaRenderer.draw(DynamicIslandRenderer.getInstance()::renderSkija);
-                SkijaRenderer.draw(hudCanvas -> SkiaTextHudRenderer.renderSkija(hudCanvas,
+                ChromaGraphics.draw(PotionStatusRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw(KeystrokesRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw(DynamicIslandRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw(hudCanvas -> SkiaTextHudRenderer.renderChroma(hudCanvas,
                 PingHudRenderer.getInstance(),
                 TpsHudRenderer.getInstance(),
                 ClockHudRenderer.getInstance()));
-                SkijaRenderer.draw(MusicInfoHudRenderer.getInstance()::renderSkija);
-                SkijaRenderer.draw(ComboEffectsManager::render);
-                SkijaRenderer.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
+                ChromaGraphics.draw(MusicInfoHudRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw(ComboEffectsManager::render);
+                ChromaGraphics.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
                         hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
             }
-            if (client.screen instanceof SkijaScreen screen) SkijaRenderer.draw(screen::renderSkija);
-            SkijaRenderer.renderSubmitted();
-            SkijaRenderer.draw(HudEditOverlay.getInstance()::renderSkija);
+            if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen::renderChroma);
+            ChromaGraphics.renderSubmitted();
+            ChromaGraphics.draw(HudEditOverlay.getInstance()::renderChroma);
         });
     }
 
     public static void close() {
         Minecraft client = Minecraft.getInstance();
-        if (client != null && client.getOverlay() instanceof SkijaOverlay overlay) overlay.close();
+        if (client != null && client.getOverlay() instanceof ChromaOverlay overlay) overlay.close();
         DynamicIslandRenderer.getInstance().close();
         ClockHudRenderer.getInstance().close();
-        SkijaRenderer.close();
+        ChromaGraphics.close();
     }
 }

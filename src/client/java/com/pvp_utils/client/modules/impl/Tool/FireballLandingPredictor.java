@@ -1,7 +1,7 @@
 package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.world.WorldRender;
+import com.pvp_utils.client.render.chroma.world.ChromaWorld;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -59,9 +59,9 @@ public final class FireballLandingPredictor {
                 Vec3 nextPosition = position.add(velocity);
                 BlockHitResult hit = level.clip(new ClipContext(position, nextPosition, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, fireball));
                 Vec3 segmentEnd = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation() : nextPosition;
-                WorldRender.line(position, segmentEnd, TRAJECTORY_COLOR, 2.0f);
+                ChromaWorld.line(position, segmentEnd, TRAJECTORY_COLOR, 2.0f);
                 if (hit.getType() == HitResult.Type.BLOCK) {
-                    WorldRender.box(new AABB(hit.getBlockPos()), IMPACT_OUTLINE_COLOR, IMPACT_FILL_COLOR);
+                    ChromaWorld.box(new AABB(hit.getBlockPos()), IMPACT_OUTLINE_COLOR, IMPACT_FILL_COLOR);
                     renderExplosionRange(level, hit.getBlockPos());
                     break;
                 }
@@ -74,7 +74,7 @@ public final class FireballLandingPredictor {
         for (BlockPos blockPos : BlockPos.betweenClosed(impactPos.offset(-EXPLOSION_RADIUS, -EXPLOSION_RADIUS, -EXPLOSION_RADIUS), impactPos.offset(EXPLOSION_RADIUS, EXPLOSION_RADIUS, EXPLOSION_RADIUS))) {
             BlockState blockState = level.getBlockState(blockPos);
             if (blockState.isCollisionShapeFullBlock(level, blockPos)) {
-                WorldRender.box(new AABB(blockPos), EXPLOSION_RANGE_OUTLINE_COLOR, EXPLOSION_RANGE_FILL_COLOR);
+                ChromaWorld.box(new AABB(blockPos), EXPLOSION_RANGE_OUTLINE_COLOR, EXPLOSION_RANGE_FILL_COLOR);
             }
         }
     }

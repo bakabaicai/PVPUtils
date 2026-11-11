@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma;
 
 import io.github.humbleui.skija.BackendRenderTarget;
 import io.github.humbleui.skija.BackendTexture;
@@ -25,7 +25,7 @@ import org.lwjgl.system.MemoryStack;
 
 import java.util.function.Consumer;
 
-final class SkijaBackdrop implements AutoCloseable {
+final class ChromaBackdrop implements AutoCloseable {
     private int texture;
     private int framebuffer;
     private int width;

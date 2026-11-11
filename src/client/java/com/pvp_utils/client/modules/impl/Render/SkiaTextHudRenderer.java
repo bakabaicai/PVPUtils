@@ -2,15 +2,15 @@ package com.pvp_utils.client.modules.impl.Render;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudAppearance;
 import com.pvp_utils.client.render.HudPanel;
-import com.pvp_utils.client.render.skia.SoftShadow;
+import com.pvp_utils.client.render.chroma.effects.ChromaShadow;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicScreen;
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Paint;
 import net.minecraft.client.Minecraft;
@@ -87,7 +87,7 @@ public abstract class SkiaTextHudRenderer {
         int y = renderY(client, height);
 
         if (this instanceof ClockHudRenderer && backgroundEnabled() && appearance().shadow) {
-            SkijaRenderer.draw(canvas -> SoftShadow.drawRounded(canvas, x, y, width * scale,
+            ChromaGraphics.draw(canvas -> ChromaShadow.drawRounded(canvas, x, y, width * scale,
                     height * scale, 0f, appearance().shadowStrength, 0xB0000000));
         }
         graphics.pose().pushMatrix();
@@ -110,11 +110,11 @@ public abstract class SkiaTextHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    public void renderSkija(Canvas canvas) {
-        renderSkija(canvas, this);
+    public void renderChroma(Canvas canvas) {
+        renderChroma(canvas, this);
     }
 
-    public static void renderSkija(Canvas canvas, SkiaTextHudRenderer... renderers) {
+    public static void renderChroma(Canvas canvas, SkiaTextHudRenderer... renderers) {
         Minecraft client = Minecraft.getInstance();
         if (renderers.length == 0 || !inGame(client)
         || (client.screen != null && !HudEditOverlay.getInstance().isActive())) {
@@ -169,7 +169,7 @@ public abstract class SkiaTextHudRenderer {
         float top = PADDING_Y;
         for (Line line : lines) {
             int color = appearance().customText ? appearance().text() : line.color();
-            SkijaUi.text(canvas, line.text(), PADDING_X, top, LINE_HEIGHT, color, TEXT_SIZE);
+            ChromaDraw.text(canvas, line.text(), PADDING_X, top, LINE_HEIGHT, color, TEXT_SIZE);
             top += LINE_HEIGHT;
         }
         drawExtras(canvas, width, top);
@@ -219,7 +219,7 @@ public abstract class SkiaTextHudRenderer {
     private float skiaWidth(List<Line> lines) {
         float max = 0f;
         for (Line line : lines) {
-            max = Math.max(max, SkijaUi.textWidth(line.text(), TEXT_SIZE));
+            max = Math.max(max, ChromaDraw.textWidth(line.text(), TEXT_SIZE));
         }
         return max;
     }

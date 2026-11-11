@@ -1,4 +1,4 @@
-package com.pvp_utils.client.render.skia;
+package com.pvp_utils.client.render.chroma.effects;
 
 import io.github.humbleui.skija.Path;
 import io.github.humbleui.skija.PathBuilder;
@@ -7,10 +7,10 @@ import io.github.humbleui.skija.PathFillMode;
 import io.github.humbleui.types.RRect;
 import io.github.humbleui.types.Rect;
 
-public final class LiquidSeparation {
+public final class ChromaSeparation {
     private static final float DETACH_PROGRESS = 0.9f;
 
-    private LiquidSeparation() {
+    private ChromaSeparation() {
     }
 
     public static Geometry create(float x, float y, float width, float height, float radius,

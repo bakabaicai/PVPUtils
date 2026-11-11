@@ -1,5 +1,7 @@
 package com.pvp_utils.client.render.world;
 
+import com.pvp_utils.client.render.chroma.world.ChromaWorld;
+
 import com.pvp_utils.Config;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -69,7 +71,7 @@ public final class CustomBlockOutlineRenderer {
             AABB worldBox = box.move(renderedPosition.x, renderedPosition.y, renderedPosition.z);
             worldBox = scale(worldBox, scale);
             if (Config.customBlockOutlineFill) {
-                WorldRender.filledBox(worldBox, fillColor, true);
+                ChromaWorld.filledBox(worldBox, fillColor, true);
             }
             renderBoxLines(worldBox, outlineColor);
         }
@@ -84,18 +86,18 @@ public final class CustomBlockOutlineRenderer {
 
     private static void renderBoxLines(AABB box, int color) {
         float width = Config.customBlockOutlineWidth;
-        WorldRender.line(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.maxZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.minY, box.maxZ), new Vec3(box.minX, box.minY, box.maxZ), color, width, true);
-        WorldRender.line(new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.minX, box.minY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.minX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.maxY, box.maxZ), new Vec3(box.minX, box.maxY, box.maxZ), color, width, true);
-        WorldRender.line(new Vec3(box.minX, box.maxY, box.maxZ), new Vec3(box.minX, box.maxY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.minX, box.maxY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ), color, width, true);
-        WorldRender.line(new Vec3(box.maxX, box.minY, box.maxZ), new Vec3(box.maxX, box.maxY, box.maxZ), color, width, true);
-        WorldRender.line(new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.minX, box.maxY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.minY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.minY, box.maxZ), new Vec3(box.minX, box.minY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.minX, box.minY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.maxY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.maxY, box.maxZ), new Vec3(box.minX, box.maxY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.maxY, box.maxZ), new Vec3(box.minX, box.maxY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.minX, box.maxY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.minZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.maxX, box.minY, box.maxZ), new Vec3(box.maxX, box.maxY, box.maxZ), color, width, true);
+        ChromaWorld.line(new Vec3(box.minX, box.minY, box.maxZ), new Vec3(box.minX, box.maxY, box.maxZ), color, width, true);
     }
 
     private static float approach(float value, float target, float speed, double deltaSeconds) {

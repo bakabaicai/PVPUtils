@@ -11,7 +11,7 @@ import com.pvp_utils.client.gui.clickgui.widget.SettingTextBox;
 import com.pvp_utils.client.plugin.PluginDirectory;
 import com.pvp_utils.client.plugin.PluginManager;
 import com.pvp_utils.client.plugin.PluginSetting;
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.types.Rect;
 
@@ -179,8 +179,8 @@ public final class PluginPage extends BasePage {
     private static void drawCentered(Canvas canvas, String text, float centerX, float top,
                                      float size, int color, float alpha) {
         int argb = (Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f) << 24) | (color & 0xFFFFFF);
-        float height = SkijaUi.textMetrics(size).getDescent() - SkijaUi.textMetrics(size).getAscent();
-        SkijaUi.textWithFallback(canvas, text, centerX - SkijaUi.textWidthWithFallback(text, size) * 0.5f,
+        float height = ChromaDraw.textMetrics(size).getDescent() - ChromaDraw.textMetrics(size).getAscent();
+        ChromaDraw.textWithFallback(canvas, text, centerX - ChromaDraw.textWidthWithFallback(text, size) * 0.5f,
                 top, height, argb, size);
     }
 }

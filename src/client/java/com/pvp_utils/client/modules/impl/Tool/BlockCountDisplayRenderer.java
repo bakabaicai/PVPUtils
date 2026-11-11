@@ -2,9 +2,9 @@ package com.pvp_utils.client.modules.impl.Tool;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
-import com.pvp_utils.client.render.skia.SkijaRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
@@ -204,8 +204,8 @@ public class BlockCountDisplayRenderer {
         float drawRadius = 16f * userScale * drawScale;
 
         String name = displayStack.getHoverName().getString();
-        if (SkijaUi.textWidth(name, 13f) > 128f) {
-            while (name.length() > 1 && SkijaUi.textWidth(name + "...", 13f) > 128f) {
+        if (ChromaDraw.textWidth(name, 13f) > 128f) {
+            while (name.length() > 1 && ChromaDraw.textWidth(name + "...", 13f) > 128f) {
                 name = name.substring(0, name.length() - 1);
             }
             name += "...";
@@ -221,7 +221,7 @@ public class BlockCountDisplayRenderer {
 
         String frameName = name;
         float frameProgress = ringProgress;
-        SkijaRenderer.draw(c -> {
+        ChromaGraphics.draw(c -> {
             HudPanel.draw(c, drawX, drawY, drawW, drawH, drawRadius, Config.blockCountAppearance, 1f);
             c.translate(drawX, drawY);
             c.scale(userScale * drawScale, userScale * drawScale);
@@ -339,11 +339,11 @@ public class BlockCountDisplayRenderer {
             bgPaint.setColor(newCardColor());
             c.drawRRect(RRect.makeXYWH(0f, 0f, WIDTH, HEIGHT, 16f), bgPaint);
         }
-        SkijaUi.text(c, name, 16f, (22f) + SkijaUi.textMetrics(12f).getAscent(), SkijaUi.textMetrics(12f).getDescent() - SkijaUi.textMetrics(12f).getAscent(), primaryTextColor(blurMode), 12f);
+        ChromaDraw.text(c, name, 16f, (22f) + ChromaDraw.textMetrics(12f).getAscent(), ChromaDraw.textMetrics(12f).getDescent() - ChromaDraw.textMetrics(12f).getAscent(), primaryTextColor(blurMode), 12f);
     }
 
     private void drawOverlay(Canvas c, String speed, float progress, boolean blurMode) {
-        SkijaUi.text(c, speed, 16f, (40f) + SkijaUi.textMetrics(11f).getAscent(), SkijaUi.textMetrics(11f).getDescent() - SkijaUi.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
+        ChromaDraw.text(c, speed, 16f, (40f) + ChromaDraw.textMetrics(11f).getAscent(), ChromaDraw.textMetrics(11f).getDescent() - ChromaDraw.textMetrics(11f).getAscent(), mutedTextColor(blurMode), 11f);
         float ringCx = WIDTH - 32f;
         float ringCy = HEIGHT * 0.5f;
         float radius = 17f;

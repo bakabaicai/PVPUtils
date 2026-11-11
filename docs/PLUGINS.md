@@ -499,7 +499,7 @@ HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接�
 
 ## 12. 高级 UI：直接复用项目绘制接口
 
-这一层不是固定模板：JS 直接调用已有 `SkijaUi` 与 `SkijaRenderer` 的绘制桥接，在同一个客户端 Skija 帧中组合自己的 UI。
+这一层不是固定模板：JS 直接调用已有 `ChromaDraw` 与 `ChromaGraphics` 的绘制桥接，在同一个客户端 Skija 帧中组合自己的 UI。
 原始 Canvas、GPU 对象和 Minecraft Screen 对象仍留在 Java 端。
 所有以下绘制方法仅在 render 回调中有效，返回 `undefined`，除非另行说明。
 

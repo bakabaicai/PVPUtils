@@ -1,7 +1,7 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import com.pvp_utils.Config;
-import com.pvp_utils.client.render.skia.SkijaScreen;
+import com.pvp_utils.client.render.chroma.ChromaScreen;
 import io.github.humbleui.skija.Canvas;
 import io.github.humbleui.skija.Image;
 import io.github.humbleui.skija.Paint;
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.pvp_utils.client.NeteaseMusic.MusicUi.*;
 
-public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
+public final class NeteaseMusicScreen extends Screen implements ChromaScreen {
     private static final ExecutorService IO = Executors.newFixedThreadPool(3, task -> {
         Thread thread = new Thread(task, "PVPUtils-MusicUI");
         thread.setDaemon(true);
@@ -186,7 +186,7 @@ public final class NeteaseMusicScreen extends Screen implements SkijaScreen {
     }
 
     @Override
-    public void renderSkija(Canvas canvas) {
+    public void renderChroma(Canvas canvas) {
         if (!pendingFrame || !attached || minecraft.screen != this) return;
         pendingFrame = false;
         updateLayout();

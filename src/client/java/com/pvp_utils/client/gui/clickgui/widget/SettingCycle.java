@@ -2,7 +2,7 @@ package com.pvp_utils.client.gui.clickgui.widget;
 
 import io.github.humbleui.types.RRect;
 
-import com.pvp_utils.client.render.skia.SkijaUi;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 
 import com.pvp_utils.client.gui.clickgui.theme.ClickGuiThemeColors;
 import io.github.humbleui.skija.Canvas;
@@ -38,16 +38,16 @@ public class SettingCycle extends SettingWidget {
     public void draw(Canvas canvas, float x, float y, float alpha) {
         List<String> options = optionsSupplier.get();
         String label = options.isEmpty() ? "" : options.get(Math.floorMod(getter.get(), options.size()));
-        long fontRevision = SkijaUi.textFontRevision();
+        long fontRevision = ChromaDraw.textFontRevision();
         if (!label.equals(cachedLabel) || fontRevision != cachedFontRevision) {
             cachedLabel = label;
             cachedFontRevision = fontRevision;
-            cachedTextWidth = SkijaUi.textWidth(cachedLabel, 12f);
+            cachedTextWidth = ChromaDraw.textWidth(cachedLabel, 12f);
         }
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         bgPaint.setColor(withAlpha(tc.buttonBackground, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
         canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 6f), bgPaint);
-        SkijaUi.text(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y, getHeight(), withAlpha(tc.subModuleText, alpha), 12f);
+        ChromaDraw.text(canvas, cachedLabel, x + (getWidth() - cachedTextWidth) / 2f, y, getHeight(), withAlpha(tc.subModuleText, alpha), 12f);
     }
 
     @Override

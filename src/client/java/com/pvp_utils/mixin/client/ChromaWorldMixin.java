@@ -5,7 +5,7 @@ import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.pvp_utils.client.modules.impl.Tool.FireballLandingPredictor;
 import com.pvp_utils.client.modules.impl.Tool.ProjectileTrajectoryPredictor;
 import com.pvp_utils.client.render.world.CustomBlockOutlineRenderer;
-import com.pvp_utils.client.render.world.WorldRender;
+import com.pvp_utils.client.render.chroma.world.ChromaWorld;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -18,15 +18,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LevelRenderer.class)
-public class WorldRenderLevelRendererMixin {
+public class ChromaWorldMixin {
     @Inject(method = "renderLevel", at = @At("HEAD"))
     private void pvp_utils$renderWorld(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, Matrix4f frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
-        WorldRender.capture(camera, modelViewMatrix, projectionMatrix);
+        ChromaWorld.capture(camera, modelViewMatrix, projectionMatrix);
         try (Gizmos.TemporaryCollection ignored = ((LevelRenderer) (Object) this).collectPerFrameGizmos()) {
             FireballLandingPredictor.render();
             ProjectileTrajectoryPredictor.render(deltaTracker.getGameTimeDeltaPartialTick(false));
             CustomBlockOutlineRenderer.render();
-            WorldRender.renderRegistered(deltaTracker.getGameTimeDeltaPartialTick(false));
+            ChromaWorld.renderRegistered(deltaTracker.getGameTimeDeltaPartialTick(false));
         }
     }
 }

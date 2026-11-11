@@ -1,6 +1,6 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.client.render.skia.SkijaOverlay;
+import com.pvp_utils.client.render.chroma.ChromaOverlay;
 import com.pvp_utils.client.startup.StartupProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Overlay;
@@ -34,7 +34,7 @@ public class MinecraftStartupMixin {
     private void pvp_utils$startupReady(CallbackInfo ci) {
         StartupProgress.advance(StartupProgress.Stage.READY);
         Overlay overlay = ((Minecraft) (Object) this).getOverlay();
-        if (!(overlay instanceof SkijaOverlay skijaOverlay) || !skijaOverlay.isSkijaOverlayActive()) {
+        if (!(overlay instanceof ChromaOverlay chromaOverlay) || !chromaOverlay.isChromaOverlayActive()) {
             StartupProgress.complete();
         }
     }
