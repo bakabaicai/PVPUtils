@@ -13,6 +13,7 @@ import io.github.humbleui.skija.PaintStrokeJoin;
 import io.github.humbleui.types.Rect;
 import com.pvp_utils.client.modules.impl.Optimize.BetterScoreboard.BetterScoreboardManager;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
+import com.pvp_utils.client.modules.impl.Render.KillBanner.KillBannerRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
@@ -34,7 +35,7 @@ import java.util.Objects;
 import com.pvp_utils.client.plugin.PluginManager;
 
 public class HudEditOverlay {
-    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD }
+    private enum DragTarget { NONE, TARGET_HUD, KEYSTROKES, BLOCK_COUNT, ARMOR_HUD, ITEM_USE_STATUS, DYNAMIC_ISLAND, ARRAYLIST, NOTIFICATION, POTION_STATUS, LYRICS_DISPLAY, MUSIC_INFO_HUD, BETTER_SCOREBOARD, PING_HUD, TPS_HUD, CLOCK_HUD, KILL_BANNER }
 
     private static final HudEditOverlay INSTANCE = new HudEditOverlay();
     private static final int TARGET_HUD_WIDTH = 164;
@@ -85,6 +86,10 @@ public class HudEditOverlay {
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isClosing() {
+        return closing;
     }
 
     public void startOpen() {
@@ -201,6 +206,7 @@ public class HudEditOverlay {
         addItem(items, DragTarget.PING_HUD, "Ping HUD", Config.pingHud, getRendererRect(PingHudRenderer.getInstance(), guiW, guiH), this::movePingHud, delta -> setScale(v -> Config.pingHudScale = v, Config.pingHudScale, delta));
         addItem(items, DragTarget.TPS_HUD, "TPS HUD", Config.tpsHud, getRendererRect(TpsHudRenderer.getInstance(), guiW, guiH), this::moveTpsHud, delta -> setScale(v -> Config.tpsHudScale = v, Config.tpsHudScale, delta));
         addItem(items, DragTarget.CLOCK_HUD, "Clock", Config.clockHud, getRendererRect(ClockHudRenderer.getInstance(), guiW, guiH), this::moveClockHud, delta -> setScale(v -> Config.clockHudScale = v, Config.clockHudScale, delta));
+        addItem(items, DragTarget.KILL_BANNER, "Victory Banner", Config.killBanner, getKillBannerRect(guiW, guiH), this::moveKillBanner, delta -> setScale(v -> Config.killBannerScale = v, Config.killBannerScale, delta));
         addItem(items, DragTarget.TARGET_HUD, "Target HUD", Config.targetHud, getTargetHudRect(guiW, guiH), this::moveTargetHud, delta -> setScale(v -> Config.targetHudScale = v, Config.targetHudScale, delta));
         for (PluginManager.HudEditItem plugin : PluginManager.INSTANCE.hudEditItems(guiW, guiH)) {
             var layout = plugin.layout();
@@ -311,6 +317,7 @@ public class HudEditOverlay {
             case PING_HUD -> Config.pingHudScale;
             case TPS_HUD -> Config.tpsHudScale;
             case CLOCK_HUD -> Config.clockHudScale;
+            case KILL_BANNER -> Config.killBannerScale;
             default -> 1f;
         };
     }
@@ -365,6 +372,19 @@ public class HudEditOverlay {
 
     private void moveClockHud(RectState rect, int guiW, int guiH) {
         moveTextHud(ClockHudRenderer.getInstance(), rect, guiW, guiH);
+    }
+
+    private void moveKillBanner(RectState rect, int guiW, int guiH) {
+        float scale = KillBannerRenderer.effectiveScale(guiW);
+        KillBannerRenderer.getInstance().moveTo(rect.x + rect.w * 0.5f, rect.y, guiW, guiH, scale);
+    }
+
+    private RectState getKillBannerRect(int guiW, int guiH) {
+        float scale = KillBannerRenderer.effectiveScale(guiW);
+        float w = KillBannerRenderer.editWidth(scale);
+        float h = KillBannerRenderer.editHeight(scale);
+        return clampRect(guiW * 0.5f + Config.killBannerXOffset - w * 0.5f,
+                KillBannerRenderer.editTop(guiH, scale) + Config.killBannerYOffset, w, h, guiW, guiH);
     }
 
     private void moveTextHud(SkiaTextHudRenderer renderer, RectState rect, int guiW, int guiH) {

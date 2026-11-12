@@ -85,6 +85,12 @@ public class Config {
     public static boolean comboEffectsSound = true;
     public static float comboEffectsVolume = 1f;
     public static float comboEffectsDuration = 300f;
+    public static boolean killBanner = false;
+    public static float killBannerScale = 1.0f;
+    public static float killBannerDuration = 4.0f;
+    public static float killBannerYOffset = 0.0f;
+    public static float killBannerXOffset = 0.0f;
+    public static boolean killBannerOnVictory = true;
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
     public static boolean mainHandAssistShield = false;

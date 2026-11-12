@@ -2,6 +2,7 @@ package com.pvp_utils.client.modules.impl.Tool;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Misc.VictorySound;
+import com.pvp_utils.client.modules.impl.Render.KillBanner.KillBannerRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandNotifications;
 
 public class TitleDetector {
@@ -11,6 +12,7 @@ public class TitleDetector {
 
     public static void check(String title, String subtitle) {
         if (matches(title) || matches(subtitle)) {
+            KillBannerRenderer.getInstance().onVictory(title, subtitle);
             showDynamicIslandVictory();
             VictoryScreenshot.tryCapture();
             VictorySound.play();

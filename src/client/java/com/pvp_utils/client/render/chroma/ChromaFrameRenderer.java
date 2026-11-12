@@ -6,6 +6,7 @@ import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRende
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
 import com.pvp_utils.client.modules.impl.Render.KeystrokesRenderer;
 import com.pvp_utils.client.modules.impl.Render.MusicInfoHudRenderer;
+import com.pvp_utils.client.modules.impl.Render.KillBanner.KillBannerRenderer;
 import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
@@ -46,6 +47,7 @@ public final class ChromaFrameRenderer {
                 ClockHudRenderer.getInstance()));
                 ChromaGraphics.draw(MusicInfoHudRenderer.getInstance()::renderChroma);
                 ChromaGraphics.draw(ComboEffectsManager::render);
+                ChromaGraphics.draw(KillBannerRenderer.getInstance()::renderChroma);
                 ChromaGraphics.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
                         hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
             }
@@ -60,6 +62,7 @@ public final class ChromaFrameRenderer {
         if (client != null && client.getOverlay() instanceof ChromaOverlay overlay) overlay.close();
         DynamicIslandRenderer.getInstance().close();
         ClockHudRenderer.getInstance().close();
+        KillBannerRenderer.getInstance().close();
         ChromaGraphics.close();
     }
 }

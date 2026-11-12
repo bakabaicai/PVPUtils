@@ -159,6 +159,12 @@ public class ResetManager {
         Config.clockHudX = 130f;
         Config.clockHudY = 140f;
         Config.clockHudScale = 1.0f;
+        Config.killBanner = false;
+        Config.killBannerScale = 1.0f;
+        Config.killBannerDuration = 4.0f;
+        Config.killBannerXOffset = 0f;
+        Config.killBannerYOffset = 0f;
+        Config.killBannerOnVictory = true;
         Config.nameTag = false;
         Config.nameTagScale = 1.0f;
         Config.nameTagDynamicScale = false;

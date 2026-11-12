@@ -61,6 +61,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
     private boolean closingToMain;
     private boolean backDispatched;
     private boolean returningFromManageServer;
+    private boolean returningToMainUI;
 
     public PVPUtilsMultiplayerScreen(Screen parent) {
         this(parent, MainUISharedBackground.activeShaderPath());
@@ -155,8 +156,14 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        if (embeddedBack == null && minecraft.screen == this) {
+        if (minecraft.screen == this) {
             MainUISharedBackground.render(graphics, mouseX, mouseY);
+        }
+        if (embeddedBack != null && !closingToMain && minecraft != null && minecraft.screen == this && !returningToMainUI) {
+            returningToMainUI = true;
+            minecraft.execute(() -> {
+                if (minecraft.screen == this) minecraft.setScreen(PVPUtilsMainUI.openingMultiplayer());
+            });
         }
         float layoutScale = layoutScale();
         this.mouseX = MainUiScale.pageX(mouseX, width, layoutScale, layoutCenterX());
@@ -400,6 +407,7 @@ public final class PVPUtilsMultiplayerScreen extends Screen implements com.pvp_u
         if (hit >= 0) {
             if (selected == hit) {
                 playClick();
+                returningToMainUI = false;
                 ConnectScreen.startConnecting(this, minecraft, ServerAddress.parseString(servers.get(hit).ip), servers.get(hit), false, null);
             } else {
                 selected = hit;

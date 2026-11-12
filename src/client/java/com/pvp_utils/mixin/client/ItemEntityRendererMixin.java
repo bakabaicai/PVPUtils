@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.entity.state.ItemClusterRenderState;
 import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.state.CameraRenderState;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.BlockItem;
@@ -69,6 +70,20 @@ public class ItemEntityRendererMixin {
         return ageInTicks * 0.32f * Config.itemPhysicsRotationSpeed + stableAngleRad(state.pvp_utils$itemPhysicsSeed(), 1);
     }
 
+    @Redirect(
+            method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;sin(D)F")
+    )
+    private float pvp_utils$stableItemBob(double value) {
+        if (Config.itemPhysics) {
+            return 0.0f;
+        }
+        if (Config.item2DRender && pvp_utils$currentItemState != null && !((ItemPhysicsRenderState) pvp_utils$currentItemState).pvp_utils$itemPhysicsBlockItem()) {
+            return 0.0f;
+        }
+        return Mth.sin(value);
+    }
+
     @Inject(
             method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/ItemEntityRenderer;submitMultipleFromCount(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/client/renderer/entity/state/ItemClusterRenderState;Lnet/minecraft/util/RandomSource;Lnet/minecraft/world/phys/AABB;)V")
@@ -86,10 +101,9 @@ public class ItemEntityRendererMixin {
 
         ItemPhysicsRenderState physics = (ItemPhysicsRenderState) state;
         if (physics.pvp_utils$itemPhysicsOnGround()) {
-            float bob = (float) Math.sin(state.ageInTicks / 10.0f + state.bobOffset) * 0.1f + 0.1f;
             AABB box = state.item.getModelBoundingBox();
             float groundOffset = box.getZsize() > 0.0625 ? 0.0125f : -0.1200f;
-            poseStack.translate(0.0f, -bob + groundOffset, 0.0f);
+            poseStack.translate(0.0f, groundOffset - 0.1f, 0.0f);
             poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
             poseStack.mulPose(Axis.ZP.rotationDegrees(stableAngleDeg(physics.pvp_utils$itemPhysicsSeed(), 2) * 0.08f - 14.4f));
         } else {
