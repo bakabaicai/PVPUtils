@@ -95,7 +95,7 @@ public final class KillBannerRenderer {
     }
 
     public void onVictory(String title, String subtitle) {
-        if (!Config.killBanner || !Config.killBannerOnVictory) return;
+        if (!Config.killBanner) return;
         long now = System.currentTimeMillis();
         if (now - lastVictoryMs < VICTORY_COOLDOWN_MS) return;
         Minecraft client = Minecraft.getInstance();

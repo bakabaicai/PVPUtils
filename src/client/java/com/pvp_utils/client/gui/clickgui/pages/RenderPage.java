@@ -127,13 +127,6 @@ public class RenderPage extends BasePage {
                 .addSub(UiText.t("封面圆角", "Rounded Cover"), "",
                         new SettingToggle(() -> Config.musicInfoHudCoverRounded, v -> { Config.musicInfoHudCoverRounded = v; Config.save(); }))));
 
-        modules.add(ModuleBindingIds.preserve(RenderPage.class, 36, new SettingModule(UiText.t("击杀横幅", "Kill Banner"), UiText.t("以 CS2 风格还原回合胜利横幅动画", "Recreate the CS2 round-win banner animation"),
-                new SettingToggle(() -> Config.killBanner, v -> { Config.killBanner = v; Config.save(); }))
-                .addSub(UiText.t("显示时长", "Duration"), "",
-                        new SettingSlider(2.0, 10.0, "%.1fs", () -> (double) Config.killBannerDuration, v -> { Config.killBannerDuration = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("胜利时触发", "Trigger On Victory"), UiText.t("仅在检测到胜利提示时播放", "Only play when a victory message is detected"),
-                        new SettingToggle(() -> Config.killBannerOnVictory, v -> { Config.killBannerOnVictory = v; Config.save(); }))));
-
         modules.add(ModuleBindingIds.preserve(RenderPage.class, 16, new SettingModule(UiText.t("物品使用状态显示", "Item Use Status"), UiText.t("在屏幕上显示当前物品使用进度或状态", "Show current item use progress or status on the screen"),
                 new SettingToggle(() -> Config.itemUseStatus, v -> { Config.setItemUseStatus(v); Config.save(); }))));
 

@@ -164,7 +164,6 @@ public class ResetManager {
         Config.killBannerDuration = 4.0f;
         Config.killBannerXOffset = 0f;
         Config.killBannerYOffset = 0f;
-        Config.killBannerOnVictory = true;
         Config.nameTag = false;
         Config.nameTagScale = 1.0f;
         Config.nameTagDynamicScale = false;

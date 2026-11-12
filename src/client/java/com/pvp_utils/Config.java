@@ -90,7 +90,6 @@ public class Config {
     public static float killBannerDuration = 4.0f;
     public static float killBannerYOffset = 0.0f;
     public static float killBannerXOffset = 0.0f;
-    public static boolean killBannerOnVictory = true;
     public static boolean mainHandAssist = false;
     public static boolean mainHandAssistMeleeWeapon = false;
     public static boolean mainHandAssistShield = false;

@@ -130,6 +130,11 @@ public class CombatPage extends BasePage {
                 new SettingToggle(() -> Config.victorySound, v -> { Config.victorySound = v; Config.save(); }))
                 .addSub(UiText.t("打开自定义音效文件夹", "Open custom sound folder"), "", new SettingButton(UiText.t("打开", "Open"), VictorySound::openSoundsFolder))));
 
+        modules.add(ModuleBindingIds.preserve(CombatPage.class, 30, new SettingModule(UiText.t("击杀横幅", "Kill Banner"), UiText.t("以 CS2 风格还原回合胜利横幅动画", "Recreate the CS2 round-win banner animation"),
+                new SettingToggle(() -> Config.killBanner, v -> { Config.killBanner = v; Config.save(); }))
+                .addSub(UiText.t("显示时长", "Duration"), "",
+                        new SettingSlider(2.0, 10.0, "%.1fs", () -> (double) Config.killBannerDuration, v -> { Config.killBannerDuration = v.floatValue(); Config.save(); }))));
+
         if (Config.restrictedFeaturesUnlocked()) {
             modules.add(ModuleBindingIds.preserve(ToolPage.class, 6, new SettingModule(UiText.t("火焰弹落点预测", "Fireball Landing Prediction"), UiText.t("显示大型火焰弹的轨迹和预测落点", "Show the trajectory and predicted impact point of large fireballs"),
                     new SettingToggle(() -> Config.fireballLandingPredict, v -> { Config.fireballLandingPredict = v; Config.save(); }))));
