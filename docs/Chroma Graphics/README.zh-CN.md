@@ -55,7 +55,9 @@ Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、�
 5. 无加载叠加层时，叠加通道依次执行宿主接入的 HUD 绘制、当前 `ChromaScreen`、`submit()` 队列和宿主的末尾叠加绘制。有已启用的 `ChromaOverlay` 时，按其显示策略绘制后方屏幕与队列，最后绘制该叠加层，不调度常规 HUD。
 6. 通道结束时提交 Skia 命令并恢复外部 GL 状态。
 
-主目标通道使用包装 Minecraft 主颜色纹理的 FBO；叠加通道使用默认帧缓冲 FBO 0。通道开始时完成尺寸检查、Surface 复用或重建、GL 状态同步及 GUI 坐标缩放。
+主目标通道使用包装 Minecraft 主颜色纹理的 FBO；叠加通道使用默认帧缓冲 FBO 0。主目标纹理按对象身份检查重建，不以可复用的 OpenGL 纹理编号作为生命周期标识。通道开始时完成尺寸检查、Surface 复用或重建、GL 状态同步及 GUI 坐标缩放。
+
+状态边界同时恢复实际 OpenGL 状态和 Minecraft 的缓存状态。纹理保护范围包括 Minecraft 使用的前 12 个单元、Skia 的临时纹理单元及进入通道时的活动单元；另保存栅格模式、多边形偏移、多重采样、点尺寸模式、线宽、抖动和 renderbuffer 绑定。借用未加载的宿主纹理时，框架隔离其冷加载操作，规范化像素上传状态，并使 Skia 重新同步 GL 状态。已加载纹理直接借用，不增加完整状态保存。
 
 常规 HUD 的显示条件由宿主控制，前台菜单默认不调度该层。需要在菜单中显示的叠加内容应明确其显示条件与层级；队列提交和实际绘制时均应检查当前界面，避免切换界面后继续覆盖前景。
 
@@ -99,14 +101,21 @@ Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、�
 | `ChromaOverlay.rendersScreenBehind(): boolean` | 是否先绘制后方屏幕及提交队列；默认 `false` |
 | `ChromaOverlay.close()` | 释放该实例所属资源；由叠加层替换与客户端关闭触发 |
 | `ChromaGraphics.draw(Consumer<Canvas>)` | 活动画布内立即绘制；否则加入主目标队列 |
+| `ChromaGraphics.draw(String source, Consumer<Canvas>)` | 与 `draw(painter)` 使用相同通道，并为诊断日志提供稳定的组件名称 |
 | `ChromaGraphics.submit(Consumer<Canvas>)` | 加入当前帧叠加队列 |
+| `ChromaGraphics.submit(String source, Consumer<Canvas>)` | 提交叠加内容并保留诊断名称 |
 | `ChromaGraphics.isDrawing(): boolean` | 是否存在活动的共享画布 |
 | `ChromaGraphics.hasFailed(): boolean` | 共享渲染器是否已因错误禁用 |
+| `ChromaGraphics.isMainTargetAvailable(): boolean` | 在 GUI 内容收集阶段检查主颜色纹理与包装 FBO；必要时重建包装并恢复外部 GL 状态。不可用时由调用方保留宿主绘制 |
 | `drawBlurredBackdrop(Canvas, RRect, x, y, width, height, strength)` | 按屏幕 GUI 坐标采样，圆角矩形裁剪 |
 | `drawBlurredBackdrop(Canvas, io.github.humbleui.skija.Path, x, y, width, height, strength)` | 按屏幕 GUI 坐标采样，路径裁剪 |
 | `borrowTexture(Identifier): BorrowedImage` | 借用 Minecraft GL 纹理，可能返回 `null` |
 | `BorrowedImage.image(): Image` | 获取借用包装中的 Skia 图像 |
 | `BorrowedImage.close()` | 释放包装，不销毁 Minecraft 拥有的纹理 |
+
+诊断名称应为稳定的组件名称，不要每帧生成唯一标识。省略名称时，框架在异常日志中使用绘制回调的所属类。`isMainTargetAvailable()` 仅表示检查时的目标可用，不确认后续命令执行或 GPU 完成；应在替换宿主绘制命令之前调用，不在活动 Canvas 内调用。
+
+渲染异常日志包含通道、执行阶段、组件、FBO 及物理与 GUI 尺寸。主目标不可用、纹理包装失败和背景采样失败分别记录；背景采样失败仅停用背景模糊，保留其他二维绘制。相同问题的重复日志间隔为 10 秒，并统计被抑制的次数；短暂纹理或快照缺失持续 2 秒后才记录。主目标与叠加通道分别每秒采样一次 OpenGL 错误，区分进入通道前已有的错误与本次提交后的错误，不进行逐帧像素回读。日志不能自动判断布局偏移、层级选择或颜色配置等语义错误。
 
 ### 3.2 图形与效果：ChromaDraw
 
@@ -616,6 +625,8 @@ public final class ChromaAnimatedCapsule {
 | [ChromaOverlay](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaOverlay.java) | 加载叠加层的绘制策略与关闭契约 |
 | [ChromaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaFrameRenderer.java) | Minecraft 后端的帧级通道调度 |
 | [ChromaBackdrop](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaBackdrop.java) | 背景采样、帧缓冲包装与 GL 状态恢复；包内实现 |
+| [ChromaDiagnostics](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaDiagnostics.java) | 限频诊断、重复次数和恢复记录；包内实现 |
+| [TextureManagerAccessor](../../src/client/java/com/pvp_utils/mixin/client/TextureManagerAccessor.java) | 只读查询已注册的宿主纹理，用于区分直接借用与冷加载 |
 | [ChromaShadow](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaShadow.java) | 圆角与路径的外侧阴影 |
 | [ChromaTransition](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaTransition.java) | 有界渐显渐隐与模糊合成 |
 | [ChromaSeparation](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaSeparation.java) | 可分离轮廓的几何构建与资源所有权 |

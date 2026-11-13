@@ -7,6 +7,7 @@ import com.pvp_utils.client.Version;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.UiText;
+import com.pvp_utils.client.communication.EncryptedChatManager;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 import com.pvp_utils.client.modules.impl.Tool.FakePlayerManager;
 import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
@@ -18,6 +19,24 @@ import java.util.Map;
 public class ToolPage extends BasePage {
 
     public ToolPage() {
+        SettingModule tacticalPing = new SettingModule(UiText.t("战术标点", "Tactical Ping"),
+                UiText.t("中键标记位置，双击标记敌人", "Mark a location with the middle mouse button; double-click to mark an enemy"),
+                new SettingToggle(() -> Config.tacticalPing, value -> {
+                    Config.tacticalPing = value && EncryptedChatManager.hasValidKey();
+                    Config.save();
+                }))
+                .addSubVisible(UiText.t("密钥配置", "Key Setup"), "",
+                        new SettingLabel(() -> UiText.t("请先在客户端加密聊天中配置至少5个字符的密钥",
+                                "First set a key with at least 5 characters in Client Encrypted Chat"), 230f),
+                        () -> !EncryptedChatManager.hasValidKey())
+                .addSub(UiText.t("双击间隔", "Double-Click Interval"), "",
+                        new SettingSlider(150, 600, "%.0fms", () -> (double) Config.tacticalPingDoubleClickInterval,
+                                value -> { Config.tacticalPingDoubleClickInterval = value.intValue(); Config.save(); }))
+                .addSub(UiText.t("播放音效", "Play Sounds"), "",
+                        new SettingToggle(() -> Config.tacticalPingSound, value -> { Config.tacticalPingSound = value; Config.save(); }));
+        tacticalPing.setBindingId(getClass().getName() + ".tactical_ping");
+        modules.add(tacticalPing);
+
         modules.add(ModuleBindingIds.preserve(ToolPage.class, 0, new SettingModule(UiText.t("自动截图", "Auto Screenshot"), UiText.t("获胜时截图并保存至桌面", "Save a screenshot to the desktop after winning"),
                 new SettingToggle(() -> Config.autoScreenshot, v -> { Config.autoScreenshot = v; Config.save(); }))));
 

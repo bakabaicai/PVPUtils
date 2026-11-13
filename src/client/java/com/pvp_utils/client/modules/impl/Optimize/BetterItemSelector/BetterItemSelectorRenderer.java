@@ -17,12 +17,12 @@ public final class BetterItemSelectorRenderer {
     }
 
     public void renderBackground(Minecraft client, float x, float y) {
-        ChromaGraphics.draw(canvas -> HudPanel.draw(canvas, x, y, 182f, 22f, 7f,
+        ChromaGraphics.draw("BetterItemSelector/background", canvas -> HudPanel.draw(canvas, x, y, 182f, 22f, 7f,
                 Config.hotbarAppearance, 1f));
     }
 
     public void renderSelector(Minecraft client, float x, float y, float slotOffset) {
-        ChromaGraphics.draw(canvas -> ChromaDraw.outline(canvas, x + slotOffset + 2.5f,
+        ChromaGraphics.draw("BetterItemSelector/selector", canvas -> ChromaDraw.outline(canvas, x + slotOffset + 2.5f,
                 y + 2.5f, 19f, 19f, 5f, 1f, Config.hotbarAppearance.accent()));
     }
 }

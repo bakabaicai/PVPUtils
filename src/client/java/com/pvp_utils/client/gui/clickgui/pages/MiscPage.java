@@ -2,6 +2,7 @@ package com.pvp_utils.client.gui.clickgui.pages;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.ModuleKeybindManager;
+import com.pvp_utils.client.communication.EncryptedChatManager;
 import com.pvp_utils.client.gui.clickgui.UiText;
 import com.pvp_utils.client.gui.clickgui.widget.*;
 
@@ -66,6 +67,21 @@ public class MiscPage extends BasePage {
                         () -> Config.fakeFpsRandom);
         fakeFpsModule.setBindingId(getClass().getName() + ".fake_fps");
         modules.add(ModuleBindingIds.preserve(MiscPage.class, 5 + (Config.restrictedFeaturesUnlocked() ? 1 : 0), fakeFpsModule));
+
+        SettingModule encryptedChat = new SettingModule(UiText.t("客户端加密聊天", "Client Encrypted Chat"),
+                UiText.t("使用算法加密聊天，仅有同客户端且密钥一致的用户才可见你发送的文本",
+                        "Encrypt chat messages so only users of this client with the same key can read your text"),
+                null)
+                .addSub(UiText.t("密钥", "Key"), UiText.t("至少5个字符", "At least 5 characters"), new SettingEncryptionKey())
+                .addSubVisible(UiText.t("密钥状态", "Key Status"), "",
+                        new SettingLabel(() -> UiText.t("配置至少5个字符的密钥后生效", "Set a key with at least 5 characters to activate encryption"), 274f),
+                        () -> !EncryptedChatManager.hasValidKey())
+                .addSub(UiText.t("加密普通聊天内容", "Encrypt Public Chat"), "",
+                        new SettingToggle(() -> Config.encryptPublicChat, value -> { Config.encryptPublicChat = value; Config.save(); }))
+                .addSub(UiText.t("加密私聊聊天内容", "Encrypt Private Chat"), "",
+                        new SettingToggle(() -> Config.encryptPrivateChat, value -> { Config.encryptPrivateChat = value; Config.save(); }));
+        encryptedChat.setBindingId(getClass().getName() + ".encrypted_chat");
+        modules.add(encryptedChat);
     }
 
     @Override public String getTitle() { return UiText.t("其他设置", "Misc Settings"); }

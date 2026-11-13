@@ -225,7 +225,8 @@ public final class ChromaWorld {
                 registration.renderer.accept(frame);
             } catch (RuntimeException error) {
                 registration.close();
-                PVPUtils.LOGGER.error("World rendering callback failed and was removed", error);
+                PVPUtils.LOGGER.error("World rendering callback {} failed and was removed",
+                        registration.renderer.getClass().getName(), error);
             }
         }
     }

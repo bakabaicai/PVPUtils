@@ -689,7 +689,10 @@ public final class ChromaDraw {
     private static void loadImportedTypeface(Path file) {
         try (Data data = Data.makeFromBytes(Files.readAllBytes(file))) {
             Typeface typeface = FontMgr.getDefault().makeFromData(data);
-            if (typeface == null) return;
+            if (typeface == null) {
+                PVPUtils.LOGGER.warn("Skipping imported font {} because Skia could not decode it", file);
+                return;
+            }
             String name = displayFontName(file);
             if (IMPORTED_TYPEFACES.containsKey(name)) {
                 name = file.getFileName().toString();
@@ -769,9 +772,13 @@ public final class ChromaDraw {
                     if (typeface != null) {
                         return typeface;
                     }
+                    PVPUtils.LOGGER.warn("Could not decode bundled font {}; using a system font fallback", resource);
                 }
+            } else {
+                PVPUtils.LOGGER.warn("Bundled font {} is missing; using a system font fallback", resource);
             }
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            PVPUtils.LOGGER.warn("Could not load bundled font {}; using a system font fallback", resource, error);
         }
         return findTypeface(fallbackStyle);
     }

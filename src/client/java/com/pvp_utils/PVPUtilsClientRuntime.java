@@ -1,6 +1,9 @@
 package com.pvp_utils;
 
 import com.pvp_utils.client.ModuleKeybindManager;
+import com.pvp_utils.client.communication.EncryptedChatManager;
+import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingManager;
+import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingRenderer;
 import com.pvp_utils.client.AntiCheat;
 import com.pvp_utils.client.Update;
 import com.pvp_utils.client.TermsManager;
@@ -40,6 +43,7 @@ final class PVPUtilsClientRuntime {
         StartupProgress.advance(StartupProgress.Stage.MODULES);
         AntiCheat.verifyEnvironment();
         Config.load();
+        TacticalPingManager.initialize();
         ComboEffectsManager.initialize();
         KillConfirmManager.INSTANCE.subscribe(COMBO_EFFECTS_LISTENER);
         com.pvp_utils.client.plugin.PluginDirectory.ensureExists();
@@ -60,6 +64,9 @@ final class PVPUtilsClientRuntime {
                     KillConfirmManager.INSTANCE.unsubscribe(COMBO_EFFECTS_LISTENER);
                     KillConfirmManager.INSTANCE.clear();
                     ComboEffectsManager.close();
+                    TacticalPingManager.close();
+                    TacticalPingRenderer.close();
+                    EncryptedChatManager.close();
                     com.pvp_utils.client.modules.impl.Combat.HitSoundPlayer.close();
                     MainUISharedBackground.close();
                     PseudoCreativeManager.setEnabled(false);
@@ -70,6 +77,8 @@ final class PVPUtilsClientRuntime {
         ClientTickEvents.START_CLIENT_TICK.register(client ->
                 com.pvp_utils.client.plugin.PluginManager.INSTANCE.prepareTick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            EncryptedChatManager.tick();
+            TacticalPingManager.tick(client);
             ComboEffectsManager.tick(client);
             KillConfirmManager.INSTANCE.tick(client);
             com.pvp_utils.client.skin.McbiServerGate.tick(client);

@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Optimize.BetterItemSelector.BetterItemSelectorRenderer;
+import com.pvp_utils.client.render.chroma.ChromaGraphics;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -49,7 +50,7 @@ public class HotbarSmoothMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIII)V", ordinal = 0)
     )
     private void pvp_utils$drawBetterHotbar(GuiGraphics graphics, RenderPipeline pipeline, Identifier texture, int x, int y, int width, int height, Operation<Void> operation) {
-        if (!Config.betterItemSelector) {
+        if (!Config.betterItemSelector || !ChromaGraphics.isMainTargetAvailable()) {
             operation.call(graphics, pipeline, texture, x, y, width, height);
             return;
         }
@@ -65,9 +66,10 @@ public class HotbarSmoothMixin {
             operation.call(graphics, pipeline, texture, x, y, width, height);
             return;
         }
-        if (Config.betterItemSelector) {
+        if (Config.betterItemSelector && ChromaGraphics.isMainTargetAvailable()) {
             int selectedSlot = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.getInventory().getSelectedSlot() : 0;
-            BetterItemSelectorRenderer.getInstance().renderSelector(Minecraft.getInstance(), x - selectedSlot * SLOT_WIDTH, y, pvp_utils$smoothSelectorPos);
+            BetterItemSelectorRenderer.getInstance().renderSelector(Minecraft.getInstance(), x - selectedSlot * SLOT_WIDTH,
+                    y, pvp_utils$smoothSelectorPos);
             return;
         }
         Matrix3x2fStack pose = graphics.pose();

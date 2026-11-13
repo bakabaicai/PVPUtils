@@ -1,0 +1,15 @@
+{
+  "tactical.navigation": {
+    "sounds": [
+      "pvp_utils:tactical/go_this_way",
+      "pvp_utils:tactical/this_way"
+    ]
+  },
+  "tactical.danger": {
+    "sounds": [
+      "pvp_utils:tactical/enemy_calm_1",
+      "pvp_utils:tactical/enemy_calm_2",
+      "pvp_utils:tactical/enemy_calm_3"
+    ]
+  }
+}

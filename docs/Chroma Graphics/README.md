@@ -55,7 +55,9 @@ Section 8 lists file locations and responsibilities. The interface sections defi
 5. Without a loading overlay, the pass runs host-integrated HUD drawing, the current `ChromaScreen`, the `submit()` queue, and the host's final overlay drawing, in that order. An enabled `ChromaOverlay` instead controls whether the screen and queue render behind it; the loading overlay renders last, without regular HUD scheduling.
 6. At pass completion, Skia commands are submitted and external GL state is restored.
 
-The main-target pass uses an FBO wrapping the Minecraft main color texture. The overlay pass uses the default framebuffer, FBO 0. Pass setup checks dimensions, reuses or recreates the Surface, synchronizes GL state, and applies GUI coordinate scaling.
+The main-target pass uses an FBO wrapping the Minecraft main color texture. The overlay pass uses the default framebuffer, FBO 0. Main-target recreation is checked by texture object identity; reusable OpenGL texture IDs do not identify resource lifetimes. Pass setup checks dimensions, reuses or recreates the Surface, synchronizes GL state, and applies GUI coordinate scaling.
+
+The state boundary restores both actual OpenGL state and Minecraft's cached state. Texture protection covers Minecraft's first 12 units, Skia's scratch unit, and the unit active on pass entry. It also preserves polygon mode and offset, multisampling, program point size, line width, dithering, and renderbuffer binding. Borrowing an unloaded host texture isolates its cold load, normalizes pixel-upload state, and resynchronizes Skia's GL state. Already-loaded textures are borrowed directly without an additional full state capture.
 
 The host controls regular HUD visibility and does not schedule that layer over foreground menus by default. Overlay content intended for menus must define its visibility conditions and layer. Check the current screen both when submitting and when drawing so that a screen change does not leave content covering the foreground.
 
@@ -99,14 +101,21 @@ The tables use compact call notation, not copyable Java declarations. `Canvas` d
 | `ChromaOverlay.rendersScreenBehind(): boolean` | Draw the underlying screen and submission queue first; defaults to `false` |
 | `ChromaOverlay.close()` | Release instance-owned resources on overlay replacement and client shutdown |
 | `ChromaGraphics.draw(Consumer<Canvas>)` | Draw immediately on the active canvas, or enqueue main-target work |
+| `ChromaGraphics.draw(String source, Consumer<Canvas>)` | Use the same pass as `draw(painter)` with a stable component name for diagnostics |
 | `ChromaGraphics.submit(Consumer<Canvas>)` | Enqueue current-frame overlay work |
+| `ChromaGraphics.submit(String source, Consumer<Canvas>)` | Enqueue overlay work with a diagnostic name |
 | `ChromaGraphics.isDrawing(): boolean` | Whether the shared canvas is active |
 | `ChromaGraphics.hasFailed(): boolean` | Whether an error has disabled the shared renderer |
+| `ChromaGraphics.isMainTargetAvailable(): boolean` | Check the main color texture and wrapper FBO during GUI collection; rebuild the wrapper when needed and restore external GL state. Keep host drawing when unavailable |
 | `drawBlurredBackdrop(Canvas, RRect, x, y, width, height, strength)` | Sample in screen GUI coordinates with rounded-rectangle clipping |
 | `drawBlurredBackdrop(Canvas, io.github.humbleui.skija.Path, x, y, width, height, strength)` | Sample in screen GUI coordinates with path clipping |
 | `borrowTexture(Identifier): BorrowedImage` | Borrow a Minecraft GL texture; may return `null` |
 | `BorrowedImage.image(): Image` | Access the Skia image in the borrowed wrapper |
 | `BorrowedImage.close()` | Release the wrapper without destroying the Minecraft-owned texture |
+
+Use stable component names for diagnostics rather than generating unique identifiers every frame. Unnamed callbacks are identified by their owning class in error logs. `isMainTargetAvailable()` checks current target availability; it does not confirm later command execution or GPU completion. Call it before replacing host drawing commands, outside an active Canvas.
+
+Render exception logs include the pass, execution step, component, FBO, and physical and GUI dimensions. Target unavailability, texture wrapping failures, and backdrop sampling failures are reported separately. A backdrop sampling failure disables blur while preserving other 2D drawing. Repeated notices are limited to one per 10 seconds and include suppressed counts; transient missing textures or snapshots are reported only after 2 seconds. The main-target and overlay passes each sample OpenGL errors once per second, separating incoming errors from errors after submission, without per-frame pixel readback. Logs cannot automatically identify semantic errors in layout, layer selection, or color configuration.
 
 ### 3.2 Shapes and effects: ChromaDraw
 
@@ -616,6 +625,8 @@ Change reports should identify the rendering stage used, cache and resource life
 | [ChromaOverlay](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaOverlay.java) | Drawing policy and close contract for loading overlays |
 | [ChromaFrameRenderer](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaFrameRenderer.java) | Frame-level pass scheduling for the Minecraft backend |
 | [ChromaBackdrop](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaBackdrop.java) | Backdrop sampling, framebuffer wrapping, and GL state restoration; package-private |
+| [ChromaDiagnostics](../../src/client/java/com/pvp_utils/client/render/chroma/ChromaDiagnostics.java) | Rate-limited diagnostics, suppressed counts, and recovery notices; package-private |
+| [TextureManagerAccessor](../../src/client/java/com/pvp_utils/mixin/client/TextureManagerAccessor.java) | Read registered host textures to distinguish direct borrowing from cold loading |
 | [ChromaShadow](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaShadow.java) | Exterior shadows for rounded shapes and paths |
 | [ChromaTransition](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaTransition.java) | Bounded fade and blur composition |
 | [ChromaSeparation](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaSeparation.java) | Geometry construction and ownership for separating shapes |

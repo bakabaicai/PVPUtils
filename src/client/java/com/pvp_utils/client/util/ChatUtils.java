@@ -82,10 +82,14 @@ public final class ChatUtils {
         send(Mode.FAILURE, message);
     }
 
-    private static MutableComponent prefix() {
+    public static MutableComponent prefix() {
+        return prefix(ChatFormatting.GOLD);
+    }
+
+    public static MutableComponent prefix(ChatFormatting letterColor) {
         return Component.literal("[")
                 .withStyle(ChatFormatting.WHITE)
-                .append(Component.literal("P").withStyle(ChatFormatting.GOLD))
+                .append(Component.literal("P").withStyle(letterColor == null ? ChatFormatting.GOLD : letterColor))
                 .append(Component.literal("] ").withStyle(ChatFormatting.WHITE));
     }
 

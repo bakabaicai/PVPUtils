@@ -4,8 +4,9 @@ import io.github.humbleui.types.RRect;
 
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.pvp_utils.PVPUtils;
+import com.pvp_utils.mixin.client.TextureManagerAccessor;
 import io.github.humbleui.skija.BackendRenderTarget;
 import io.github.humbleui.skija.BackendTexture;
 import io.github.humbleui.skija.ColorAlphaType;
@@ -22,6 +23,7 @@ import io.github.humbleui.skija.Surface;
 import io.github.humbleui.skija.SurfaceOrigin;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -31,6 +33,7 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL21;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GL33;
 import org.lwjgl.system.MemoryStack;
 
@@ -49,13 +52,19 @@ public final class ChromaGraphics {
     private static int targetSamples = -1;
     private static int targetStencilBits = -1;
     private static int themedFramebuffer = -1;
-    private static int themedColorTexture = -1;
+    private static GlTexture themedColorTexture;
+    private static long nextMainGlCheck;
+    private static long nextOverlayGlCheck;
+    private static int skiaScratchTextureUnit = -1;
     private static Image frameBackdropSnapshot;
     private static boolean backdropRequested;
 
     private static Canvas activeCanvas;
-    private static final java.util.List<java.util.function.Consumer<Canvas>> submitted = new java.util.ArrayList<>();
-    private static final java.util.List<java.util.function.Consumer<Canvas>> mainSubmitted = new java.util.ArrayList<>();
+    private static String activePass = "none";
+    private static Object activeSource;
+    private static Object failedSource;
+    private static final java.util.List<DrawSubmission> submitted = new java.util.ArrayList<>();
+    private static final java.util.List<DrawSubmission> mainSubmitted = new java.util.ArrayList<>();
     private static boolean failed;
     private static boolean backdropBlurFailed;
 
@@ -74,17 +83,39 @@ public final class ChromaGraphics {
             draw(painter);
             return;
         }
-        if (failed) return;
+        if (!isMainTargetAvailable()) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         RenderTarget target = minecraft.getMainRenderTarget();
-        if (!(target.getColorTexture() instanceof GlTexture colorTexture)) return;
-        int framebuffer = ensureThemedFramebuffer(colorTexture.glId());
-        if (framebuffer <= 0) return;
-
         Window window = minecraft.getWindow();
-        paint(target.width, target.height, framebuffer,
+        paint(target.width, target.height, themedFramebuffer,
         window.getGuiScaledWidth(), window.getGuiScaledHeight(), painter, true);
+    }
+
+    public static boolean isMainTargetAvailable() {
+        if (failed) return false;
+        RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+        if (!(target.getColorTexture() instanceof GlTexture colorTexture)) {
+            ChromaDiagnostics.warn("main-target-unavailable", "main-target",
+                    "OpenGL color texture required; actual=" + (target.getColorTexture() == null
+                            ? "null" : target.getColorTexture().getClass().getName()), null);
+            return false;
+        }
+        if (colorTexture.isClosed() || target.width <= 0 || target.height <= 0) {
+            ChromaDiagnostics.delayedWarn("main-target-unavailable", "main-target",
+                    "closed=" + colorTexture.isClosed() + "; size=" + target.width + 'x' + target.height);
+            return false;
+        }
+        try {
+            boolean available = ensureThemedFramebuffer(colorTexture) > 0;
+            if (available) ChromaDiagnostics.resolved("main-target-unavailable", "main-target");
+            return available;
+        } catch (Throwable error) {
+            ChromaDiagnostics.error("main-target-unavailable", "main-target",
+                    "framebuffer setup failed; texture=" + colorTexture.glId()
+                            + "; size=" + target.width + 'x' + target.height, error);
+            return false;
+        }
     }
 
     private static void paint(java.util.function.Consumer<Canvas> painter, boolean captureBackdrop) {
@@ -107,93 +138,161 @@ public final class ChromaGraphics {
     float guiWidth, float guiHeight,
     java.util.function.Consumer<Canvas> painter,
     boolean captureBackdrop) {
-        GlState previous = GlState.capture();
+        GlState previous = null;
         Image backdrop = null;
+        activePass = framebuffer == 0 ? "overlay" : "main-target";
+        failedSource = null;
+        String step = "state-capture";
+        long now = System.nanoTime();
+        boolean inspectGl = now >= (framebuffer == 0 ? nextOverlayGlCheck : nextMainGlCheck);
+        if (inspectGl) {
+            if (framebuffer == 0) nextOverlayGlCheck = now + 1_000_000_000L;
+            else nextMainGlCheck = now + 1_000_000_000L;
+        }
         try {
+            if (inspectGl) reportGlErrors("incoming-gl-state", activePass);
+            previous = GlState.capture();
+            step = "surface-setup";
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, framebuffer);
             canonicalizePixelStore();
             ensureSurface(width, height, framebuffer, 0, 0);
 
             context.resetGLAll();
             surface.notifyContentWillChange(ContentChangeMode.RETAIN);
-            if (captureBackdrop) {
+            step = "backdrop-capture";
+            if (captureBackdrop && !backdropBlurFailed) {
                 SurfaceTarget target = surfaces.get(framebuffer);
                 if (target == null) throw new IllegalStateException("Missing Chroma Graphics surface target");
-                backdrop = target.backdrop().capture(context, framebuffer, width, height);
-                frameBackdropSnapshot = backdrop;
+                try {
+                    backdrop = target.backdrop().capture(context, framebuffer, width, height);
+                    frameBackdropSnapshot = backdrop;
+                } catch (Throwable error) {
+                    backdropBlurFailed = true;
+                    ChromaDiagnostics.warn("backdrop-capture", activePass,
+                            "background blur disabled; framebuffer=" + framebuffer + "; size=" + width + 'x' + height, error);
+                }
             }
             Canvas canvas = surface.getCanvas();
             int save = canvas.save();
             try {
                 canvas.scale(width / guiWidth, height / guiHeight);
                 activeCanvas = canvas;
+                step = "painter";
                 painter.accept(canvas);
             } finally {
                 canvas.restoreToCount(save);
             }
+            step = "command-submit";
             context.flushAndSubmit(surface);
+            if (inspectGl) reportGlErrors("submitted-gl-state", activePass);
+            step = "font-resource-retirement";
             ChromaDraw.releaseRetiredFontResources();
         } catch (Throwable throwable) {
             failed = true;
-            PVPUtils.LOGGER.error("Chroma Graphics renderer failed; disabling it for this session", throwable);
+            ChromaDiagnostics.error("render-pass", failedSource == null ? activeSource : failedSource,
+                    "renderer disabled; pass=" + activePass + "; step=" + step + "; framebuffer=" + framebuffer
+                            + "; size=" + width + 'x' + height + "; gui=" + guiWidth + 'x' + guiHeight, throwable);
         } finally {
             activeCanvas = null;
+            activeSource = null;
             frameBackdropSnapshot = null;
-            if (backdrop != null) {
-                backdrop.close();
+            try {
+                if (backdrop != null) backdrop.close();
+            } catch (Throwable error) {
+                ChromaDiagnostics.error("backdrop-release", activePass, "could not release snapshot", error);
+            } finally {
+                try {
+                    if (previous != null) previous.restore();
+                    if (inspectGl) reportGlErrors("restored-gl-state", activePass);
+                } catch (Throwable error) {
+                    failed = true;
+                    ChromaDiagnostics.error("state-restore", activePass, "renderer disabled", error);
+                }
+                activePass = "none";
+                failedSource = null;
             }
-            previous.restore();
         }
     }
 
-    private static int ensureThemedFramebuffer(int colorTexture) {
+    private static int ensureThemedFramebuffer(GlTexture colorTexture) {
         if (themedFramebuffer != -1 && themedColorTexture == colorTexture) {
             return themedFramebuffer;
         }
-        if (themedFramebuffer != -1) {
-            SurfaceTarget previousTarget = surfaces.remove(themedFramebuffer);
-            if (previousTarget != null) previousTarget.close();
-            if (targetFramebuffer == themedFramebuffer) {
-                surface = null;
-                renderTarget = null;
-                targetFramebuffer = -1;
+        GlState previous = GlState.capture();
+        try {
+            reportGlErrors("incoming-gl-state", "main-framebuffer-setup");
+            if (themedFramebuffer != -1) {
+                SurfaceTarget previousTarget = surfaces.remove(themedFramebuffer);
+                if (previousTarget != null) previousTarget.close();
+                if (targetFramebuffer == themedFramebuffer) {
+                    surface = null;
+                    renderTarget = null;
+                    targetFramebuffer = -1;
+                }
+                GL30.glDeleteFramebuffers(themedFramebuffer);
             }
-            GL30.glDeleteFramebuffers(themedFramebuffer);
+            themedFramebuffer = GL30.glGenFramebuffers();
+            themedColorTexture = null;
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, themedFramebuffer);
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                    GL11.GL_TEXTURE_2D, colorTexture.glId(), 0);
+            int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
+            reportGlErrors("submitted-gl-state", "main-framebuffer-setup");
+            if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+                GL30.glDeleteFramebuffers(themedFramebuffer);
+                themedFramebuffer = -1;
+                ChromaDiagnostics.error("main-target-unavailable", "main-target",
+                        "incomplete framebuffer; status=0x" + Integer.toHexString(status)
+                                + "; texture=" + colorTexture.glId() + "; size=" + colorTexture.getWidth(0)
+                                + 'x' + colorTexture.getHeight(0), null);
+            } else {
+                themedColorTexture = colorTexture;
+                ChromaDiagnostics.resolved("main-target-unavailable", "main-target");
+            }
+            return themedFramebuffer;
+        } finally {
+            previous.restore();
+            reportGlErrors("restored-gl-state", "main-framebuffer-setup");
         }
-        themedFramebuffer = GL30.glGenFramebuffers();
-        themedColorTexture = colorTexture;
-        int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, themedFramebuffer);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
-        GL11.GL_TEXTURE_2D, colorTexture, 0);
-        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
-        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
-        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, previousRead);
-        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            GL30.glDeleteFramebuffers(themedFramebuffer);
-            themedFramebuffer = -1;
-            themedColorTexture = -1;
-        }
-        return themedFramebuffer;
     }
 
     public static void draw(java.util.function.Consumer<Canvas> painter) {
+        draw(painter.getClass(), painter);
+    }
+
+    public static void draw(String source, java.util.function.Consumer<Canvas> painter) {
+        draw(source == null ? painter.getClass() : (Object) source, painter);
+    }
+
+    private static void draw(Object source, java.util.function.Consumer<Canvas> painter) {
         if (failed) return;
         if (activeCanvas == null) {
-            mainSubmitted.add(painter);
+            mainSubmitted.add(new DrawSubmission(source, painter));
             return;
         }
+        Object previousSource = activeSource;
+        activeSource = source;
         int save = activeCanvas.save();
         try {
             painter.accept(activeCanvas);
+        } catch (Throwable error) {
+            if (failedSource == null) failedSource = source;
+            throw error;
         } finally {
-            activeCanvas.restoreToCount(save);
+            try {
+                activeCanvas.restoreToCount(save);
+            } finally {
+                activeSource = previousSource;
+            }
         }
     }
 
     public static void submit(java.util.function.Consumer<Canvas> painter) {
-        submitted.add(painter);
+        submitted.add(new DrawSubmission(painter.getClass(), painter));
+    }
+
+    public static void submit(String source, java.util.function.Consumer<Canvas> painter) {
+        submitted.add(new DrawSubmission(source == null ? painter.getClass() : source, painter));
     }
 
     public static void beginFrame() {
@@ -203,15 +302,15 @@ public final class ChromaGraphics {
 
     public static void renderMainSubmitted() {
         if (mainSubmitted.isEmpty()) return;
-        java.util.List<java.util.function.Consumer<Canvas>> painters = java.util.List.copyOf(mainSubmitted);
+        java.util.List<DrawSubmission> painters = java.util.List.copyOf(mainSubmitted);
         mainSubmitted.clear();
         renderMainTarget(canvas -> {
-            for (java.util.function.Consumer<Canvas> painter : painters) draw(painter);
+            for (DrawSubmission painter : painters) draw(painter.source(), painter.painter());
         });
     }
 
     public static void renderSubmitted() {
-        for (java.util.function.Consumer<Canvas> painter : java.util.List.copyOf(submitted)) draw(painter);
+        for (DrawSubmission painter : java.util.List.copyOf(submitted)) draw(painter.source(), painter.painter());
         submitted.clear();
     }
 
@@ -241,13 +340,25 @@ public final class ChromaGraphics {
     java.util.function.Consumer<Canvas> clipper,
     float x, float y, float width, float height,
     float strength) {
-        if (backdropBlurFailed || canvas == null || clipper == null
-        || strength <= 0.01F
+        if (backdropBlurFailed || strength <= 0.01F
         || width <= 1.0F || height <= 1.0F || targetWidth <= 0 || targetHeight <= 0) {
             return;
         }
+        if (canvas == null || clipper == null || !Float.isFinite(x) || !Float.isFinite(y)
+                || !Float.isFinite(width) || !Float.isFinite(height) || !Float.isFinite(strength)) {
+            ChromaDiagnostics.warn("backdrop-arguments", activeSource,
+                    "invalid canvas, clip or bounds; pass=" + activePass + "; bounds=" + x + ',' + y
+                            + ',' + width + ',' + height + "; strength=" + strength, null);
+            return;
+        }
+        ChromaDiagnostics.resolved("backdrop-arguments", activeSource);
         backdropRequested = true;
-        if (frameBackdropSnapshot == null) return;
+        if (frameBackdropSnapshot == null) {
+            ChromaDiagnostics.delayedWarn("backdrop-missing", activeSource,
+                    "snapshot unavailable; pass=" + activePass + "; framebuffer=" + targetFramebuffer);
+            return;
+        }
+        ChromaDiagnostics.resolved("backdrop-missing", activeSource);
 
         Window window = Minecraft.getInstance().getWindow();
         float guiWidth = window.getGuiScaledWidth();
@@ -259,20 +370,50 @@ public final class ChromaGraphics {
             x, y, width, height, guiWidth, guiHeight, strength);
         } catch (Throwable throwable) {
             backdropBlurFailed = true;
-            PVPUtils.LOGGER.warn("Framebuffer snapshot blur is unavailable; disabling HUD blur for this session",
-            throwable);
+            ChromaDiagnostics.warn("backdrop-draw", activeSource,
+                    "background blur disabled; pass=" + activePass + "; bounds=" + x + ',' + y
+                            + ',' + width + ',' + height + "; strength=" + strength, throwable);
         }
     }
 
     public static BorrowedImage borrowTexture(Identifier identifier) {
-        if (context == null || identifier == null) return null;
+        if (context == null) return null;
+        if (identifier == null) {
+            ChromaDiagnostics.warn("texture-arguments", activeSource, "texture identifier is null", null);
+            return null;
+        }
         BackendTexture backend = null;
         try {
-            AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(identifier);
-            if (!(texture.getTexture() instanceof GlTexture glTexture) || glTexture.isClosed()) return null;
+            TextureManager manager = Minecraft.getInstance().getTextureManager();
+            AbstractTexture texture = ((TextureManagerAccessor) manager).pvp_utils$getLoadedTextures().get(identifier);
+            if (texture == null) {
+                GlState previous = GlState.capture();
+                try {
+                    GL13.glActiveTexture(GL13.GL_TEXTURE0);
+                    GlStateManager._activeTexture(GL13.GL_TEXTURE0);
+                    GlStateManager._bindTexture(previous.texture2d()[0]);
+                    texture = manager.getTexture(identifier);
+                } finally {
+                    try {
+                        previous.restore();
+                    } finally {
+                        canonicalizePixelStore();
+                        context.resetGLAll();
+                    }
+                }
+            }
+            if (!(texture.getTexture() instanceof GlTexture glTexture) || glTexture.isClosed()) {
+                ChromaDiagnostics.delayedWarn("texture-borrow", identifier,
+                        "OpenGL texture is unavailable or closed; pass=" + activePass);
+                return null;
+            }
             int width = glTexture.getWidth(0);
             int height = glTexture.getHeight(0);
-            if (width <= 0 || height <= 0) return null;
+            if (width <= 0 || height <= 0) {
+                ChromaDiagnostics.delayedWarn("texture-borrow", identifier,
+                        "invalid texture size=" + width + 'x' + height + "; pass=" + activePass);
+                return null;
+            }
 
             backend = BackendTexture.makeGL(width, height, false,
             new GLTextureInfo(GL11.GL_TEXTURE_2D, glTexture.glId(), GL11.GL_RGBA8));
@@ -280,35 +421,59 @@ public final class ChromaGraphics {
             ColorType.RGBA_8888, ColorAlphaType.UNPREMUL, ColorSpace.getSRGB(), () -> { });
             if (image == null) {
                 backend.close();
+                ChromaDiagnostics.warn("texture-borrow", identifier,
+                        "Skia rejected texture=" + glTexture.glId() + "; size=" + width + 'x' + height
+                                + "; pass=" + activePass, null);
                 return null;
             }
+            ChromaDiagnostics.resolved("texture-borrow", identifier);
             return new BorrowedImage(image, backend);
         } catch (Throwable throwable) {
             if (backend != null) {
                 try {
                     backend.close();
-                } catch (Throwable ignored) {
+                } catch (Throwable cleanupError) {
+                    throwable.addSuppressed(cleanupError);
                 }
             }
+            ChromaDiagnostics.warn("texture-borrow", identifier,
+                    "texture wrapper creation failed; pass=" + activePass
+                            + "; source=" + ChromaDiagnostics.sourceName(activeSource), throwable);
             return null;
         }
     }
 
     public static void close() {
-        if (context == null) {
-            return;
-        }
         backdropRequested = false;
         frameBackdropSnapshot = null;
         closeSurface();
         if (themedFramebuffer != -1) {
             GL30.glDeleteFramebuffers(themedFramebuffer);
             themedFramebuffer = -1;
-            themedColorTexture = -1;
+            themedColorTexture = null;
         }
-        ChromaDraw.close();
-        context.close();
+        if (context != null) {
+            ChromaDraw.close();
+            context.close();
+        }
         context = null;
+        skiaScratchTextureUnit = -1;
+    }
+
+    private static void reportGlErrors(String event, String source) {
+        int error = GL11.glGetError();
+        if (error == GL11.GL_NO_ERROR) {
+            ChromaDiagnostics.resolved(event, source);
+            return;
+        }
+        StringBuilder codes = new StringBuilder();
+        int count = 0;
+        while (error != GL11.GL_NO_ERROR && count++ < 8) {
+            if (!codes.isEmpty()) codes.append(',');
+            codes.append("0x").append(Integer.toHexString(error));
+            error = GL11.glGetError();
+        }
+        ChromaDiagnostics.warn(event, source, "OpenGL errors=" + codes, null);
     }
 
     private static void ensureSurface(int width, int height, int framebuffer, int samples, int stencilBits) {
@@ -353,6 +518,9 @@ public final class ChromaGraphics {
         targetFramebuffer = -1;
         targetSamples = -1;
         targetStencilBits = -1;
+    }
+
+    private record DrawSubmission(Object source, java.util.function.Consumer<Canvas> painter) {
     }
 
     private record SurfaceTarget(int width, int height, int samples, int stencilBits,
@@ -426,9 +594,11 @@ public final class ChromaGraphics {
     int elementArrayBuffer,
     int pixelPackBuffer,
     int pixelUnpackBuffer,
+    int renderbuffer,
     int drawFramebuffer,
     int readFramebuffer,
     int activeTexture,
+    int[] textureUnits,
     int[] texture2d,
     int[] samplers,
     int[] viewport,
@@ -439,6 +609,14 @@ public final class ChromaGraphics {
     boolean stencilTest,
     boolean cullFace,
     boolean framebufferSrgb,
+    boolean polygonOffsetFill,
+    boolean multisample,
+    boolean programPointSize,
+    boolean dither,
+    int polygonMode,
+    float polygonOffsetFactor,
+    float polygonOffsetUnits,
+    float lineWidth,
     int blendSrcRgb,
     int blendDstRgb,
     int blendSrcAlpha,
@@ -459,16 +637,29 @@ public final class ChromaGraphics {
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 IntBuffer viewportBuffer = stack.mallocInt(4);
                 IntBuffer scissorBuffer = stack.mallocInt(4);
+                IntBuffer polygonModeBuffer = stack.mallocInt(2);
                 ByteBuffer colorMaskBuffer = stack.malloc(4);
                 GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewportBuffer);
                 GL11.glGetIntegerv(GL11.GL_SCISSOR_BOX, scissorBuffer);
+                GL11.glGetIntegerv(GL11.GL_POLYGON_MODE, polygonModeBuffer);
                 GL11.glGetBooleanv(GL11.GL_COLOR_WRITEMASK, colorMaskBuffer);
 
                 int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
-                int[] textures = new int[12];
-                int[] samplers = new int[12];
+                if (skiaScratchTextureUnit < 0) {
+                    skiaScratchTextureUnit = Math.min(32, GL11.glGetInteger(GL20.GL_MAX_TEXTURE_IMAGE_UNITS)) - 1;
+                }
+                int activeUnit = activeTexture - GL13.GL_TEXTURE0;
+                int baseUnits = Math.min(12, skiaScratchTextureUnit + 1);
+                boolean extraScratch = skiaScratchTextureUnit >= baseUnits;
+                boolean extraActive = activeUnit >= baseUnits && activeUnit != skiaScratchTextureUnit;
+                int[] textureUnits = new int[baseUnits + (extraScratch ? 1 : 0) + (extraActive ? 1 : 0)];
+                for (int i = 0; i < baseUnits; i++) textureUnits[i] = i;
+                if (extraScratch) textureUnits[baseUnits] = skiaScratchTextureUnit;
+                if (extraActive) textureUnits[textureUnits.length - 1] = activeUnit;
+                int[] textures = new int[textureUnits.length];
+                int[] samplers = new int[textureUnits.length];
                 for (int unit = 0; unit < textures.length; unit++) {
-                    GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                    GL13.glActiveTexture(GL13.GL_TEXTURE0 + textureUnits[unit]);
                     textures[unit] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
                     samplers[unit] = GL11.glGetInteger(GL33.GL_SAMPLER_BINDING);
                 }
@@ -481,9 +672,11 @@ public final class ChromaGraphics {
                 GL11.glGetInteger(GL15.GL_ELEMENT_ARRAY_BUFFER_BINDING),
                 GL11.glGetInteger(GL21.GL_PIXEL_PACK_BUFFER_BINDING),
                 GL11.glGetInteger(GL21.GL_PIXEL_UNPACK_BUFFER_BINDING),
+                GL11.glGetInteger(GL30.GL_RENDERBUFFER_BINDING),
                 GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING),
                 GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING),
                 activeTexture,
+                textureUnits,
                 textures,
                 samplers,
                 new int[]{viewportBuffer.get(0), viewportBuffer.get(1), viewportBuffer.get(2), viewportBuffer.get(3)},
@@ -494,6 +687,14 @@ public final class ChromaGraphics {
                 GL11.glIsEnabled(GL11.GL_STENCIL_TEST),
                 GL11.glIsEnabled(GL11.GL_CULL_FACE),
                 GL11.glIsEnabled(GL30.GL_FRAMEBUFFER_SRGB),
+                GL11.glIsEnabled(GL11.GL_POLYGON_OFFSET_FILL),
+                GL11.glIsEnabled(GL13.GL_MULTISAMPLE),
+                GL11.glIsEnabled(GL32.GL_PROGRAM_POINT_SIZE),
+                GL11.glIsEnabled(GL11.GL_DITHER),
+                polygonModeBuffer.get(0),
+                GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_FACTOR),
+                GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_UNITS),
+                GL11.glGetFloat(GL11.GL_LINE_WIDTH),
                 GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB),
                 GL11.glGetInteger(GL14.GL_BLEND_DST_RGB),
                 GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA),
@@ -564,37 +765,61 @@ public final class ChromaGraphics {
         private void restore() {
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
             GL20.glUseProgram(program);
             GL30.glBindVertexArray(vertexArray);
             GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, arrayBuffer);
             GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, elementArrayBuffer);
             GL15.glBindBuffer(GL21.GL_PIXEL_PACK_BUFFER, pixelPackBuffer);
             GL15.glBindBuffer(GL21.GL_PIXEL_UNPACK_BUFFER, pixelUnpackBuffer);
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, renderbuffer);
             restorePixelStore();
             for (int unit = 0; unit < texture2d.length; unit++) {
-                GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+                int index = textureUnits[unit];
+                GL13.glActiveTexture(GL13.GL_TEXTURE0 + index);
+                if (index < 12) GlStateManager._activeTexture(GL13.GL_TEXTURE0 + index);
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture2d[unit]);
-                GL33.glBindSampler(unit, samplers[unit]);
+                if (index < 12) GlStateManager._bindTexture(texture2d[unit]);
+                GL33.glBindSampler(index, samplers[unit]);
             }
             GL13.glActiveTexture(activeTexture);
+            GlStateManager._activeTexture(activeTexture);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
             GL11.glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
             GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
             GL20.glBlendEquationSeparate(blendEquationRgb, blendEquationAlpha);
             GL11.glDepthMask(depthMask);
             GL11.glDepthFunc(depthFunc);
+            GlStateManager._blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            GlStateManager._depthMask(depthMask);
+            GlStateManager._depthFunc(depthFunc);
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, polygonMode);
+            GL11.glPolygonOffset(polygonOffsetFactor, polygonOffsetUnits);
+            GlStateManager._polygonOffset(polygonOffsetFactor, polygonOffsetUnits);
+            GL11.glLineWidth(lineWidth);
             GL11.glCullFace(cullFaceMode);
             GL11.glFrontFace(frontFace);
             GL11.glClearStencil(stencilClearValue);
             restoreStencilFace(GL11.GL_FRONT, frontStencil);
             restoreStencilFace(GL11.GL_BACK, backStencil);
             GL11.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+            GlStateManager._colorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
             setEnabled(GL11.GL_BLEND, blend);
             setEnabled(GL11.GL_DEPTH_TEST, depthTest);
             setEnabled(GL11.GL_SCISSOR_TEST, scissorTest);
             setEnabled(GL11.GL_STENCIL_TEST, stencilTest);
             setEnabled(GL11.GL_CULL_FACE, cullFace);
             setEnabled(GL30.GL_FRAMEBUFFER_SRGB, framebufferSrgb);
+            setEnabled(GL11.GL_POLYGON_OFFSET_FILL, polygonOffsetFill);
+            setEnabled(GL13.GL_MULTISAMPLE, multisample);
+            setEnabled(GL32.GL_PROGRAM_POINT_SIZE, programPointSize);
+            setEnabled(GL11.GL_DITHER, dither);
+            if (blend) GlStateManager._enableBlend(); else GlStateManager._disableBlend();
+            if (depthTest) GlStateManager._enableDepthTest(); else GlStateManager._disableDepthTest();
+            if (scissorTest) GlStateManager._enableScissorTest(); else GlStateManager._disableScissorTest();
+            if (cullFace) GlStateManager._enableCull(); else GlStateManager._disableCull();
+            if (polygonOffsetFill) GlStateManager._enablePolygonOffset(); else GlStateManager._disablePolygonOffset();
         }
 
         private static void restoreStencilFace(int face, StencilFaceState state) {

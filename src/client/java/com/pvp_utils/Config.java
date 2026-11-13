@@ -67,6 +67,12 @@ public class Config {
     public static boolean noDoubleSneak = true;
     public static boolean isChinese = defaultChinese();
     public static String moduleKeybinds = "";
+    public static String encryptedChatKey = "";
+    public static boolean encryptPublicChat = false;
+    public static boolean encryptPrivateChat = false;
+    public static boolean tacticalPing = false;
+    public static int tacticalPingDoubleClickInterval = 300;
+    public static boolean tacticalPingSound = true;
     public static String clientCommandPrefix = ".";
     public static boolean autoScreenshot = false;
     public static boolean autoGG = false;
@@ -585,6 +591,7 @@ public class Config {
     }
 
     public static synchronized void save() {
+        normalizeCommunication();
         normalizeFakeFps();
         normalizeComboEffects();
         normalizeDynamicIslandAppearance();
@@ -684,6 +691,12 @@ public class Config {
     private static void normalizeComboEffects() {
         comboEffectsVolume = Float.isFinite(comboEffectsVolume) ? Math.clamp(comboEffectsVolume, 0f, 1f) : 1f;
         comboEffectsDuration = Float.isFinite(comboEffectsDuration) ? Math.clamp(comboEffectsDuration, 0.1f, 300f) : 300f;
+    }
+
+    private static void normalizeCommunication() {
+        if (encryptedChatKey == null) encryptedChatKey = "";
+        tacticalPingDoubleClickInterval = Math.clamp(tacticalPingDoubleClickInterval, 150, 600);
+        if (encryptedChatKey.codePointCount(0, encryptedChatKey.length()) < 5) tacticalPing = false;
     }
 
     private static boolean loadJsonConfig(Path path) {
@@ -1004,6 +1017,8 @@ public class Config {
             new ModuleRule("SneakAnimationAdjustment", "noSneakAnimation", "noSneakAnimation", "sneakDropScale", "sneakAnimationSpeed"),
             new ModuleRule("AutoScreenshot", "autoScreenshot", "autoScreenshot"),
             new ModuleRule("AutoGG", "autoGG", "autoGG"),
+            new ModuleRule("ClientEncryptedChat", "encryptedChat", "", "encryptPublicChat", "encryptPrivateChat"),
+            new ModuleRule("TacticalPing", "tacticalPing", "tacticalPing"),
             new ModuleRule("ServerAutoLogin", "serverAutoLogin", "serverAutoLogin", "serverAutoLoginRules", "serverAutoLoginMode"),
             new ModuleRule("FoodInfo", "foodInfo", "foodInfo"),
             new ModuleRule("LowHealthWarning", "lowHealthNotify", "lowHealthNotify"),

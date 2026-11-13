@@ -3,6 +3,7 @@ package com.pvp_utils.client.render.MainUI;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.pvp_utils.PVPUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -166,13 +167,17 @@ public final class MainUIShader {
 
     private void ensureCompiled() {
         if (program != 0 || failed) return;
+        String phase = "resource loading";
         try {
             String vertexSource = DEFAULT_VERTEX_SOURCE;
             String fragmentSource = adaptFragmentSource(readResource("shaders/" + fragmentPath));
+            phase = "vertex compilation";
             int vertex = compile(GL20.GL_VERTEX_SHADER, vertexSource);
+            phase = "fragment compilation";
             int fragment = compile(GL20.GL_FRAGMENT_SHADER, fragmentSource);
             if (failed) return;
 
+            phase = "program linking";
             program = GL20.glCreateProgram();
             GL20.glAttachShader(program, vertex);
             GL20.glAttachShader(program, fragment);
@@ -180,7 +185,8 @@ public final class MainUIShader {
             GL30.glBindFragDataLocation(program, 0, "pvpFragColor");
             GL20.glLinkProgram(program);
             if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
-                System.err.println("PVPUtils MainUI shader link failed (" + fragmentPath + "): " + GL20.glGetProgramInfoLog(program));
+                PVPUtils.LOGGER.error("MainUI shader {} failed during program linking: {}",
+                        fragmentPath, GL20.glGetProgramInfoLog(program));
                 failed = true;
                 return;
             }
@@ -189,13 +195,15 @@ public final class MainUIShader {
             timeUniform = GL20.glGetUniformLocation(program, "time");
             mouseUniform = GL20.glGetUniformLocation(program, "mouse");
             resolutionUniform = GL20.glGetUniformLocation(program, "resolution");
+            phase = "quad creation";
             createQuad();
             if (!loggedLoaded) {
-                System.err.println("PVPUtils MainUI shader loaded: " + fragmentPath);
+                PVPUtils.LOGGER.info("MainUI shader loaded: {}", fragmentPath);
                 loggedLoaded = true;
             }
         } catch (Exception e) {
-            System.err.println("PVPUtils MainUI shader load failed (" + fragmentPath + "): " + e.getMessage());
+            PVPUtils.LOGGER.error("MainUI shader {} failed during {}; using fallback rendering",
+                    fragmentPath, phase, e);
             failed = true;
         }
     }
@@ -205,7 +213,8 @@ public final class MainUIShader {
         GL20.glShaderSource(shader, source);
         GL20.glCompileShader(shader);
         if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
-            System.err.println("PVPUtils MainUI shader compile failed (" + fragmentPath + "): " + GL20.glGetShaderInfoLog(shader));
+            PVPUtils.LOGGER.error("MainUI shader {} failed during {} compilation: {}", fragmentPath,
+                    type == GL20.GL_VERTEX_SHADER ? "vertex" : "fragment", GL20.glGetShaderInfoLog(shader));
             failed = true;
         }
         return shader;
@@ -246,19 +255,26 @@ public final class MainUIShader {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, renderTarget, 0);
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            System.err.println("PVPUtils MainUI shader framebuffer incomplete: " + GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER));
+            PVPUtils.LOGGER.error("MainUI shader {} failed during framebuffer creation at {}x{}: status 0x{}",
+                    fragmentPath, width, height,
+                    Integer.toHexString(GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER)));
             failed = true;
         }
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
 
-    private static int glTextureId(DynamicTexture texture) {
+    private int glTextureId(DynamicTexture texture) {
         if (texture == null) return 0;
         try {
-            if (texture.getTexture() instanceof GlTexture glTexture) {
+            var gpuTexture = texture.getTexture();
+            if (gpuTexture instanceof GlTexture glTexture) {
                 return glTexture.glId();
             }
-        } catch (Throwable ignored) {
+            PVPUtils.LOGGER.error("MainUI shader {} cannot create its framebuffer from texture {} with backend {}",
+                    fragmentPath, textureId, gpuTexture.getClass().getName());
+        } catch (Throwable error) {
+            PVPUtils.LOGGER.error("MainUI shader {} failed during framebuffer texture access for {}",
+                    fragmentPath, textureId, error);
         }
         return 0;
     }

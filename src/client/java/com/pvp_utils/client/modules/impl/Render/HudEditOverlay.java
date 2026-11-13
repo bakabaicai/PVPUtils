@@ -518,7 +518,7 @@ public class HudEditOverlay {
 
     private void drawHint(Canvas canvas, int guiW, int guiH, float progress) {
         if (dragTarget == DragTarget.NONE || (snapXLine < 0f && snapYLine < 0f)) return;
-        String text = Config.isChinese ? "弱对齐" : "Weak alignment";
+        String text = Config.isChinese ? "按住Shift弱对齐" : "Hold Shift for weak alignment";
         float width = ChromaDraw.textWidth(text, HINT_TEXT_SIZE);
         float opacity = progress * Math.max(snapXAlpha, snapYAlpha) * 0.7f;
         ChromaDraw.text(canvas, text, (guiW - width) * 0.5f, Math.max(48f, guiH - 92f), 18f,

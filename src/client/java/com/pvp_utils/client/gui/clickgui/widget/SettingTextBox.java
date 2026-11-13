@@ -43,6 +43,8 @@ public class SettingTextBox extends SettingWidget {
     @Override public float getWidth() { return 150f; }
     @Override public float getHeight() { return 24f; }
 
+    protected float getInputWidth() { return getWidth(); }
+
     @Override
     public void draw(Canvas canvas, float x, float y, float alpha) {
         boolean active = focused == this;
@@ -51,14 +53,14 @@ public class SettingTextBox extends SettingWidget {
         ClickGuiThemeColors tc = ClickGuiThemeColors.current();
         int background = lerpColor(tc.searchBackground, tc.searchFocusedBackground, focusAlpha);
         bgPaint.setColor(withAlpha(background, ClickGuiThemeColors.panelBackgroundAlpha(alpha)));
-        canvas.drawRRect(RRect.makeXYWH(x, y, getWidth(), getHeight(), 7f), bgPaint);
+        canvas.drawRRect(RRect.makeXYWH(x, y, getInputWidth(), getHeight(), 7f), bgPaint);
 
         String text = getDisplayText();
         clampCursor(text);
         boolean empty = text.isEmpty();
         String display = empty ? UiText.t("点击输入", "Click to type") : text;
         float textX = x + 9f;
-        float textW = getWidth() - 18f;
+        float textW = getInputWidth() - 18f;
         float realTextW = ChromaDraw.textWidth(text, 10f);
         float cursorTextW = ChromaDraw.textWidth(text.substring(0, cursor), 10f);
         float targetOffset = active ? Math.max(0f, cursorTextW - textW + 3f) : 0f;
@@ -87,7 +89,7 @@ public class SettingTextBox extends SettingWidget {
 
         float linePulse = 0.3f + 0.7f * (0.5f + 0.5f * (float) Math.sin(cursorTime * 6f));
         linePaint.setColor(withAlpha(tc.searchCursor, alpha * focusAlpha * linePulse));
-        canvas.drawRect(Rect.makeXYWH(x + 8f, y + getHeight() - 2f, getWidth() - 16f, 1f), linePaint);
+        canvas.drawRect(Rect.makeXYWH(x + 8f, y + getHeight() - 2f, getInputWidth() - 16f, 1f), linePaint);
     }
 
     @Override
@@ -103,7 +105,7 @@ public class SettingTextBox extends SettingWidget {
     @Override
     public boolean onClick(float mx, float my, float x, float y, int button) {
         if (button != 0) return false;
-        if (mx < x || mx > x + getWidth() || my < y || my > y + getHeight()) {
+        if (mx < x || mx > x + getInputWidth() || my < y || my > y + getHeight()) {
             if (focused == this) clearFocus();
             return false;
         }

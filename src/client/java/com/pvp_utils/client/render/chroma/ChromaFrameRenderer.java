@@ -1,6 +1,7 @@
 package com.pvp_utils.client.render.chroma;
 
 import com.pvp_utils.client.modules.impl.Combat.combo.ComboEffectsManager;
+import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
@@ -27,10 +28,10 @@ public final class ChromaFrameRenderer {
             if (!(overlay instanceof ChromaOverlay chromaOverlay) || !chromaOverlay.isChromaOverlayActive()) return;
             ChromaGraphics.renderOverlay(canvas -> {
                 if (chromaOverlay.rendersScreenBehind()) {
-                    if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen::renderChroma);
+                    if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen.getClass().getName(), screen::renderChroma);
                     ChromaGraphics.renderSubmitted();
                 }
-                ChromaGraphics.draw(chromaOverlay::renderChroma);
+                ChromaGraphics.draw(chromaOverlay.getClass().getName(), chromaOverlay::renderChroma);
             });
             return;
         }
@@ -38,22 +39,23 @@ public final class ChromaFrameRenderer {
             if (client.level != null && !client.options.hideGui
                     && (client.screen == null || client.screen instanceof ChatScreen
                     || HudEditOverlay.getInstance().isActive())) {
-                ChromaGraphics.draw(PotionStatusRenderer.getInstance()::renderChroma);
-                ChromaGraphics.draw(KeystrokesRenderer.getInstance()::renderChroma);
-                ChromaGraphics.draw(DynamicIslandRenderer.getInstance()::renderChroma);
-                ChromaGraphics.draw(hudCanvas -> SkiaTextHudRenderer.renderChroma(hudCanvas,
+                ChromaGraphics.draw("TacticalPing", TacticalPingRenderer::render);
+                ChromaGraphics.draw("PotionStatus", PotionStatusRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("Keystrokes", KeystrokesRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("DynamicIsland", DynamicIslandRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("TextHUD", hudCanvas -> SkiaTextHudRenderer.renderChroma(hudCanvas,
                 PingHudRenderer.getInstance(),
                 TpsHudRenderer.getInstance(),
                 ClockHudRenderer.getInstance()));
-                ChromaGraphics.draw(MusicInfoHudRenderer.getInstance()::renderChroma);
-                ChromaGraphics.draw(ComboEffectsManager::render);
-                ChromaGraphics.draw(KillBannerRenderer.getInstance()::renderChroma);
-                ChromaGraphics.draw(hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
+                ChromaGraphics.draw("MusicInfoHUD", MusicInfoHudRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("ComboEffects", ComboEffectsManager::render);
+                ChromaGraphics.draw("KillBanner", KillBannerRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("Plugins", hudCanvas -> com.pvp_utils.client.plugin.PluginManager.INSTANCE.render(
                         hudCanvas, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()));
             }
-            if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen::renderChroma);
+            if (client.screen instanceof ChromaScreen screen) ChromaGraphics.draw(screen.getClass().getName(), screen::renderChroma);
             ChromaGraphics.renderSubmitted();
-            ChromaGraphics.draw(HudEditOverlay.getInstance()::renderChroma);
+            ChromaGraphics.draw("HudEditOverlay", HudEditOverlay.getInstance()::renderChroma);
         });
     }
 
