@@ -296,6 +296,7 @@ public final class ChromaGraphics {
     }
 
     public static void beginFrame() {
+        com.pvp_utils.client.render.chroma.world.ChromaWorld.beginFrame();
         submitted.clear();
         mainSubmitted.clear();
     }

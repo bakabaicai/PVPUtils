@@ -457,7 +457,7 @@ public final class PluginSecurityAudit {
                 else if (path.equals("pvputils.player.get")) result.paths.add("$player");
                 else if (path.equals("$player.inventory.getMenu")) result.paths.add("$menu");
                 else if (path.startsWith("pvputils.settings.")) result.paths.add("$setting");
-                else if (path.startsWith("pvputils.player.") || path.startsWith("$player.")
+                else if (path.startsWith("pvputils.player.") || path.startsWith("pvputils.world.") || path.startsWith("$player.")
                         || path.startsWith("$menu.") || path.equals("pvputils.storage.get")) result.paths.add("$data");
                 else if (path.equals("Number") && call.getArguments().size() == 1) {
                     Value argument = resolve(call.getArguments().get(0), depth + 1, active);

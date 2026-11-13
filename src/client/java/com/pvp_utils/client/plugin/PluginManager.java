@@ -44,6 +44,8 @@ public final class PluginManager {
     public static final PluginManager INSTANCE = new PluginManager();
     private final Map<String, Entry> plugins = new LinkedHashMap<>();
     private JsonObject enabledState = new JsonObject();
+    private PluginStorage worldPermissions;
+    private final PluginWorldBridge world = new PluginWorldBridge();
     private int revision;
     private boolean initialized;
     private Object currentLevel;
@@ -82,6 +84,11 @@ public final class PluginManager {
         } catch (Exception e) {
             PVPUtils.LOGGER.error("Failed to read plugin enabled state", e);
         }
+        try {
+            worldPermissions = new PluginStorage(PluginDirectory.path().resolve(".world-permissions.json"));
+        } catch (Exception e) {
+            PVPUtils.LOGGER.error("Failed to read plugin world permissions", e);
+        }
         refresh();
     }
 
@@ -97,6 +104,34 @@ public final class PluginManager {
     public boolean isEnabled(String id) {
         Entry entry = plugins.get(id);
         return entry != null && entry.runtime != null;
+    }
+
+    public boolean isWorldAccessAllowed(String id) {
+        return isWorldAccessEnabled() && isWorldAccessGranted(id);
+    }
+
+    public boolean isWorldAccessEnabled() {
+        if (worldPermissions == null) return false;
+        String enabled = worldPermissions.get("enabled");
+        return "null".equals(enabled) || "true".equals(enabled);
+    }
+
+    public boolean isWorldAccessGranted(String id) {
+        return worldPermissions != null && "true".equals(worldPermissions.get("world." + id));
+    }
+
+    public void setWorldAccessAllowed(String id, boolean allowed) {
+        Entry entry = plugins.get(id);
+        if (entry == null || entry.manifest == null) return;
+        try {
+            if (worldPermissions == null) throw new IOException("World permission storage is unavailable");
+            worldPermissions.set("world." + id, Boolean.toString(allowed));
+            world.clear();
+            revision++;
+        } catch (Exception error) {
+            PVPUtils.LOGGER.error("Failed to save world permission for plugin {}", id, error);
+            NotificationOverlay.getInstance().show(UiText.t("世界读取权限保存失败", "Failed to save world read permission"));
+        }
     }
 
     public List<PluginInfo> plugins() {
@@ -470,6 +505,7 @@ public final class PluginManager {
     }
 
     public void tick(Minecraft client) {
+        world.tick();
         if (dialogOpen(client)) return;
         Object level = client.level;
         if (currentLevel != level) {
@@ -652,6 +688,7 @@ public final class PluginManager {
         auditExecutor.shutdownNow();
         auditResults.clear();
         currentLevel = null;
+        world.clear();
     }
 
     private void shutdownRuntimes() {
@@ -734,6 +771,32 @@ public final class PluginManager {
         @Override
         public void releasePlayer() {
             player.close();
+        }
+
+        private boolean canReadWorld() {
+            Entry entry = plugins.get(id);
+            return entry != null && entry.runtime != null && entry.host == this
+                    && isWorldAccessAllowed(id) && !dialogOpen(Minecraft.getInstance());
+        }
+
+        @Override
+        public String worldStatus() {
+            return canReadWorld() ? world.status() : PluginRuntime.Host.super.worldStatus();
+        }
+
+        @Override
+        public String worldEntities(double distance, int limit, Runnable budget) {
+            return canReadWorld() ? world.entities(distance, limit, budget) : "[]";
+        }
+
+        @Override
+        public String worldProject(double x, double y, double z) {
+            return canReadWorld() ? world.project(x, y, z) : "null";
+        }
+
+        @Override
+        public String worldProjectMany(double[] coordinates, Runnable budget) {
+            return canReadWorld() ? world.projectMany(coordinates, budget) : "[]";
         }
 
         @Override

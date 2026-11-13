@@ -48,7 +48,7 @@ Chroma Graphics 是基于 Skia 的客户端渲染框架，提供二维图形、�
 
 ### 2.1 当前帧的执行顺序
 
-1. `MinecraftMixin` 在 `Minecraft.runTick` 开始时调用 `ChromaGraphics.beginFrame()`，清空两条提交队列。
+1. `MinecraftMixin` 在 `Minecraft.runTick` 开始时调用 `ChromaGraphics.beginFrame()`，清空两条提交队列，并使上一帧世界投影失效。
 2. Minecraft 收集 GUI 绘制内容。此期间在活动 Skia 画布之外调用 `draw()`，会进入主目标队列。
 3. `GameRendererMixin` 在 `GuiRenderer.render(GpuBufferSlice)` 之前调用 `renderMainSubmitted()`，将主目标队列绘制到 Minecraft 主颜色目标。
 4. Minecraft 将主目标 `blitToScreen()` 后，`ChromaFrameRenderer.render()` 开始叠加绘制。窗口最小化时跳过；存在加载叠加层时，仅处理已启用的 `ChromaOverlay`。
@@ -212,12 +212,43 @@ Product Sans 按字体名区分 Regular 与 Light。局部绘制使用 `withFont
 | `ParticleShape` | `QUAD`、`CIRCLE`、`STAR`、`HEART`、`BLOOM`；几何图形，不依赖外部贴图 |
 | `project(Vec3): ScreenPoint` | 世界坐标转 GUI 坐标；可能返回 `null`，不执行深度遮挡检测 |
 | `ScreenPoint(float x, float y)` | 投影后的 GUI 坐标 |
+| `projectDetailed(Vec3): ChromaProjection.Point` | 当前帧完整投影；屏幕外的点保留坐标，使用 `onScreen` 判断窗口范围 |
+| `projectBounds(AABB): ChromaProjection.Bounds` | 当前帧包围盒投影；先裁剪近、远平面，再计算窗口相交范围 |
+| `projectionFrame(): ProjectionFrame` | 当前世界和 GUI 尺寸匹配的投影帧；没有有效捕获时返回 `null` |
+| `ProjectionFrame(ChromaProjection projection, long id, float partialTick, float frozenPartialTick)` | 不可变投影、帧编号与宿主普通/冻结实体的插值进度 |
 | `register(Consumer<Frame>): Registration` | 注册世界绘制回调，返回由调用方持有的注册句柄 |
 | `Frame(Vec3 cameraPosition, float partialTick)` | 当前帧的相机位置及插值进度 |
 | `Registration.close()` | 注销回调；可重复调用 |
-| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)`、`renderRegistered(float partialTick)` | 框架内部的视图捕获和回调调度 |
+| `capture(Camera, Matrix4fc modelView, Matrix4fc projection[, float partialTick, float frozenPartialTick])`、`beginFrame()`、`renderRegistered(float partialTick)` | 框架内部的捕获、帧失效和回调调度；三参数捕获的两个插值值均为 1 |
 
 注册回调由 `ChromaWorldMixin` 在 `collectPerFrameGizmos()` 区间内调用。回调内可以直接提交上述图形；不得从二维叠加或网络线程调用。回调抛出运行时异常时记录错误并注销，避免每帧重复失败。调用方在停用或销毁时关闭注册句柄，避免持有失效对象。点尺寸和线宽遵循 Gizmos 的屏幕尺寸约定；圆、球体与广告牌尺寸使用世界单位。
+
+`ChromaProjection` 为不持有 GPU 资源的不可变数学快照。构造参数为 `modelView, projection, cameraX, cameraY, cameraZ, width, height`，最后两个参数是正整数 GUI 尺寸。构造时复制矩阵；位置先以 double 减去相机坐标，再按 `projection × modelView` 变换。输入矩阵使用 OpenGL 齐次裁剪约定 `−w ≤ z ≤ w`，视图矩阵作用于相机相对坐标，不能重复包含世界相机平移。
+
+| 接口 | 行为 |
+| --- | --- |
+| `ChromaProjection.project(double x, double y, double z): Point` | 返回 `x/y/depth/onScreen`；无效数值、相机背后或近裁剪面之前返回 `null` |
+| `ChromaProjection.projectBounds(double minX, double minY, double minZ, double maxX, double maxY, double maxZ): Bounds` | 返回 `minX/minY/maxX/maxY/depth/onScreen`；包围盒的边先裁剪至近、远平面，无深度范围交集时返回 `null` |
+| `ChromaProjection.width()`、`height()` | 此快照的 GUI 尺寸 |
+
+单点位于屏幕侧方或远裁剪面之外时保留坐标，`onScreen=false`。包围盒与窗口相交时将矩形边界裁至窗口内；完全位于屏幕侧方时保留投影矩形并返回 `onScreen=false`。`depth` 为点或包围盒中心沿相机前向轴的有符号距离，不是欧氏距离；跨越相机的盒体可能具有负中心深度和非空可见部分。`onScreen` 只描述点或投影矩形的窗口范围，不读取深度缓冲或判断方块遮挡。
+
+`ChromaWorld.project()` 保留原返回类型及仅返回屏幕内点的调用方式，计算统一经过上述投影。每帧开始使旧捕获失效；窗口最小化、世界对象变化、GUI 尺寸不匹配时 `projectionFrame()` 返回 `null`。同帧批量投影先读取一次帧快照并复用；位置与包围盒必须使用相同插值，不能将旧快照当作当前帧。快照只占用普通 Java 内存，无需 `close()`。
+
+在已有画布回调中，可直接使用已按当前帧插值的包围盒：
+
+```java
+var frame = ChromaWorld.projectionFrame();
+if (frame != null) {
+    var screen = frame.projection().projectBounds(
+            bounds.minX, bounds.minY, bounds.minZ, bounds.maxX, bounds.maxY, bounds.maxZ);
+    if (screen != null && screen.onScreen()) {
+        ChromaDraw.outline(canvas, (float) screen.minX(), (float) screen.minY(),
+                (float) (screen.maxX() - screen.minX()), (float) (screen.maxY() - screen.minY()),
+                0f, 1f, 0xFFB3D8EF);
+    }
+}
+```
 
 `ChromaParticles` 提供调用方所属的有限粒子集合：
 
@@ -632,6 +663,7 @@ public final class ChromaAnimatedCapsule {
 | [ChromaSeparation](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaSeparation.java) | 可分离轮廓的几何构建与资源所有权 |
 | [ChromaStatusIcon](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaStatusIcon.java) | 对勾与叉号的路径绘制动画 |
 | [ChromaWorld](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaWorld.java) | 世界空间几何、深度策略、坐标投影与绘制注册 |
+| [ChromaProjection](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaProjection.java) | 不可变矩阵快照、单点及裁剪包围盒的投影数学 |
 | [ChromaParticles](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaParticles.java) | 有限粒子集合、模拟更新与插值绘制 |
 | [ChromaWorldMixin](../../src/client/java/com/pvp_utils/mixin/client/ChromaWorldMixin.java) | 世界几何收集与相机矩阵接入 |
 | [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java) | 帧开始、帧末绘制与叠加层生命周期接入 |

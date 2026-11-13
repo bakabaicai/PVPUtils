@@ -10,9 +10,7 @@ import com.pvp_utils.PVPUtils;
 import net.minecraft.gizmos.Gizmos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
-import org.joml.Vector4f;
 import org.joml.Vector3f;
 
 import java.util.List;
@@ -21,12 +19,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 public final class ChromaWorld {
-    private static final Matrix4f MODEL_VIEW = new Matrix4f();
-    private static final Matrix4f PROJECTION = new Matrix4f();
     private static Vec3 cameraPosition = Vec3.ZERO;
     private static boolean projectionReady;
     private static Vec3 cameraRight = new Vec3(1, 0, 0);
     private static Vec3 cameraUp = new Vec3(0, 1, 0);
+    private static long frameId;
+    private static Object projectionLevel;
+    private static ProjectionFrame projectionFrame;
     private static final CopyOnWriteArrayList<Registration> RENDERERS = new CopyOnWriteArrayList<>();
     private static final float[][] CIRCLE = circleVertices(24);
     private static final float[][] STAR = starVertices();
@@ -37,8 +36,25 @@ public final class ChromaWorld {
     }
 
     public static void capture(Camera camera, Matrix4fc modelViewMatrix, Matrix4fc projectionMatrix) {
-        if (camera == null) {
+        capture(camera, modelViewMatrix, projectionMatrix, 1f, 1f);
+    }
+
+    public static void beginFrame() {
+        frameId++;
+        projectionReady = false;
+        projectionFrame = null;
+        projectionLevel = null;
+    }
+
+    public static void capture(Camera camera, Matrix4fc modelViewMatrix, Matrix4fc projectionMatrix,
+                               float partialTick, float frozenPartialTick) {
+        Minecraft client = Minecraft.getInstance();
+        if (camera == null || client == null || client.level == null || client.getWindow().isMinimized()
+                || client.getWindow().getGuiScaledWidth() <= 0 || client.getWindow().getGuiScaledHeight() <= 0
+                || !Float.isFinite(partialTick) || !Float.isFinite(frozenPartialTick)) {
             projectionReady = false;
+            projectionFrame = null;
+            projectionLevel = null;
             return;
         }
         cameraPosition = camera.position();
@@ -46,9 +62,36 @@ public final class ChromaWorld {
         Vector3f up = new Vector3f(0f, 1f, 0f).rotate(camera.rotation());
         cameraRight = new Vec3(right.x, right.y, right.z);
         cameraUp = new Vec3(up.x, up.y, up.z);
-        MODEL_VIEW.set(modelViewMatrix);
-        PROJECTION.set(projectionMatrix);
+        projectionLevel = client.level;
+        projectionFrame = new ProjectionFrame(new ChromaProjection(modelViewMatrix, projectionMatrix,
+                cameraPosition.x, cameraPosition.y, cameraPosition.z,
+                client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight()),
+                frameId, Math.clamp(partialTick, 0f, 1f), Math.clamp(frozenPartialTick, 0f, 1f));
         projectionReady = true;
+    }
+
+    public static ProjectionFrame projectionFrame() {
+        Minecraft client = Minecraft.getInstance();
+        ProjectionFrame frame = projectionFrame;
+        if (frame == null || client == null || client.level == null || client.level != projectionLevel
+                || client.getWindow().isMinimized()
+                || frame.projection().width() != client.getWindow().getGuiScaledWidth()
+                || frame.projection().height() != client.getWindow().getGuiScaledHeight()) return null;
+        return frame;
+    }
+
+    public static ChromaProjection.Point projectDetailed(Vec3 position) {
+        ProjectionFrame frame = projectionFrame();
+        return frame == null || position == null ? null : frame.projection().project(position.x, position.y, position.z);
+    }
+
+    public static ChromaProjection.Bounds projectBounds(AABB box) {
+        ProjectionFrame frame = projectionFrame();
+        return frame == null || box == null ? null : frame.projection().projectBounds(
+                box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+    }
+
+    public record ProjectionFrame(ChromaProjection projection, long id, float partialTick, float frozenPartialTick) {
     }
 
     public static void line(Vec3 from, Vec3 to, int color, float width) {
@@ -181,34 +224,8 @@ public final class ChromaWorld {
     }
 
     public static ScreenPoint project(Vec3 position) {
-        if (!projectionReady) {
-            return null;
-        }
-        Minecraft client = Minecraft.getInstance();
-        if (client == null || client.level == null) {
-            return null;
-        }
-
-        Vector4f clip = new Vector4f(
-                (float) (position.x - cameraPosition.x),
-                (float) (position.y - cameraPosition.y),
-                (float) (position.z - cameraPosition.z),
-                1.0f
-        );
-        clip.mul(MODEL_VIEW).mul(PROJECTION);
-        if (clip.w <= 0.01f) {
-            return null;
-        }
-
-        float x = clip.x / clip.w;
-        float y = clip.y / clip.w;
-        if (x < -1.0f || x > 1.0f || y < -1.0f || y > 1.0f) {
-            return null;
-        }
-        return new ScreenPoint(
-                (x * 0.5f + 0.5f) * client.getWindow().getGuiScaledWidth(),
-                (0.5f - y * 0.5f) * client.getWindow().getGuiScaledHeight()
-        );
+        ChromaProjection.Point point = projectDetailed(position);
+        return point == null || !point.onScreen() ? null : new ScreenPoint((float) point.x(), (float) point.y());
     }
 
     public static Registration register(Consumer<Frame> renderer) {

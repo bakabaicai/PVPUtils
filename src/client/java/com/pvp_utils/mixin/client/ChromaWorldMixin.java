@@ -21,7 +21,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ChromaWorldMixin {
     @Inject(method = "renderLevel", at = @At("HEAD"))
     private void pvp_utils$renderWorld(GraphicsResourceAllocator resourceAllocator, DeltaTracker deltaTracker, boolean renderOutline, Camera camera, Matrix4f modelViewMatrix, Matrix4f projectionMatrix, Matrix4f frustumMatrix, GpuBufferSlice terrainFog, Vector4f fogColor, boolean shouldRenderSky, CallbackInfo ci) {
-        ChromaWorld.capture(camera, modelViewMatrix, projectionMatrix);
+        ChromaWorld.capture(camera, modelViewMatrix, projectionMatrix,
+                deltaTracker.getGameTimeDeltaPartialTick(true), deltaTracker.getGameTimeDeltaPartialTick(false));
         try (Gizmos.TemporaryCollection ignored = ((LevelRenderer) (Object) this).collectPerFrameGizmos()) {
             FireballLandingPredictor.render();
             ProjectileTrajectoryPredictor.render(deltaTracker.getGameTimeDeltaPartialTick(false));

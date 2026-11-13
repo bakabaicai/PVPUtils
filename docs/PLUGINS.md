@@ -93,6 +93,8 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | 指令预算检查间隔 | 1000 条计数指令 |
 | 日志与通知 | 每次入口/事件/渲染合计 32 次 |
 | 玩家修改 | 每次入口/事件合计 32 次，失败的尝试也计数 |
+| 世界实体查询 | 每次入口、事件派发或整轮渲染最多 4 次；单次最多 128 个实体 |
+| 单点与批量投影合计 | 每次入口、事件派发或整轮渲染最多 1024 点；单批最多 256 点 |
 | 每种事件注册数 | 32 |
 | 设置数 | 64 |
 | HUD 数 | 16 |
@@ -114,6 +116,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | `pvputils.notify` | `show(message)` |
 | `pvputils.events` | `on(event, callback)` |
 | `pvputils.player` | `snapshot()`、`get()` |
+| `pvputils.world` | `status()`、`entities(maxDistance?, limit?)`、`project(x, y, z)`、`projectMany(points)` |
 | 玩家句柄 | `snapshot()`、`target()`、`setRotation(yaw, pitch)`、`setVelocity(x, y, z)`、`setSprinting(enabled)`、`jump()`、`swing(hand?)`、`useItem(hand?)`、`stopUsingItem()`、`closeMenu()`、`attackTarget()`、`interactTarget(hand?)`、`inventory` |
 | 玩家 `inventory` | `getItems()`、`getSlot(slot)`、`getSelectedSlot()`、`select(slot)`、`getMenu()` |
 | 容器句柄 | `snapshot()`、`click(slot, button, type)` |
@@ -122,7 +125,7 @@ ClickGUI 的“插件”页包含开关、设置、单插件重载、错误信�
 | `pvputils.storage` | `get(key, fallback?)`、`set(key, value)` |
 | `pvputils.hud` | `register({id, render})` |
 | `pvputils.ui` | `screen(definition)`、`open(id)`、`close()` |
-| 绘制上下文 | `width`、`height`、`screenWidth`、`screenHeight`、`mouseX`、`mouseY`、`text`、`textWidth`、`textShadow`、`rect`、`roundedRect`、`line`、`outline`、`gradient`、`gradientDiagonal`、`shadow`、`circle`、`icon`、`texture`、`blur`、`save`、`restore`、`translate`、`scale`、`rotate`、`clip`、`clipRounded`、`button` |
+| 绘制上下文 | `width`、`height`、`screenWidth`、`screenHeight`、`mouseX`、`mouseY`、`originX`、`originY`、`originScale`、`text`、`textWidth`、`textShadow`、`rect`、`roundedRect`、`line`、`outline`、`gradient`、`gradientDiagonal`、`shadow`、`circle`、`icon`、`texture`、`blur`、`save`、`restore`、`translate`、`scale`、`rotate`、`clip`、`clipRounded`、`button` |
 
 ## 4. 基础与通知
 
@@ -290,6 +293,94 @@ if (player) {
         if (!result.ok) pvputils.log(result.code);
     }
 }
+```
+
+### 6.7 世界实体与屏幕投影
+
+`pvputils.world` 返回客户端已加载实体的只读副本及世界坐标投影，不请求服务端数据，不返回 Minecraft 对象或实体操作句柄。接口仍使用 API v1；兼容旧宿主的插件应先检查 `pvputils.world` 是否存在。
+
+**权限与状态**
+
+每个插件默认没有世界读取权限。在 ClickGUI 插件页展开插件，开启“允许读取世界实体”后立即生效。权限由宿主管理，插件不能通过设置或存储接口自行授权。撤销权限影响后续调用，不能收回已经交付的数据副本。
+
+权限文件为插件目录下的 `.world-permissions.json`，与 `.data` 中的插件存储分离。`"world.<插件ID>": true` 表示授权；根级 `"enabled": false` 全局禁止读取。配置在客户端启动时读取；读取失败时禁止访问，后续切换不会覆盖读取失败的文件。
+
+`world.status()` 不接受参数，返回以下字段：
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `allowed` | boolean | 本次调用是否允许读取；需已授权、全局允许且当前没有暂停插件操作的确认窗口 |
+| `available` | boolean | 已允许读取，且玩家和世界存在、窗口未最小化 |
+| `projectionReady` | boolean | 当前帧投影与世界、GUI 尺寸一致 |
+| `dimension` | string / null | 可用世界的维度注册 ID |
+| `frameId` | number / null | 当前有效投影帧编号，仅用于比较，不表示时间或 Tick |
+
+无权限时 `entities()` 和 `projectMany()` 返回 `[]`，`project()` 返回 `null`；`status()` 的布尔字段均为 `false`，其他字段为 `null`。参数验证及调用预算仍然生效。
+
+**实体查询：`world.entities(maxDistance?, limit?)`**
+
+`maxDistance` 默认 64，有限数值夹紧到 1–512；`limit` 默认 64，整数夹紧到 1–128。允许省略或传入 `undefined`；字符串、非有限数、非整数的 `limit` 抛 `TypeError`。最多接受两个参数。
+
+结果按与本地玩家的三维距离升序排列，同距离按实体 ID 排序。排除自己、已移除实体、旁观实体及 `isInvisibleTo(localPlayer)` 为真的实体。原版允许旁观者或特定队友看见的隐身实体可能保留，`invisible` 仍为 `true`。结果可包含墙后及屏幕外的已加载实体。
+
+无玩家、无世界或窗口最小化时返回 `[]`。Tick 或初始化回调可读取实体状态，当前帧矩阵尚未捕获时 `screen=null`。渲染回调中的位置、距离和包围盒使用当前帧插值，冻结实体采用宿主对应插值；无有效投影帧时使用当前 Tick 位置。位置插值沿用原版实体渲染器的 `xOld/yOld/zOld`；包围盒来自实体碰撞包围盒，不追踪模型动画或专用渲染器的额外变换。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `id` / `uuid` | number / string | 实体 ID 与 UUID；ID 只在当前世界内关联，可与玩家句柄 `target().id` 对照 |
+| `name` | string | 显示名；掉落物使用物品名称，最多 128 个 UTF-16 单元 |
+| `type` | string | `player`、`mob`、`item`、`other`；`mob` 为非玩家的 LivingEntity |
+| `key` | string | 实体类型注册 ID，例如 `minecraft:zombie` |
+| `x` / `y` / `z` | number | 实体位置，沿用玩家快照的位置口径，不改为包围盒中心；有有效帧时按上述规则插值 |
+| `yaw` | number | 相同插值时刻的偏航角，单位为度 |
+| `distance` | number | 与本地玩家位置的三维距离，按各自当前帧插值计算，单位为方块 |
+| `alive` / `invisible` / `player` | boolean | 是否存活、具有隐身状态、是否为玩家 |
+| `health` / `maxHealth` / `armor` | number / null | 生物的生命、最大生命、护甲；不适用或非有限数据为 `null` |
+| `count` / `item` | number / string / null | 掉落物数量和物品注册 ID；其他实体为 `null` |
+| `width` / `height` | number | 包围盒 X 轴宽度和 Y 轴高度 |
+| `bounds` | object | 同一插值时刻的世界包围盒：`minX/minY/minZ/maxX/maxY/maxZ` |
+| `screen` | object / null | 投影包围盒；无有效帧或盒体完全在深度裁剪范围外时为 `null` |
+
+`screen` 包含 `minX/minY/maxX/maxY/depth/onScreen`。坐标为全屏 GUI 单位；与窗口相交时边界裁至窗口内，完全位于屏幕侧方时保留投影边界并令 `onScreen=false`。盒体的边先在齐次空间裁剪至近、远平面，再投影。`depth` 为盒体中心沿相机前向轴的有符号距离，跨越相机的盒体可能有负中心深度和非空可见部分。`onScreen` 仅描述投影矩形与窗口相交，不判断方块遮挡。
+
+**单点与批量投影**
+
+`world.project(x, y, z)` 必须传入三个有限数值，各坐标绝对值最多 30000000。返回 `{x, y, depth, onScreen}`；无有效帧、位于相机背后或近裁剪面之前时返回 `null`。屏幕侧方及远裁剪面之外的可投影点保留坐标，`onScreen=false`。`depth` 是沿相机前向轴的有符号距离，不是欧氏距离。
+
+`world.projectMany(points)` 只接受一个由 `{x, y, z}` 对象组成的数组，最多 256 点。空数组合法；稀疏数组、缺少坐标和非法坐标使整次调用抛 `TypeError`。有权限时输出与输入等长、顺序一致，不能投影的位置保留 `null`；无世界或矩阵时返回等长的 `null` 数组。单点与批量投影共用每轮 1024 点限额。
+
+**缓存、预算与坐标**
+
+桥接层共享同一帧最近的 128 个候选及最多 16 组查询结果；每个候选的投影最多生成一次，不同插件和查询参数复用宿主内部快照，交付给各插件的 JS 数据副本仍相互独立。实体基础信息按 Tick 缓存，最多 512 项；世界或玩家实例变化时清空。位置、距离和投影按帧更新，不能长期复用旧视角的 `screen` 或另一世界的实体 ID。
+
+查询先选最近实体，再构造数据与投影，不对全部实体排序。单次扫描最多检查 32768 个实体，每 64 个检查宿主预算及 8 毫秒扫描时限；这是协作式检查，不是线程抢占。超限会报告错误并停用调用插件，不返回声称完整的截断结果。同一失效查询阶段再次扫描直接失败。已有脚本指令、20 毫秒回调预算及 2048 次绘制限额仍然生效。
+
+投影始终使用全屏 GUI 坐标。`events.on("render", ...)` 的基础坐标与投影一致。可拖动 HUD 提供只读的 `ctx.originX/originY/originScale`，可按以下公式转换为其基础局部坐标：
+
+```javascript
+const localX = (point.x - ctx.originX) / ctx.originScale;
+const localY = (point.y - ctx.originY) / ctx.originScale;
+```
+
+这些字段不包含脚本额外的 `translate/scale/rotate`；额外变换由调用方反变换。不要再次乘 GUI scale。
+
+示例：通过现有二维回调绘制实体的投影包围框。
+
+```javascript
+pvputils.events.on("render", ctx => {
+    if (!pvputils.world || !pvputils.world.status().projectionReady) return;
+    const entities = pvputils.world.entities(64, 64);
+    for (let i = 0; i < 64; i++) {
+        if (i >= entities.length) break;
+        const box = entities[i].screen;
+        if (!box || !box.onScreen) continue;
+        const color = "#B3D8EF";
+        ctx.line(box.minX, box.minY, box.maxX, box.minY, 1, color);
+        ctx.line(box.maxX, box.minY, box.maxX, box.maxY, 1, color);
+        ctx.line(box.maxX, box.maxY, box.minX, box.maxY, 1, color);
+        ctx.line(box.minX, box.maxY, box.minX, box.minY, 1, color);
+    }
+});
 ```
 
 ## 7. 背包与容器接口
@@ -481,8 +572,8 @@ pvputils.hud.register({
 
 ## 11. 当前范围与验证
 
-本阶段已开放玩家状态、受控玩家动作、准星交互、背包读取、快捷栏选择和容器点击。
-HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接管、任意世界实体枚举、
+本阶段已开放玩家状态、受控玩家动作、准星交互、背包读取、快捷栏选择、容器点击、受权限控制的世界实体快照及单点/批量投影。
+HTTP、异步任务、动态命令注册、全局键鼠事件、持续按键接管、世界三维绘制回调、
 现有模块开关和完整 ClickGUI 组件树尚未实现。自定义 Screen 有独立输入回调。
 不要把 Java/Minecraft 方法名直接当成 JS 接口。
 

@@ -8,6 +8,19 @@ public final class PluginFeedback {
     public static String message(String value) {
         if (value == null || value.isBlank()) return value == null ? "" : value;
         String translated = switch (value) {
+            case "World bridge called from another thread" -> UiText.t("世界接口被其他线程调用", "World bridge called from another thread");
+            case "World coordinate exceeds limit" -> UiText.t("世界坐标超出允许范围", "World coordinate exceeds limit");
+            case "World entity scan exceeds limit" -> UiText.t("世界实体查询超出扫描预算", "World entity scan exceeds limit");
+            case "World projection budget exceeded" -> UiText.t("世界投影点数超出单轮限额", "World projection budget exceeded");
+            case "Too many world entity queries" -> UiText.t("世界实体查询次数超出单轮限额", "Too many world entity queries");
+            case "Expected finite numeric argument" -> UiText.t("参数必须为有限数值", "Expected finite numeric argument");
+            case "Entity limit must be an integer" -> UiText.t("实体数量上限必须为整数", "Entity limit must be an integer");
+            case "entities accepts at most two arguments" -> UiText.t("entities 最多接受两个参数", "entities accepts at most two arguments");
+            case "project requires three coordinates" -> UiText.t("project 需要三个坐标参数", "project requires three coordinates");
+            case "projectMany requires an array of points" -> UiText.t("projectMany 需要坐标点数组", "projectMany requires an array of points");
+            case "At most 256 points per projection batch" -> UiText.t("每批最多投影 256 个坐标点", "At most 256 points per projection batch");
+            case "Each point requires numeric x, y and z" -> UiText.t("每个坐标点必须包含数值 x、y、z", "Each point requires numeric x, y and z");
+            case "status takes no arguments" -> UiText.t("status 不接受参数", "status takes no arguments");
             case "Approval queue limit" -> UiText.t("审批队列已满", "Approval queue limit");
             case "At most 8 filtered effects per frame" -> UiText.t("每帧最多使用 8 个滤镜效果", "At most 8 filtered effects per frame");
             case "Backdrop effects require base coordinates" -> UiText.t("背景效果必须使用基础坐标", "Backdrop effects require base coordinates");

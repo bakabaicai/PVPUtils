@@ -48,7 +48,7 @@ Section 8 lists file locations and responsibilities. The interface sections defi
 
 ### 2.1 Current frame sequence
 
-1. `MinecraftMixin` calls `ChromaGraphics.beginFrame()` at the start of `Minecraft.runTick`, clearing both submission queues.
+1. `MinecraftMixin` calls `ChromaGraphics.beginFrame()` at the start of `Minecraft.runTick`, clearing both submission queues and invalidating the previous world projection.
 2. Minecraft collects GUI content. Calls to `draw()` outside an active Skia canvas during this stage enter the main-target queue.
 3. `GameRendererMixin` calls `renderMainSubmitted()` before `GuiRenderer.render(GpuBufferSlice)`, drawing that queue into the Minecraft main color target.
 4. After Minecraft calls `blitToScreen()`, `ChromaFrameRenderer.render()` starts the overlay pass. It skips minimized windows. When a loading overlay is present, it only handles an enabled `ChromaOverlay`.
@@ -212,12 +212,43 @@ Positions use world coordinates. Commands are submitted within Minecraft's Gizmo
 | `ParticleShape` | `QUAD`, `CIRCLE`, `STAR`, `HEART`, and `BLOOM`; geometric shapes without external textures |
 | `project(Vec3): ScreenPoint` | World-to-GUI projection; may return `null` and does not test depth occlusion |
 | `ScreenPoint(float x, float y)` | Projected GUI coordinates |
+| `projectDetailed(Vec3): ChromaProjection.Point` | Full current-frame projection; retains off-screen coordinates and reports viewport inclusion through `onScreen` |
+| `projectBounds(AABB): ChromaProjection.Bounds` | Projects a box after clipping its edges to the near and far planes |
+| `projectionFrame(): ProjectionFrame` | Projection captured for the current world and GUI dimensions; returns `null` without a valid capture |
+| `ProjectionFrame(ChromaProjection projection, long id, float partialTick, float frozenPartialTick)` | Immutable projection, frame number, and the host's ordinary/frozen entity interpolation values |
 | `register(Consumer<Frame>): Registration` | Registers a world drawing callback and returns a caller-owned registration handle |
 | `Frame(Vec3 cameraPosition, float partialTick)` | Current camera position and interpolation progress |
 | `Registration.close()` | Unregisters the callback; repeated calls are allowed |
-| `capture(Camera, Matrix4fc modelView, Matrix4fc projection)`, `renderRegistered(float partialTick)` | Framework-internal view capture and callback scheduling |
+| `capture(Camera, Matrix4fc modelView, Matrix4fc projection[, float partialTick, float frozenPartialTick])`, `beginFrame()`, `renderRegistered(float partialTick)` | Framework-internal capture, frame invalidation, and callback scheduling; the three-argument capture uses 1 for both interpolation values |
 
 `ChromaWorldMixin` invokes registered callbacks inside `collectPerFrameGizmos()`. Callbacks may submit these shapes directly; do not invoke them from a 2D overlay or networking thread. A callback that throws a runtime exception is logged and unregistered to prevent repeated frame failures. Close registration handles on deactivation or destruction so they do not retain stale objects. Point size and line width follow Gizmos screen-size conventions; circle, sphere, and billboard dimensions use world units.
+
+`ChromaProjection` is an immutable mathematical snapshot without GPU resources. Its constructor takes `modelView, projection, cameraX, cameraY, cameraZ, width, height`, where the final two arguments are positive GUI dimensions. It copies the matrices, subtracts the camera position in double precision, then applies `projection × modelView`. Input matrices use the OpenGL homogeneous clip convention `−w ≤ z ≤ w`. The view matrix acts on camera-relative coordinates and must not repeat the world camera translation.
+
+| Interface | Behavior |
+| --- | --- |
+| `ChromaProjection.project(double x, double y, double z): Point` | Returns `x/y/depth/onScreen`; returns `null` for invalid values, points behind the camera, or points before the near plane |
+| `ChromaProjection.projectBounds(double minX, double minY, double minZ, double maxX, double maxY, double maxZ): Bounds` | Returns `minX/minY/maxX/maxY/depth/onScreen`; clips box edges to the near and far planes, returning `null` without a depth-range intersection |
+| `ChromaProjection.width()`, `height()` | GUI dimensions of this snapshot |
+
+Points outside the viewport or beyond the far plane retain their coordinates with `onScreen=false`. Projected box rectangles intersecting the viewport are clamped to its bounds; rectangles entirely to one side retain their projected bounds with `onScreen=false`. `depth` is the signed camera-forward distance of the point or box center, not Euclidean distance. A box crossing the camera may have a negative center depth and a nonempty visible portion. `onScreen` only describes viewport inclusion or rectangle intersection; it does not sample the depth buffer or test block occlusion.
+
+`ChromaWorld.project()` retains its return type and screen-only result convention while sharing this calculation. Frame start invalidates the previous capture. Minimized windows, world identity changes, and GUI size mismatches make `projectionFrame()` return `null`. Read the frame once for a batch and reuse its projection. Positions and boxes must use matching interpolation, and an old snapshot must not be treated as the current frame. Snapshots contain ordinary Java memory and do not require `close()`.
+
+Inside an existing canvas callback, project a box already interpolated for the current frame:
+
+```java
+var frame = ChromaWorld.projectionFrame();
+if (frame != null) {
+    var screen = frame.projection().projectBounds(
+            bounds.minX, bounds.minY, bounds.minZ, bounds.maxX, bounds.maxY, bounds.maxZ);
+    if (screen != null && screen.onScreen()) {
+        ChromaDraw.outline(canvas, (float) screen.minX(), (float) screen.minY(),
+                (float) (screen.maxX() - screen.minX()), (float) (screen.maxY() - screen.minY()),
+                0f, 1f, 0xFFB3D8EF);
+    }
+}
+```
 
 `ChromaParticles` supplies a caller-owned, bounded particle collection:
 
@@ -632,6 +663,7 @@ Change reports should identify the rendering stage used, cache and resource life
 | [ChromaSeparation](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaSeparation.java) | Geometry construction and ownership for separating shapes |
 | [ChromaStatusIcon](../../src/client/java/com/pvp_utils/client/render/chroma/effects/ChromaStatusIcon.java) | Path reveal animation for checks and crosses |
 | [ChromaWorld](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaWorld.java) | World geometry, depth policy, projection, and callback registration |
+| [ChromaProjection](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaProjection.java) | Immutable matrix snapshots and projection math for points and clipped boxes |
 | [ChromaParticles](../../src/client/java/com/pvp_utils/client/render/chroma/world/ChromaParticles.java) | Bounded particle storage, simulation updates, and interpolated drawing |
 | [ChromaWorldMixin](../../src/client/java/com/pvp_utils/mixin/client/ChromaWorldMixin.java) | World geometry collection and camera matrix integration |
 | [MinecraftMixin](../../src/client/java/com/pvp_utils/mixin/client/MinecraftMixin.java) | Frame start, final drawing, and overlay lifecycle integration |

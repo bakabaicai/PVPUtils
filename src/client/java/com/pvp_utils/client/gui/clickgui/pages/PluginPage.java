@@ -54,6 +54,14 @@ public final class PluginPage extends BasePage {
             for (String finding : plugin.findings()) {
                 module.addSub(UiText.t("安全审计", "Security audit"), finding, null);
             }
+            if (!plugin.id().startsWith("invalid:")) {
+                module.addSub(UiText.t("允许读取世界实体", "Allow world entity access"),
+                        manager.isWorldAccessEnabled()
+                                ? UiText.t("读取附近实体和屏幕投影。", "Read nearby entities and screen projections.")
+                                : UiText.t("世界读取已被全局禁用。", "World access is disabled globally."),
+                        new SettingToggle(() -> manager.isWorldAccessGranted(plugin.id()),
+                                allowed -> manager.setWorldAccessAllowed(plugin.id(), allowed)));
+            }
             for (var setting : manager.settings(plugin.id())) {
                 var widget = switch (setting.type()) {
                     case "bool" -> new SettingToggle(() -> (Boolean) setting.value(), value -> saveSetting(setting, value));

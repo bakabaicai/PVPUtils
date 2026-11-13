@@ -38,6 +38,18 @@ public final class PluginRuntime implements AutoCloseable {
         }
         default void releasePlayer() {
         }
+        default String worldStatus() {
+            return "{\"allowed\":false,\"available\":false,\"projectionReady\":false,\"dimension\":null,\"frameId\":null}";
+        }
+        default String worldEntities(double distance, int limit, Runnable budget) {
+            return "[]";
+        }
+        default String worldProject(double x, double y, double z) {
+            return "null";
+        }
+        default String worldProjectMany(double[] coordinates, Runnable budget) {
+            return "[]";
+        }
         void draw(String operation, Object[] arguments);
         double textWidth(Object[] arguments);
         default void pushDraw() {}
@@ -62,6 +74,8 @@ public final class PluginRuntime implements AutoCloseable {
     private int drawCalls;
     private int messages;
     private int playerActions;
+    private int worldQueries;
+    private int worldPoints;
     private int storageWrites;
     private final RateBudget messageBudget = new RateBudget(32);
     private final RateBudget storageBudget = new RateBudget(16);
@@ -154,6 +168,28 @@ public final class PluginRuntime implements AutoCloseable {
                 function(player, "get", (context, args) -> {
                     String token = host.playerToken();
                     return token == null ? null : playerHandle(context, token);
+                });
+                Scriptable world = object(cx);
+                property(api, "world", world);
+                function(world, "status", (context, args) -> {
+                    if (args.length != 0) throw new IllegalArgumentException("status takes no arguments");
+                    return parse(context, host.worldStatus());
+                });
+                function(world, "entities", (context, args) -> {
+                    if (++worldQueries > 4) throw new ScriptLimitException("Too many world entity queries");
+                    double distance = PluginWorldArguments.distance(args);
+                    int limit = PluginWorldArguments.limit(args);
+                    return parse(context, host.worldEntities(distance, limit, () -> factory.check(context)));
+                });
+                function(world, "project", (context, args) -> {
+                    double[] point = PluginWorldArguments.point(args);
+                    consumeWorldPoints(1);
+                    return parse(context, host.worldProject(point[0], point[1], point[2]));
+                });
+                function(world, "projectMany", (context, args) -> {
+                    double[] points = PluginWorldArguments.points(args, () -> factory.check(context));
+                    consumeWorldPoints(points.length / 3);
+                    return parse(context, host.worldProjectMany(points, () -> factory.check(context)));
                 });
                 Scriptable store = object(cx);
                 property(api, "storage", store);
@@ -354,11 +390,14 @@ public final class PluginRuntime implements AutoCloseable {
         context.setGetterOrSetter("height", 0, createFunction((current, args) -> renderHeight), false);
         context.setAttributes("width", ScriptableObject.READONLY | ScriptableObject.PERMANENT);
         context.setAttributes("height", ScriptableObject.READONLY | ScriptableObject.PERMANENT);
-        for (String key : List.of("screenWidth", "screenHeight", "mouseX", "mouseY")) {
+        for (String key : List.of("screenWidth", "screenHeight", "mouseX", "mouseY", "originX", "originY", "originScale")) {
             context.setGetterOrSetter(key, 0, createFunction((current, args) -> switch (key) {
                 case "screenWidth" -> screenWidth;
                 case "screenHeight" -> screenHeight;
                 case "mouseX" -> host.mouseX();
+                case "originX" -> originX;
+                case "originY" -> originY;
+                case "originScale" -> originScale;
                 default -> host.mouseY();
             }), false);
             context.setAttributes(key, ScriptableObject.READONLY | ScriptableObject.PERMANENT);
@@ -767,6 +806,8 @@ public final class PluginRuntime implements AutoCloseable {
         if (Thread.currentThread() != owner) throw new IllegalStateException("Plugin called from another thread");
         messages = 0;
         playerActions = 0;
+        worldQueries = 0;
+        worldPoints = 0;
         uiActions = 0;
         storageWrites = 0;
         try {
@@ -783,6 +824,11 @@ public final class PluginRuntime implements AutoCloseable {
     private void consumeStorageWrite() {
         if (++storageWrites > 8) throw new ScriptLimitException("Too many storage writes");
         storageBudget.take();
+    }
+
+    private void consumeWorldPoints(int count) {
+        worldPoints += count;
+        if (worldPoints > 1024) throw new ScriptLimitException("World projection budget exceeded");
     }
 
     @Override
