@@ -5,6 +5,7 @@ import com.pvp_utils.Config;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
+import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 import org.lwjgl.glfw.GLFW;
@@ -17,6 +18,7 @@ public final class ModuleKeybindManager {
     public static final String ACTION_OPEN_MUSIC = "action.netease_music";
     public static final String ACTION_ZOOM = "action.zoom";
     public static final String ACTION_FREELOOK = "action.freelook";
+    public static final String ACTION_TACTICAL_PING = "action.tactical_ping";
     private static final int MOUSE_KEY_OFFSET = -1000;
     private static final Map<String, Integer> KEYBINDS = new LinkedHashMap<>();
     private static final Map<String, SettingModule> MODULES = new LinkedHashMap<>();
@@ -140,6 +142,16 @@ public final class ModuleKeybindManager {
         return key != null && isKeyDown(client, key);
     }
 
+    public static boolean isMouseBound(String id) {
+        Integer key = id == null ? null : KEYBINDS.get(id);
+        return key != null && key <= MOUSE_KEY_OFFSET;
+    }
+
+    public static boolean isBoundToMouseButton(String id, int button) {
+        Integer key = id == null ? null : KEYBINDS.get(id);
+        return key != null && key <= MOUSE_KEY_OFFSET && MOUSE_KEY_OFFSET - key == button;
+    }
+
     private static boolean isKeyDown(Minecraft client, int key) {
         if (key <= MOUSE_KEY_OFFSET) {
             return GLFW.glfwGetMouseButton(client.getWindow().handle(), MOUSE_KEY_OFFSET - key) == GLFW.GLFW_PRESS;
@@ -157,6 +169,10 @@ public final class ModuleKeybindManager {
             return;
         }
         if (ACTION_ZOOM.equals(id) || ACTION_FREELOOK.equals(id)) return;
+        if (ACTION_TACTICAL_PING.equals(id)) {
+            if (!isMouseBound(id)) TacticalPingManager.ping(client);
+            return;
+        }
         SettingModule module = MODULES.get(id);
         if (module != null) module.toggleFromKeybind();
     }
@@ -166,6 +182,7 @@ public final class ModuleKeybindManager {
         KEYBINDS.putIfAbsent(ACTION_OPEN_MUSIC, GLFW.GLFW_KEY_RIGHT_CONTROL);
         KEYBINDS.putIfAbsent(ACTION_ZOOM, GLFW.GLFW_KEY_C);
         KEYBINDS.putIfAbsent(ACTION_FREELOOK, MOUSE_KEY_OFFSET - GLFW.GLFW_MOUSE_BUTTON_4);
+        KEYBINDS.putIfAbsent(ACTION_TACTICAL_PING, MOUSE_KEY_OFFSET - GLFW.GLFW_MOUSE_BUTTON_3);
     }
 
     private static void saveBindings() {

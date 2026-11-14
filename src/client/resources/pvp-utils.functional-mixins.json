@@ -103,6 +103,8 @@
     "TextureManagerAccessor",
     "LevelParticleMixin",
     "ParticleEngineMixin",
+    "LevelWeatherMixin",
+    "BiomeWeatherMixin",
     "WeatherEffectRendererMixin",
     "BetterChatChatMixin",
     "BetterChatGuiMessageMixin",

@@ -2,6 +2,7 @@ package com.pvp_utils.client.communication;
 
 import com.mojang.authlib.GameProfile;
 import com.pvp_utils.Config;
+import com.pvp_utils.client.TranslationKeyGuard;
 import com.pvp_utils.client.util.ChatUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -158,6 +159,7 @@ public final class EncryptedChatManager {
     }
 
     public static DisplayResult receive(Component component, GameProfile sender, String signedContent, ChatType.Bound chatType) {
+        TranslationKeyGuard.unmarkFromNetwork(component);
         if (!hasValidKey() || currentKey == null) {
             return new DisplayResult(component, false);
         }
@@ -191,6 +193,7 @@ public final class EncryptedChatManager {
     }
 
     public static Component narration(Component component) {
+        TranslationKeyGuard.unmarkFromNetwork(component);
         if (!hasValidKey() || currentKey == null) return component;
         String source = component.getString();
         if (source.length() > 4096) return component;

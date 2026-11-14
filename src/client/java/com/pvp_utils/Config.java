@@ -361,6 +361,10 @@ public class Config {
     public static float arraylistX = 0f;
     public static float arraylistY = 0f;
     public static float arraylistScale = 1.0f;
+    public static ArraylistStyle arraylistStyle = ArraylistStyle.LITE;
+    public static boolean arraylistTextGlow = false;
+    public static boolean arraylistBackground = true;
+    public static boolean arraylistBackgroundRounded = false;
     public static int arraylistColorRed = 80;
     public static int arraylistColorGreen = 255;
     public static int arraylistColorBlue = 255;
@@ -424,6 +428,7 @@ public class Config {
     public enum ItemUseStatusMode { LITE, BLUR }
     public enum FreelookTriggerMode { HOLD, TOGGLE }
     public enum HudStyle { LITE, BLUR, MATERIAL }
+    public enum ArraylistStyle { LITE, NEW }
     public enum MainUIBackgroundMode { GLSL, IMAGE, VIDEO }
     public enum MainUIGlslMode { RANDOM, FIXED }
     public enum DynamicIslandBackground { BLUR, SOLID }

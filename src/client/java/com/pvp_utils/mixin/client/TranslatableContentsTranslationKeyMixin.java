@@ -7,11 +7,15 @@ import com.pvp_utils.client.TranslationKeyMarker;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(TranslatableContents.class)
 public class TranslatableContentsTranslationKeyMixin implements TranslationKeyMarker {
+
+    @Shadow
+    private Language decomposedWith;
 
     @Unique
     private boolean pvp_utils$fromNetwork = false;
@@ -41,6 +45,13 @@ public class TranslatableContentsTranslationKeyMixin implements TranslationKeyMa
     @Override
     public void pvp_utils$markTranslationKey() {
         pvp_utils$fromNetwork = true;
+        this.decomposedWith = null;
+    }
+
+    @Override
+    public void pvp_utils$unmarkTranslationKey() {
+        pvp_utils$fromNetwork = false;
+        this.decomposedWith = null;
     }
 
     @Override

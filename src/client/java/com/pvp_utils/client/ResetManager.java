@@ -221,6 +221,10 @@ public class ResetManager {
         Config.arraylistX = 0f;
         Config.arraylistY = 0f;
         Config.arraylistScale = 1.0f;
+        Config.arraylistStyle = Config.ArraylistStyle.LITE;
+        Config.arraylistTextGlow = false;
+        Config.arraylistBackground = true;
+        Config.arraylistBackgroundRounded = false;
         Config.arraylistColorRed = 80;
         Config.arraylistColorGreen = 255;
         Config.arraylistColorBlue = 255;

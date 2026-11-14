@@ -20,11 +20,12 @@ public class ToolPage extends BasePage {
 
     public ToolPage() {
         SettingModule tacticalPing = new SettingModule(UiText.t("战术标点", "Tactical Ping"),
-                UiText.t("中键标记位置，双击标记敌人", "Mark a location with the middle mouse button; double-click to mark an enemy"),
+                UiText.t("按快捷键标记位置（默认中键），双击标记敌人", "Mark a location with the keybind (default middle mouse); double-press to mark an enemy"),
                 new SettingToggle(() -> Config.tacticalPing, value -> {
                     Config.tacticalPing = value && EncryptedChatManager.hasValidKey();
                     Config.save();
                 }))
+                .keybindAction(ModuleKeybindManager.ACTION_TACTICAL_PING)
                 .addSubVisible(UiText.t("密钥配置", "Key Setup"), "",
                         new SettingLabel(() -> UiText.t("请先在客户端加密聊天中配置至少5个字符的密钥",
                                 "First set a key with at least 5 characters in Client Encrypted Chat"), 230f),

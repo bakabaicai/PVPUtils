@@ -1,7 +1,11 @@
 package com.pvp_utils.client.modules.impl.Render;
 
 import com.pvp_utils.Config;
+import com.pvp_utils.client.render.chroma.ChromaDraw;
 import com.pvp_utils.client.skin.SkinManager;
+import io.github.humbleui.skija.Canvas;
+import io.github.humbleui.skija.Path;
+import io.github.humbleui.skija.PathBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -9,6 +13,7 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 public class ArraylistRenderer {
@@ -21,6 +26,14 @@ public class ArraylistRenderer {
     private static final int BACKGROUND_COLOR = 0x66000000;
     private static final int PREVIEW_WIDTH = 104;
     private static final int PREVIEW_HEIGHT = 52;
+    private static final float NEW_LINE_HEIGHT = 13f;
+    private static final float NEW_TEXT_SIZE = 9f;
+    private static final float NEW_PADDING = 4f;
+    private static final float NEW_ACCENT_WIDTH = 2f;
+    private static final float NEW_CORNER_RADIUS = 6f;
+    private static final float NEW_BOLD_OFFSET = 0.4f;
+    private static final int NEW_SUFFIX_COLOR = 0xFFAAAAAA;
+    private static final int NEW_BACKGROUND_COLOR = 0x700D0B10;
 
     private static final List<Entry> ENTRIES = List.of(
             new Entry("Auto GG", () -> Config.autoGG),
@@ -75,6 +88,7 @@ public class ArraylistRenderer {
     }
 
     public void render(GuiGraphics graphics) {
+        if (isNewStyle()) return;
         Minecraft client = Minecraft.getInstance();
         if (!Config.arraylist) return;
         if (client.player == null || client.options.hideGui) return;
@@ -113,11 +127,26 @@ public class ArraylistRenderer {
         graphics.pose().popMatrix();
     }
 
+    public void renderChroma(Canvas canvas) {
+        if (!Config.arraylist || !isNewStyle()) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null || client.options.hideGui) return;
+        if (client.screen != null && !(client.screen instanceof ChatScreen)
+                && !HudEditOverlay.getInstance().isActive()) return;
+        List<NewRow> rows = newRows();
+        if (rows.isEmpty()) return;
+        drawNew(canvas, rows, newWidth(rows),
+                getRenderX(client.getWindow().getGuiScaledWidth()),
+                getRenderY(client.getWindow().getGuiScaledHeight()), getScale());
+    }
+
     public float getEditWidth() {
+        if (isNewStyle()) return newWidth(newRows()) * getScale();
         return (baseWidth(activeOrPreviewNames()) + borderOutset() * 2f) * getScale();
     }
 
     public float getEditHeight() {
+        if (isNewStyle()) return newRows().size() * NEW_LINE_HEIGHT * getScale();
         return (Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) + borderOutset() * 2f) * getScale();
     }
 
@@ -134,14 +163,17 @@ public class ArraylistRenderer {
     }
 
     public float getDefaultX(int screenW) {
+        if (isNewStyle()) return screenW - getEditWidth() - 3f;
         return 8f;
     }
 
     public float getDefaultY() {
+        if (isNewStyle()) return 3f;
         return 28f;
     }
 
     public float getRenderX(int screenW) {
+        if (isNewStyle()) return clamp(getDefaultX(screenW) + Config.arraylistX, 0f, Math.max(0f, screenW - getEditWidth()));
         float scale = getScale();
         float contentW = baseWidth(activeOrPreviewNames()) * scale;
         float outset = borderOutset() * scale;
@@ -149,6 +181,7 @@ public class ArraylistRenderer {
     }
 
     public float getRenderY(int screenH) {
+        if (isNewStyle()) return clamp(getDefaultY() + Config.arraylistY, 0f, Math.max(0f, screenH - getEditHeight()));
         float scale = getScale();
         float contentH = Math.max(PREVIEW_HEIGHT, activeOrPreviewNames().size() * LINE_HEIGHT) * scale;
         float outset = borderOutset() * scale;
@@ -188,9 +221,11 @@ public class ArraylistRenderer {
     }
 
     private void drawBackground(GuiGraphics graphics, Minecraft client, List<String> names, int width, boolean alignRight) {
-        for (int i = 0; i < names.size(); i++) {
-            Bounds bounds = innerBoundsFor(client, names, width, alignRight, i);
-            graphics.fill(bounds.x1(), bounds.y1(), bounds.x2(), bounds.y2(), BACKGROUND_COLOR);
+        if (Config.arraylistBackground) {
+            for (int i = 0; i < names.size(); i++) {
+                Bounds bounds = innerBoundsFor(client, names, width, alignRight, i);
+                graphics.fill(bounds.x1(), bounds.y1(), bounds.x2(), bounds.y2(), BACKGROUND_COLOR);
+            }
         }
         drawBorder(graphics, client, names, width, alignRight);
     }
@@ -255,10 +290,184 @@ public class ArraylistRenderer {
     }
 
     private int borderOutset() {
+        if (isNewStyle()) return 0;
         return Config.arraylistBorder ? Math.max(1, Math.round(Config.arraylistBorderWidth)) : 0;
     }
 
-    private int textColor(int index, int count) {
+    private boolean isNewStyle() {
+        return Config.arraylistStyle == Config.ArraylistStyle.NEW;
+    }
+
+    private List<NewRow> newRows() {
+        List<NewRow> rows = new ArrayList<>();
+        for (Entry entry : ENTRIES) {
+            if (entry.enabled().getAsBoolean()) rows.add(newRow(entry.name(), suffixFor(entry.name())));
+        }
+        if (rows.isEmpty() && HudEditOverlay.getInstance().isActive()) {
+            for (String name : previewNames()) rows.add(newRow(name, suffixFor(name)));
+        }
+        rows.sort(Comparator.comparingDouble(NewRow::width).reversed().thenComparing(NewRow::name));
+        return rows;
+    }
+
+    private NewRow newRow(String name, String suffix) {
+        String detail = suffix.isEmpty() ? "" : " " + suffix;
+        float nameWidth = ChromaDraw.boldTextWidth(name, NEW_TEXT_SIZE);
+        return new NewRow(name, detail, nameWidth,
+                nameWidth + ChromaDraw.textWidth(detail, NEW_TEXT_SIZE));
+    }
+
+    private float newWidth(List<NewRow> rows) {
+        float width = 0f;
+        for (NewRow row : rows) width = Math.max(width, row.width());
+        return (float) Math.ceil(width + NEW_PADDING * 2f + NEW_ACCENT_WIDTH);
+    }
+
+    private String suffixFor(String name) {
+        return switch (name) {
+            case "Arraylist" -> "New";
+            case "Armor HUD" -> modeLabel(Config.armorHudMode);
+            case "Item Use Status" -> modeLabel(Config.itemUseStatusMode);
+            case "Keystrokes" -> modeLabel(Config.keystrokesMode);
+            case "Music Info HUD" -> modeLabel(Config.musicInfoHudMode);
+            case "Potion Status" -> modeLabel(Config.potionStatusStyle);
+            case "Weather Change" -> modeLabel(Config.weatherMode);
+            case "Freelook" -> modeLabel(Config.freelookTriggerMode);
+            case "Time Change" -> Integer.toString(Config.clientTime);
+            case "Zoom" -> Config.zoomAmount + "x";
+            case "Auto GG" -> Config.autoGGDelayTicks * 50 + " ms";
+            case "Auto Main Hand" -> Config.mainHandAssistSwitchDelayTicks * 50 + " ms";
+            case "Gamma Override" -> String.format(Locale.ROOT, "%.1f", Config.gammaValue);
+            case "Sword Blocking Animation" -> switch (Config.animationMode) {
+                case MODE_1_7 -> "1.7";
+                case MODE_PUSH -> "Push";
+                case MODE_1_7_PLUS -> "1.7+";
+                case MODE_NEW -> "New";
+            };
+            default -> "";
+        };
+    }
+
+    private String modeLabel(Enum<?> mode) {
+        if (mode == null) return "";
+        String value = mode.name().toLowerCase(Locale.ROOT);
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    }
+
+    private void drawNew(Canvas canvas, List<NewRow> rows, float width, float x, float y, float scale) {
+        boolean alignRight = x + width * scale * 0.5f
+                >= Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.5f;
+        int save = canvas.save();
+        try {
+            canvas.translate(x, y);
+            canvas.scale(scale, scale);
+            float right = width - NEW_ACCENT_WIDTH;
+            int[] colors = new int[rows.size()];
+            for (int i = 0; i < rows.size(); i++) {
+                colors[i] = textColor(i, rows.size());
+            }
+            if (Config.arraylistBackground) {
+                int backgroundSave = canvas.save();
+                try {
+                    if (!alignRight) {
+                        canvas.translate(width, 0f);
+                        canvas.scale(-1f, 1f);
+                    }
+                    drawNewBackground(canvas, rows, right);
+                } finally {
+                    canvas.restoreToCount(backgroundSave);
+                }
+            }
+            if (Config.arraylistTextGlow) {
+                ChromaDraw.glowLayer(canvas, 0f, 0f, width, rows.size() * NEW_LINE_HEIGHT,
+                        5f, 5, () -> drawNewText(canvas, rows, width, alignRight, colors, true));
+            }
+            drawNewText(canvas, rows, width, alignRight, colors, false);
+            float accentX = alignRight ? right : 0f;
+            for (int i = 0; i < rows.size(); i++) {
+                ChromaDraw.gradient(canvas, accentX, i * NEW_LINE_HEIGHT, NEW_ACCENT_WIDTH,
+                        NEW_LINE_HEIGHT, textColor(i - 0.5f, rows.size()),
+                        textColor(i + 0.5f, rows.size()), true, 0f);
+            }
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    private void drawNewBackground(Canvas canvas, List<NewRow> rows, float right) {
+        if (rows.isEmpty()) return;
+        if (!Config.arraylistBackgroundRounded) {
+            for (int i = 0; i < rows.size(); i++) {
+                float rowWidth = rows.get(i).width() + NEW_PADDING * 2f;
+                ChromaDraw.fill(canvas, right - rowWidth, i * NEW_LINE_HEIGHT,
+                        rowWidth, NEW_LINE_HEIGHT, NEW_BACKGROUND_COLOR);
+            }
+            return;
+        }
+        List<float[]> corners = new ArrayList<>();
+        corners.add(new float[]{right, 0f});
+        corners.add(new float[]{right, rows.size() * NEW_LINE_HEIGHT});
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            float left = right - rows.get(i).width() - NEW_PADDING * 2f;
+            corners.add(new float[]{left, (i + 1) * NEW_LINE_HEIGHT});
+            corners.add(new float[]{left, i * NEW_LINE_HEIGHT});
+        }
+        try (PathBuilder builder = new PathBuilder()) {
+            builder.moveTo(corners.getFirst()[0], corners.getFirst()[1]);
+            for (int i = 1; i < corners.size(); i++) {
+                float[] previous = corners.get(i - 1);
+                float[] corner = corners.get(i);
+                float[] next = corners.get((i + 1) % corners.size());
+                float before = (float) Math.hypot(previous[0] - corner[0], previous[1] - corner[1]);
+                float after = (float) Math.hypot(next[0] - corner[0], next[1] - corner[1]);
+                boolean lineSide = Math.abs(corner[0] - right) < 0.001f;
+                float radius = lineSide ? 0f
+                        : Math.min(NEW_CORNER_RADIUS, Math.min(before, after) * 0.5f);
+                if (radius <= 0.01f) {
+                    builder.lineTo(corner[0], corner[1]);
+                    continue;
+                }
+                float startX = corner[0] + (previous[0] - corner[0]) * radius / Math.max(before, 0.001f);
+                float startY = corner[1] + (previous[1] - corner[1]) * radius / Math.max(before, 0.001f);
+                float endX = corner[0] + (next[0] - corner[0]) * radius / Math.max(after, 0.001f);
+                float endY = corner[1] + (next[1] - corner[1]) * radius / Math.max(after, 0.001f);
+                builder.lineTo(startX, startY);
+                builder.quadTo(corner[0], corner[1], endX, endY);
+            }
+            try (Path path = builder.closePath().detach()) {
+                ChromaDraw.fillPath(canvas, path, NEW_BACKGROUND_COLOR);
+            }
+        }
+    }
+
+    private void drawNewText(Canvas canvas, List<NewRow> rows, float width, boolean alignRight,
+                             int[] colors, boolean glowOnly) {
+        for (int i = 0; i < rows.size(); i++) {
+            NewRow row = rows.get(i);
+            float top = i * NEW_LINE_HEIGHT;
+            float textX = alignRight ? width - NEW_ACCENT_WIDTH - NEW_PADDING - row.width()
+                    : NEW_ACCENT_WIDTH + NEW_PADDING;
+            if (glowOnly) {
+                ChromaDraw.boldText(canvas, row.name(), textX, top, NEW_LINE_HEIGHT,
+                        colors[i], NEW_TEXT_SIZE);
+                continue;
+            }
+            drawBoldText(canvas, row.name(), textX, top, colors[i]);
+            if (!row.suffix().isEmpty()) {
+                ChromaDraw.text(canvas, row.suffix(), textX + row.nameWidth(), top,
+                        NEW_LINE_HEIGHT, NEW_SUFFIX_COLOR, NEW_TEXT_SIZE);
+            }
+        }
+    }
+
+    private void drawBoldText(Canvas canvas, String text, float x, float top, int color) {
+        if (text.isEmpty()) return;
+        ChromaDraw.boldText(canvas, text, x, top, NEW_LINE_HEIGHT, color, NEW_TEXT_SIZE);
+        ChromaDraw.boldText(canvas, text, x + NEW_BOLD_OFFSET, top, NEW_LINE_HEIGHT,
+                color, NEW_TEXT_SIZE);
+    }
+
+    private int textColor(float index, int count) {
         int first = rgb(Config.arraylistColorRed, Config.arraylistColorGreen, Config.arraylistColorBlue);
         if (!Config.arraylistGradient) {
             return first;
@@ -319,6 +528,9 @@ public class ArraylistRenderer {
     }
 
     private record Entry(String name, BooleanSupplier enabled) {
+    }
+
+    private record NewRow(String name, String suffix, float nameWidth, float width) {
     }
 
     private record Bounds(int x1, int y1, int x2, int y2) {

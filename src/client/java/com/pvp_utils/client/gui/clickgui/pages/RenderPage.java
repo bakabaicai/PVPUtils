@@ -132,6 +132,10 @@ public class RenderPage extends BasePage {
 
         modules.add(ModuleBindingIds.preserve(RenderPage.class, 17, new SettingModule(UiText.t("功能列表", "Arraylist"), UiText.t("显示已启用的功能", "Show enabled modules"),
                 new SettingToggle(() -> Config.arraylist, v -> { Config.arraylist = v; Config.save(); }))
+                .addSub(UiText.t("样式", "Style"), "",
+                        new SettingCycle(List.of("Lite", "New"),
+                                () -> Config.arraylistStyle == Config.ArraylistStyle.NEW ? 1 : 0,
+                                i -> { Config.arraylistStyle = i == 1 ? Config.ArraylistStyle.NEW : Config.ArraylistStyle.LITE; Config.save(); }))
                 .addSub(UiText.t("文字颜色", "Text Color"), "",
                         new SettingColorPreview(RenderPage::arraylistColorArgb, RenderPage::setArraylistColorArgb, false, Config::save))
                 .addSub(UiText.t("渐变", "Gradient"), "",
@@ -140,9 +144,15 @@ public class RenderPage extends BasePage {
                         new SettingColorPreview(RenderPage::arraylistGradientColorArgb, RenderPage::setArraylistGradientColorArgb, false, Config::save))
                 .addSubWhen(() -> Config.arraylistGradient, UiText.t("渐变速度", "Gradient Speed"), "",
                         new SettingSlider(0.0, 5.0, "%.1fx", () -> (double) Config.arraylistGradientSpeed, v -> { Config.arraylistGradientSpeed = v.floatValue(); Config.save(); }))
-                .addSub(UiText.t("边框", "Border"), "",
+                .addSubWhen(() -> Config.arraylistStyle == Config.ArraylistStyle.NEW, UiText.t("文字发光", "Text Glow"), "",
+                        new SettingToggle(() -> Config.arraylistTextGlow, v -> { Config.arraylistTextGlow = v; Config.save(); }))
+                .addSub(UiText.t("背景", "Background"), "",
+                        new SettingToggle(() -> Config.arraylistBackground, v -> { Config.arraylistBackground = v; Config.save(); }))
+                .addSubWhen(() -> Config.arraylistStyle == Config.ArraylistStyle.NEW && Config.arraylistBackground, UiText.t("背景圆角", "Rounded Background"), "",
+                        new SettingToggle(() -> Config.arraylistBackgroundRounded, v -> { Config.arraylistBackgroundRounded = v; Config.save(); }))
+                .addSubWhen(() -> Config.arraylistStyle != Config.ArraylistStyle.NEW, UiText.t("边框", "Border"), "",
                         new SettingToggle(() -> Config.arraylistBorder, v -> { Config.arraylistBorder = v; Config.save(); }))
-                .addSubWhen(() -> Config.arraylistBorder, UiText.t("边框粗细", "Border Width"), "",
+                .addSubWhen(() -> Config.arraylistStyle != Config.ArraylistStyle.NEW && Config.arraylistBorder, UiText.t("边框粗细", "Border Width"), "",
                         new SettingSlider(1.0, 4.0, "%.1f", () -> (double) Config.arraylistBorderWidth, v -> { Config.arraylistBorderWidth = v.floatValue(); Config.save(); }))));
 
         modules.add(ModuleBindingIds.preserve(RenderPage.class, 18, new SettingModule(UiText.t("灵动岛", "Dynamic Island"), UiText.t("集中显示状态、通知与音乐", "Display status, notifications, and music"),

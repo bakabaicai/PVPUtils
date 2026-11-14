@@ -46,6 +46,23 @@ public final class TranslationKeyGuard {
         return copy;
     }
 
+    public static void unmarkFromNetwork(Component component) {
+        ComponentContents contents = component.getContents();
+        if (contents instanceof TranslationKeyMarker marker) {
+            marker.pvp_utils$unmarkTranslationKey();
+        }
+        if (contents instanceof TranslatableContents translation) {
+            for (Object argument : translation.getArgs()) {
+                if (argument instanceof Component nested) {
+                    unmarkFromNetwork(nested);
+                }
+            }
+        }
+        for (Component sibling : component.getSiblings()) {
+            unmarkFromNetwork(sibling);
+        }
+    }
+
     private static ComponentContents markContents(ComponentContents contents) {
         if (contents instanceof TranslationKeyMarker marker) {
             marker.pvp_utils$markTranslationKey();

@@ -1,7 +1,7 @@
 package com.pvp_utils.client.render.chroma;
 
 import com.pvp_utils.client.modules.impl.Combat.combo.ComboEffectsManager;
-import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingRenderer;
+import com.pvp_utils.client.modules.impl.Render.ArraylistRenderer;
 import com.pvp_utils.client.modules.impl.Render.ClockHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.DynamicIsland.DynamicIslandRenderer;
 import com.pvp_utils.client.modules.impl.Render.HudEditOverlay;
@@ -12,6 +12,7 @@ import com.pvp_utils.client.modules.impl.Render.PingHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.PotionStatusRenderer;
 import com.pvp_utils.client.modules.impl.Render.SkiaTextHudRenderer;
 import com.pvp_utils.client.modules.impl.Render.TpsHudRenderer;
+import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Overlay;
@@ -41,6 +42,7 @@ public final class ChromaFrameRenderer {
                     || HudEditOverlay.getInstance().isActive())) {
                 ChromaGraphics.draw("TacticalPing", TacticalPingRenderer::render);
                 ChromaGraphics.draw("PotionStatus", PotionStatusRenderer.getInstance()::renderChroma);
+                ChromaGraphics.draw("Arraylist", ArraylistRenderer.getInstance()::renderChroma);
                 ChromaGraphics.draw("Keystrokes", KeystrokesRenderer.getInstance()::renderChroma);
                 ChromaGraphics.draw("DynamicIsland", DynamicIslandRenderer.getInstance()::renderChroma);
                 ChromaGraphics.draw("TextHUD", hudCanvas -> SkiaTextHudRenderer.renderChroma(hudCanvas,

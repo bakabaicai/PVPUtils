@@ -60,7 +60,7 @@ public final class TacticalPingManager {
         EncryptedChatManager.setMarkerListener(TacticalPingManager::receive);
     }
 
-    public static boolean onMiddleClick(Minecraft client) {
+    public static boolean ping(Minecraft client) {
         if (!canInteract(client)) return false;
         synchronizeSession(client);
         long now = System.nanoTime();

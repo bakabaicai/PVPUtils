@@ -38,6 +38,11 @@ public class KeybindContentsTranslationKeyMixin implements TranslationKeyMarker 
     }
 
     @Override
+    public void pvp_utils$unmarkTranslationKey() {
+        pvp_utils$fromNetwork = false;
+    }
+
+    @Override
     public boolean pvp_utils$isTranslationKeyMarked() {
         return pvp_utils$fromNetwork;
     }
