@@ -14,19 +14,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import com.pvp_utils.mixin.client.MinecraftAltAccessor;
+import com.pvp_utils.PVPUtils;
+import com.pvp_utils.client.util.CredentialProtection;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +34,7 @@ public final class AltManager {
     private static final List<Account> ACCOUNTS = new ArrayList<>();
     private static Account current;
     private static boolean initialized;
+    private static boolean saveAllowed;
 
     private AltManager() {
     }
@@ -44,6 +42,7 @@ public final class AltManager {
     public static synchronized void init() {
         if (initialized) return;
         initialized = true;
+        saveAllowed = Files.notExists(file());
         load();
         if (!Files.exists(file())) save();
     }
@@ -136,22 +135,41 @@ public final class AltManager {
     private static synchronized void load() {
         Path path = file();
         if (!Files.exists(path)) return;
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            JsonElement root = JsonParser.parseReader(reader);
-            if (!root.isJsonObject()) return;
+        try {
+            JsonElement root = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
+            if (!root.isJsonObject()) throw new IOException("Invalid account file");
             JsonArray array = root.getAsJsonObject().getAsJsonArray("accounts");
-            if (array == null) return;
-            ACCOUNTS.clear();
+            if (array == null) throw new IOException("Missing account list");
+            boolean migrated = false;
+            for (JsonElement element : array) {
+                if (!element.isJsonObject()) continue;
+                JsonObject object = element.getAsJsonObject();
+                if (!"microsoft".equalsIgnoreCase(Account.text(object, "type", "offline"))) continue;
+                String token = Account.text(object, "accessToken", "");
+                if (!token.isBlank() && !CredentialProtection.isProtected(token)) {
+                    if (token.startsWith("enc:")) throw new IOException("Unsupported account credential format");
+                    object.addProperty("accessToken", CredentialProtection.protect(token));
+                    migrated = true;
+                }
+            }
+            List<Account> loaded = new ArrayList<>();
             for (JsonElement element : array) {
                 if (!element.isJsonObject()) continue;
                 Account account = Account.fromJson(element.getAsJsonObject());
-                if (account.valid()) ACCOUNTS.add(account);
+                if (account.valid()) loaded.add(account);
             }
-        } catch (Exception ignored) {
+            if (migrated) CredentialProtection.writeAtomically(path, GSON.toJson(root));
+            ACCOUNTS.clear();
+            ACCOUNTS.addAll(loaded);
+            saveAllowed = true;
+        } catch (Exception error) {
+            saveAllowed = false;
+            PVPUtils.LOGGER.error("Cannot load or migrate account credentials; original file preserved", error);
         }
     }
 
     private static synchronized void save() {
+        if (!saveAllowed) return;
         try {
             Path path = file();
             Files.createDirectories(path.getParent());
@@ -159,12 +177,9 @@ public final class AltManager {
             JsonArray array = new JsonArray();
             for (Account account : ACCOUNTS) if (account.valid()) array.add(account.toJson());
             root.add("accounts", array);
-            Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-            try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                GSON.toJson(root, writer);
-            }
-            Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ignored) {
+            CredentialProtection.writeAtomically(path, GSON.toJson(root));
+        } catch (IOException error) {
+            PVPUtils.LOGGER.error("Cannot securely save account credentials", error);
         }
     }
 
@@ -197,12 +212,15 @@ public final class AltManager {
             return account;
         }
 
-        private static Account fromJson(JsonObject object) {
+        private static Account fromJson(JsonObject object) throws IOException {
             Account account = new Account();
             account.type = text(object, "type", "offline");
             account.name = text(object, "name", "");
             account.uuid = text(object, "uuid", "");
             account.accessToken = text(object, "accessToken", EMPTY_TOKEN);
+            if (account.microsoft()) {
+                account.accessToken = CredentialProtection.unprotect(account.accessToken);
+            }
             account.xuid = text(object, "xuid", "");
             account.lastUsed = number(object, "lastUsed");
             return account;
@@ -221,12 +239,13 @@ public final class AltManager {
             }
         }
 
-        private JsonObject toJson() {
+        private JsonObject toJson() throws IOException {
             JsonObject object = new JsonObject();
             object.addProperty("type", type);
             object.addProperty("name", name);
             object.addProperty("uuid", uuid);
-            object.addProperty("accessToken", accessToken);
+            object.addProperty("accessToken", microsoft()
+                    ? CredentialProtection.protect(accessToken) : EMPTY_TOKEN);
             object.addProperty("xuid", xuid);
             object.addProperty("lastUsed", lastUsed);
             return object;

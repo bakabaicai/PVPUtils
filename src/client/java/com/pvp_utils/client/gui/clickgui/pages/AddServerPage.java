@@ -43,7 +43,7 @@ public class AddServerPage extends BasePage {
                     : "Fill in the server address first.");
             return;
         }
-        ServerAutoLoginManager.setRule(address, passwordDraft == null ? "" : passwordDraft, delayDraft);
+        if (!ServerAutoLoginManager.setRule(address, passwordDraft == null ? "" : passwordDraft, delayDraft)) return;
         back();
     }
 

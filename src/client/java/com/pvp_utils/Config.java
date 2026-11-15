@@ -355,6 +355,7 @@ public class Config {
     public static float musicInfoHudY = 0f;
     public static float musicInfoHudScale = 1.0f;
     public static float neteaseMusicVolume = 1.0f;
+    public static float neteaseMusicCrossfadeSeconds = 3.0f;
     public static float betterScoreboardX = 0f;
     public static float betterScoreboardY = 0f;
     public static float betterScoreboardScale = 1.0f;
@@ -556,6 +557,47 @@ public class Config {
     public static AnimMode animationMode = AnimMode.MODE_1_7;
     public static MotionBlurAlgorithm motionBlurAlgorithm = MotionBlurAlgorithm.VELOCITY_BASED;
 
+    private static final Map<String, Object> FIELD_DEFAULTS = captureFieldDefaults();
+
+    private static Map<String, Object> captureFieldDefaults() {
+        Map<String, Object> defaults = new LinkedHashMap<>();
+        for (Field field : configFields().values()) {
+            try {
+                defaults.put(field.getName(),
+                        field.getType() == com.pvp_utils.client.render.HudAppearance.class ? null : field.get(null));
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return defaults;
+    }
+
+    public static synchronized void resetToDefaults() {
+        for (Map.Entry<String, Field> entry : configFields().entrySet()) {
+            Field field = entry.getValue();
+            String name = entry.getKey();
+            if (name.equals("onboardingCompleted") || name.equals("moduleKeybinds")) {
+                continue;
+            }
+            try {
+                if (field.getType() == com.pvp_utils.client.render.HudAppearance.class) {
+                    field.set(null, new com.pvp_utils.client.render.HudAppearance());
+                } else {
+                    field.set(null, FIELD_DEFAULTS.get(name));
+                }
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        enforceRestrictedProfile();
+        normalizeCommunication();
+        normalizeFakeFps();
+        normalizeComboEffects();
+        normalizeDynamicIslandAppearance();
+        normalizeDynamicIslandBlockCountState();
+        normalizeAppearance();
+    }
+
     private static final Path CONFIG_DIRECTORY = FabricLoader.getInstance().getGameDir().resolve("PVPUtils");
     private static final Path CONFIG_FILE = CONFIG_DIRECTORY.resolve("Config.cfg");
     private static final Path HUD_CONFIG_FILE = CONFIG_DIRECTORY.resolve("Hud.cfg");
@@ -604,7 +646,7 @@ public class Config {
         ensureConfigDirectory();
         try {
             if (configSaveAllowed) {
-                Files.writeString(CONFIG_FILE, GSON.toJson(toJsonConfig()), StandardCharsets.UTF_8);
+                com.pvp_utils.client.util.CredentialProtection.writeAtomically(CONFIG_FILE, GSON.toJson(toJsonConfig()));
             }
             if (hudSaveAllowed) {
                 Files.writeString(HUD_CONFIG_FILE, GSON.toJson(toHudJsonConfig()), StandardCharsets.UTF_8);

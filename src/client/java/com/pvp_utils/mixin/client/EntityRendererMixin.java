@@ -25,16 +25,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class EntityRendererMixin {
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void pvp_utils$captureNameTagPlayerFilter(Entity entity, EntityRenderState state, float tickProgress, CallbackInfo ci) {
+        if (!Config.nameTag || !Config.nameTagOnlyPlayer) return;
         ((NameTagPlayerFilterState) state).pvp_utils$setNameTagRealPlayer(isRealPlayer(entity));
     }
 
     @Inject(method = "submitNameTag", at = @At("HEAD"))
     private void pvp_utils$beginNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
+        if (!Config.nameTag || !Config.nameTagOnlyPlayer) return;
         NameTagPlayerFilterContext.setRealPlayer(((NameTagPlayerFilterState) state).pvp_utils$isNameTagRealPlayer());
     }
 
     @Inject(method = "submitNameTag", at = @At("RETURN"))
     private void pvp_utils$endNameTagPlayerFilter(EntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState cameraRenderState, CallbackInfo ci) {
+        if (!Config.nameTag || !Config.nameTagOnlyPlayer) return;
         NameTagPlayerFilterContext.clear();
     }
 

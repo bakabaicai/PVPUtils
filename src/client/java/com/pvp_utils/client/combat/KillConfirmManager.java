@@ -2,6 +2,7 @@ package com.pvp_utils.client.combat;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -14,12 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class KillConfirmManager {
     public static final KillConfirmManager INSTANCE = new KillConfirmManager();
     private static final int MAX_TRACKED_TARGETS = 32;
+    private static final long DEDUPLICATION_NANOS = 15_000_000_000L;
     private final Map<UUID, TrackedTarget> trackedTargets = new LinkedHashMap<>();
+    private final Map<UUID, TrackedTarget> confirmedTargets = new LinkedHashMap<>();
+    private final Map<String, Long> confirmedPlayerNames = new LinkedHashMap<>();
+    private final Map<UUID, Long> directDamage = new LinkedHashMap<>();
     private final CopyOnWriteArrayList<KillListener> listeners = new CopyOnWriteArrayList<>();
     private volatile double confirmWindow = 6.0;
     private volatile double comboWindow = 4.0;
@@ -60,7 +66,22 @@ public final class KillConfirmManager {
                 || target.level() != client.level || !target.isAlive()) {
             return;
         }
-        TrackedTarget tracked = new TrackedTarget(target, System.nanoTime(), displayName(target),
+        trackTarget(client, target);
+    }
+
+    private void trackTarget(Minecraft client, LivingEntity target) {
+        long now = System.nanoTime();
+        TrackedTarget confirmed = confirmedTargets.get(target.getUUID());
+        if (confirmed != null && confirmed.entity() != target && target.isAlive() && target.deathTime == 0) {
+            confirmedTargets.remove(target.getUUID());
+            if (target instanceof Player player) {
+                confirmedPlayerNames.remove(player.getName().getString().toLowerCase(Locale.ROOT));
+            }
+            confirmed = null;
+        }
+        if (confirmed != null && confirmed.entity() == target
+                && now - confirmed.attackedAtNanos() <= secondsToNanos(confirmWindow)) return;
+        TrackedTarget tracked = new TrackedTarget(target, now, displayName(target),
                 client.player.distanceTo(target));
         trackedTargets.remove(target.getUUID());
         trackedTargets.put(target.getUUID(), tracked);
@@ -71,10 +92,78 @@ public final class KillConfirmManager {
         }
     }
 
+    public void onSystemMessage(Component message) {
+        Minecraft client = Minecraft.getInstance();
+        if (!synchronizeContext(client)) return;
+        String localName = client.player.getName().getString();
+        KillAnnouncementParser.Announcement announcement = KillAnnouncementParser.parse(message, localName);
+        if (announcement == null || !announcement.killer().equalsIgnoreCase(localName)
+                || announcement.victim().equalsIgnoreCase(localName)) return;
+        long now = System.nanoTime();
+        String nameKey = announcement.victim().toLowerCase(Locale.ROOT);
+        Long previous = confirmedPlayerNames.get(nameKey);
+        if (previous != null && now - previous <= DEDUPLICATION_NANOS) return;
+        Iterator<TrackedTarget> iterator = trackedTargets.values().iterator();
+        while (iterator.hasNext()) {
+            TrackedTarget tracked = iterator.next();
+            if (tracked.entity() instanceof Player victim
+                    && victim.getName().getString().equalsIgnoreCase(announcement.victim())
+                    && now - tracked.attackedAtNanos() <= secondsToNanos(confirmWindow)) {
+                iterator.remove();
+                confirmKill(tracked, now);
+                return;
+            }
+        }
+        Player victim = client.level.players().stream()
+                .filter(player -> player.getName().getString().equalsIgnoreCase(announcement.victim()))
+                .findFirst().orElse(null);
+        if (victim != null) {
+            confirmKill(new TrackedTarget(victim, now, displayName(victim), client.player.distanceTo(victim)), now);
+        } else {
+            rememberPlayerName(nameKey, now);
+            notifyKill(null, announcement.victim(), 0f, now);
+        }
+    }
+
+    public void onDamage(Entity target, Entity attacker) {
+        Minecraft client = Minecraft.getInstance();
+        if (!synchronizeContext(client) || !(target instanceof LivingEntity living)
+                || target == client.player || target.level() != client.level) return;
+        if (attacker == client.player) {
+            trackTarget(client, living);
+            directDamage.put(target.getUUID(), System.nanoTime());
+            while (directDamage.size() > MAX_TRACKED_TARGETS) {
+                Iterator<UUID> iterator = directDamage.keySet().iterator();
+                iterator.next();
+                iterator.remove();
+            }
+        } else {
+            directDamage.remove(target.getUUID());
+        }
+    }
+
+    public void onDeathEvent(Entity entity) {
+        Minecraft client = Minecraft.getInstance();
+        if (!synchronizeContext(client) || entity == null || entity.level() != client.level) return;
+        TrackedTarget tracked = trackedTargets.get(entity.getUUID());
+        long now = System.nanoTime();
+        if (tracked == null || tracked.entity() != entity || !hasDirectDamage(tracked, now)) return;
+        trackedTargets.remove(entity.getUUID());
+        confirmKill(tracked, now);
+    }
+
+    private boolean hasDirectDamage(TrackedTarget tracked, long now) {
+        Long damagedAt = directDamage.get(tracked.entity().getUUID());
+        return damagedAt != null && now - damagedAt <= secondsToNanos(confirmWindow);
+    }
+
     public void tick(Minecraft client) {
         if (!synchronizeContext(client)) return;
         long now = System.nanoTime();
         long confirmationNanos = secondsToNanos(confirmWindow);
+        confirmedTargets.values().removeIf(tracked -> now - tracked.attackedAtNanos() > DEDUPLICATION_NANOS);
+        confirmedPlayerNames.values().removeIf(time -> now - time > DEDUPLICATION_NANOS);
+        directDamage.values().removeIf(time -> now - time > confirmationNanos);
         List<TrackedTarget> confirmed = null;
         Iterator<TrackedTarget> iterator = trackedTargets.values().iterator();
         while (iterator.hasNext()) {
@@ -84,7 +173,8 @@ public final class KillConfirmManager {
                 iterator.remove();
                 continue;
             }
-            if (isDeathLike(target)) {
+            if (hasDirectDamage(tracked, now) && !target.isRemoved()
+                    && (target.getHealth() <= 0.0F || target.deathTime > 0)) {
                 iterator.remove();
                 if (confirmed == null) confirmed = new ArrayList<>();
                 confirmed.add(tracked);
@@ -107,18 +197,10 @@ public final class KillConfirmManager {
     public ConfirmedKill recentPlayerKill() {
         Minecraft client = Minecraft.getInstance();
         if (!synchronizeContext(client)) return null;
+        tick(client);
         long now = System.nanoTime();
         long window = secondsToNanos(confirmWindow);
         ConfirmedKill recent = lastPlayerKill;
-        long latestAttack = Long.MIN_VALUE;
-        for (TrackedTarget tracked : trackedTargets.values()) {
-            if (tracked.entity() instanceof Player && tracked.entity().level() == client.level
-                    && now - tracked.attackedAtNanos() <= window && isDeathLike(tracked.entity())
-                    && tracked.attackedAtNanos() > latestAttack) {
-                latestAttack = tracked.attackedAtNanos();
-                recent = new ConfirmedKill(tracked.entity().position(), client.level, now);
-            }
-        }
         return recent != null && recent.level() == client.level
                 && now - recent.confirmedAtNanos() <= window ? recent : null;
     }
@@ -126,6 +208,9 @@ public final class KillConfirmManager {
     public void clear() {
         contextRevision++;
         trackedTargets.clear();
+        confirmedTargets.clear();
+        confirmedPlayerNames.clear();
+        directDamage.clear();
         lastKillNanos = 0L;
         comboCount = 0;
         lastPlayerKill = null;
@@ -150,23 +235,47 @@ public final class KillConfirmManager {
     }
 
     private void confirmKill(TrackedTarget tracked, long now) {
+        TrackedTarget previous = confirmedTargets.get(tracked.entity().getUUID());
+        if (previous != null && previous.entity() == tracked.entity()
+                && now - previous.attackedAtNanos() <= DEDUPLICATION_NANOS) return;
+        if (tracked.entity() instanceof Player player) {
+            String key = player.getName().getString().toLowerCase(Locale.ROOT);
+            Long confirmedAt = confirmedPlayerNames.get(key);
+            if (confirmedAt != null && now - confirmedAt <= DEDUPLICATION_NANOS) return;
+            rememberPlayerName(key, now);
+        }
+        directDamage.remove(tracked.entity().getUUID());
+        confirmedTargets.put(tracked.entity().getUUID(),
+                new TrackedTarget(tracked.entity(), now, tracked.name(), tracked.distance()));
+        while (confirmedTargets.size() > MAX_TRACKED_TARGETS) {
+            Iterator<UUID> iterator = confirmedTargets.keySet().iterator();
+            iterator.next();
+            iterator.remove();
+        }
         if (tracked.entity() instanceof Player) {
             lastPlayerKill = new ConfirmedKill(tracked.entity().position(), level, now);
         }
+        notifyKill(tracked.entity(), tracked.name(), tracked.distance(), now);
+    }
+
+    private void rememberPlayerName(String name, long now) {
+        confirmedPlayerNames.put(name, now);
+        while (confirmedPlayerNames.size() > MAX_TRACKED_TARGETS) {
+            Iterator<String> iterator = confirmedPlayerNames.keySet().iterator();
+            iterator.next();
+            iterator.remove();
+        }
+    }
+
+    private void notifyKill(LivingEntity target, String name, float distance, long now) {
         long comboNanos = secondsToNanos(comboWindow);
         comboCount = lastKillNanos != 0L && now - lastKillNanos <= comboNanos
                 ? comboCount + 1 : 1;
         lastKillNanos = now;
         int confirmedCombo = comboCount;
         for (KillListener listener : listeners) {
-            listener.onKillConfirmed(tracked.entity(), tracked.name(), tracked.distance(), confirmedCombo);
+            listener.onKillConfirmed(target, name, distance, confirmedCombo);
         }
-    }
-
-    private static boolean isDeathLike(LivingEntity target) {
-        if (target.isDeadOrDying() || target.getHealth() <= 0.0F || !target.isAlive()) return true;
-        if (target instanceof Player player && player.isSpectator()) return true;
-        return target.isInvisible();
     }
 
     private static String displayName(LivingEntity target) {

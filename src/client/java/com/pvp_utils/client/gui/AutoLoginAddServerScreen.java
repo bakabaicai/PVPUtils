@@ -61,7 +61,10 @@ public class AutoLoginAddServerScreen extends Screen {
             return;
         }
         String password = this.passwordBox == null ? "" : this.passwordBox.getValue();
-        ServerAutoLoginManager.setRule(address, password, this.delay);
+        if (!ServerAutoLoginManager.setRule(address, password, this.delay)) {
+            this.error = Config.isChinese ? "无法安全保存密码" : "Cannot securely save the password";
+            return;
+        }
         if (lastScreen instanceof AutoLoginServersScreen listScreen) {
             this.minecraft.setScreen(new AutoLoginServersScreen(listScreen.parent()));
         } else {

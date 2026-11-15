@@ -74,7 +74,7 @@ public final class ComboEffectsManager {
     }
 
     public static void onKill(LivingEntity target) {
-        if (closed || !Config.comboEffects || target == null) return;
+        if (closed || !Config.comboEffects) return;
         Minecraft client = Minecraft.getInstance();
         tick(client);
         if (client.level == null || client.player == null || client.player.isDeadOrDying()
@@ -92,6 +92,7 @@ public final class ComboEffectsManager {
     }
 
     private static boolean accepts(LivingEntity target) {
+        if (target == null) return Config.comboEffectsPlayers;
         if (target instanceof Player) return Config.comboEffectsPlayers;
         MobCategory category = target.getType().getCategory();
         if (category == MobCategory.MONSTER) return Config.comboEffectsMonsters;

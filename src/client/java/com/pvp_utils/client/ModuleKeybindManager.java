@@ -2,8 +2,10 @@ package com.pvp_utils.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.pvp_utils.Config;
+import com.pvp_utils.PVPUtils;
 import com.pvp_utils.client.NeteaseMusic.NeteaseMusicManager;
 import com.pvp_utils.client.gui.clickgui.NewSettingsScreen;
+import com.pvp_utils.client.gui.clickgui.pages.BasePage;
 import com.pvp_utils.client.gui.clickgui.widget.SettingModule;
 import com.pvp_utils.client.modules.impl.Tool.tactical.TacticalPingManager;
 import net.minecraft.client.Minecraft;
@@ -25,6 +27,8 @@ public final class ModuleKeybindManager {
     private static final Map<String, Boolean> LAST_DOWN = new LinkedHashMap<>();
     private static String captureId = "";
     private static boolean initialized;
+    private static boolean startupModulesRegistered;
+    private static boolean startupModulesFailed;
 
     private ModuleKeybindManager() {
     }
@@ -37,6 +41,7 @@ public final class ModuleKeybindManager {
 
     public static void tick(Minecraft client) {
         initialize();
+        registerStartupModules();
         if (client == null) return;
         for (Map.Entry<String, Integer> entry : KEYBINDS.entrySet()) {
             String id = entry.getKey();
@@ -117,6 +122,21 @@ public final class ModuleKeybindManager {
     public static void registerModule(SettingModule module) {
         if (module != null && module.isToggleable() && !module.usesActionKeybind() && !module.getBindingId().isBlank()) {
             MODULES.put(module.getBindingId(), module);
+        }
+    }
+
+    private static void registerStartupModules() {
+        if (startupModulesRegistered || startupModulesFailed) return;
+        try {
+            for (BasePage page : NewSettingsScreen.createPages()) {
+                for (SettingModule module : page.getModules()) {
+                    registerModule(module);
+                }
+            }
+            startupModulesRegistered = true;
+        } catch (Exception e) {
+            startupModulesFailed = true;
+            PVPUtils.LOGGER.error("Failed to register module keybinds at startup", e);
         }
     }
 

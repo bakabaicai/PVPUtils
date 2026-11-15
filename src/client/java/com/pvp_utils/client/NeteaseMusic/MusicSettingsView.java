@@ -60,7 +60,7 @@ public final class MusicSettingsView {
         height = h;
         float previewWidth = w >= 660f ? Math.min(300f, w - 460f) : 0f;
         contentWidth = Math.max(1f, w - INSET * 2f - (previewWidth > 0f ? previewWidth + 12f : 0f));
-        contentHeight = tab == 0 ? 146f : tab == 1 ? 94f : 198f;
+        contentHeight = tab == 0 ? 172f : tab == 1 ? 94f : 198f;
         scroll = Math.max(0f, Math.min(maxScroll(), scroll));
         controls.clear();
         MusicUi.bold(canvas, text("设置", "Settings"), INSET, 18f, 17f, color(MusicUi.TEXT, alpha));
@@ -106,7 +106,8 @@ public final class MusicSettingsView {
                 y = mode(canvas, y, mouseX, mouseY, alpha);
                 y = toggle(canvas, "rounded", text("圆角封面", "Rounded cover"), y, mouseX, mouseY, alpha);
                 y = section(canvas, text("播放", "Playback"), y + 8f, alpha);
-                slider(canvas, Slider.VOLUME, text("音量", "Volume"), y, mouseX, mouseY, alpha);
+                y = slider(canvas, Slider.VOLUME, text("音量", "Volume"), y, mouseX, mouseY, alpha);
+                slider(canvas, Slider.CROSSFADE, text("交叉过渡时长", "Crossfade duration"), y, mouseX, mouseY, alpha);
             } else if (tab == 1) {
                 y = section(canvas, text("歌词显示", "Lyrics display"), y, alpha);
                 y = toggle(canvas, "lyrics", text("显示歌词", "In-game lyrics"), y, mouseX, mouseY, alpha);
@@ -187,7 +188,7 @@ public final class MusicSettingsView {
     }
 
     private float slider(Canvas canvas, Slider slider, String title, float y, float mouseX, float mouseY, float alpha) {
-        int depth = slider == Slider.VOLUME ? 0 : 1;
+        int depth = slider == Slider.VOLUME || slider == Slider.CROSSFADE ? 0 : 1;
         float rowWidth = rowWidth(depth);
         float controlWidth = Math.max(112f, Math.min(160f, rowWidth * 0.4f));
         row(canvas, title, y, controlWidth, mouseX, mouseY, alpha, depth);
@@ -360,6 +361,7 @@ public final class MusicSettingsView {
             Config.musicInfoHudCoverRounded = true;
             Config.musicInfoHudMode = Config.MusicInfoHudMode.LITE;
             Config.neteaseMusicVolume = 1f;
+            Config.neteaseMusicCrossfadeSeconds = 3f;
             MusicPlaybackService.INSTANCE.setVolume(1f, false);
         } else if (tab == 1) {
             Config.lyricsDisplay = false;
@@ -414,11 +416,12 @@ public final class MusicSettingsView {
     }
 
     private enum Slider {
-        VOLUME, INFO_SCALE, INFO_X, INFO_Y, LYRICS_SCALE, LYRICS_X, LYRICS_Y;
+        VOLUME, CROSSFADE, INFO_SCALE, INFO_X, INFO_Y, LYRICS_SCALE, LYRICS_X, LYRICS_Y;
 
         private float value() {
             return switch (this) {
                 case VOLUME -> Config.neteaseMusicVolume;
+                case CROSSFADE -> MusicPlaybackService.crossfadeSeconds();
                 case INFO_SCALE -> Config.musicInfoHudScale;
                 case INFO_X -> Config.musicInfoHudX;
                 case INFO_Y -> Config.musicInfoHudY;
@@ -435,6 +438,7 @@ public final class MusicSettingsView {
                     MusicPlaybackService.INSTANCE.setVolume(value, false);
                 }
                 case INFO_SCALE -> Config.musicInfoHudScale = value;
+                case CROSSFADE -> Config.neteaseMusicCrossfadeSeconds = value;
                 case INFO_X -> Config.musicInfoHudX = value;
                 case INFO_Y -> Config.musicInfoHudY = value;
                 case LYRICS_SCALE -> Config.lyricsDisplayScale = value;
@@ -448,14 +452,15 @@ public final class MusicSettingsView {
         }
 
         private float min() {
-            return position() ? -1000f : this == VOLUME ? 0f : 0.5f;
+            return position() ? -1000f : this == VOLUME || this == CROSSFADE ? 0f : 0.5f;
         }
 
         private float max() {
-            return position() ? 1000f : this == VOLUME ? 1f : 2f;
+            return position() ? 1000f : this == CROSSFADE ? 10f : this == VOLUME ? 1f : 2f;
         }
 
         private String label() {
+            if (this == CROSSFADE) return value() == 0f ? text("关闭", "Off") : String.format(Locale.ROOT, "%.1fs", value());
             return position() ? String.format(Locale.ROOT, "%.0f", value()) : Math.round(value() * 100f) + "%";
         }
     }

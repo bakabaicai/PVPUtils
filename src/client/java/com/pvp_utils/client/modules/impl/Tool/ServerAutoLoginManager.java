@@ -205,13 +205,16 @@ public final class ServerAutoLoginManager {
         Config.save();
     }
 
-    public static void setRule(String address, String plainPassword, int delaySeconds) {
+    public static boolean setRule(String address, String plainPassword, int delaySeconds) {
+        String encryptedPassword = protectPassword(plainPassword);
+        if (encryptedPassword == null) return false;
         Map<String, Rule> values = rules();
         Rule rule = values.computeIfAbsent(address, key -> new Rule());
         rule.enabled = true;
-        rule.password = PasswordCipher.encrypt(plainPassword);
+        rule.password = encryptedPassword;
         rule.delay = Math.max(0, Math.min(30, delaySeconds));
         saveRules(values);
+        return true;
     }
 
     public static boolean removeRule(String address) {
@@ -228,12 +231,26 @@ public final class ServerAutoLoginManager {
         return rule != null && !rule.password.isBlank();
     }
 
-    public static void setPassword(String address, String plainPassword) {
+    public static boolean setPassword(String address, String plainPassword) {
+        String encryptedPassword = protectPassword(plainPassword);
+        if (encryptedPassword == null) return false;
         Map<String, Rule> values = rules();
         Rule rule = values.computeIfAbsent(address, key -> new Rule());
         rule.enabled = true;
-        rule.password = PasswordCipher.encrypt(plainPassword);
+        rule.password = encryptedPassword;
         saveRules(values);
+        return true;
+    }
+
+    private static String protectPassword(String password) {
+        try {
+            return PasswordCipher.encrypt(password);
+        } catch (IllegalStateException error) {
+            com.pvp_utils.PVPUtils.LOGGER.error("Cannot encrypt the server login password", error);
+            ChatUtils.error(Config.isChinese ? "无法加密密码，原配置未更改。"
+                    : "Cannot encrypt the password; the previous setting is unchanged.");
+            return null;
+        }
     }
 
     public static int delayOf(String address) {

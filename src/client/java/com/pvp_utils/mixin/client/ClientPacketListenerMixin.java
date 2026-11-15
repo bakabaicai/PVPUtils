@@ -1,6 +1,7 @@
 package com.pvp_utils.mixin.client;
 
 import com.pvp_utils.client.command.CommandManager;
+import com.pvp_utils.client.combat.KillConfirmManager;
 import com.pvp_utils.client.modules.impl.Combat.HitMarkerRenderer;
 import com.pvp_utils.client.modules.impl.Tool.ServerAutoLoginManager;
 import com.pvp_utils.client.modules.impl.Render.ArmorTransparency.ArmorTransparencyManager;
@@ -12,6 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
@@ -48,6 +50,25 @@ public class ClientPacketListenerMixin {
     @Inject(method = "handleSystemChat", at = @At("HEAD"))
     private void pvp_utils$detectLoginPrompt(ClientboundSystemChatPacket packet, CallbackInfo ci) {
         ServerAutoLoginManager.onSystemChatMessage(packet.content().getString());
+    }
+
+    @Inject(method = "handleSystemChat", at = @At("TAIL"))
+    private void pvp_utils$confirmAnnouncedKill(ClientboundSystemChatPacket packet, CallbackInfo ci) {
+        if (!packet.overlay()) {
+            Minecraft.getInstance().execute(() -> KillConfirmManager.INSTANCE.onSystemMessage(packet.content()));
+        }
+    }
+
+    @Inject(method = "handleEntityEvent", at = @At("TAIL"))
+    private void pvp_utils$confirmDirectKill(ClientboundEntityEventPacket packet, CallbackInfo ci) {
+        Minecraft client = Minecraft.getInstance();
+        if (packet.getEventId() == 3) {
+            client.execute(() -> {
+                if (client.level != null) {
+                    KillConfirmManager.INSTANCE.onDeathEvent(packet.getEntity(client.level));
+                }
+            });
+        }
     }
 
     @Inject(method = "handleMovePlayer", at = @At("HEAD"), cancellable = true)
@@ -143,6 +164,7 @@ public class ClientPacketListenerMixin {
                 ArmorTransparencyManager.markCombat(targetPlayer);
             }
             Entity sourceCause = client.level.getEntity(packet.sourceCauseId());
+            client.execute(() -> KillConfirmManager.INSTANCE.onDamage(target, sourceCause));
             if (sourceCause instanceof Player sourcePlayer) {
                 ArmorTransparencyManager.markCombat(sourcePlayer);
             }

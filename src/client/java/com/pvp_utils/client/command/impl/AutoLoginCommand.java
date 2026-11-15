@@ -88,7 +88,7 @@ public final class AutoLoginCommand implements DotCommand {
                     return;
                 }
                 int delay = rule == null ? 1 : Math.max(0, rule.delay);
-                ServerAutoLoginManager.setRule(address, password, delay);
+                if (!ServerAutoLoginManager.setRule(address, password, delay)) return;
                 ChatUtils.success(Config.isChinese
                         ? "已为当前服务器开启自动登录，密码已加密保存（延迟 " + delay + " 秒）。"
                         : "Auto login enabled for this server; the password is stored encrypted (delay " + delay + "s).");

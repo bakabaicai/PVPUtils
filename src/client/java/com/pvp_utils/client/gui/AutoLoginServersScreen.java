@@ -139,7 +139,7 @@ public class AutoLoginServersScreen extends Screen {
         if (!row.dirty) {
             return;
         }
-        ServerAutoLoginManager.setPassword(row.address, row.pending);
+        if (!ServerAutoLoginManager.setPassword(row.address, row.pending)) return;
         row.dirty = false;
         row.pending = "";
         row.suppressResponder = true;

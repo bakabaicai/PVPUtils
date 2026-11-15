@@ -1,6 +1,8 @@
 package com.pvp_utils.client.NeteaseMusic;
 
 import net.fabricmc.loader.api.FabricLoader;
+import com.pvp_utils.PVPUtils;
+import com.pvp_utils.client.util.CredentialProtection;
 import top.fpsmaster.music.AudioQuality;
 import top.fpsmaster.music.Lyric;
 import top.fpsmaster.music.MusicService;
@@ -275,12 +277,24 @@ public final class NeteaseMusicApi {
             if (cookie.isBlank()) {
                 return false;
             }
+            if (!CredentialProtection.isProtected(cookie)) {
+                if (cookie.startsWith("enc:")) throw new IOException("Unsupported music credential format");
+                String protectedCookie = CredentialProtection.protect(cookie);
+                object.addProperty("cookie", protectedCookie);
+                synchronized (SESSION_LOCK) {
+                    if (!currentSessionRequest(request)) return false;
+                    CredentialProtection.writeAtomically(path, object.toString());
+                }
+                cookie = protectedCookie;
+            }
+            cookie = CredentialProtection.unprotect(cookie);
             LoginSession session = refreshSessionFromCookie(cookie);
             if (session == null) {
                 return false;
             }
             return commitSession(request, session);
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            PVPUtils.LOGGER.error("Cannot restore or migrate music credentials; stored file preserved", error);
             return false;
         }
     }
@@ -426,9 +440,10 @@ public final class NeteaseMusicApi {
             object.addProperty("uid", session.uid());
             object.addProperty("nickname", session.nickname());
             object.addProperty("avatarUrl", session.avatarUrl());
-            object.addProperty("cookie", session.cookie());
-            Files.writeString(sessionPath(), object.toString(), StandardCharsets.UTF_8);
-        } catch (IOException ignored) {
+            object.addProperty("cookie", CredentialProtection.protect(session.cookie()));
+            CredentialProtection.writeAtomically(sessionPath(), object.toString());
+        } catch (IOException error) {
+            PVPUtils.LOGGER.error("Cannot securely save music credentials", error);
         }
     }
 

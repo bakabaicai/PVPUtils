@@ -507,7 +507,8 @@ public final class NeteaseMusicScreen extends Screen implements ChromaScreen {
         text(canvas, fit(song == null ? tr("还没有播放音乐", "Nothing playing") : song.name(), infoW, 7.5f), sideW + size + 12, y + h * 0.5f - 10, 7.5f, TEXT);
         String subtitle = song == null ? "PVPUtils Music" : player.status().startsWith("Loading ")
                 ? tr("正在加载…", "Loading…") : player.status().startsWith("Downloading ")
-                ? tr("正在下载…", "Downloading…") : song.displayArtist();
+                ? tr("正在下载…", "Downloading…") : player.status().equals("目标位置尚未缓冲")
+                || player.status().equals("Requested position is not buffered yet") ? player.status() : song.displayArtist();
         text(canvas, fit(subtitle, infoW, 6.5f), sideW + size + 12, y + h * 0.5f + 2, 6.5f, MUTED);
         float center = sideW + w * 0.53f;
         float controlsY = y + h * 0.5f - 19f;
@@ -517,7 +518,7 @@ public final class NeteaseMusicScreen extends Screen implements ChromaScreen {
         iconButton(canvas, "next", center + 16, controlsY, 20, player::playNext);
         seekBounds = Rect.makeXYWH(center - 67.5f, y + h * 0.5f + 9, 135f, 3f);
         float progress = pendingSeek >= 0 ? pendingSeek : playbackProgress();
-        slider(canvas, seekBounds, progress, false);
+        slider(canvas, seekBounds, progress, dragging == Drag.SEEK, player.bufferedProgress());
         long duration = player.totalDurationMs();
         text(canvas, MusicPlaybackService.formatTime((long) (duration * progress)), seekBounds.getLeft() - 30, seekBounds.getTop() - 2, 6, MUTED);
         text(canvas, "-" + MusicPlaybackService.formatTime(Math.max(0, duration - (long) (duration * progress))), seekBounds.getRight() + 5, seekBounds.getTop() - 2, 6, MUTED);
@@ -692,7 +693,13 @@ public final class NeteaseMusicScreen extends Screen implements ChromaScreen {
     }
 
     private void slider(Canvas canvas, Rect bounds, float value, boolean knob) {
+        slider(canvas, bounds, value, knob, 0f);
+    }
+
+    private void slider(Canvas canvas, Rect bounds, float value, boolean knob, float buffered) {
         rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth(), bounds.getHeight(), 1.5f, 0x40FFFFFF);
+        if (buffered > 0f) rounded(canvas, bounds.getLeft(), bounds.getTop(),
+                bounds.getWidth() * clamp(buffered), bounds.getHeight(), 1.5f, 0x80FFFFFF);
         rounded(canvas, bounds.getLeft(), bounds.getTop(), bounds.getWidth() * clamp(value), bounds.getHeight(), 1.5f, TEXT);
         if (knob || hit(bounds.getLeft(), bounds.getTop() - 5, bounds.getWidth(), 13)) rounded(canvas,
                 bounds.getLeft() + bounds.getWidth() * clamp(value) - 3, bounds.getTop() - 1.5f, 6, 6, 3, TEXT);

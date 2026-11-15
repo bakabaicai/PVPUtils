@@ -143,8 +143,12 @@ public class NewSettingsScreen extends Screen implements ChromaScreen {
     public NewSettingsScreen(Screen parent) {
         super(Component.literal("Settings"));
         this.parent = parent;
-        pages = new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage(), new PluginPage()));
+        pages = createPages();
         pageTransition = new PageTransition<>(pages.get(selectedTab));
+    }
+
+    public static ArrayList<BasePage> createPages() {
+        return new ArrayList<>(List.of(new CombatPage(), new RenderPage(), new ToolPage(), new OptimizePage(), new MiscPage(), new ThemePage(), new PluginPage()));
     }
 
     public void rebuildCurrentPage() {
@@ -1277,6 +1281,7 @@ public class NewSettingsScreen extends Screen implements ChromaScreen {
             Config.clickGuiCardW = cardW;
             Config.clickGuiCardH = cardH;
             Config.clickGuiFlyoutW = flyoutW;
+            Config.save();
             resizeMode = 0;
             invalidateScrollLayout();
             return true;
