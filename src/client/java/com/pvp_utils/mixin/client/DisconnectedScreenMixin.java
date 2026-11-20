@@ -68,7 +68,7 @@ public abstract class DisconnectedScreenMixin extends Screen {
         pvp_utils$reconnectButton = this.addRenderableWidget(Button.builder(reconnectText, button -> {
             if (ReconnectionHelper.hasLastServer() && this.minecraft != null) {
                 ConnectScreen.startConnecting(
-                    this,
+                    new PVPUtilsMultiplayerScreen(null),
                     this.minecraft,
                     ReconnectionHelper.getLastServerAddress(),
                     ReconnectionHelper.getLastServerData(),

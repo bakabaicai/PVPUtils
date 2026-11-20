@@ -323,6 +323,8 @@ public class RenderPage extends BasePage {
 
         modules.add(ModuleBindingIds.preserve(RenderPage.class, 30, new SettingModule(UiText.t("目标信息显示", "Target Information"), UiText.t("显示目标名称与生命值", "Show the target name and health"),
                 new SettingToggle(() -> Config.targetHud, v -> { Config.targetHud = v; Config.save(); }))
+                .addSub(UiText.t("追踪目标", "Track Target"), UiText.t("命中后跟随目标位置，墙体遮挡时隐藏", "Follow the hit target and hide when blocked by terrain"),
+                        new SettingToggle(() -> Config.targetHudTracking, v -> { Config.targetHudTracking = v; Config.save(); }))
                 .addSub(UiText.t("攻击距离", "Attack Reach"), UiText.t("命中时显示目标距离", "Show target distance on hit"),
                         new SettingToggle(() -> Config.attackReachDisplay, v -> { Config.attackReachDisplay = v; Config.save(); }))));
 

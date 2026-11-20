@@ -1,9 +1,12 @@
 package com.pvp_utils.mixin.client;
 
 import com.mojang.authlib.GameProfile;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatLineProfileAccessor;
 import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatRenderState;
+import com.pvp_utils.client.modules.impl.Render.BetterChat.BetterChatNewStyle;
 import net.minecraft.client.GuiMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -33,6 +36,23 @@ public abstract class BetterChatLineRenderMixin {
     @Unique private static final int AVATAR_GAP = 2;
     @Unique private static final int LINE_SHIFT = AVATAR_SIZE + AVATAR_GAP;
     @Unique private static final int AVATAR_X = 0;
+
+    @WrapMethod(method = "accept")
+    private void pvp_utils$animateLine(GuiMessage.Line line, int index, float alpha, Operation<Void> original) {
+        if (!BetterChatNewStyle.enabled()) {
+            original.call(line, index, alpha);
+            return;
+        }
+        float x = BetterChatNewStyle.offsetX(line);
+        float y = BetterChatNewStyle.offsetY(line, this.val$entryHeight);
+        this.val$graphics.updatePose(pose -> pose.translate(x, y));
+        try {
+            original.call(line, index, alpha);
+        } finally {
+            this.val$graphics.updatePose(pose -> pose.translate(-x, -y));
+            BetterChatRenderState.setShiftingAvatarLine(false);
+        }
+    }
 
     @Unique
     private boolean pvp_utils$hasAvatar(GuiMessage.Line line) {

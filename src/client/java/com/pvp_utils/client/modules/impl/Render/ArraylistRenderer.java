@@ -44,6 +44,7 @@ public class ArraylistRenderer {
             new Entry("Armor HUD", () -> Config.armorHud),
             new Entry("Attack Effects", () -> Config.attackEffectsCritParticles || Config.attackEffectsSharpnessParticles || Config.attackEffectsFlameParticles || Config.attackEffectsBloodParticles || Config.attackEffectsLightning),
             new Entry("Better Chat", () -> Config.betterChat),
+            new Entry("Better Title", () -> Config.betterTitle),
             new Entry("Better Mouse Logic", () -> Config.betterMouseLogic),
             new Entry("Better Ping Display", () -> Config.betterPingDisplay),
             new Entry("Better Scoreboard", () -> Config.betterScoreboard),

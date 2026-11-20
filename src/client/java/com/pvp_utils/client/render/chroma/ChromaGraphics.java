@@ -6,6 +6,8 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.opengl.GlStateManager;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.TextureFormat;
 import com.pvp_utils.mixin.client.TextureManagerAccessor;
 import io.github.humbleui.skija.BackendRenderTarget;
 import io.github.humbleui.skija.BackendTexture;
@@ -442,6 +444,35 @@ public final class ChromaGraphics {
                             + "; source=" + ChromaDiagnostics.sourceName(activeSource), throwable);
             return null;
         }
+    }
+
+    public static BorrowedImage borrowGlyphTexture(GpuTextureView view) {
+        if (context == null || view == null || view.isClosed()
+                || !(view.texture() instanceof GlTexture texture) || texture.isClosed()) return null;
+        boolean alphaOnly = texture.getFormat() == TextureFormat.RED8;
+        if (!alphaOnly && texture.getFormat() != TextureFormat.RGBA8) return null;
+        BackendTexture backend = null;
+        try {
+            backend = BackendTexture.makeGL(view.getWidth(0), view.getHeight(0), false,
+                    new GLTextureInfo(GL11.GL_TEXTURE_2D, texture.glId(), alphaOnly ? GL30.GL_R8 : GL11.GL_RGBA8));
+            Image image = Image.borrowTextureFrom(context, backend, SurfaceOrigin.TOP_LEFT,
+                    alphaOnly ? ColorType.ALPHA_8 : ColorType.RGBA_8888,
+                    alphaOnly ? ColorAlphaType.PREMUL : ColorAlphaType.UNPREMUL,
+                    alphaOnly ? null : ColorSpace.getSRGB(), () -> { });
+            if (image != null) return new BorrowedImage(image, backend);
+            backend.close();
+            ChromaDiagnostics.warn("glyph-texture", activeSource, "Skia rejected font atlas", null);
+        } catch (Throwable error) {
+            if (backend != null) {
+                try {
+                    backend.close();
+                } catch (Throwable cleanupError) {
+                    error.addSuppressed(cleanupError);
+                }
+            }
+            ChromaDiagnostics.warn("glyph-texture", activeSource, "Could not borrow font atlas", error);
+        }
+        return null;
     }
 
     public static void close() {

@@ -1,5 +1,9 @@
 package com.pvp_utils.client;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.pvp_utils.Config;
 import com.pvp_utils.client.util.ChatUtils;
 import net.minecraft.ChatFormatting;
@@ -25,12 +29,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class Update {
-    private static final String GIT_UPDATE_URL = "https://raw.githubusercontent.com/bakabaicai/PVPUtils/main/Update";
+    private static final String GIT_UPDATE_URL = "https://api.github.com/repos/bakabaicai/PVPUtils/releases?per_page=100";
     private static final String CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/pvputils";
     private static final String MODRINTH_URL = "https://modrinth.com/mod/pvp_utils";
     private static final String GITHUB_URL = "https://github.com/bakabaicai/PVPUtils/releases";
     private static final String QQ_GROUP_NUMBER = "947119584";
     private static final Pattern UPDATE_FIELD_PATTERN = Pattern.compile("(?i)(Version Alpha|Version Beta|Version|Announcement)\\s*:");
+    private static final Pattern RELEASE_VERSION_PATTERN = Pattern.compile("(?i)^v?(\\d+\\.\\d+(?:\\.\\d+)?)(?:-?(alpha|beta)[.-]?(\\d*))?$");
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6))
@@ -190,9 +195,7 @@ public final class Update {
     private static UpdateResponse fetchResponse(int line, UpdateTextFetcher fetcher) {
         try {
             String body = fetcher.fetch();
-            if (findValue(body, "Version") == null) {
-                throw new IOException("Missing update metadata");
-            }
+            parseReleases(body);
             return new UpdateResponse(line, body, null);
         } catch (Exception e) {
             return new UpdateResponse(line, null, e);
@@ -218,6 +221,7 @@ public final class Update {
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofSeconds(8))
                 .header("User-Agent", "PVPUtils-UpdateChecker")
+                .header("Accept", "application/vnd.github+json")
                 .header("Cache-Control", "no-cache, no-store, must-revalidate")
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
@@ -235,10 +239,48 @@ public final class Update {
         return URI.create(GIT_UPDATE_URL + separator + "t=" + System.currentTimeMillis());
     }
 
-    private static UpdateResult parse(String body) {
-        String releaseVersion = findValue(body, "Version");
-        String betaVersion = findValue(body, "Version Beta");
-        String alphaVersion = findValue(body, "Version Alpha");
+    private static JsonArray parseReleases(String body) throws IOException {
+        try {
+            JsonElement root = JsonParser.parseString(body);
+            if (!root.isJsonArray()) throw new IOException("Invalid GitHub releases response");
+            return root.getAsJsonArray();
+        } catch (RuntimeException e) {
+            throw new IOException("Invalid GitHub releases response", e);
+        }
+    }
+
+    private static UpdateResult parse(String body) throws IOException {
+        String releaseVersion = null;
+        String betaVersion = null;
+        String alphaVersion = null;
+        for (JsonElement element : parseReleases(body)) {
+            if (!element.isJsonObject()) continue;
+            JsonObject release = element.getAsJsonObject();
+            if (release.has("draft") && release.get("draft").getAsBoolean()) continue;
+            if (!release.has("tag_name") || !release.get("tag_name").isJsonPrimitive()) continue;
+            Matcher matcher = RELEASE_VERSION_PATTERN.matcher(release.get("tag_name").getAsString().trim());
+            if (!matcher.matches()) continue;
+            String type = matcher.group(2) == null ? "release" : matcher.group(2).toLowerCase(Locale.ROOT);
+            if (type.equals("release") && release.has("prerelease") && release.get("prerelease").getAsBoolean()) continue;
+            String version = "v" + matcher.group(1);
+            if (!type.equals("release")) {
+                version += "-" + type;
+                if (!matcher.group(3).isEmpty()) version += "." + matcher.group(3);
+            }
+            VersionToken token = VersionToken.parse(version);
+            if (token == null) continue;
+            switch (type) {
+                case "alpha" -> {
+                    if (alphaVersion == null || token.compareTo(VersionToken.parse(alphaVersion)) > 0) alphaVersion = version;
+                }
+                case "beta" -> {
+                    if (betaVersion == null || token.compareTo(VersionToken.parse(betaVersion)) > 0) betaVersion = version;
+                }
+                default -> {
+                    if (releaseVersion == null || token.compareTo(VersionToken.parse(releaseVersion)) > 0) releaseVersion = version;
+                }
+            }
+        }
 
         System.out.println("[PVPUtils][Update] parse current=" + currentTypedVersion()
                 + " release=" + releaseVersion
@@ -407,7 +449,7 @@ public final class Update {
         }
     }
 
-    private record VersionToken(int major, int minor, String type, int revision) implements Comparable<VersionToken> {
+    private record VersionToken(int major, int minor, int patch, String type, int revision) implements Comparable<VersionToken> {
         static VersionToken parse(String text) {
             if (text == null || text.isBlank()) return null;
             String cleaned = text.trim();
@@ -426,6 +468,7 @@ public final class Update {
             try {
                 int major = Integer.parseInt(numbers[0]);
                 int minor = Integer.parseInt(numbers[1]);
+                int patch = numbers.length > 2 ? Integer.parseInt(numbers[2]) : 0;
                 String type = "release";
                 int revision = 0;
                 if (parts.length > 1) {
@@ -441,7 +484,7 @@ public final class Update {
                         type = suffix;
                     }
                 }
-                return new VersionToken(major, minor, type, revision);
+                return new VersionToken(major, minor, patch, type, revision);
             } catch (NumberFormatException e) {
                 return null;
             }
@@ -451,6 +494,7 @@ public final class Update {
             return other != null
                     && major == other.major
                     && minor == other.minor
+                    && patch == other.patch
                     && type.equals(other.type);
         }
 
@@ -459,6 +503,7 @@ public final class Update {
             if (other == null) return 1;
             if (major != other.major) return Integer.compare(major, other.major);
             if (minor != other.minor) return Integer.compare(minor, other.minor);
+            if (patch != other.patch) return Integer.compare(patch, other.patch);
             int rank = rank(type);
             int otherRank = rank(other.type);
             if (rank != otherRank) return Integer.compare(rank, otherRank);
@@ -486,8 +531,8 @@ public final class Update {
         Throwable cause = error;
         while (cause != null) {
             String message = cause.getMessage();
-            if (message != null && message.contains("Missing update metadata")) {
-                return "更新数据缺少 Version: 字段";
+            if (message != null && message.contains("Invalid GitHub releases response")) {
+                return "GitHub 发行数据格式无效";
             }
             if (message != null && message.contains("timed out")) {
                 return "请求超时";

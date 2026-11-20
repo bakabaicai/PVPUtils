@@ -13,4 +13,10 @@ public interface ChatComponentAccessor {
 
     @Invoker("getWidth")
     int pvp_utils$getChatWidth();
+
+    @Invoker("getScale")
+    double pvp_utils$getChatScale();
+
+    @Invoker("isChatHidden")
+    boolean pvp_utils$isChatHidden();
 }

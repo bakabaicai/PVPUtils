@@ -109,6 +109,7 @@ public class Config {
     public static boolean attackReachDisplay = false;
     public static boolean arraylist = false;
     public static boolean targetHud = false;
+    public static boolean targetHudTracking = false;
     public static boolean diggingStatus = false;
     public static boolean betterPingDisplay = false;
     public static boolean lyricsDisplay = true;
@@ -230,9 +231,19 @@ public class Config {
     public static boolean customCape = false;
     public static boolean chatHudEditQuickEnable = true;
     public static boolean betterChat = false;
+    public enum BetterChatStyle { CLASSIC, NEW, BLUR }
+    public static BetterChatStyle betterChatStyle = BetterChatStyle.CLASSIC;
+    public static int betterChatNewAnimationTime = 600;
     public static boolean betterChatMessageAnimation = true;
     public static boolean betterChatInputAnimation = true;
     public static boolean betterChatAvatar = true;
+    public static boolean betterChatBetterFont = true;
+    public static boolean betterTitle = false;
+    public static boolean betterTitleBetterFont = true;
+    public static boolean betterTitleGlow = false;
+    public static boolean betterTitleGradient = false;
+    public static float betterTitleScale = 1f;
+    public static float betterTitleAnimationSpeed = 1f;
     public static boolean betterScoreboard = false;
     public static boolean betterScoreboardHideScores = false;
     public static boolean betterScoreboardVisualImprovement = false;
@@ -657,6 +668,9 @@ public class Config {
     }
 
     private static void normalizeAppearance() {
+        betterTitleScale = Float.isFinite(betterTitleScale) ? Math.clamp(betterTitleScale, 0.5f, 1.5f) : 1f;
+        betterTitleAnimationSpeed = Float.isFinite(betterTitleAnimationSpeed)
+                ? Math.clamp(betterTitleAnimationSpeed, 0.5f, 2f) : 1f;
         mainUIFrameLimit = Math.clamp(mainUIFrameLimit, 30, 240);
         if (uiTheme == null) uiTheme = UiTheme.LIGHT;
         accentSpeed = Float.isFinite(accentSpeed) ? Math.clamp(accentSpeed, 0.1f, 3f) : 1f;
@@ -1111,6 +1125,7 @@ public class Config {
             new ModuleRule("MotionCamera", "motionCamera", "motionCamera"),
             new ModuleRule("CustomCape", "customCape", "customCape", "customCapeImage"),
             new ModuleRule("BetterChat", "betterChat", "betterChat"),
+            new ModuleRule("BetterTitle", "betterTitle", "betterTitle"),
             new ModuleRule("BetterScoreboard", "betterScoreboard", "betterScoreboard"),
             new ModuleRule("BetterItemSelector", "betterItemSelector", "betterItemSelector"),
             new ModuleRule("BetterMouseLogic", "betterMouseLogic", "betterMouseLogic"),

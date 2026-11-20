@@ -9,6 +9,8 @@ import com.pvp_utils.client.gui.TargetScoreboardUtil;
 
 import com.pvp_utils.Config;
 import com.pvp_utils.client.render.HudPanel;
+import com.pvp_utils.client.render.chroma.world.ChromaProjection;
+import com.pvp_utils.client.render.chroma.world.ChromaWorld;
 import io.github.humbleui.skija.*;
 import io.github.humbleui.types.Rect;
 import net.minecraft.client.Minecraft;
@@ -24,6 +26,8 @@ import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.level.ClipContext;
 
 public class TargetHudRenderer {
     private static final TargetHudRenderer INSTANCE = new TargetHudRenderer();
@@ -185,6 +189,16 @@ public class TargetHudRenderer {
             return;
         }
 
+        if (client.level == null || client.player == null || target.isRemoved() || target.level() != client.level) {
+            invalidatePlayerSkinCache(target);
+            target = null;
+            isFullyHidden = true;
+            resetHealthTextAnimation();
+            resetNewHudRuntimeState();
+            lastObservedHealth = -1f;
+            return;
+        }
+
         if (!target.isAlive() && now - lastHitTime < HIDE_DELAY) {
             lastHitTime = now - HIDE_DELAY;
         }
@@ -206,27 +220,59 @@ public class TargetHudRenderer {
             return;
         }
 
+        boolean blur = Config.targetHudMode == Config.TargetHudMode.BLUR;
+        HudPosition position = resolvePosition(client, blur ? NEW_HUD_WIDTH : HUD_WIDTH,
+                blur ? NEW_HUD_HEIGHT : HUD_HEIGHT);
+        if (position == null) return;
+
         updateAttackDistance(client, now);
 
         if (Config.targetHudMode == Config.TargetHudMode.BLUR) {
-            renderNew(graphics, client, alpha, now, Config.targetHudMode == Config.TargetHudMode.BLUR);
+            renderNew(graphics, client, alpha, now, true, position);
             return;
         }
 
-        renderLite(graphics, client, alpha, now);
+        renderLite(graphics, client, alpha, now, position);
     }
 
-    private void renderLite(GuiGraphics graphics, Minecraft client, float alpha, long now) {
+    private HudPosition resolvePosition(Minecraft client, int width, int height) {
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         float hudScale = Math.max(0.5f, Config.targetHudScale);
-        int scaledW = Math.round(HUD_WIDTH * hudScale);
-        int scaledH = Math.round(HUD_HEIGHT * hudScale);
+        int scaledW = Math.round(width * hudScale);
+        int scaledH = Math.round(height * hudScale);
+
+        if (Config.targetHudTracking && !editPreview) {
+            if (!target.isAlive() || target == client.player || target.isInvisibleTo(client.player)) return null;
+            ChromaWorld.ProjectionFrame frame = ChromaWorld.projectionFrame();
+            if (frame == null) return null;
+            float partialTick = client.level.tickRateManager().isEntityFrozen(target)
+                    ? frame.frozenPartialTick() : frame.partialTick();
+            Vec3 anchor = new Vec3(Mth.lerp(partialTick, target.xOld, target.getX()),
+                    Mth.lerp(partialTick, target.yOld, target.getY()) + target.getBbHeight() * 0.55,
+                    Mth.lerp(partialTick, target.zOld, target.getZ()));
+            ChromaProjection.Point point = frame.projection().project(anchor.x, anchor.y, anchor.z);
+            if (point == null || !point.onScreen()) return null;
+            Vec3 camera = client.gameRenderer.getMainCamera().position();
+            if (client.level.clip(new ClipContext(camera, anchor, ClipContext.Block.VISUAL,
+                    ClipContext.Fluid.NONE, client.player)).getType() != HitResult.Type.MISS) return null;
+            return new HudPosition((int) Math.round(point.x() - scaledW * 0.5),
+                    (int) Math.round(point.y() - scaledH * 0.5));
+        }
 
         int x = (int) (screenW * 0.5f + Config.targetHudX);
         int y = (int) (screenH * 0.5f + Config.targetHudY);
         x = Math.max(0, Math.min(x, screenW - scaledW));
         y = Math.max(0, Math.min(y, screenH - scaledH));
+        return new HudPosition(x, y);
+    }
+
+    private record HudPosition(int x, int y) {}
+
+    private void renderLite(GuiGraphics graphics, Minecraft client, float alpha, long now, HudPosition position) {
+        float hudScale = Math.max(0.5f, Config.targetHudScale);
+        int x = position.x();
+        int y = position.y();
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(x, y);
@@ -340,17 +386,13 @@ public class TargetHudRenderer {
         graphics.pose().popMatrix();
     }
 
-    private void renderNew(GuiGraphics graphics, Minecraft client, float alpha, long now, boolean blurMode) {
-        int screenW = client.getWindow().getGuiScaledWidth();
-        int screenH = client.getWindow().getGuiScaledHeight();
+    private void renderNew(GuiGraphics graphics, Minecraft client, float alpha, long now, boolean blurMode, HudPosition position) {
         float hudScale = Math.max(0.5f, Config.targetHudScale);
         int scaledW = Math.round(NEW_HUD_WIDTH * hudScale);
         int scaledH = Math.round(NEW_HUD_HEIGHT * hudScale);
 
-        int x = (int) (screenW * 0.5f + Config.targetHudX);
-        int y = (int) (screenH * 0.5f + Config.targetHudY);
-        x = Math.max(0, Math.min(x, screenW - scaledW));
-        y = Math.max(0, Math.min(y, screenH - scaledH));
+        int x = position.x();
+        int y = position.y();
 
         float maxHealth = target.getMaxHealth();
         float currentHealth = target.getHealth();
