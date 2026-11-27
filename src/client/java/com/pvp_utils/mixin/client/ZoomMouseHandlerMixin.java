@@ -1,6 +1,5 @@
 package com.pvp_utils.mixin.client;
 
-import com.pvp_utils.client.modules.impl.Tool.Freelook.FreelookManager;
 import com.pvp_utils.client.modules.impl.Tool.Zoom.ZoomManager;
 import net.minecraft.client.MouseHandler;
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,13 +24,6 @@ public abstract class ZoomMouseHandlerMixin {
         double multiplier = ZoomManager.getMouseSensitivityMultiplier();
         double yawDelta = ((Double) args.get(0)) * multiplier;
         double pitchDelta = ((Double) args.get(1)) * multiplier;
-
-        if (FreelookManager.isActive()) {
-            FreelookManager.turn(yawDelta, pitchDelta);
-            args.set(0, 0.0D);
-            args.set(1, 0.0D);
-            return;
-        }
 
         args.set(0, yawDelta);
         args.set(1, pitchDelta);

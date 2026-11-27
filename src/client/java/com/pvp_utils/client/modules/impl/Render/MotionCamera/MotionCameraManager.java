@@ -48,6 +48,9 @@ public final class MotionCameraManager {
         double curved = slider * slider * slider;
         double baseRate = 0.18 + curved * 14.0;
         double distanceRate = Math.min(distance, 6.0) * (0.35 + curved * 4.5);
+        if (entity instanceof LocalPlayer player && player.isFallFlying()) {
+            baseRate = Math.max(baseRate, entity.getDeltaMovement().length() * 50.0);
+        }
         double factor = 1.0 - Math.exp(-(baseRate + distanceRate) * dt);
         anchor = anchor.add(delta.scale(factor));
         return anchor;
